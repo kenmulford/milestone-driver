@@ -19,5 +19,8 @@
     "auto-merge",
     "subagent",
     "code-review"
+  ],
+  "dependencies": [
+    "superpowers"
   ]
 }

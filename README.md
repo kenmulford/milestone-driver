@@ -66,6 +66,15 @@ This repository is being built in sequence:
 3. PracticingPrayer as consumer #1 (profile + CLAUDE.md section)
 4. End-to-end dry-run of `/solve-issue` before handing over a full milestone
 
+## Requirements
+
+milestone-driver orchestrates existing tooling rather than reimplementing it:
+
+- **The `superpowers` plugin — required.** The per-issue inner loop is built on `superpowers:*` skills (`systematic-debugging`, `subagent-driven-development`, `test-driven-development`, `verification-before-completion`, `requesting-code-review`, `finishing-a-development-branch`). It is declared in `plugin.json`'s `dependencies`, so Claude Code auto-installs it **when both plugins resolve within the same marketplace**. *Cross-marketplace note:* a bare dependency name resolves within the declaring plugin's marketplace; if milestone-driver and `superpowers` live in different marketplaces, the root marketplace must allowlist it via `allowCrossMarketplaceDependenciesOn`, or `superpowers` must be installed directly.
+- **GitHub CLI (`gh`)**, authenticated — issue, PR, and milestone operations.
+- **git**, with the consuming repo using a gitflow-style integration branch.
+- **PowerShell 7+ (`pwsh`)** for the `force-subagent` hook as registered in `hooks/hooks.json` — **or** `bash` + `jq`, if you repoint that hook's command at `hooks/force-subagent.sh`.
+
 ## Installation
 
 Not yet published. Local dev-install / marketplace instructions will be added once the plugin is functional.
