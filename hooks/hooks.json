@@ -1,0 +1,17 @@
+{
+  "description": "milestone-driver force-subagent gate: blocks main-thread edits to the consuming repo's source/test globs (per .claude/milestone-driver.json) so application and test code is authored only by the dispatched implementer subagent. Requires PowerShell 7+ (pwsh); bash-only consumers can repoint the command at hooks/force-subagent.sh.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/force-subagent.ps1\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
