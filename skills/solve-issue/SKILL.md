@@ -1,6 +1,6 @@
 ---
 name: solve-issue
-description: This skill should be used when the user invokes "/solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — root-cause-or-STOP, dispatch the implementer subagent (TDD, citations), unit + UI gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
+description: This skill should be used when the user invokes "/solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — root-cause-or-STOP, dispatch the implementer subagent (TDD, citations), unit + E2E gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
 version: 0.1.0
 ---
 
@@ -41,12 +41,12 @@ Run the profile's `unitTestCmd` and invoke `superpowers:verification-before-comp
 
 **🔴 GATE — tests:** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
 
-### 5. UI / Appium pre-merge gate
-Apply only when the change touches a UI surface and the profile defines `uiTestCmd`:
+### 5. E2E pre-merge gate
+Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
-- **Feature:** have the implementer author new UI tests covering reasonable user stories, then run them.
+- **Feature:** have the implementer author new end-to-end (E2E) tests covering reasonable user stories, then run them.
 
-Use the profile's `appium` configuration. Skip this step only when the issue touches no UI.
+Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
 
 ### 6. Review → integrate → close
 1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes. Address findings before committing.

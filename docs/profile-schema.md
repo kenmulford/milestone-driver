@@ -29,11 +29,11 @@ them — never speculatively.**
 | `protectedBranch` | string | ✅ | `no-push-to-protected` hook | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
 | `sourceGlobs` | string[] | ✅ | `force-subagent` hook | Globs identifying app/test source. Main-thread edits to these are **blocked**; only the implementer subagent may author them. Docs, plans, and `.claude/**` are exempt by the hook regardless of this list. |
 | `unitTestCmd` | string | ✅ | `tests-green` hook, `/solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
-| `uiTestCmd` | string | — | `/solve-issue` | Targeted UI / Appium runner used at the pre-merge gate. Omit if the repo has no UI test layer. |
+| `e2eTestCmd` | string | — | `/solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
 | `implementerAgent` | string | — | `/solve-issue` | Subagent that authors code. Defaults to the bundled `implementer`. Override to point at a repo-specific agent. |
 | `domainSkills` | string[] | — | implementer | Skill identifiers the implementer must consult for citations (e.g. `maui-skills:*`). MCP tooling (e.g. Microsoft Learn) is part of the implementer's research path by contract; list it here only if you want it surfaced explicitly. |
 | `nonNegotiables` | string[] | — | implementer | Stack constraints recorded for the implementer (framework versions, platform targets). |
-| `appium` | object | — | `uiTestCmd` / implementer | UI-test environment, e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
+| `e2eEnv` | object | — | `e2eTestCmd` / implementer | End-to-end test environment for an E2E runner (Appium, Selenium, Playwright, etc.), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
 
 ## Minimal example (required keys only)
 
@@ -54,14 +54,14 @@ them — never speculatively.**
   "protectedBranch": "master",
   "sourceGlobs": ["PrayerApp/**", "PrayerApp.Tests/**"],
   "unitTestCmd": "dotnet test PrayerApp.Tests/PrayerApp.Tests.csproj",
-  "uiTestCmd": "pwsh ./run-uitests.ps1",
+  "e2eTestCmd": "pwsh ./run-e2etests.ps1",
   "implementerAgent": "implementer",
   "domainSkills": ["maui-skills:*", "maui-current-apis"],
   "nonNegotiables": [
     "MAUI .NET 10 + Community Toolkit",
     "iOS 26.5 / Android API 36"
   ],
-  "appium": {
+  "e2eEnv": {
     "endpoint": "127.0.0.1:4723",
     "device": "Android emulator (AVD)"
   }
