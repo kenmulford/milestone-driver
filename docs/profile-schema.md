@@ -8,12 +8,11 @@ particular stack.
 ## Location
 
 ```
-<repo-root>/.claude/milestone-driver.json
+<repo-root>/milestone-driver.json
 ```
 
-**Commit it** (do not git-ignore it). The mechanical gates read the profile, so
-it must be present in every clone for the gates to behave identically for every
-contributor and on CI.
+**Commit it.** The mechanical gates read the profile, so it must be present in
+every clone for the gates to behave identically for every contributor and on CI.
 
 ## Design principle
 
@@ -25,15 +24,15 @@ them — never speculatively.**
 
 | Key | Type | Required | Consumed by | Meaning |
 |---|---|:---:|---|---|
-| `integrationBranch` | string | ✅ | `/solve-milestone`, `/solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
-| `protectedBranch` | string | ✅ | `no-push-to-protected` hook | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
+| `integrationBranch` | string | ✅ | `/milestone-driver:solve-milestone`, `/milestone-driver:solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
+| `protectedBranch` | string | ✅ | `no-push` / `no-pr-to-protected` hooks | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
 | `sourceGlobs` | string[] | ✅ | `force-subagent` hook | Globs identifying app/test source. Main-thread edits to these are **blocked**; only the implementer subagent may author them. Docs, plans, and `.claude/**` are exempt by the hook regardless of this list. |
-| `unitTestCmd` | string | ✅ | `tests-green` hook, `/solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
-| `uiTestCmd` | string | — | `/solve-issue` | Targeted UI / Appium runner used at the pre-merge gate. Omit if the repo has no UI test layer. |
-| `implementerAgent` | string | — | `/solve-issue` | Subagent that authors code. Defaults to the bundled `implementer`. Override to point at a repo-specific agent. |
-| `domainSkills` | string[] | — | implementer | Skill identifiers the implementer must consult for citations (e.g. `maui-skills:*`). MCP tooling (e.g. Microsoft Learn) is part of the implementer's research path by contract; list it here only if you want it surfaced explicitly. |
+| `unitTestCmd` | string | ✅ | `tests-green` hook, `/milestone-driver:solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
+| `e2eTestCmd` | string | — | `/milestone-driver:solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
+| `implementerAgent` | string | — | `/milestone-driver:solve-issue` | Subagent that authors code. Defaults to the bundled `milestone-driver:implementer`. Override to point at a project-level agent using that agent's own (un-namespaced) name. |
+| `domainSkills` | string[] | — | implementer | Stack-specific skill identifiers the implementer consults for citations (e.g. `maui-skills:*` for a .NET MAUI repo). The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**. |
 | `nonNegotiables` | string[] | — | implementer | Stack constraints recorded for the implementer (framework versions, platform targets). |
-| `appium` | object | — | `uiTestCmd` / implementer | UI-test environment, e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
+| `e2eEnv` | object | — | `e2eTestCmd` / implementer | End-to-end test environment for an E2E runner (Appium, Selenium, Playwright, etc.), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
 
 ## Minimal example (required keys only)
 
@@ -54,14 +53,14 @@ them — never speculatively.**
   "protectedBranch": "master",
   "sourceGlobs": ["PrayerApp/**", "PrayerApp.Tests/**"],
   "unitTestCmd": "dotnet test PrayerApp.Tests/PrayerApp.Tests.csproj",
-  "uiTestCmd": "pwsh ./run-uitests.ps1",
-  "implementerAgent": "implementer",
+  "e2eTestCmd": "pwsh ./run-e2etests.ps1",
+  "implementerAgent": "milestone-driver:implementer",
   "domainSkills": ["maui-skills:*", "maui-current-apis"],
   "nonNegotiables": [
     "MAUI .NET 10 + Community Toolkit",
     "iOS 26.5 / Android API 36"
   ],
-  "appium": {
+  "e2eEnv": {
     "endpoint": "127.0.0.1:4723",
     "device": "Android emulator (AVD)"
   }
@@ -72,9 +71,10 @@ them — never speculatively.**
 
 | Gate | Profile keys read |
 |---|---|
-| `force-subagent` (PreToolUse `Edit`/`Write`) | `sourceGlobs` |
-| `tests-green` (native `pre-commit`) | `unitTestCmd` |
-| `no-push-to-protected` (native `pre-push`) | `protectedBranch` |
+| `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
+| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd`, `sourceGlobs` |
+| `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
+| `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.

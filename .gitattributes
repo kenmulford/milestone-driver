@@ -1,6 +1,11 @@
 # Normalize line endings in the repository to LF.
 * text=auto
 
+# The polyglot hook launcher is parsed by BOTH cmd and bash. CRLF breaks the
+# bash heredoc close (`CMDBLOCK\r` never matches the `CMDBLOCK` delimiter), so
+# it MUST stay LF in the working tree even on Windows (core.autocrlf=true).
+*.cmd text eol=lf
+
 # Shell scripts MUST be LF even in the working tree — CRLF breaks the
 # shebang and produces "bad interpreter" / "\r command not found" on
 # Linux, macOS, WSL, and git-bash.

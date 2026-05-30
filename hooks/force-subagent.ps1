@@ -8,7 +8,7 @@
 # Deny mechanism: exit 2 + stderr (stable across current Claude Code).
 # Subagent detection: presence of agent_id / agent_type / parent_session_id on
 #   the hook input (Claude Code docs + npm-claude-config Test-SubagentContext).
-# Profile: <repo>/.claude/milestone-driver.json -> sourceGlobs.
+# Profile: <repo>/milestone-driver.json -> sourceGlobs.
 # Escape hatch: CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1
 #
 # Fail-open: any parse/IO error exits 0 so a hook bug never bricks editing.
@@ -42,7 +42,7 @@ if (-not $projectDir) { $projectDir = $env:CLAUDE_PROJECT_DIR }
 if (-not $projectDir) { $projectDir = (Get-Location).Path }
 $projectDir = ([string]$projectDir) -replace '\\', '/'
 
-$profilePath = Join-Path $projectDir '.claude/milestone-driver.json'
+$profilePath = Join-Path $projectDir 'milestone-driver.json'
 if (-not (Test-Path $profilePath)) { exit 0 }   # not a milestone-driver repo -> don't interfere
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $globs = $cfg.sourceGlobs

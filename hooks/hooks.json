@@ -1,15 +1,19 @@
 {
-  "description": "milestone-driver force-subagent gate: blocks main-thread edits to the consuming repo's source/test globs (per .claude/milestone-driver.json) so application and test code is authored only by the dispatched implementer subagent. Requires PowerShell 7+ (pwsh); bash-only consumers can repoint the command at hooks/force-subagent.sh.",
+  "description": "milestone-driver mechanical gates (per <repo>/milestone-driver.json), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch.",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/force-subagent.ps1\"",
-            "timeout": 15
-          }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" force-subagent", "timeout": 15 }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "if": "Bash(git commit *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" tests-green", "timeout": 600 },
+          { "type": "command", "if": "Bash(git push *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-push", "timeout": 15 },
+          { "type": "command", "if": "Bash(gh pr create *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-pr-to-protected", "timeout": 15 }
         ]
       }
     ]

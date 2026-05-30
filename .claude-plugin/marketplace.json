@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "milestone-driver",
+  "owner": {
+    "name": "Ken Mulford",
+    "email": "ken@kenmulford.com"
+  },
+  "metadata": {
+    "description": "Autonomous, gated GitHub-milestone driver for Claude Code"
+  },
+  "allowCrossMarketplaceDependenciesOn": ["claude-plugins-official"],
+  "plugins": [
+    {
+      "name": "milestone-driver",
+      "source": "./",
+      "description": "Drive a GitHub milestone to completion behind mechanical gates: per issue — root-cause-or-stop, dispatch a TDD implementer subagent, run unit + E2E suites, code review, PR, and auto-merge to your integration branch on CI green.",
+      "category": "development",
+      "tags": ["github", "milestones", "issues", "tdd", "code-review", "automation", "git-hooks", "autonomous-agents"]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: solve-issue
-description: This skill should be used when the user invokes "/solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — root-cause-or-STOP, dispatch the implementer subagent (TDD, citations), unit + UI gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
+description: This skill should be used when the user invokes "/milestone-driver:solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — root-cause-or-STOP, dispatch the implementer subagent (TDD, citations), unit + E2E gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
 version: 0.1.0
 ---
 
@@ -12,7 +12,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 
 ## Before starting
 
-1. Read the profile at `.claude/milestone-driver.json` (see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
 2. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 3. Cut a feature branch for the issue from `integrationBranch` (e.g. `issue/<n>-<slug>`).
 4. Create one TodoWrite item per numbered step below. Work them in order — do not skip or reorder.
@@ -30,7 +30,7 @@ Invoke `superpowers:systematic-debugging`. Read the implicated code — the file
 When found, write an **architecture-aware plan** with full awareness of the codebase and its conventions. This plan is the **locked** architecture for this issue.
 
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `implementer`) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope.
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope.
 
 Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed, verified citations from `domainSkills` + a docs MCP, a Decision Log, and **changes left uncommitted**.
 
@@ -41,26 +41,37 @@ Run the profile's `unitTestCmd` and invoke `superpowers:verification-before-comp
 
 **🔴 GATE — tests:** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
 
-### 5. UI / Appium pre-merge gate
-Apply only when the change touches a UI surface and the profile defines `uiTestCmd`:
+### 5. E2E pre-merge gate
+Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
-- **Feature:** have the implementer author new UI tests covering reasonable user stories, then run them.
+- **Feature:** have the implementer author new end-to-end (E2E) tests covering reasonable user stories, then run them.
 
-Use the profile's `appium` configuration. Skip this step only when the issue touches no UI.
+Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
 
 ### 6. Review → integrate → close
-1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes. Address findings before committing.
+1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
+   - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log.
+   - **STOP trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
+
+   **After a fix, before committing:**
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd`, then re-run `/code-review` — the fresh review must be the **last action before commit**, so a review-before-commit gate passes on the first attempt (never retry past it).
+   - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` and a doc-aware review gate both no-op on doc-only).
+   - **No in-scope findings:** commit directly.
+
+   **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **STOP and resurface** the current diff — do not loop. A review that won't converge usually means the plan is wrong.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
-3. Commit on the feature branch — the `tests-green` pre-commit hook re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
-4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push-to-protected` hook and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
+3. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
+4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
 5. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
 6. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
 
 ## Autonomy model (Balanced)
 
-**Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors.
+**Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors; resolving in-scope `/code-review` findings (step 6.1).
 
 **🔴 STOP & resurface (halt, ask):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent.
+
+**Within an explicit run, an in-scope `/code-review` finding is a *proceed-autonomously* event, not a clarifying-question moment** — fix it and log it. The operator pause is reserved for STOP triggers; the unattended contract overrides any general inclination to ask.
 
 **Architecture is locked** at plan-approval time (step 2). The procedure executes approved architecture; it does not pivot. If implementation proves the plan wrong → STOP, not pivot.
 
