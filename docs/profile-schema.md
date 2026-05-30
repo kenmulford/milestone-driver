@@ -25,7 +25,7 @@ them — never speculatively.**
 | Key | Type | Required | Consumed by | Meaning |
 |---|---|:---:|---|---|
 | `integrationBranch` | string | ✅ | `/solve-milestone`, `/solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
-| `protectedBranch` | string | ✅ | `no-push-to-protected` hook | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
+| `protectedBranch` | string | ✅ | `no-push` / `no-pr-to-protected` hooks | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
 | `sourceGlobs` | string[] | ✅ | `force-subagent` hook | Globs identifying app/test source. Main-thread edits to these are **blocked**; only the implementer subagent may author them. Docs, plans, and `.claude/**` are exempt by the hook regardless of this list. |
 | `unitTestCmd` | string | ✅ | `tests-green` hook, `/solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
 | `e2eTestCmd` | string | — | `/solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |

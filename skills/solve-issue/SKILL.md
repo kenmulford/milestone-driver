@@ -12,7 +12,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 
 ## Before starting
 
-1. Read the profile at `.claude/milestone-driver.json` (see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
 2. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 3. Cut a feature branch for the issue from `integrationBranch` (e.g. `issue/<n>-<slug>`).
 4. Create one TodoWrite item per numbered step below. Work them in order — do not skip or reorder.
@@ -51,8 +51,8 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
 ### 6. Review → integrate → close
 1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes. Address findings before committing.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
-3. Commit on the feature branch — the `tests-green` pre-commit hook re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
-4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push-to-protected` hook and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
+3. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
+4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
 5. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
 6. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
 

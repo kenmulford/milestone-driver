@@ -1,12 +1,12 @@
 #!/usr/bin/env pwsh
 # milestone-driver — no-PR-to-protected gate (Claude PreToolUse: Bash)
 #
-# Secondary to the native pre-push gate: blocks `gh pr create --base <protected>`
-# so the loop never opens a PR targeting the protected branch. (pre-push blocks
+# Companion to the no-push gate: blocks `gh pr create --base <protected>`
+# so the loop never opens a PR targeting the protected branch. (no-push blocks
 # pushing to protected; this blocks PRs that target it.)
 #
 # Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1 (shared with the
-# pre-push gate). Fail-open on parse/missing-profile.
+# no-push gate). Fail-open on parse/missing-profile.
 #
 # Residual risk: a bare `gh pr create` with no --base targets the repo's default
 # branch; the /solve-issue skill always passes --base explicitly, and GitHub

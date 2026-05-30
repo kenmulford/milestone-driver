@@ -12,7 +12,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
 
 ## Before starting
 
-1. Read the profile at `.claude/milestone-driver.json` (see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
 2. Confirm `gh auth status` is healthy and the named milestone exists.
 3. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 
@@ -39,7 +39,7 @@ Continue until every issue is done or a gate halts the loop.
 
 - **Unattended between gates.** Within an explicit `/solve-milestone` run, operate autonomously and pause only at the `/solve-issue` STOP/PAUSE gates above or at completion — not for routine implementation choices.
 - **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a STOP, not a redesign.
-- **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push-to-protected` hook and GitHub branch protection).
+- **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
 ## Final summary
 

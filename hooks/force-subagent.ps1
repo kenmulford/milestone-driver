@@ -8,7 +8,7 @@
 # Deny mechanism: exit 2 + stderr (stable across current Claude Code).
 # Subagent detection: presence of agent_id / agent_type / parent_session_id on
 #   the hook input (Claude Code docs + npm-claude-config Test-SubagentContext).
-# Profile: <repo>/.claude/milestone-driver.json -> sourceGlobs.
+# Profile: <repo>/milestone-driver.json -> sourceGlobs.
 # Escape hatch: CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1
 #
 # Fail-open: any parse/IO error exits 0 so a hook bug never bricks editing.

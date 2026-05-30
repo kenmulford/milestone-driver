@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # milestone-driver — no-PR-to-protected gate (Claude PreToolUse: Bash)
 #
-# Secondary to the native pre-push gate: blocks `gh pr create --base <protected>`
+# Companion to the no-push gate: blocks `gh pr create --base <protected>`
 # so the loop never opens a PR targeting the protected branch.
 #
 # Deny: exit 2 + stderr. Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1.
