@@ -16,34 +16,47 @@ every clone for the gates to behave identically for every contributor and on CI.
 
 ## Design principle
 
-Keep it minimal and consumer-driven. Only four keys are required; the rest tune
-optional gates. **New keys are added only when a real second consumer needs
-them — never speculatively.**
+Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); `implementerAgent` is **default-filled** (defaults to `milestone-driver:implementer`) so a profile may omit it. All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
+
+## Key tiers
+
+| Tier | Keys | Required? |
+|---|---|:---:|
+| **Core** (orchestration + safety) | `integrationBranch`, `protectedBranch`, `sourceGlobs` | ✅ required in file |
+| **Core** (default-filled) | `implementerAgent` | optional in file (auto-filled) |
+| **Testing** | `unitTestCmd` | Optional |
+| **E2E** | `e2eTestCmd`, `e2eEnv` | Optional |
+| **Enrichment** | `domainSkills`, `nonNegotiables` | Optional |
+
+**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent` has a bundled default (`milestone-driver:implementer`) and is auto-filled by the bootstrap; omitting it from the profile is valid and common.
 
 ## Keys
 
-| Key | Type | Required | Consumed by | Meaning |
-|---|---|:---:|---|---|
-| `integrationBranch` | string | ✅ | `/milestone-driver:solve-milestone`, `/milestone-driver:solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
-| `protectedBranch` | string | ✅ | `no-push` / `no-pr-to-protected` hooks | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
-| `sourceGlobs` | string[] | ✅ | `force-subagent` hook | Globs identifying app/test source. Main-thread edits to these are **blocked**; only the implementer subagent may author them. Docs, plans, and `.claude/**` are exempt by the hook regardless of this list. |
-| `unitTestCmd` | string | ✅ | `tests-green` hook, `/milestone-driver:solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
-| `e2eTestCmd` | string | — | `/milestone-driver:solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
-| `implementerAgent` | string | — | `/milestone-driver:solve-issue` | Subagent that authors code. Defaults to the bundled `milestone-driver:implementer`. Override to point at a project-level agent using that agent's own (un-namespaced) name. |
-| `domainSkills` | string[] | — | implementer | Stack-specific skill identifiers the implementer consults for citations (e.g. `maui-skills:*` for a .NET MAUI repo). The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**. |
-| `nonNegotiables` | string[] | — | implementer | Stack constraints recorded for the implementer (framework versions, platform targets). |
-| `e2eEnv` | object | — | `e2eTestCmd` / implementer | End-to-end test environment for an E2E runner (Appium, Selenium, Playwright, etc.), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
+| Key | Type | Tier | Plain-language description | Required? |
+|---|---|---|---|:---:|
+| `integrationBranch` | string | Core | Which branch should PRs be opened into and work merged onto? (e.g. `develop`) | ✅ |
+| `protectedBranch` | string | Core | Which branch must never be pushed or PR'd to? (Your release / default branch, e.g. `main`) | ✅ |
+| `sourceGlobs` | string[] | Core | Which path patterns are "source" that only the implementer subagent may edit? (e.g. `["src/**","tests/**"]`) | ✅ |
+| `implementerAgent` | string | Core | Which agent authors the code? Default: `milestone-driver:implementer` (auto-filled; rarely overridden) | default-filled |
+| `unitTestCmd` | string | Testing | What command runs the unit tests? Absent → no unit gate; implementer verifies behavior another way. | — |
+| `e2eTestCmd` | string | E2E | What command runs the end-to-end / UI tests? Absent → no E2E gate. | — |
+| `e2eEnv` | object | E2E | Device/endpoint for the E2E runner (Appium, Selenium, Playwright), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. | — |
+| `domainSkills` | string[] | Enrichment | Stack-specific skill identifiers the implementer consults for citations (e.g. `["maui-skills:*"]`). Absent → general docs + repo conventions only. | — |
+| `nonNegotiables` | string[] | Enrichment | Hard constraints the implementer must honour (framework versions, platform targets). Absent → none recorded. | — |
 
-## Minimal example (required keys only)
+The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
+
+## Minimal example (Core keys only)
 
 ```json
 {
-  "integrationBranch": "dev",
-  "protectedBranch": "master",
-  "sourceGlobs": ["src/**", "tests/**"],
-  "unitTestCmd": "npm test"
+  "integrationBranch": "develop",
+  "protectedBranch": "main",
+  "sourceGlobs": ["src/**", "tests/**"]
 }
 ```
+
+`implementerAgent` is omitted here; the bundled default applies automatically.
 
 ## Full example (PracticingPrayer — consumer #1)
 
@@ -72,7 +85,7 @@ them — never speculatively.**
 | Gate | Profile keys read |
 |---|---|
 | `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
-| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd`, `sourceGlobs` |
+| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `sourceGlobs` |
 | `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
 | `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
 

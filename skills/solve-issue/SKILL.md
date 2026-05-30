@@ -12,7 +12,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 
 ## Before starting
 
-1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
 2. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 3. Cut a feature branch for the issue from `integrationBranch` (e.g. `issue/<n>-<slug>`).
 4. Create one TodoWrite item per numbered step below. Work them in order — do not skip or reorder.
@@ -32,14 +32,16 @@ When found, write an **architecture-aware plan** with full awareness of the code
 ### 3. Dispatch the implementer
 Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope.
 
-Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed, verified citations from `domainSkills` + a docs MCP, a Decision Log, and **changes left uncommitted**.
+Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, and **changes left uncommitted**.
 
 **🔴 GATE — new dependency:** If the implementer reports that the optimal solution requires a new library or toolkit, **PAUSE**. Post the library plus its license / OSS status on the issue and ask the user for approval before continuing.
 
 ### 4. Unit suite → green
-Run the profile's `unitTestCmd` and invoke `superpowers:verification-before-completion`. Report real output, never assertion.
+If `unitTestCmd` is defined in the profile: run it and invoke `superpowers:verification-before-completion`. Report real output, never assertion.
 
-**🔴 GATE — tests:** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
+If `unitTestCmd` is absent: skip this gate. The implementer is responsible for verifying behavior by the best available means and reporting it; the orchestrator accepts that report in lieu of a test run.
+
+**🔴 GATE — tests (when `unitTestCmd` is defined):** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
 
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
@@ -54,7 +56,7 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
    - **STOP trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
 
    **After a fix, before committing:**
-   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd`, then re-run `/code-review` — the fresh review must be the **last action before commit**, so a review-before-commit gate passes on the first attempt (never retry past it).
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**, so a review-before-commit gate passes on the first attempt (never retry past it).
    - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` and a doc-aware review gate both no-op on doc-only).
    - **No in-scope findings:** commit directly.
 

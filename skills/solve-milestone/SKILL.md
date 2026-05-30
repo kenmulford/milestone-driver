@@ -12,7 +12,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
 
 ## Before starting
 
-1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). Fail fast if a required key is missing.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
 2. Confirm `gh auth status` is healthy and the named milestone exists.
 3. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 
