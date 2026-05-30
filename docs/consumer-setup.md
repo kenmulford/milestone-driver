@@ -11,16 +11,23 @@ published). Confirm both are enabled with `/plugin`.
 
 ## 2. Add the project profile
 
-Create `milestone-driver.json` at the repo root describing your stack and branch
-model. See [`profile-schema.md`](profile-schema.md) for the full schema. Minimal
-example:
+The first time you run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`,
+the plugin **auto-invokes `/milestone-driver:setup`** if `milestone-driver.json` is absent
+or missing a Core key. The bootstrap infers every key it can from repo signals (default branch,
+gitflow layout, project type, test scripts) and presents detected defaults — you accept, edit,
+or skip. After writing the file it returns control so the original task continues immediately.
+
+You can also run `/milestone-driver:setup` directly at any time to create or repair the profile.
+
+**Manual authoring (fallback):** Create `milestone-driver.json` at the repo root. Only the
+Core keys are required. See [`profile-schema.md`](profile-schema.md) for the full schema.
+Minimal example (Core keys only):
 
 ```json
 {
-  "integrationBranch": "dev",
+  "integrationBranch": "develop",
   "protectedBranch": "main",
-  "sourceGlobs": ["src/**", "tests/**"],
-  "unitTestCmd": "npm test"
+  "sourceGlobs": ["src/**", "tests/**"]
 }
 ```
 
@@ -51,9 +58,11 @@ session knows the repo is milestone-driver–driven.
 |---|---|
 | Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) — dispatch the implementer instead |
 | The same edit from a dispatched subagent | allowed |
-| `git commit` with the unit suite red (staged source) | **blocked** (tests-green) |
+| `git commit` with the unit suite red (staged source) — **when `unitTestCmd` is defined** | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
+
+When `unitTestCmd` is absent, `tests-green` is a no-op — there is no unit gate to verify.
 
 Each gate honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for deliberate
 human override.
