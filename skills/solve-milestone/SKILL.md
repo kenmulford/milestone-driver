@@ -1,7 +1,6 @@
 ---
 name: solve-milestone
 description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; halts only at a STOP/PAUSE gate or when the milestone is complete.
-version: 0.1.0
 ---
 
 # solve-milestone — autonomous driver
@@ -24,15 +23,25 @@ Run `gh issue list --milestone "<name>" --state open`.
 ### 2. Determine the order
 The **milestone description is the ordering source of truth**. Read it (e.g. `gh api "repos/{owner}/{repo}/milestones" --jq '.[] | select(.title=="<name>") | .description'`) and follow the recorded Wave / dependency sequence. If the description records no explicit order, fall back to ascending issue number and **state that assumption explicitly** in the run output — do not silently pick an order.
 
-### 3. Loop over issues in order
+### 3. Determine the target version
+
+Parse the milestone name and description for a semantically valid version (`x.y.z`). Derive the target version, **hold it in the orchestrator's context for the duration of the loop**, and record it in the run output. If no valid semver can be parsed, **prompt the user** before proceeding — do not guess.
+
+> **Precedence:** the milestone-derived target version is authoritative. The per-issue patch-default + confirm behavior in `solve-issue` does **not** fire inside a milestone run — the target version replaces it entirely.
+>
+> **Handoff:** the same main thread runs both `solve-milestone` and each `solve-issue` invocation, so the target version is available directly from the orchestrator's working context — it is **not** passed as a CLI argument to `solve-issue`.
+
+### 4. Loop over issues in order
 Create one TodoWrite item per issue. For each issue, in order:
 
 1. Ensure `integrationBranch` is current (`git fetch`, fast-forward) so dependent issues build on already-merged work.
-2. Run `/milestone-driver:solve-issue <n>`.
+2. Run `/milestone-driver:solve-issue <n>` (the target version from step 3 is already in the orchestrator's context and will be applied at the version-bump step).
 3. **🔴 Halt on gate:** if `/milestone-driver:solve-issue` hits a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmetable gate), **halt the loop and resurface**. Do not start dependent issues on top of incomplete work.
 4. On success, `/milestone-driver:solve-issue` has already squash-merged to `integrationBranch` and closed the issue. Re-sync the local `integrationBranch` before the next issue.
 
-### 4. Finish
+The **first issue's PR** sets `plugin.json` to the target version. Every subsequent issue's PR is **idempotent** — if `plugin.json` already carries the target version, the version bump step in `solve-issue` makes no change.
+
+### 5. Finish
 Continue until every issue is done or a gate halts the loop.
 
 ## Autonomy

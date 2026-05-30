@@ -26,19 +26,21 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 | Hooks | `hooks/` | All four gates are `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open): `force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected` |
 | Manifest + registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
+**Plugin version** lives in `.claude-plugin/plugin.json` as the single source of truth — `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone name and passes it to each issue run idempotently.
+
 ### Project profile (per-repo, committed `milestone-driver.json`)
 
-| Key | Meaning |
-|---|---|
-| `integrationBranch` | Branch the loop merges into (e.g. `dev`) |
-| `protectedBranch` | Branch the loop must never push/PR to (e.g. `master`) |
-| `sourceGlobs` | Globs the `force-subagent` gate guards |
-| `unitTestCmd` | Command the `tests-green` gate runs |
-| `e2eTestCmd` | E2E runner for the pre-merge gate (Appium, Selenium, Playwright, …) |
-| `implementerAgent` | Implementer subagent (defaults to the bundled one) |
-| `domainSkills` | Domain skills the implementer consults for citations |
-| `nonNegotiables` | Stack constraints recorded for the implementer |
-| `e2eEnv` | E2E environment config (e.g. endpoint/device) |
+| Key | Meaning | Required? |
+|---|---|:---:|
+| `integrationBranch` | Branch the loop merges into (e.g. `dev`) | ✅ |
+| `protectedBranch` | Branch the loop must never push/PR to (e.g. `master`) | ✅ |
+| `sourceGlobs` | Globs the `force-subagent` gate guards | ✅ |
+| `implementerAgent` | Implementer subagent (defaults to the bundled one) | default-filled |
+| `unitTestCmd` | Command the `tests-green` gate runs | — |
+| `e2eTestCmd` | E2E runner for the pre-merge gate (Appium, Selenium, Playwright, …) | — |
+| `e2eEnv` | E2E environment config (e.g. endpoint/device) | — |
+| `domainSkills` | Domain skills the implementer consults for citations | — |
+| `nonNegotiables` | Stack constraints recorded for the implementer | — |
 
 Full schema: [`docs/profile-schema.md`](docs/profile-schema.md).
 

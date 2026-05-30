@@ -12,7 +12,6 @@
   "plugins": [
     {
       "name": "milestone-driver",
-      "version": "1.0.1",
       "source": "./",
       "description": "Drive a GitHub milestone to completion behind mechanical gates: per issue — root-cause-or-stop, dispatch a TDD implementer subagent, run unit + E2E suites, code review, PR, and auto-merge to your integration branch on CI green.",
       "category": "development",
