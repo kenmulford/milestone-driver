@@ -24,12 +24,12 @@ them — never speculatively.**
 
 | Key | Type | Required | Consumed by | Meaning |
 |---|---|:---:|---|---|
-| `integrationBranch` | string | ✅ | `/solve-milestone`, `/solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
+| `integrationBranch` | string | ✅ | `/milestone-driver:solve-milestone`, `/milestone-driver:solve-issue` | Branch the loop cuts feature branches from and merges PRs into (e.g. `dev`). |
 | `protectedBranch` | string | ✅ | `no-push` / `no-pr-to-protected` hooks | Branch the loop must never push or PR to (e.g. `master`). The server-side backstop is GitHub branch protection. |
 | `sourceGlobs` | string[] | ✅ | `force-subagent` hook | Globs identifying app/test source. Main-thread edits to these are **blocked**; only the implementer subagent may author them. Docs, plans, and `.claude/**` are exempt by the hook regardless of this list. |
-| `unitTestCmd` | string | ✅ | `tests-green` hook, `/solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
-| `e2eTestCmd` | string | — | `/solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
-| `implementerAgent` | string | — | `/solve-issue` | Subagent that authors code. Defaults to the bundled `implementer`. Override to point at a repo-specific agent. |
+| `unitTestCmd` | string | ✅ | `tests-green` hook, `/milestone-driver:solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
+| `e2eTestCmd` | string | — | `/milestone-driver:solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
+| `implementerAgent` | string | — | `/milestone-driver:solve-issue` | Subagent that authors code. Defaults to the bundled `milestone-driver:implementer`. Override to point at a project-level agent using that agent's own (un-namespaced) name. |
 | `domainSkills` | string[] | — | implementer | Stack-specific skill identifiers the implementer consults for citations (e.g. `maui-skills:*` for a .NET MAUI repo). The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**. |
 | `nonNegotiables` | string[] | — | implementer | Stack constraints recorded for the implementer (framework versions, platform targets). |
 | `e2eEnv` | object | — | `e2eTestCmd` / implementer | End-to-end test environment for an E2E runner (Appium, Selenium, Playwright, etc.), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
@@ -54,7 +54,7 @@ them — never speculatively.**
   "sourceGlobs": ["PrayerApp/**", "PrayerApp.Tests/**"],
   "unitTestCmd": "dotnet test PrayerApp.Tests/PrayerApp.Tests.csproj",
   "e2eTestCmd": "pwsh ./run-e2etests.ps1",
-  "implementerAgent": "implementer",
+  "implementerAgent": "milestone-driver:implementer",
   "domainSkills": ["maui-skills:*", "maui-current-apis"],
   "nonNegotiables": [
     "MAUI .NET 10 + Community Toolkit",

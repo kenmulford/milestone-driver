@@ -8,7 +8,7 @@
 # Fail-open on parse/missing-profile.
 #
 # Residual risk: a bare `gh pr create` with no --base targets the repo's default
-# branch; the /solve-issue skill always passes --base explicitly, and GitHub
+# branch; the /milestone-driver:solve-issue skill always passes --base explicitly, and GitHub
 # branch protection is the server-side backstop.
 
 [ "${CLAUDE_HOOK_DISABLE_NO_PUSH:-}" = "1" ] && exit 0

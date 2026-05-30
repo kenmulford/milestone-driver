@@ -55,8 +55,8 @@ Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
 ## The two skills
 
-- **`/solve-milestone <name>`** — lists the milestone's issues, orders them by the Wave/dependency sequence recorded in the milestone description, and runs `/solve-issue` on each; auto-merges to the integration branch on green and re-syncs before the next dependent issue. Runs unattended; halts only at a STOP/PAUSE gate or when the milestone is done.
-- **`/solve-issue <n>`** — the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline.
+- **`/milestone-driver:solve-milestone <name>`** — lists the milestone's issues, orders them by the Wave/dependency sequence recorded in the milestone description, and runs `/milestone-driver:solve-issue` on each; auto-merges to the integration branch on green and re-syncs before the next dependent issue. Runs unattended; halts only at a STOP/PAUSE gate or when the milestone is done.
+- **`/milestone-driver:solve-issue <n>`** — the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline.
 
 ## Requirements
 
@@ -72,7 +72,7 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 1. **Scaffold** — manifest + directory layout ✓
 2. **Generic engine** — both skills, the implementer agent, the four gate hooks, `hooks.json`, and the profile-schema doc ✓ (verified)
 3. **First consumer** — profile + CLAUDE.md wiring in the first consuming repo *(in progress)*
-4. **End-to-end dry-run** of `/solve-issue`, then a full milestone via `/solve-milestone` *(pending)*
+4. **End-to-end dry-run** of `/milestone-driver:solve-issue`, then a full milestone via `/milestone-driver:solve-milestone` *(pending)*
 
 ## Topics
 
