@@ -49,7 +49,10 @@ Apply only when the change touches a UI surface and the profile defines `e2eTest
 Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
 
 ### 6. Review → integrate → close
-1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes. Address findings before committing.
+1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
+   - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`), re-run `unitTestCmd`, and log it in the Decision Log.
+   - **STOP trigger** (architecture deviation; a change to a shared contract/interface/schema; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
+   - Bound it: apply fixes **once** and re-run the suite; if a re-review still surfaces substantive issues, STOP rather than loop.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
 3. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
 4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
@@ -58,9 +61,11 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
 
 ## Autonomy model (Balanced)
 
-**Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors.
+**Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors; resolving in-scope `/code-review` findings (step 6.1).
 
 **🔴 STOP & resurface (halt, ask):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent.
+
+**Within an explicit run, an in-scope `/code-review` finding is a *proceed-autonomously* event, not a clarifying-question moment** — fix it and log it. The operator pause is reserved for STOP triggers; the unattended contract overrides any general inclination to ask.
 
 **Architecture is locked** at plan-approval time (step 2). The procedure executes approved architecture; it does not pivot. If implementation proves the plan wrong → STOP, not pivot.
 
