@@ -1,7 +1,6 @@
 ---
 name: solve-issue
 description: This skill should be used when the user invokes "/milestone-driver:solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — root-cause-or-STOP, dispatch the implementer subagent (TDD, citations), unit + E2E gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
-version: 0.1.0
 ---
 
 # solve-issue — gated per-issue procedure
@@ -62,10 +61,14 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
 
    **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **STOP and resurface** the current diff — do not loop. A review that won't converge usually means the plan is wrong.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
-3. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
-4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
-5. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
-6. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
+3. **Version bump.** Edit `.claude-plugin/plugin.json` `version` directly (it is config, not under `sourceGlobs`; the orchestrator edits it on the main thread — if a consumer's `sourceGlobs` covers `.claude-plugin/`, dispatch the implementer to apply the bump instead). This is a config edit, not a source change: **no `/code-review` re-run and no test re-run are needed; proceed directly to commit.**
+   - **Milestone run** (a target version was determined by `solve-milestone` and is held in the orchestrator's context — it is not a CLI argument): set `plugin.json` `version` to that target. **Idempotent** — if already equal, no change; move on.
+   - **Standalone run** (no milestone target in the orchestrator's context): apply a **patch** bump (`x.y.Z` → `x.y.(Z+1)`), state the new version to the user, and **ask whether it should be minor or major instead** — adjust before opening the PR.
+   - `plugin.json` is the **single source of truth** for the plugin version. `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both is a documented footgun that silently masks the marketplace value). The bump rides in this PR — no separate chore PR.
+4. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
+5. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
+6. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
+7. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
 
 ## Autonomy model (Balanced)
 
