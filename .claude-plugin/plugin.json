@@ -23,6 +23,6 @@
     "code-review"
   ],
   "dependencies": [
-    "superpowers"
+    { "name": "superpowers", "marketplace": "claude-plugins-official" }
   ]
 }

@@ -61,7 +61,7 @@ Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
 milestone-driver orchestrates existing tooling rather than reimplementing it:
 
-- **The `superpowers` plugin — required.** The per-issue inner loop is built on `superpowers:*` skills (`systematic-debugging`, `subagent-driven-development`, `test-driven-development`, `verification-before-completion`, `requesting-code-review`, `finishing-a-development-branch`). It is declared in `plugin.json`'s `dependencies`, so Claude Code auto-installs it **when both plugins resolve within the same marketplace**. *Cross-marketplace note:* a bare dependency name resolves within the declaring plugin's marketplace; if milestone-driver and `superpowers` live in different marketplaces, the root marketplace must allowlist it via `allowCrossMarketplaceDependenciesOn`, or `superpowers` must be installed directly.
+- **The `superpowers` plugin — required.** The per-issue inner loop is built on `superpowers:*` skills (`systematic-debugging`, `subagent-driven-development`, `test-driven-development`, `verification-before-completion`, `requesting-code-review`, `finishing-a-development-branch`). It is declared in `plugin.json`'s `dependencies`, qualified to the `claude-plugins-official` marketplace, and this marketplace allowlists that source via `allowCrossMarketplaceDependenciesOn` — so Claude Code auto-installs `superpowers` on install, provided you have the official marketplace added.
 - **GitHub CLI (`gh`)**, authenticated — issue, PR, and milestone operations.
 - **git**, with the consuming repo using a gitflow-style integration branch.
 - **PowerShell 7+ (`pwsh`)** for the Claude-side hooks as registered in `hooks/hooks.json` — **or** `bash` + `jq`, if you repoint the hook commands at the matching `hooks/*.sh`.
@@ -79,7 +79,14 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 
 ## Installation
 
-Published at [github.com/kenmulford/milestone-driver](https://github.com/kenmulford/milestone-driver). Local dev-install (e.g. `claude --plugin-dir`) for now; marketplace distribution is planned. After installing the plugin or changing any hook, **restart Claude Code** so the hooks load. Native git hooks (`tests-green`, `no-push`) are wired into each consuming repo's `.git/hooks` during consumer setup.
+```
+/plugin marketplace add kenmulford/milestone-driver
+/plugin install milestone-driver@milestone-driver
+```
+
+This pulls in the required `superpowers` dependency (allowlisted from the official marketplace). **Restart Claude Code** after install — and after any hook change — so the Claude-side hooks load. Then wire the native git hooks into each consuming repo with `scripts/install-git-hooks.*` (see [`docs/consumer-setup.md`](docs/consumer-setup.md)).
+
+> Until v1 is released to `main`, add the marketplace from the `develop` branch; the default-branch form above works once `develop` → `main` is merged.
 
 ## License
 
