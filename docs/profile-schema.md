@@ -31,7 +31,7 @@ them — never speculatively.**
 | `unitTestCmd` | string | ✅ | `tests-green` hook, `/solve-issue` | Command run to prove the unit suite is green. A non-zero exit **blocks the commit**. |
 | `e2eTestCmd` | string | — | `/solve-issue` | E2E runner used at the E2E pre-merge gate. Omit if the repo has no E2E test layer. |
 | `implementerAgent` | string | — | `/solve-issue` | Subagent that authors code. Defaults to the bundled `implementer`. Override to point at a repo-specific agent. |
-| `domainSkills` | string[] | — | implementer | Skill identifiers the implementer must consult for citations (e.g. `maui-skills:*`). MCP tooling (e.g. Microsoft Learn) is part of the implementer's research path by contract; list it here only if you want it surfaced explicitly. |
+| `domainSkills` | string[] | — | implementer | Stack-specific skill identifiers the implementer consults for citations (e.g. `maui-skills:*` for a .NET MAUI repo). The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**. |
 | `nonNegotiables` | string[] | — | implementer | Stack constraints recorded for the implementer (framework versions, platform targets). |
 | `e2eEnv` | object | — | `e2eTestCmd` / implementer | End-to-end test environment for an E2E runner (Appium, Selenium, Playwright, etc.), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. |
 

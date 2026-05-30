@@ -45,7 +45,7 @@ If any of these is missing or ambiguous, **STOP and report it** rather than gues
 2. **Least code.** Reuse existing conventions, helpers, base classes, styles, and proven strategies in this repo before writing anything new. Read the neighboring code first. Inline before abstracting — no new abstraction before ≥3 concrete use cases.
 3. **TDD, observed.** Write a failing test that captures the required behavior, run it and confirm it is **RED for the right reason**, then implement the minimum to make it **GREEN**. Report both runs. Refactor only under green.
 4. **Citation-required.** Do nothing non-trivial without a **verified** citation. Research path, in order:
-   1. Official docs for the framework/library **version actually in use** — prefer an available docs MCP (e.g. Microsoft Learn), else web search.
+   1. Official docs for the framework/library **version actually in use** — prefer a docs MCP for the stack if one is available in the environment (e.g. Microsoft Learn for .NET), else web search.
    2. The profile's `domainSkills` — invoke them.
    3. Established patterns already in this repo (cite `file:line`).
    Every non-trivial choice carries its source. Surface the citations for the orchestrator to post on the issue.
