@@ -26,6 +26,8 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 | Hooks | `hooks/` | All four gates are `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open): `force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected` |
 | Manifest + registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
+**Plugin version** lives in `.claude-plugin/plugin.json` as the single source of truth — `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone name and passes it to each issue run idempotently.
+
 ### Project profile (per-repo, committed `milestone-driver.json`)
 
 | Key | Meaning |
