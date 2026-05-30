@@ -49,10 +49,16 @@ Apply only when the change touches a UI surface and the profile defines `e2eTest
 Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
 
 ### 6. Review → integrate → close
-1. Invoke `superpowers:requesting-code-review` (run `/code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
-   - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`), re-run `unitTestCmd`, and log it in the Decision Log.
-   - **STOP trigger** (architecture deviation; a change to a shared contract/interface/schema; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
-   - Bound it: apply fixes **once** and re-run the suite; if a re-review still surfaces substantive issues, STOP rather than loop.
+1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
+   - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log.
+   - **STOP trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
+
+   **After a fix, before committing:**
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd`, then re-run `/code-review` — the fresh review must be the **last action before commit**, so a review-before-commit gate passes on the first attempt (never retry past it).
+   - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` and a doc-aware review gate both no-op on doc-only).
+   - **No in-scope findings:** commit directly.
+
+   **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **STOP and resurface** the current diff — do not loop. A review that won't converge usually means the plan is wrong.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
 3. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
 4. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
