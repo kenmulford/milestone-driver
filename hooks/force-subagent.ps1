@@ -42,7 +42,7 @@ if (-not $projectDir) { $projectDir = $env:CLAUDE_PROJECT_DIR }
 if (-not $projectDir) { $projectDir = (Get-Location).Path }
 $projectDir = ([string]$projectDir) -replace '\\', '/'
 
-$profilePath = Join-Path $projectDir '.claude/milestone-driver.json'
+$profilePath = Join-Path $projectDir 'milestone-driver.json'
 if (-not (Test-Path $profilePath)) { exit 0 }   # not a milestone-driver repo -> don't interfere
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $globs = $cfg.sourceGlobs
