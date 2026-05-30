@@ -8,12 +8,11 @@ particular stack.
 ## Location
 
 ```
-<repo-root>/.claude/milestone-driver.json
+<repo-root>/milestone-driver.json
 ```
 
-**Commit it** (do not git-ignore it). The mechanical gates read the profile, so
-it must be present in every clone for the gates to behave identically for every
-contributor and on CI.
+**Commit it.** The mechanical gates read the profile, so it must be present in
+every clone for the gates to behave identically for every contributor and on CI.
 
 ## Design principle
 
@@ -72,9 +71,10 @@ them — never speculatively.**
 
 | Gate | Profile keys read |
 |---|---|
-| `force-subagent` (PreToolUse `Edit`/`Write`) | `sourceGlobs` |
-| `tests-green` (native `pre-commit`) | `unitTestCmd` |
-| `no-push-to-protected` (native `pre-push`) | `protectedBranch` |
+| `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
+| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd`, `sourceGlobs` |
+| `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
+| `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.

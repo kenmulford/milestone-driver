@@ -4,9 +4,9 @@
 
 Milestone Driver turns a GitHub milestone into the unit of work. You hand it a milestone; it iterates the issues in dependency order, and for each: identifies the root cause (or stops and comments if it can't), dispatches a TDD implementer subagent, runs your unit + E2E suites, requests a code review, opens a PR, and auto-merges to your integration branch once CI is green — then moves to the next. It never touches your default/release branch — that stays your call, behind your manual deploy.
 
-Discipline is enforced mechanically, not by trust: native git hooks block commits on red tests and pushes to protected branches, and a Claude Code hook keeps all source edits flowing through subagents (the main thread only orchestrates). Every consequential decision is written to the PR as a Decision Log and borderline calls are labeled, so you can audit a whole unattended run after the fact. Autonomy is bounded — architecture is locked at plan-approval time, and one-way-door decisions halt and ask rather than drift.
+Discipline is enforced mechanically, not by trust: plugin `PreToolUse` hooks block commits on red tests and pushes to protected branches, and keep all source edits flowing through subagents (the main thread only orchestrates). Every consequential decision is written to the PR as a Decision Log and borderline calls are labeled, so you can audit a whole unattended run after the fact. Autonomy is bounded — architecture is locked at plan-approval time, and one-way-door decisions halt and ask rather than drift.
 
-Bring your own stack via a small config profile (test commands, branch names, source globs, domain skills). Reuses the superpowers skill set for the per-issue inner loop. Cross-platform hooks (PowerShell + .sh).
+Bring your own stack via a small config profile (test commands, branch names, source globs, domain skills). Reuses the superpowers skill set for the per-issue inner loop. Cross-platform hooks (bash-first, pwsh-fallback).
 
 ## What makes it different
 
@@ -23,10 +23,10 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 | Driver skill | `skills/solve-milestone/SKILL.md` | The autonomous milestone loop |
 | Per-issue skill | `skills/solve-issue/SKILL.md` | The gated per-issue procedure |
 | Implementer agent | `agents/implementer.md` | Self-contained TDD implementer subagent (a project may override via its profile) |
-| Hooks | `hooks/` | `force-subagent` + `no-pr-to-protected` (`PreToolUse`), `tests-green` (native `pre-commit`), `no-push` (native `pre-push`) — each in `.ps1` and `.sh` |
+| Hooks | `hooks/` | All four gates are `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open): `force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected` |
 | Manifest + registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
-### Project profile (per-repo, committed `.claude/milestone-driver.json`)
+### Project profile (per-repo, committed `milestone-driver.json`)
 
 | Key | Meaning |
 |---|---|
@@ -46,9 +46,10 @@ Full schema: [`docs/profile-schema.md`](docs/profile-schema.md).
 
 | Gate | Mechanism |
 |---|---|
-| **force-subagent** | Claude `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`NotebookEdit`) — denies edits to `sourceGlobs` from the **main thread** (no subagent context); only the dispatched subagent may author app/test code. Docs, plans, and `.claude/**` stay editable by the orchestrator. |
-| **tests-green** | Native `.git/hooks/pre-commit` — runs `unitTestCmd` when staged files touch `sourceGlobs`; blocks the commit on red. Harness-independent; guards human commits too. |
-| **no-push / no-pr-to-protected** | Native `.git/hooks/pre-push` rejects pushes to `protectedBranch`; a Claude `PreToolUse` (`Bash`) scan blocks `gh pr create --base <protectedBranch>`. GitHub branch protection is the server-side backstop. |
+| **force-subagent** | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`NotebookEdit`) — denies edits to `sourceGlobs` from the **main thread** (no subagent context); only the dispatched subagent may author app/test code. Docs, plans, and `.claude/**` stay editable by the orchestrator. |
+| **tests-green** | Plugin `PreToolUse` (`Bash(git commit *)`) — runs `unitTestCmd` when staged files touch `sourceGlobs`; blocks the commit on red. |
+| **no-push** | Plugin `PreToolUse` (`Bash(git push *)`) — rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
+| **no-pr-to-protected** | Plugin `PreToolUse` (`Bash(gh pr create *)`) — blocks `gh pr create --base <protectedBranch>`. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
@@ -64,13 +65,13 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 - **The `superpowers` plugin — required.** The per-issue inner loop is built on `superpowers:*` skills (`systematic-debugging`, `subagent-driven-development`, `test-driven-development`, `verification-before-completion`, `requesting-code-review`, `finishing-a-development-branch`). It is declared in `plugin.json`'s `dependencies`, qualified to the `claude-plugins-official` marketplace, and this marketplace allowlists that source via `allowCrossMarketplaceDependenciesOn` — so Claude Code auto-installs `superpowers` on install, provided you have the official marketplace added.
 - **GitHub CLI (`gh`)**, authenticated — issue, PR, and milestone operations.
 - **git**, with the consuming repo using a gitflow-style integration branch.
-- **PowerShell 7+ (`pwsh`)** for the Claude-side hooks as registered in `hooks/hooks.json` — **or** `bash` + `jq`, if you repoint the hook commands at the matching `hooks/*.sh`.
+- **bash (preferred) or PowerShell 7+ (`pwsh`)** for the hooks; `jq` is required for the bash path.
 
 ## Build status
 
 1. **Scaffold** — manifest + directory layout ✓
-2. **Generic engine** — both skills, the implementer agent, the four gate hooks (`.ps1` + `.sh`), `hooks.json`, and the profile-schema doc ✓ (verified)
-3. **First consumer** — profile + native-hook install + CLAUDE.md wiring in the first consuming repo *(in progress)*
+2. **Generic engine** — both skills, the implementer agent, the four gate hooks, `hooks.json`, and the profile-schema doc ✓ (verified)
+3. **First consumer** — profile + CLAUDE.md wiring in the first consuming repo *(in progress)*
 4. **End-to-end dry-run** of `/solve-issue`, then a full milestone via `/solve-milestone` *(pending)*
 
 ## Topics
@@ -84,7 +85,7 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 /plugin install milestone-driver@milestone-driver
 ```
 
-This pulls in the required `superpowers` dependency (allowlisted from the official marketplace). **Restart Claude Code** after install — and after any hook change — so the Claude-side hooks load. Then wire the native git hooks into each consuming repo with `scripts/install-git-hooks.*` (see [`docs/consumer-setup.md`](docs/consumer-setup.md)).
+This pulls in the required `superpowers` dependency (allowlisted from the official marketplace). **Restart Claude Code** after install — and after any hook change — so the plugin hooks load. See [`docs/consumer-setup.md`](docs/consumer-setup.md) for the full setup flow.
 
 > Until v1 is released to `main`, add the marketplace from the `develop` branch; the default-branch form above works once `develop` → `main` is merged.
 
