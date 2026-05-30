@@ -30,17 +30,17 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 
 ### Project profile (per-repo, committed `milestone-driver.json`)
 
-| Key | Meaning |
-|---|---|
-| `integrationBranch` | Branch the loop merges into (e.g. `dev`) |
-| `protectedBranch` | Branch the loop must never push/PR to (e.g. `master`) |
-| `sourceGlobs` | Globs the `force-subagent` gate guards |
-| `unitTestCmd` | Command the `tests-green` gate runs |
-| `e2eTestCmd` | E2E runner for the pre-merge gate (Appium, Selenium, Playwright, …) |
-| `implementerAgent` | Implementer subagent (defaults to the bundled one) |
-| `domainSkills` | Domain skills the implementer consults for citations |
-| `nonNegotiables` | Stack constraints recorded for the implementer |
-| `e2eEnv` | E2E environment config (e.g. endpoint/device) |
+| Key | Meaning | Required? |
+|---|---|:---:|
+| `integrationBranch` | Branch the loop merges into (e.g. `dev`) | ✅ |
+| `protectedBranch` | Branch the loop must never push/PR to (e.g. `master`) | ✅ |
+| `sourceGlobs` | Globs the `force-subagent` gate guards | ✅ |
+| `implementerAgent` | Implementer subagent (defaults to the bundled one) | default-filled |
+| `unitTestCmd` | Command the `tests-green` gate runs | — |
+| `e2eTestCmd` | E2E runner for the pre-merge gate (Appium, Selenium, Playwright, …) | — |
+| `e2eEnv` | E2E environment config (e.g. endpoint/device) | — |
+| `domainSkills` | Domain skills the implementer consults for citations | — |
+| `nonNegotiables` | Stack constraints recorded for the implementer | — |
 
 Full schema: [`docs/profile-schema.md`](docs/profile-schema.md).
 

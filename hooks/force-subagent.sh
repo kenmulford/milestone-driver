@@ -24,9 +24,8 @@ file_path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.
 [ -z "$file_path" ] && exit 0
 norm="${file_path//\\//}"
 
-# Always-exempt paths.
+# Always-exempt paths. Source globs are gated even when markdown.
 case "$norm" in
-  *.md|*.MD)     exit 0 ;;
   */docs/*)      exit 0 ;;
   */.claude/*)   exit 0 ;;
   */Obsidian/*)  exit 0 ;;

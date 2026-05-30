@@ -3,7 +3,7 @@
 #
 # Blocks main-thread edits to the consuming repo's source/test globs so that
 # application and test code is authored only by the dispatched implementer
-# subagent. The orchestrator keeps docs, plans, and .claude config editable.
+# subagent. The orchestrator keeps /docs/, /.claude/, and /Obsidian/ paths (plus any file outside sourceGlobs) editable; files matching sourceGlobs are gated even when markdown.
 #
 # Deny mechanism: exit 2 + stderr (stable across current Claude Code).
 # Subagent detection: presence of agent_id / agent_type / parent_session_id on
@@ -30,8 +30,7 @@ if (-not $filePath) { $filePath = $hook.tool_input.notebook_path }
 if (-not $filePath) { exit 0 }
 $norm = ([string]$filePath) -replace '\\', '/'
 
-# Always-exempt: markdown, docs, .claude config, Obsidian vaults.
-if ($norm -match '(?i)\.md$') { exit 0 }
+# Always-exempt: docs, .claude config, Obsidian vaults. Source globs are gated even when markdown.
 if ($norm -match '/docs/')    { exit 0 }
 if ($norm -match '/\.claude/'){ exit 0 }
 if ($norm -match '/Obsidian/'){ exit 0 }
