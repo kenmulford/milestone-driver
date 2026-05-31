@@ -1,11 +1,17 @@
 {
-  "description": "milestone-driver mechanical gates (per <repo>/milestone-driver.json), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch.",
+  "description": "milestone-driver mechanical gates (per <repo>/milestone-driver.json), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch. no-bom: reject writes whose content begins with the UTF-8 BOM.",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" force-subagent", "timeout": 15 }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-bom", "timeout": 15 }
         ]
       },
       {
