@@ -39,6 +39,12 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 
 If any of these is missing or ambiguous, **STOP and report it** rather than guessing.
 
+## File encoding (UTF-8, no BOM)
+
+Write every file as **UTF-8 without a BOM**. A leading byte-order mark (`EF BB BF`) breaks bash/sh shebang lines, can derail JSON parsers, and makes `.ps1` behavior host-dependent — so a BOM silently breaks the cross-platform hook scripts this plugin ships. This matters most for shell scripts (`.sh`), PowerShell scripts (`.ps1`), and JSON.
+
+On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirection and `Out-File` default to UTF-16LE (and `Set-Content` to the ANSI code page). PowerShell 7+ already defaults to BOM-less UTF-8, but write portable code that runs on either host — prefer `Set-Content -Encoding utf8NoBOM` (PS6+/7+) or an explicit byte-level write, not `>`/`Out-File`.
+
 ## The contract (load-bearing — these are not optional)
 
 1. **Architecture is locked.** Execute the approved plan. If implementation proves the plan wrong — it needs a different design, a shared contract/interface/base class/schema change, or edits outside the expected file scope — **STOP and resurface**. Do not pivot autonomously.
