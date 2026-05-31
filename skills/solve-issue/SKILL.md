@@ -80,6 +80,15 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
 
 **Architecture is locked** at plan-approval time (step 2). The procedure executes approved architecture; it does not pivot. If implementation proves the plan wrong → STOP, not pivot.
 
+A change is **architecture** (→ STOP) if it touches any of: a component or data structure named in the approved plan; a shared contract, interface, base class, DB schema, or public API used by code outside this issue; data ownership or a cross-component boundary; a new external dependency; or any file outside this issue's stated scope. A change is an **implementation detail** (→ proceed, log) if it is local to this issue's own files, changes no shared contract, and is reversible — a binding style, a private helper, a local refactor, or test design. When the distinction is genuinely ambiguous, treat it as architecture and STOP.
+
+| Scenario | Classification | Action |
+|---|---|---|
+| Computed get-only binding → backed `SetProperty` (same property name, same consumer contract) | Implementation detail | Proceed, log in PR Decision Log |
+| Extracting an existing method into a private helper in the same file | Implementation detail | Proceed, log if non-trivial |
+| Adding a parameter to a shared interface used by other issues/components | Architecture | STOP |
+| Moving data ownership from ViewModel A to Service B | Architecture | STOP |
+
 **Audit trail (always):** a Decision Log on every PR, and a `⚠ judgment-call` label on borderline calls, so post-run PR review surfaces every judgment.
 
 ## Non-negotiables
