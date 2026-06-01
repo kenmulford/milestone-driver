@@ -56,4 +56,5 @@ On halt or completion, report:
 - Issues merged to `integrationBranch` (with PR links).
 - Issues skipped or blocked, and why (the STOP/PAUSE reason).
 - PRs carrying a `⚠ judgment-call` label, flagged for post-run review.
+- PRs missing a `## Code Review` section in their body — flagged, like `⚠ judgment-call` PRs, as requiring post-run human review before the `integrationBranch` → `protectedBranch` merge.
 - The next human step (review the merged PRs; when ready, merge `integrationBranch` → `protectedBranch` and deploy manually).
