@@ -30,7 +30,7 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 | Hooks | `hooks/` | All four gates are `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open): `force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected`. The triage / declaration / visual layers are **procedural** (skill-level), not hooks — see [The layered gating model](#the-layered-gating-model). |
 | Manifest + registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
-**Plugin version** lives in `.claude-plugin/plugin.json` as the single source of truth — `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone name and passes it to each issue run idempotently.
+**Plugin version** lives in `.claude-plugin/plugin.json` as the single source of truth — `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone name and passes it to each issue run idempotently. Set `versioning: false` to opt out — **version-free** mode: no semver parse, no prompt, no bump (for repos that keep their version elsewhere, like a `.csproj`). Fail-safe: a versioned repo whose `.claude-plugin/plugin.json` is missing degrades to version-free with a logged note rather than failing the run.
 
 ### Project profile (per-repo, committed `milestone-driver.json`)
 
@@ -46,6 +46,7 @@ A generic engine ships in the plugin; each repo supplies a thin profile.
 | `e2eTestCmd` | E2E runner for the pre-merge gate (Appium, Selenium, Playwright, …) | — |
 | `e2eEnv` | E2E environment config (e.g. endpoint/device) | — |
 | `uiSurfaceGlobs` | Globs marking UI surfaces — drive design-lens triage and the visual-review gate; absent → neither runs | — |
+| `versioning` | Bump a plugin version per PR; `false` → version-free (no semver, no bump) | — |
 | `domainSkills` | Domain skills the implementer consults for citations | — |
 | `nonNegotiables` | Stack constraints recorded for the implementer | — |
 

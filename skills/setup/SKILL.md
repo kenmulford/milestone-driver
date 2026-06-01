@@ -28,6 +28,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Unit test command | `package.json` → `.scripts.test`; presence of test `.csproj`; `Makefile` targets `test`; `pyproject.toml` `[tool.pytest]`; `Cargo.toml` |
 | E2E test indicators | Presence of Appium config, Playwright config (`playwright.config.*`), Selenium project, `run-e2etests.*` script |
 | Stack signals | Language/framework files for `domainSkills` mapping (see table below) |
+| Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` (version-free) |
 | Existing profile | Read `milestone-driver.json` if present — pre-fill any already-set keys |
 
 **Stack → domainSkills inference table:**
@@ -43,7 +44,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in four tiers: **Core → Testing → E2E → Enrichment**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Release → Enrichment**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -74,6 +75,12 @@ Present keys in four tiers: **Core → Testing → E2E → Enrichment**. Within 
 | `e2eTestCmd` | "What command runs your end-to-end / UI tests?" | Skip → "No E2E gate." |
 | `e2eEnv` | "What device/endpoint should the E2E runner target? (e.g. `{\"endpoint\":\"127.0.0.1:4723\",\"device\":\"Android emulator (AVD)\"}` for Appium)" | Skip → "No E2E environment recorded." |
 
+**Tier: Release** (optional; default inferred from the `.claude-plugin/plugin.json` presence signal — present → versioned, absent → suggest `versioning: false`)
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `versioning` | "Should I bump a plugin version on each PR via `.claude-plugin/plugin.json`? (Inferred default: file present → versioned; absent → suggest version-free.)" | Skip → key omitted → **versioned** (absent-means-versioned). For explicit version-free, choose the inferred `versioning: false` (the suggested value when no `.claude-plugin/plugin.json` exists). |
+
 **Tier: Enrichment** (optional; show inferred values — accept with one keystroke)
 
 | Key | Plain-language label | Skip-consequence |
@@ -83,7 +90,7 @@ Present keys in four tiers: **Core → Testing → E2E → Enrichment**. Within 
 
 ### Phase 3 — Write and confirm
 
-Assemble the collected keys into a valid JSON object and write to `<repo-root>/milestone-driver.json`. Omit any key the user skipped (do not write `null` or empty values). Print the final file contents so the user can verify.
+Assemble the collected keys into a valid JSON object and write to `<repo-root>/milestone-driver.json`. Omit any key the user skipped (do not write `null` or empty values). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. Print the final file contents so the user can verify.
 
 Writing the file is sufficient for the mechanical gates to read it immediately this session — no commit is required for the gates to function.
 
