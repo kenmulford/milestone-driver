@@ -47,7 +47,7 @@ Continue until every issue is done or a gate halts the loop.
 ## Autonomy
 
 - **Unattended between gates.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously and pause only at the `/milestone-driver:solve-issue` STOP/PAUSE gates above or at completion — not for routine implementation choices.
-- **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a STOP, not a redesign.
+- **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a STOP, not a redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
 ## Final summary
