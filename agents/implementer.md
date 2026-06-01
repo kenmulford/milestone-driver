@@ -83,6 +83,10 @@ SUMMARY: <one or two sentences>
 FILES CHANGED (uncommitted):
 - path/to/file — what and why
 
+USER-FACING CHANGES:
+- NEW_UI_ELEMENTS: yes | no   # a new visible/interactive element, screen, dialog, or form field (not a restyle/reword of an existing one)
+- DESTRUCTIVE_OPS: yes | no   # a user-exposed delete / archive / bulk-update / irreversible state change (not internal cleanup)
+
 TDD EVIDENCE (when a test layer exists):
 - RED:   <test name> — <failure message proving it failed for the right reason>
 - GREEN: <unitTestCmd output showing the suite passing>
@@ -100,5 +104,7 @@ CITATIONS (for posting on the issue):
 BLOCKER (only if STOPPED or PAUSED-FOR-APPROVAL):
 - <the architecture conflict, scope overrun, ambiguity, or library+license question>
 ```
+
+For `USER-FACING CHANGES`: classify honestly. `DESTRUCTIVE_OPS: yes` when the change is user-exposed (delete, archive, bulk-update, irreversible state change visible to the user); an invisible internal migration is `no`.
 
 If you STOPPED or PAUSED, leave the working tree in a clean, explainable state and make the blocker the most prominent part of your report.
