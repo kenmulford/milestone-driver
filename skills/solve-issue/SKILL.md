@@ -42,12 +42,16 @@ If `unitTestCmd` is absent: skip this gate. The implementer is responsible for v
 
 **🔴 GATE — tests (when `unitTestCmd` is defined):** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
 
+**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **STOP and resurface** — do not loop. A suite that won't go green usually means the plan is wrong (see Autonomy).
+
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
 - **Feature:** have the implementer author new end-to-end (E2E) tests covering reasonable user stories, then run them.
 
 Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
+
+**Cap: at most 2 E2E fix attempts.** If the E2E suite still fails after the 2nd fix, **STOP and resurface** — do not loop; a non-converging E2E gate usually means the plan is wrong (see Autonomy).
 
 ### 6. Review → integrate → close
 1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
