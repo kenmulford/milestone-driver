@@ -42,6 +42,8 @@ If `unitTestCmd` is absent: skip this gate. The implementer is responsible for v
 
 **🔴 GATE — tests (when `unitTestCmd` is defined):** A red suite blocks progress. Re-dispatch the implementer with the failure, or STOP if the failure reveals the plan is wrong (see Autonomy).
 
+**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **STOP and resurface** — do not loop. A suite that won't go green usually means the plan is wrong (see Autonomy).
+
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
@@ -49,38 +51,63 @@ Apply only when the change touches a UI surface and the profile defines `e2eTest
 
 Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
 
+**Cap: at most 2 E2E fix attempts.** If the E2E suite still fails after the 2nd fix, **STOP and resurface** — do not loop; a non-converging E2E gate usually means the plan is wrong (see Autonomy).
+
 ### 6. Review → integrate → close
 1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
    - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log.
    - **STOP trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **STOP and resurface** — do not commit.
 
+   **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
+
    **After a fix, before committing:**
-   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**, so a review-before-commit gate passes on the first attempt (never retry past it).
-   - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` and a doc-aware review gate both no-op on doc-only).
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review.
+   - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` no-ops on doc-only, and `/code-review` need not be re-run for a doc-only fix).
    - **No in-scope findings:** commit directly.
 
    **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **STOP and resurface** the current diff — do not loop. A review that won't converge usually means the plan is wrong.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
-3. **Version bump.** Edit `.claude-plugin/plugin.json` `version` directly (it is config, not under `sourceGlobs`; the orchestrator edits it on the main thread — if a consumer's `sourceGlobs` covers `.claude-plugin/`, dispatch the implementer to apply the bump instead). This is a config edit, not a source change: **no `/code-review` re-run and no test re-run are needed; proceed directly to commit.**
+3. **Assemble the Code Review section** for the PR body — the evidence half of the audit trail (the Decision Log records *why* a choice was made; the Code Review section records *what review found* and how it was cleared). Record: whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered STOP). If a run returned zero findings, state that with the run's effort level. **Absence of this section on a PR is a visible defect on PR review.** Use this template in the PR body:
+
+   ```text
+   ## Code Review
+
+   - /code-review run: yes (omission is a STOP — a submitted PR always carries a real review; a halted run opens no PR)
+   - Findings: <count> in-scope finding(s) at <effort> effort
+     - <finding> → re-dispatched and resolved | accepted (rationale: <…>) | triggered STOP
+     - … (one line per finding, or "none" when count is 0)
+   - No STOP-triggering findings. | STOP-triggering findings: <list>
+   ```
+
+4. **Version bump.** Edit `.claude-plugin/plugin.json` `version` directly (it is config, not under `sourceGlobs`; the orchestrator edits it on the main thread — if a consumer's `sourceGlobs` covers `.claude-plugin/`, dispatch the implementer to apply the bump instead). This is a config edit, not a source change: **no `/code-review` re-run and no test re-run are needed; proceed directly to commit.** The carve-out covers only the `/code-review` run — the PR still requires its **Code Review** section, annotated "version-bump only — no logic change."
    - **Milestone run** (a target version was determined by `solve-milestone` and is held in the orchestrator's context — it is not a CLI argument): set `plugin.json` `version` to that target. **Idempotent** — if already equal, no change; move on.
    - **Standalone run** (no milestone target in the orchestrator's context): apply a **patch** bump (`x.y.Z` → `x.y.(Z+1)`), state the new version to the user, and **ask whether it should be minor or major instead** — adjust before opening the PR.
    - `plugin.json` is the **single source of truth** for the plugin version. `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both is a documented footgun that silently masks the marketplace value). The bump rides in this PR — no separate chore PR.
-4. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite, and running `/code-review` first satisfies any review-before-commit gate.
-5. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
-6. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
-7. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
+5. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite. Review-before-commit is enforced by audit trail (the mandatory **Code Review** section), not by a shipped hook — the plugin ships no code-review hook.
+6. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log and the **Code Review** section in the PR body. Add a `⚠ judgment-call` label if any borderline autonomous call was made.
+7. **Auto-merge on green:** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
+8. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`).
 
 ## Autonomy model (Balanced)
 
 **Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors; resolving in-scope `/code-review` findings (step 6.1).
 
-**🔴 STOP & resurface (halt, ask):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent.
+**🔴 STOP & resurface (halt, ask):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent; `/code-review` omission or substitution — skipping `/code-review` for any reason (time, token budget, tool error, self-review substitution) is **not** an in-scope autonomous decision; budget pressure is not a permitted exception.
 
 **Within an explicit run, an in-scope `/code-review` finding is a *proceed-autonomously* event, not a clarifying-question moment** — fix it and log it. The operator pause is reserved for STOP triggers; the unattended contract overrides any general inclination to ask.
 
 **Architecture is locked** at plan-approval time (step 2). The procedure executes approved architecture; it does not pivot. If implementation proves the plan wrong → STOP, not pivot.
 
-**Audit trail (always):** a Decision Log on every PR, and a `⚠ judgment-call` label on borderline calls, so post-run PR review surfaces every judgment.
+A change is **architecture** (→ STOP) if it touches any of: a component or data structure named in the approved plan; a shared contract, interface, base class, DB schema, or public API used by code outside this issue; data ownership or a cross-component boundary; a new external dependency; or any file outside this issue's stated scope. A change is an **implementation detail** (→ proceed, log) if it is local to this issue's own files, changes no shared contract, and is reversible — a binding style, a private helper, a local refactor, or test design. When the distinction is genuinely ambiguous, treat it as architecture and STOP.
+
+| Scenario | Classification | Action |
+|---|---|---|
+| Computed get-only binding → backed `SetProperty` (same property name, same consumer contract) | Implementation detail | Proceed, log in PR Decision Log |
+| Extracting an existing method into a private helper in the same file | Implementation detail | Proceed, log if non-trivial |
+| Adding a parameter to a shared interface used by other issues/components | Architecture | STOP |
+| Moving data ownership from ViewModel A to Service B | Architecture | STOP |
+
+**Audit trail (always):** a Decision Log on every PR, a **Code Review** section recording every `/code-review` run and its findings/resolutions, and a `⚠ judgment-call` label on borderline calls, so post-run PR review surfaces every judgment.
 
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only — never `protectedBranch`.

@@ -39,9 +39,15 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 
 If any of these is missing or ambiguous, **STOP and report it** rather than guessing.
 
+## File encoding (UTF-8, no BOM)
+
+Write every file as **UTF-8 without a BOM**. A leading byte-order mark (`EF BB BF`) breaks bash/sh shebang lines, can derail JSON parsers, and makes `.ps1` behavior host-dependent — so a BOM silently breaks the cross-platform hook scripts this plugin ships. This matters most for shell scripts (`.sh`), PowerShell scripts (`.ps1`), and JSON.
+
+On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirection and `Out-File` default to UTF-16LE (and `Set-Content` to the ANSI code page). PowerShell 7+ already defaults to BOM-less UTF-8, but write portable code that runs on either host — prefer `Set-Content -Encoding utf8NoBOM` (PS6+/7+) or an explicit byte-level write, not `>`/`Out-File`.
+
 ## The contract (load-bearing — these are not optional)
 
-1. **Architecture is locked.** Execute the approved plan. If implementation proves the plan wrong — it needs a different design, a shared contract/interface/base class/schema change, or edits outside the expected file scope — **STOP and resurface**. Do not pivot autonomously.
+1. **Architecture is locked** (see the `solve-issue` Autonomy model for the bounded definition of architecture vs implementation detail). Execute the approved plan. If implementation proves the plan wrong — it needs a different design, a shared contract/interface/base class/schema change, or edits outside the expected file scope — **STOP and resurface**. Do not pivot autonomously.
 2. **Least code.** Reuse existing conventions, helpers, base classes, styles, and proven strategies in this repo before writing anything new. Read the neighboring code first. Inline before abstracting — no new abstraction before ≥3 concrete use cases.
 3. **TDD, observed — when a test layer exists.** If the profile defines `unitTestCmd` (or the repo has an identifiable test layer): write a failing test that captures the required behavior, run it and confirm it is **RED for the right reason**, then implement the minimum to make it **GREEN**. Report both runs. Refactor only under green. If no test layer exists: verify behavior by the best available means (manual dry-trace, static analysis, cross-surface consistency check, etc.) and say so explicitly — do **not** fabricate a test run.
 4. **Cite when a citable source applies.** For every non-trivial choice where a citable source exists — framework / library docs for the version actually in use, the profile's `domainSkills`, or established patterns already in this repo — cite it. Research path, in order:

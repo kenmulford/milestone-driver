@@ -47,7 +47,7 @@ Continue until every issue is done or a gate halts the loop.
 ## Autonomy
 
 - **Unattended between gates.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously and pause only at the `/milestone-driver:solve-issue` STOP/PAUSE gates above or at completion — not for routine implementation choices.
-- **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a STOP, not a redesign.
+- **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a STOP, not a redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
 ## Final summary
@@ -56,4 +56,5 @@ On halt or completion, report:
 - Issues merged to `integrationBranch` (with PR links).
 - Issues skipped or blocked, and why (the STOP/PAUSE reason).
 - PRs carrying a `⚠ judgment-call` label, flagged for post-run review.
+- PRs missing a `## Code Review` section in their body — flagged, like `⚠ judgment-call` PRs, as requiring post-run human review before the `integrationBranch` → `protectedBranch` merge.
 - The next human step (review the merged PRs; when ready, merge `integrationBranch` → `protectedBranch` and deploy manually).
