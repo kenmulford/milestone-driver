@@ -16,19 +16,20 @@ every clone for the gates to behave identically for every contributor and on CI.
 
 ## Design principle
 
-Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); `implementerAgent` is **default-filled** (defaults to `milestone-driver:implementer`) so a profile may omit it. All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
+Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); the agent keys `implementerAgent`, `triageAgent`, and `designReviewAgent` are **default-filled** (they default to `milestone-driver:implementer`, `milestone-driver:triage-reviewer`, and `milestone-driver:design-reviewer`) so a profile may omit them. All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
 
 ## Key tiers
 
 | Tier | Keys | Required? |
 |---|---|:---:|
 | **Core** (orchestration + safety) | `integrationBranch`, `protectedBranch`, `sourceGlobs` | ✅ required in file |
-| **Core** (default-filled) | `implementerAgent` | optional in file (auto-filled) |
+| **Core** (default-filled) | `implementerAgent`, `triageAgent`, `designReviewAgent` | optional in file (auto-filled) |
 | **Testing** | `unitTestCmd` | Optional |
 | **E2E** | `e2eTestCmd`, `e2eEnv` | Optional |
+| **Triage / Visual** | `uiSurfaceGlobs` | Optional |
 | **Enrichment** | `domainSkills`, `nonNegotiables` | Optional |
 
-**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent` has a bundled default (`milestone-driver:implementer`) and is auto-filled by the bootstrap; omitting it from the profile is valid and common.
+**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, and `designReviewAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common.
 
 ## Keys
 
@@ -38,13 +39,18 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | `protectedBranch` | string | Core | Which branch must never be pushed or PR'd to? (Your release / default branch, e.g. `main`) | ✅ |
 | `sourceGlobs` | string[] | Core | Which path patterns are "source" that only the implementer subagent may edit? (e.g. `["src/**","tests/**"]`) | ✅ |
 | `implementerAgent` | string | Core | Which agent authors the code? Default: `milestone-driver:implementer` (auto-filled; rarely overridden) | default-filled |
+| `triageAgent` | string | Core | Which agent reviews issues for design gaps + dependency ordering (architect lens)? Default: `milestone-driver:triage-reviewer` (auto-filled; rarely overridden) | default-filled |
+| `designReviewAgent` | string | Core | Which agent reviews UI-touching issues for UX gaps (front-end lens)? Default: `milestone-driver:design-reviewer` (auto-filled; rarely overridden) | default-filled |
 | `unitTestCmd` | string | Testing | What command runs the unit tests? Absent → no unit gate; implementer verifies behavior another way. | — |
 | `e2eTestCmd` | string | E2E | What command runs the end-to-end / UI tests? Absent → no E2E gate. | — |
 | `e2eEnv` | object | E2E | Device/endpoint for the E2E runner (Appium, Selenium, Playwright), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. | — |
+| `uiSurfaceGlobs` | string[] | Triage / Visual | Which path patterns mark UI surfaces? Drives `design-reviewer` dispatch (triage) and the visual-review gate ([#18](https://github.com/kenmulford/milestone-driver/issues/18)), e.g. `["PrayerApp/Views/**","**/*.xaml"]`. Absent → no design-lens review and no visual gate. | — |
 | `domainSkills` | string[] | Enrichment | Stack-specific skill identifiers the implementer consults for citations (e.g. `["maui-skills:*"]`). Absent → general docs + repo conventions only. | — |
 | `nonNegotiables` | string[] | Enrichment | Hard constraints the implementer must honour (framework versions, platform targets). Absent → none recorded. | — |
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
+
+**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability (e.g. `e2eEnv`, or a dedicated `screenshotCmd` if a consumer supplies one). When that capability is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally.
 
 ## Minimal example (Core keys only)
 
@@ -56,7 +62,7 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
 }
 ```
 
-`implementerAgent` is omitted here; the bundled default applies automatically.
+The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewAgent`) are omitted here; their bundled defaults apply automatically.
 
 ## Full example (PracticingPrayer — consumer #1)
 
@@ -65,6 +71,7 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
   "integrationBranch": "dev",
   "protectedBranch": "master",
   "sourceGlobs": ["PrayerApp/**", "PrayerApp.Tests/**"],
+  "uiSurfaceGlobs": ["PrayerApp/Views/**", "**/*.xaml"],
   "unitTestCmd": "dotnet test PrayerApp.Tests/PrayerApp.Tests.csproj",
   "e2eTestCmd": "pwsh ./run-e2etests.ps1",
   "implementerAgent": "milestone-driver:implementer",
@@ -79,6 +86,8 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
   }
 }
 ```
+
+These three keys satisfy the consumer-driven rule above with a real consumer, not speculation: PracticingPrayer (consumer #1) uses `uiSurfaceGlobs` for its XAML views (shown above); `triageAgent` and `designReviewAgent` are auto-filled, so the profile omits them while the bundled triage / visual-review phases consume their defaults.
 
 ## How the gates use the profile
 
