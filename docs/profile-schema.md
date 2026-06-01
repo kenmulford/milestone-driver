@@ -5,6 +5,8 @@ engine to that repo's stack, branch model, and test commands. The plugin's
 skills and hooks read this file; nothing in the engine is hard-coded to a
 particular stack.
 
+> **See also:** [the layered gating model](../README.md#the-layered-gating-model) — how `uiSurfaceGlobs` drives the design-lens triage and the visual-review gate — and [consumer setup](consumer-setup.md) for the run flow these keys feed.
+
 ## Location
 
 ```
@@ -50,7 +52,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
 
-**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability (e.g. `e2eEnv`, or a dedicated `screenshotCmd` if a consumer supplies one). When that capability is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally.
+**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability (e.g. `e2eEnv`, or a dedicated `screenshotCmd` if a consumer supplies one). When that capability is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](../README.md#the-layered-gating-model) for the three-layer model these keys participate in.
 
 ## Minimal example (Core keys only)
 

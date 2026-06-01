@@ -112,7 +112,7 @@ ISSUE: <n>
 GAPS:
   - lens: design
     severity: Blocker | Advisory
-    type: scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
+    type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
     to_clear: <suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage")>
   - … (or "none")
@@ -185,7 +185,7 @@ For every issue that has **Blocker** gaps:
 
    | Gap type | Recommended label |
    |---|---|
-   | Any design/spec gap — architect `contradiction` / `not-buildable` / `missing-criteria` / `risky-design`, or any design-lens type (`scalability`, `pattern-inconsistency`, `missing-state`, `missing-affordance`, `accessibility`) | `needs design` |
+   | Any design/spec gap — architect `contradiction` / `not-buildable` / `missing-criteria` / `risky-design`, or any design-lens type (`spec-insufficiency`, `scalability`, `pattern-inconsistency`, `missing-state`, `missing-affordance`, `accessibility`) | `needs design` |
    | A new dependency / non-design decision — architect `undeclared-dependency` | `needs decision` |
 
    Each parked issue carries exactly **one** *triage-recommended* label. When an issue has gaps of multiple types, select the single label by precedence: **`needs design`** (any design or spec gap — the common case) takes precedence; otherwise **`needs decision`** (a non-design decision with no design gap). Return that one label in `issueStates.label` (Step 7).

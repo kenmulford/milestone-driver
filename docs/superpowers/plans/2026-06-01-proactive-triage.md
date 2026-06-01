@@ -111,7 +111,7 @@ Frontmatter: `name: design-reviewer`; `model: inherit`; `color: magenta`; descri
   GAPS:
     - lens: design
       severity: Blocker | Advisory
-      type: scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
+      type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
       description: <one line>
       to_clear: <suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage")>
     - … (or "none")
