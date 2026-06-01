@@ -52,6 +52,15 @@ Add a short section to the consuming repo's `CLAUDE.md` summarizing the per-issu
 flow and the non-negotiables, and pointing at `milestone-driver.json`, so a fresh
 session knows the repo is milestone-driver–driven.
 
+## What a run does (the gated flow)
+
+Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:solve-issue <n>`) runs a gated pipeline. Two phases matter to you as a consumer:
+
+- **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering — through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues — it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
+- **Visual-review gate (post-build, for UI issues).** An issue whose changes touch `uiSurfaceGlobs` is **not** auto-merged. Its PR is opened and left **open** with a `needs review` label for your visual sign-off. If you've configured a render capability (`e2eEnv`, or a `screenshotCmd`), light + dark screenshots of the new surface are attached to the PR; if not, the gate posts a note that a human visual test is required before merge. Either way the PR waits for you — logic-only issues still auto-merge on green.
+
+To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
+
 ## Verify the gates
 
 | Test | Expected |

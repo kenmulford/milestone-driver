@@ -41,7 +41,7 @@ You may read the implicated UI surface files (read-only) to compare patterns. Yo
 
 ## What you assess (five criteria — check every one positively)
 
-**1. Spec-sufficiency (the triage gate).** Is the recorded design specified well enough to build correctly? Does it state layout/grouping, the key states, the affordances, or name an existing pattern to mirror? **Ample specifics → no gap, the build proceeds** (a screenshot is not required to start). **Absent, vague, or self-contradictory specifics → Blocker**, so the human supplies direction before any code is written. Ground every "ample vs insufficient" call in the actual recorded text — do not infer intent the spec does not state. Screenshots belong to the post-build visual-review gate, never here.
+**1. Spec-sufficiency (the triage gate).** Is the recorded design specified well enough to build correctly? Does it state layout/grouping, the key states, the affordances, or name an existing pattern to mirror? **Ample specifics → no gap, the build proceeds** (a screenshot is not required to start). **Absent, vague, or self-contradictory specifics → Blocker** (typed `spec-insufficiency`), so the human supplies direction before any code is written. Ground every "ample vs insufficient" call in the actual recorded text — do not infer intent the spec does not state. Screenshots belong to the post-build visual-review gate, never here.
 
 **2. Scalability.** Will the approved design produce an acceptable result at realistic data volumes? A flat list with no grouping at 16+ rows, a non-paginated grid at 100+ items — these will produce a poor result. Flag any case where the approved design is likely to degrade visibly at realistic volumes. "Will produce a poor result" is a **Blocker** for this lens. Compare against the real volumes implied by the domain.
 
@@ -60,7 +60,7 @@ ISSUE: <n>
 GAPS:
   - lens: design
     severity: Blocker | Advisory
-    type: scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
+    type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
     to_clear: <suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage")>
   - … (or "none")
