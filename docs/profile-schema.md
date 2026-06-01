@@ -85,9 +85,12 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
 | Gate | Profile keys read |
 |---|---|
 | `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
+| `no-bom` (PreToolUse `Write`/`Edit`/`MultiEdit`) | none (content byte-check; reads no profile keys) |
 | `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `sourceGlobs` |
 | `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
 | `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.
+
+> **Enforcement model for `/code-review`:** Review-before-commit is enforced by **audit trail, not a hook**. The plugin ships no PreToolUse hook for code review (see `hooks/hooks.json` — the shipped gates are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`; none reviews code). Enforcement is twofold: (1) `solve-issue` treats omission as a STOP trigger, and (2) the PR body requires a mandatory `## Code Review` section whose absence is a visible defect on PR review. Consumers should inspect the Code Review section as part of their release checklist before approving the `integrationBranch` → `protectedBranch` merge.
