@@ -96,11 +96,62 @@ milestone-driver.json written.
   "sourceGlobs": ["skills/**", "agents/**", "hooks/**"],
   "implementerAgent": "milestone-driver:implementer"
 }
-
-Returning to the original task now.
 ```
 
-### Phase 4 — Return control
+### Phase 4 — Provision the runtime label taxonomy
+
+After the profile is written (Phase 3) and before returning control, ensure all six runtime taxonomy labels exist in the target repo. This step runs both during direct `/milestone-driver:setup` invocations and any time setup is auto-invoked as a bootstrap sub-step.
+
+#### Taxonomy (single source of truth)
+
+| Label | Color (hex) | Description |
+|---|---|---|
+| `in progress` | `1D76DB` | Branch open with partial or parked work; not yet done |
+| `blocked` | `B60205` | Can't proceed; waiting on something external (unmerged dependency, unverified E2E) |
+| `needs design` | `5319E7` | Design direction required before building |
+| `needs decision` | `D93F0B` | Non-design human decision required |
+| `needs review` | `0E8A16` | Built; awaiting human review/merge (e.g. a UI PR awaiting visual sign-off) |
+| `judgment call` | `FBCA04` | Borderline autonomous call — audit post-run |
+
+#### Reconcile the existing `judgment-call` label
+
+Run this step FIRST, before bulk provisioning. This repo (and consumer repos bootstrapped from it) may have a legacy label named `judgment-call` or `⚠ judgment-call`. Renaming it here preserves all existing issue/PR associations before the provisioning block below runs:
+
+```
+# If the legacy label exists, rename it (preserves all issue/PR associations):
+gh label edit "judgment-call"    --name "judgment call" --color FBCA04
+# or, if the legacy name includes the warning prefix:
+gh label edit "⚠ judgment-call" --name "judgment call" --color FBCA04
+```
+
+If neither legacy label exists, the rename step errors harmlessly — no action needed. The provisioning block below then upserts the canonical color/description onto the renamed label, or creates `judgment call` fresh if no legacy existed. Either path is idempotent: running the full sequence again when `judgment call` already exists changes nothing.
+
+#### Idempotent provisioning
+
+Use `gh label create --force` for all six labels. The `--force` flag upserts: it creates the label if absent and updates color/description if the label already exists. Re-runs produce no duplicates. The `judgment call` row updates the just-reconciled label (or creates it fresh if no legacy existed).
+
+```
+gh label create "in progress"    --color 1D76DB --description "Branch open with partial or parked work; not yet done" --force
+gh label create "blocked"        --color B60205 --description "Can't proceed; waiting on something external (unmerged dependency, unverified E2E)" --force
+gh label create "needs design"   --color 5319E7 --description "Design direction required before building" --force
+gh label create "needs decision" --color D93F0B --description "Non-design human decision required" --force
+gh label create "needs review"   --color 0E8A16 --description "Built; awaiting human review/merge (e.g. a UI PR awaiting visual sign-off)" --force
+gh label create "judgment call"  --color FBCA04 --description "Borderline autonomous call — audit post-run" --force
+```
+
+These commands are identical on bash and PowerShell 7+. Run them as a flat list (no shell loop required), which keeps them portable across both platforms.
+
+#### Apply-time label helper (for consuming skills)
+
+The `gh label create --force` idiom above is the **canonical apply-time label helper** that `triage` (#27), `solve-milestone` (#28), and `solve-issue` (#29) must call before applying any taxonomy label at runtime. Concretely: immediately before each `gh issue edit --add-label "<name>"` call, the consuming skill runs:
+
+```
+gh label create "<name>" --color <hex> --description "<desc>" --force
+```
+
+using the color and description from the taxonomy table above. This guarantees that a fresh consumer repo that has never run `/milestone-driver:setup` still receives the label on first use — no separate setup gate is required before labeling can work.
+
+### Phase 5 — Return control
 
 Return control to the caller immediately. Do **not** ask the user to re-run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`. The bootstrap is a sub-step, not a restart.
 
