@@ -1,6 +1,6 @@
 # milestone-driver
 
-> **Status: pre-1.0.** The generic engine — the skills, the bundled agents, and all mechanical-gate hooks — is built and verified. First-consumer wiring and the end-to-end dry-run are in progress; see [Build status](#build-status).
+> **Status: v1.3.1 — self-hosted.** The generic engine — the skills, the bundled agents, and all mechanical-gate hooks — is built and verified, and now drives its own releases: milestone 1.3.1 was completed end-to-end by `/milestone-driver:solve-milestone` on this repo. First external-consumer wiring is in progress; see [Build status](#build-status).
 
 Milestone Driver turns a GitHub milestone into the unit of work. You hand it a milestone; it **triages every issue for design gaps and dependency order before any code is written**, then iterates the buildable issues in dependency order, and for each: identifies the root cause (or **parks the issue with a comment + label** if it can't), dispatches a TDD implementer subagent, runs your unit + E2E suites, requests a code review, opens a PR, and auto-merges to your integration branch once CI is green — **except UI issues, which open a PR for your visual sign-off** (with light + dark screenshots when a render capability is configured). It never touches your default/release branch — that stays your call, behind your manual deploy.
 
@@ -113,8 +113,8 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 
 1. **Scaffold** — manifest + directory layout ✓
 2. **Generic engine** — the driver / per-issue / triage / setup skills, the implementer + triage-reviewer + design-reviewer agents, the four gate hooks, `hooks.json`, and the profile-schema doc ✓ (verified)
-3. **First consumer** — profile + CLAUDE.md wiring in the first consuming repo *(in progress)*
-4. **End-to-end dry-run** of `/milestone-driver:solve-issue`, then a full milestone via `/milestone-driver:solve-milestone` *(pending)*
+3. **Self-hosting (dogfood)** — milestone-driver drives its own releases via its committed `milestone-driver.json`; milestone 1.3.1 completed end-to-end via `/milestone-driver:solve-milestone` ✓
+4. **First external consumer** — profile + CLAUDE.md wiring in an external consuming repo *(in progress)*
 
 ## Topics
 
@@ -129,7 +129,7 @@ milestone-driver orchestrates existing tooling rather than reimplementing it:
 
 This pulls in the required `superpowers` dependency (allowlisted from the official marketplace). **Restart Claude Code** after install — and after any hook change — so the plugin hooks load. See [`docs/consumer-setup.md`](docs/consumer-setup.md) for the full setup flow.
 
-> Until v1 is released to `main`, add the marketplace from the `develop` branch; the default-branch form above works once `develop` → `main` is merged.
+> Until this work is released to `main`, add the marketplace from the `develop` branch; the default-branch form above works once `develop` → `main` is merged.
 
 ## License
 
