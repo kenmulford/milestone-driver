@@ -29,6 +29,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | **Testing** | `unitTestCmd` | Optional |
 | **E2E** | `e2eTestCmd`, `e2eEnv` | Optional |
 | **Triage / Visual** | `uiSurfaceGlobs` | Optional |
+| **Release** | `versioning` | Optional |
 | **Enrichment** | `domainSkills`, `nonNegotiables` | Optional |
 
 **Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, and `designReviewAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common.
@@ -47,12 +48,15 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | `e2eTestCmd` | string | E2E | What command runs the end-to-end / UI tests? Absent → no E2E gate. | — |
 | `e2eEnv` | object | E2E | Device/endpoint for the E2E runner (Appium, Selenium, Playwright), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. | — |
 | `uiSurfaceGlobs` | string[] | Triage / Visual | Which path patterns mark UI surfaces? Drives `design-reviewer` dispatch (triage) and the visual-review gate ([#18](https://github.com/kenmulford/milestone-driver/issues/18)), e.g. `["PrayerApp/Views/**","**/*.xaml"]`. Absent → no design-lens review and no visual gate. | — |
+| `versioning` | boolean | Release | Should each PR bump a plugin version? Absent or `true` → versioned: the run determines a target version from the milestone and bumps `.claude-plugin/plugin.json` per PR. `false` → version-free: no semver parse, no prompt, no bump (the milestone name need not be a version). Fail-safe: in versioned mode, if `.claude-plugin/plugin.json` is missing the run does not fail — it degrades to version-free with a logged note. | — |
 | `domainSkills` | string[] | Enrichment | Stack-specific skill identifiers the implementer consults for citations (e.g. `["maui-skills:*"]`). Absent → general docs + repo conventions only. | — |
 | `nonNegotiables` | string[] | Enrichment | Hard constraints the implementer must honour (framework versions, platform targets). Absent → none recorded. | — |
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
 
 **Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability (e.g. `e2eEnv`, or a dedicated `screenshotCmd` if a consumer supplies one). When that capability is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](../README.md#the-layered-gating-model) for the three-layer model these keys participate in.
+
+**Note on `versioning` and version-free mode.** Default (absent or `true`) is **versioned**: `solve-milestone` determines a target version from the milestone, and each issue's PR bumps `.claude-plugin/plugin.json` to it (`solve-issue` step 6.4). Set `versioning: false` for a repo that does not keep its version in `plugin.json` (or does not want a per-PR bump) — **version-free mode**: `solve-milestone` skips target-version determination entirely (no semver parse, no prompt; the milestone name need not be a version), `solve-issue` skips the bump, and the PR's Code Review section is annotated "version-free — no version bump." **Fail-safe degradation:** in versioned mode, if `.claude-plugin/plugin.json` does not exist, the run **does not fail** — `solve-issue` step 6.4 degrades to version-free with a one-line logged note. So the worst case for a misconfigured versioned repo is a skipped bump, never a halted run.
 
 ## Minimal example (Core keys only)
 
@@ -74,6 +78,7 @@ The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewA
   "protectedBranch": "master",
   "sourceGlobs": ["PrayerApp/**", "PrayerApp.Tests/**"],
   "uiSurfaceGlobs": ["PrayerApp/Views/**", "**/*.xaml"],
+  "versioning": false,
   "unitTestCmd": "dotnet test PrayerApp.Tests/PrayerApp.Tests.csproj",
   "e2eTestCmd": "pwsh ./run-e2etests.ps1",
   "implementerAgent": "milestone-driver:implementer",
@@ -89,7 +94,7 @@ The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewA
 }
 ```
 
-These three keys satisfy the consumer-driven rule above with a real consumer, not speculation: PracticingPrayer (consumer #1) uses `uiSurfaceGlobs` for its XAML views (shown above); `triageAgent` and `designReviewAgent` are auto-filled, so the profile omits them while the bundled triage / visual-review phases consume their defaults.
+These three keys satisfy the consumer-driven rule above with a real consumer, not speculation: PracticingPrayer (consumer #1) uses `uiSurfaceGlobs` for its XAML views (shown above); `triageAgent` and `designReviewAgent` are auto-filled, so the profile omits them while the bundled triage / visual-review phases consume their defaults. PracticingPrayer runs version-free (`versioning: false`) because its version lives in the `.csproj`, not a `plugin.json`, so the loop bumps nothing and its milestones need no semver name.
 
 ## How the gates use the profile
 

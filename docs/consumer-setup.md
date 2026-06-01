@@ -19,6 +19,8 @@ or skip. After writing the file it returns control so the original task continue
 
 You can also run `/milestone-driver:setup` directly at any time to create or repair the profile.
 
+If your repo has no `.claude-plugin/plugin.json` (or you simply don't want a per-PR version bump), set `versioning: false` for **version-free mode**: the loop then needs no semver-named milestone and bumps nothing. Versioned is the default; a versioned repo whose `plugin.json` goes missing degrades to version-free with a logged note rather than failing.
+
 **Manual authoring (fallback):** Create `milestone-driver.json` at the repo root. Only the
 Core keys are required. See [`profile-schema.md`](profile-schema.md) for the full schema.
 Minimal example (Core keys only):
