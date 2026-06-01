@@ -124,9 +124,10 @@ Collect all GAPS across all agent returns for each issue. Aggregate by `lens` / 
 
 Build the **validated dependency graph** from all `DEPENDS_ON` edges:
 
+- Preserve the per-issue edges exactly as returned by each `triageAgent` (before any wave aggregation) — these form the `edges` map in the returned `dependencyGraph` (see Step 7).
 - Merge agent-returned edges with the milestone's declared Wave order.
 - Where an agent finds an undeclared dependency, add it to the graph (and it surfaces as a Blocker in the gap table).
-- Produce the Wave-ordered graph for output.
+- Produce the Wave-ordered graph for output AND maintain the raw per-issue `edges` map alongside it — the calling skill uses `edges` for per-issue buildability checks; `waves` gives ordering and presentation.
 
 ### Step 5 — Output to the user
 
@@ -208,7 +209,11 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
       { wave: 1, issues: [A, B, C], parallel: true },
       { wave: 2, issues: [D], dependsOn: [A, B] },
       …
-    ]
+    ],
+    edges: {
+      "<n>": [<issue numbers this issue directly DEPENDS_ON>],
+      …
+    }
   },
   issueStates: {
     "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, advisories: ["<one-line advisory>", …] },
@@ -217,7 +222,9 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 }
 ```
 
-`blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`. `blockers: false` means it is all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, uses the `label` field to apply the park label via setup Phase 4's apply-time helper, and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph`.
+`dependencyGraph.waves` gives the Wave-ordered sequence for loop ordering and output presentation (unchanged). `dependencyGraph.edges` is the per-issue map: each key is an issue number (as a string) and its value is the array of issue numbers that issue **directly depends on** — preserved from the `triageAgent` `DEPENDS_ON` returns before wave aggregation. An issue with no dependencies has an empty array or is absent from the map. The calling skill uses `edges["<n>"]` for per-issue buildability checks (not wave-level `dependsOn`, which is shared across all wave siblings).
+
+`blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`. `blockers: false` means it is all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, uses the `label` field to apply the park label via setup Phase 4's apply-time helper, and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph.edges`.
 
 ## Severity → effect
 
