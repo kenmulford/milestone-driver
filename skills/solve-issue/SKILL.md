@@ -34,9 +34,9 @@ When found, write an **architecture-aware plan** with full awareness of the code
 **`design-cleared` means a decision was recorded**, not that it is correct or buildable. The orchestrator may still **park** a `design-cleared` issue with `needs design` if the recorded/locked design is internally contradictory or will produce a poor result.
 
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope.
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope. Note: extract/rename issues that touch a widely-shared symbol or component carry ~2–3× the call-site-migration surface of a typical feature issue, so they are more likely to consume both allowed re-dispatches before converging — the "at most 2" cap still applies, and an issue that cannot converge within it parks like any other (orchestrator judgment, not a profile key).
 
-Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, a `USER-FACING CHANGES` block (with `NEW_UI_ELEMENTS: yes|no` and `DESTRUCTIVE_OPS: yes|no`), and **changes left uncommitted**.
+Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, a `USER-FACING CHANGES` block (with `NEW_UI_ELEMENTS: yes|no`, `DESTRUCTIVE_OPS: yes|no`, and `POST_REVIEW_CHANGES: yes|no`), and **changes left uncommitted**.
 
 After verifying the report, apply the following declaration gates:
 
@@ -82,7 +82,7 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
    **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
 
    **After a fix, before committing:**
-   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review.
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review. `POST_REVIEW_CHANGES: yes` is the implementer's machine-checkable signal that its edits were review-driven and the re-review is due; any `sourceGlobs` change independently triggers the re-review as a backstop, so a re-dispatch that changed source is always re-reviewed even if the field is `no`.
    - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` no-ops on doc-only, and `/code-review` need not be re-run for a doc-only fix).
    - **No in-scope findings:** commit directly.
 
