@@ -25,9 +25,29 @@ while IFS= read -r f; do
   [ "$touched" = "1" ] && break
 done < <(git -C "$project_dir" diff --cached --name-only 2>/dev/null)
 [ "$touched" = "0" ] && exit 0
+# --- stamp-skip: skip re-running the suite when staged tree is identical to last green run ---
+stamp_path="$project_dir/.milestone-driver-tests-stamp"
+stamp_key=""
+branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+tree_sha="$(git -C "$project_dir" write-tree 2>/dev/null)"
+if [ $? -eq 0 ] && [ -n "$tree_sha" ]; then
+  branch="${branch%$'\r'}"; tree_sha="${tree_sha%$'\r'}"
+  stamp_key="${branch}:${tree_sha}"
+  if [ -f "$stamp_path" ] && [ "$(cat "$stamp_path" 2>/dev/null | tr -d '\r\n')" = "$stamp_key" ]; then
+    echo "milestone-driver: staged tree unchanged since last green run — skipping unit suite." >&2
+    exit 0
+  fi
+fi
+# --- end stamp-skip ---
 echo "milestone-driver: staged source changed — running unit suite ($unit_cmd) ..." >&2
 if ! ( cd "$project_dir" && eval "$unit_cmd" ) >&2; then
+  # Clear stale green stamp so a red run never grants a future skip.
+  [ -f "$stamp_path" ] && rm -f "$stamp_path"
   echo "milestone-driver: unit tests failed — commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override." >&2
   exit 2
+fi
+# Write stamp on green (best-effort — failure does not fail the hook).
+if [ -n "$stamp_key" ]; then
+  printf '%s' "$stamp_key" > "$stamp_path" 2>/dev/null || true
 fi
 exit 0
