@@ -102,11 +102,24 @@ These three keys satisfy the consumer-driven rule above with a real consumer, no
 |---|---|
 | `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
 | `no-bom` (PreToolUse `Write`/`Edit`/`MultiEdit`) | none (content byte-check; reads no profile keys) |
-| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `sourceGlobs` |
+| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `sourceGlobs`; see stamp-skip note below |
 | `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
 | `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.
+
+**`tests-green` stamp-skip.** When `unitTestCmd` is set, `tests-green` maintains a
+gitignored `.milestone-driver-tests-stamp` file at the repo root. The stamp holds a
+`<branch>:<treeSHA>` key where `treeSHA` is the output of `git write-tree` (the
+current staged/index tree). On each qualifying commit, if the stamp exists and its key
+matches, the hook logs `staged tree unchanged since last green run — skipping unit suite`
+and exits 0 without re-running the suite. On any red run the stamp is deleted so it can
+never grant a future skip. If `git write-tree` fails the hook falls back to running the
+full suite (safe default). The stamp is keyed on tree content, not wall-clock time, so a
+slow suite retains its skip indefinitely for the same staged tree; switching branches
+invalidates the skip because the branch is part of the key. The key is the staged
+(index) tree, so the skip means the content being committed is unchanged since it last
+passed; unstaged working-tree edits are not re-validated by the skip.
 
 > **Enforcement model for `/code-review`:** Review-before-commit is enforced by **audit trail, not a hook**. The plugin ships no PreToolUse hook for code review (see `hooks/hooks.json` — the shipped gates are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`; none reviews code). Enforcement is twofold: (1) `solve-issue` treats omission as a **park trigger** — it comments the reason on the issue, applies the `blocked` label, and returns (the milestone loop continues); the omission is never silently accepted — and (2) the PR body requires a mandatory `## Code Review` section whose absence is a visible defect on PR review. Consumers should inspect the Code Review section as part of their release checklist before approving the `integrationBranch` → `protectedBranch` merge.

@@ -28,6 +28,21 @@ if (-not $globs) { $touched = $true } else {
     }
 }
 if (-not $touched) { exit 0 }
+# --- stamp-skip: skip re-running the suite when staged tree is identical to last green run ---
+$stampPath = Join-Path $projectDir '.milestone-driver-tests-stamp'
+$branch = git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
+$treeSHA = git -C $projectDir write-tree 2>$null
+if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
+    $branch = ([string]$branch).Trim(); $treeSHA = ([string]$treeSHA).Trim()
+    $key = "${branch}:${treeSHA}"
+    if ((Test-Path $stampPath) -and ((([string](Get-Content $stampPath -Raw -ErrorAction SilentlyContinue)) -replace '[\r\n]', '') -eq $key)) {
+        [Console]::Error.WriteLine("milestone-driver: staged tree unchanged since last green run — skipping unit suite.")
+        exit 0
+    }
+} else {
+    $key = $null  # write-tree failed — fall through, no stamp read/write
+}
+# --- end stamp-skip ---
 [Console]::Error.WriteLine("milestone-driver: staged source changed — running unit suite ($unitCmd) ...")
 # Reset first so a pure-PowerShell unitTestCmd (no native exe) can't inherit a
 # stale exit code; capture output and SNAPSHOT the exit code immediately (a
@@ -41,7 +56,13 @@ try {
     $testOutput | ForEach-Object { [Console]::Error.WriteLine($_) }
 } finally { Pop-Location }
 if ($testCode -ne 0) {
+    # Clear stale green stamp so a red run never grants a future skip.
+    if (Test-Path $stampPath) { Remove-Item $stampPath -ErrorAction SilentlyContinue }
     [Console]::Error.WriteLine("milestone-driver: unit tests failed — commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
     exit 2
+}
+# Write stamp on green (best-effort — failure does not fail the hook).
+if ($null -ne $key) {
+    try { [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false)) } catch {}
 }
 exit 0

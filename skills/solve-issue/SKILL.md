@@ -12,9 +12,29 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 ## Before starting
 
 1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
-2. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
-3. Cut a feature branch for the issue from `integrationBranch` (e.g. `issue/<n>-<slug>`).
+2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). If the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected and must **not** be stashed or discarded before the probe runs; skip the clean-tree enforcement and proceed to step 3 immediately.
+3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
+   - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):
+     - **merged** → the work is already integrated; do **not** re-implement or open a new PR; **resume at step 9** (confirm the issue is closed / close it). A merged PR means the branch was deleted — this state is reached when a run is interrupted after the merge but before the issue is closed.
+     - **open** → check out that branch; **resume at the visual-review gate / auto-merge (steps 7–8)** — do **not** re-implement and do **not** open a second PR. (The open PR is the authoritative "work is built and submitted" signal.)
+   - **(b) No PR; branch `issue/<n>-*` exists (local or remote) with commits ahead of `integrationBranch`**: check both local and remote refs (`git branch -a --list "*issue/<n>-*"` or `git ls-remote --heads origin "issue/<n>-*"`); track the remote branch if no local branch exists (`git checkout --track origin/issue/<n>-<slug>`). Compute commits ahead against the remote-tracking ref if no local branch was present. Implementation is already present, so **skip re-implementation**. **Re-verify first** — if `unitTestCmd` is defined, run it and confirm green; if absent (no test layer), confirm the branch diff is non-empty and based on `integrationBranch` (`git diff <integrationBranch>...HEAD --stat`). Then **resume at step 6.1 (`/code-review`)** and follow step 6's normal flow from there (commit only if there are uncommitted changes, push, open PR) — review may not have run yet and is never skipped; if `/code-review` triggers a fix, the re-review and re-push cycle in step 6 applies normally. A red re-verify (or a diff that is empty / clearly on the wrong base) is not a special case: fall into the normal step-4 red-suite path (re-dispatch the implementer, existing "at most 2" cap; park if non-converging).
+   - **(c) No PR; no commits ahead; but the issue branch `issue/<n>-*` is checked out with uncommitted changes** (the implementer left work uncommitted — the normal implementer contract): do **not** clobber; re-verify (same re-verify rule as (b)); **resume at step 6.1 (`/code-review`)** and follow step 6's normal flow. This is best-effort: it only recovers when the working tree is preserved in-place (in-place re-dispatch); a fresh clone with no preserved working tree has no uncommitted changes and falls to (d).
+   - **(d) Otherwise (no branch, no PR, clean tree):** cut a fresh feature branch from `integrationBranch` (e.g. `issue/<n>-<slug>`) — cold start, dispatch the implementer (### 3. Dispatch the implementer).
+
+   This derives resume-state entirely from git + gh; there is no checkpoint file to maintain, drift, or delete.
 4. Create one TodoWrite item per numbered step below. Work them in order — do not skip or reorder.
+
+### Resuming an interrupted run
+
+| Detected state (from git + gh) | Resume at |
+|---|---|
+| Merged PR for `issue/<n>-*` | Step 9 (confirm/close the issue — work is already integrated) |
+| Open PR for `issue/<n>-*` | Step 7 (visual-review gate) → step 8 (auto-merge for non-UI) |
+| No PR; branch + commits ahead of `integrationBranch` (local or remote) | Step 6.1 (`/code-review`) after re-verify; follow step 6's normal flow: commit only if uncommitted, push, open PR |
+| No PR; no commits ahead; issue branch checked out with uncommitted changes | Step 6.1 (`/code-review`) after re-verify; follow step 6's normal flow (best-effort: in-place re-dispatch only) |
+| No branch, no PR, clean tree | Cold start: cut `issue/<n>-<slug>` from `integrationBranch`, dispatch implementer (### 3. Dispatch the implementer) |
+
+On the "no PR, branch/uncommitted-changes" paths, commit **only if there are uncommitted changes**; if the work is already committed, skip straight to push + PR. Never skip `/code-review`; if `/code-review` triggers a fix, the re-review and push cycle in step 6 applies normally.
 
 ## The procedure
 
@@ -34,9 +54,9 @@ When found, write an **architecture-aware plan** with full awareness of the code
 **`design-cleared` means a decision was recorded**, not that it is correct or buildable. The orchestrator may still **park** a `design-cleared` issue with `needs design` if the recorded/locked design is internally contradictory or will produce a poor result.
 
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope.
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope. Note: extract/rename issues that touch a widely-shared symbol or component carry ~2–3× the call-site-migration surface of a typical feature issue, so they are more likely to consume both allowed re-dispatches before converging — the "at most 2" cap still applies, and an issue that cannot converge within it parks like any other (orchestrator judgment, not a profile key).
 
-Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, a `USER-FACING CHANGES` block (with `NEW_UI_ELEMENTS: yes|no` and `DESTRUCTIVE_OPS: yes|no`), and **changes left uncommitted**.
+Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, a `USER-FACING CHANGES` block (with `NEW_UI_ELEMENTS: yes|no`, `DESTRUCTIVE_OPS: yes|no`, and `POST_REVIEW_CHANGES: yes|no`), and **changes left uncommitted**.
 
 After verifying the report, apply the following declaration gates:
 
@@ -82,7 +102,7 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
    **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
 
    **After a fix, before committing:**
-   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review.
+   - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review. `POST_REVIEW_CHANGES: yes` is the implementer's machine-checkable signal that its edits were review-driven and the re-review is due; any `sourceGlobs` change independently triggers the re-review as a backstop, so a re-dispatch that changed source is always re-reviewed even if the field is `no`.
    - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` no-ops on doc-only, and `/code-review` need not be re-run for a doc-only fix).
    - **No in-scope findings:** commit directly.
 

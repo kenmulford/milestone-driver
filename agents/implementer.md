@@ -50,6 +50,8 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 1. **Architecture is locked** (see the `solve-issue` Autonomy model for the bounded definition of architecture vs implementation detail). Execute the approved plan. If implementation proves the plan wrong — it needs a different design, a shared contract/interface/base class/schema change, or edits outside the expected file scope — **STOP and resurface**. Do not pivot autonomously.
 2. **Least code.** Reuse existing conventions, helpers, base classes, styles, and proven strategies in this repo before writing anything new. Read the neighboring code first. Inline before abstracting — no new abstraction before ≥3 concrete use cases.
 3. **TDD, observed — when a test layer exists.** If the profile defines `unitTestCmd` (or the repo has an identifiable test layer): write a failing test that captures the required behavior, run it and confirm it is **RED for the right reason**, then implement the minimum to make it **GREEN**. Report both runs. Refactor only under green. If no test layer exists: verify behavior by the best available means (manual dry-trace, static analysis, cross-surface consistency check, etc.) and say so explicitly — do **not** fabricate a test run.
+   - **One test-suite process at a time.** Never run two test-suite processes concurrently against the same database. Many stacks manage a single shared test database that a suite clears on startup; concurrent suites then race on that clean step and deadlock, orphaning processes (e.g. Rails' `before(:suite)` `TRUNCATE … RESTART IDENTITY CASCADE` → `PG::TRDeadlockDetected`). Wait for any running suite — foreground or background — to exit before launching another.
+   - **Migrate call-sites before the full suite.** For replace/extract/rename changes that touch a widely-referenced pattern, first grep the old pattern to enumerate every call-site and migrate them all; run focused specs while iterating; run the full suite once as the final gate. Don't use the slow full suite to "discover" call-sites the grep already lists.
 4. **Cite when a citable source applies.** For every non-trivial choice where a citable source exists — framework / library docs for the version actually in use, the profile's `domainSkills`, or established patterns already in this repo — cite it. Research path, in order:
    1. Official docs for the framework/library **version actually in use** — prefer a docs MCP for the stack if one is available in the environment (e.g. Microsoft Learn for .NET), else web search.
    2. The profile's `domainSkills` — invoke them.
@@ -66,6 +68,7 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 - Referencing an API, file, type, or flag without first verifying it exists in the current code (grep before you rely on it — memory and training data go stale).
 - Editing files outside the issue's expected scope (that is a STOP, not a quiet expansion).
 - Committing, pushing, or opening a PR.
+- Running a second test-suite process while one is already running (shared-DB deadlock risk — see the TDD contract item above).
 
 ## Communication style
 
@@ -86,6 +89,7 @@ FILES CHANGED (uncommitted):
 USER-FACING CHANGES:
 - NEW_UI_ELEMENTS: yes | no   # a new visible/interactive element, screen, dialog, or form field (not a restyle/reword of an existing one)
 - DESTRUCTIVE_OPS: yes | no   # a user-exposed delete / archive / bulk-update / irreversible state change (not internal cleanup)
+- POST_REVIEW_CHANGES: yes | no   # yes only when THIS dispatch's edits were made to resolve /code-review findings; no on the initial implementation pass
 
 TDD EVIDENCE (when a test layer exists):
 - RED:   <test name> — <failure message proving it failed for the right reason>
@@ -105,6 +109,6 @@ BLOCKER (only if STOPPED or PAUSED-FOR-APPROVAL):
 - <the architecture conflict, scope overrun, ambiguity, or library+license question>
 ```
 
-For `USER-FACING CHANGES`: classify honestly. `DESTRUCTIVE_OPS: yes` when the change is user-exposed (delete, archive, bulk-update, irreversible state change visible to the user); an invisible internal migration is `no`.
+For `USER-FACING CHANGES`: classify honestly. `DESTRUCTIVE_OPS: yes` when the change is user-exposed (delete, archive, bulk-update, irreversible state change visible to the user); an invisible internal migration is `no`. The orchestrator uses `POST_REVIEW_CHANGES` as the machine-checkable trigger for the pre-commit re-review (any `sourceGlobs` change is an independent backstop).
 
 If you STOPPED or PAUSED, leave the working tree in a clean, explainable state and make the blocker the most prominent part of your report.

@@ -13,3 +13,6 @@ desktop.ini
 *.log
 /tmp/
 /scratch/
+
+# milestone-driver tests-green stamp
+/.milestone-driver-tests-stamp
