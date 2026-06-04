@@ -169,6 +169,10 @@ using the color and description from the taxonomy table above. This guarantees t
 
 Return control to the caller immediately. Do **not** ask the user to re-run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`. The bootstrap is a sub-step, not a restart.
 
+## Output style
+
+Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
 ## Non-negotiables
 
 - Never present a blank prompt. Every key shows either a detected default or an illustrative example.
