@@ -12,6 +12,26 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 ## Before starting
 
 1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+   1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** the marker file `.milestone-driver-preflight-notice` does **not** exist at the repo root, print the notice below verbatim, then create the marker (`touch .milestone-driver-preflight-notice`). Stay **silent** if `preflightCmd` is set **or** the marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-driver-tests-stamp`).
+
+      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+      ```text
+      ▶ New in 1.4.0 — optional preflight check (one-time notice)
+
+      | What | Tell milestone-driver the command your CI uses for FAST checks
+      |      | (lint, format, static analysis, security scan).
+      | Why  | It runs that locally before opening the PR, so those checks are
+      |      | caught and fixed up front instead of turning your PR red later.
+      | How  | Add "preflightCmd" to milestone-driver.json. Optional — skip it
+      |      | and nothing changes.
+
+      Examples:
+      | Stack        | preflightCmd                                   |
+      | Ruby/Rails   | bundle exec standardrb && bundle exec brakeman -q |
+      | Node/TS      | npm run lint                                    |
+      | Any w/ pre-commit | pre-commit run --all-files                 |
+      | Makefile     | make lint                                       |
+      ```
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). If the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected and must **not** be stashed or discarded before the probe runs; skip the clean-tree enforcement and proceed to step 3 immediately.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):

@@ -16,3 +16,6 @@ desktop.ini
 
 # milestone-driver tests-green stamp
 /.milestone-driver-tests-stamp
+
+# milestone-driver first-run preflight notice marker (per-clone, one-time)
+/.milestone-driver-preflight-notice
