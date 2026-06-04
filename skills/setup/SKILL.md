@@ -27,6 +27,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Repo layout | List top-level dirs + key files: `package.json`, `*.sln`, `*.csproj`, `Makefile`, `pyproject.toml`, `Cargo.toml` |
 | Unit test command | `package.json` → `.scripts.test`; presence of test `.csproj`; `Makefile` targets `test`; `pyproject.toml` `[tool.pytest]`; `Cargo.toml` |
 | E2E test indicators | Presence of Appium config, Playwright config (`playwright.config.*`), Selenium project, `run-e2etests.*` script |
+| Preflight (fast pre-PR checks) command | `.pre-commit-config.yaml` present → `pre-commit run --all-files`; `package.json` `.scripts.lint` → `npm run lint`; `Makefile` `lint`/`check` target → `make lint` / `make check` |
 | Stack signals | Language/framework files for `domainSkills` mapping (see table below) |
 | Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` (version-free) |
 | Existing profile | Read `milestone-driver.json` if present — pre-fill any already-set keys |
@@ -44,7 +45,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Release → Enrichment**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Preflight → Release → Enrichment**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -74,6 +75,12 @@ Present keys in these tiers: **Core → Testing → E2E → Release → Enrichme
 |---|---|---|
 | `e2eTestCmd` | "What command runs your end-to-end / UI tests?" | Skip → "No E2E gate." |
 | `e2eEnv` | "What device/endpoint should the E2E runner target? (e.g. `{\"endpoint\":\"127.0.0.1:4723\",\"device\":\"Android emulator (AVD)\"}` for Appium)" | Skip → "No E2E environment recorded." |
+
+**Tier: Preflight** (optional; present the inferred candidate, or an example such as `pre-commit run --all-files` if none was detected)
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `preflightCmd` | "What command runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`)" | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
 **Tier: Release** (optional; default inferred from the `.claude-plugin/plugin.json` presence signal — present → versioned, absent → suggest `versioning: false`)
 
