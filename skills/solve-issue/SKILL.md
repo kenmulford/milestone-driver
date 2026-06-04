@@ -11,7 +11,27 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 
 ## Before starting
 
-1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+   1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** the marker file `.milestone-driver-preflight-notice` does **not** exist at the repo root, print the notice below verbatim, then create the marker (`touch .milestone-driver-preflight-notice`). Stay **silent** if `preflightCmd` is set **or** the marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-driver-tests-stamp`).
+
+      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+      ```text
+      ▶ New in 1.4.0 — optional preflight check (one-time notice)
+
+      | What | Tell milestone-driver the command your CI uses for FAST checks
+      |      | (lint, format, static analysis, security scan).
+      | Why  | It runs that locally before opening the PR, so those checks are
+      |      | caught and fixed up front instead of turning your PR red later.
+      | How  | Add "preflightCmd" to milestone-driver.json. Optional — skip it
+      |      | and nothing changes.
+
+      Examples:
+      | Stack        | preflightCmd                                   |
+      | Ruby/Rails   | bundle exec standardrb && bundle exec brakeman -q |
+      | Node/TS      | npm run lint                                    |
+      | Any w/ pre-commit | pre-commit run --all-files                 |
+      | Makefile     | make lint                                       |
+      ```
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). If the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected and must **not** be stashed or discarded before the probe runs; skip the clean-tree enforcement and proceed to step 3 immediately.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):
@@ -107,6 +127,11 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
    - **No in-scope findings:** commit directly.
 
    **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **park** the issue: comment the current diff state on the issue, apply `needs design` or `blocked` as appropriate (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A review that won't converge usually means the plan is wrong.
+
+   **Preflight gate (after the `/code-review` resolve loop converges, before version bump/commit).** Once the `/code-review` loop above has converged, run the profile's `preflightCmd` in the repo root — the consumer-named fast pre-PR checks (lint / format / static analysis / security scan). Skip cleanly if `preflightCmd` is absent (exactly like `unitTestCmd`/`e2eTestCmd` absent). Capture real output, never assert. This mirrors the unit gate (step 4); it is positioned here as the concluding action of 6.1 rather than as a numbered sibling step so the `6.1 … 6.9` ordinals (and their internal + external cross-references) stay fixed.
+   - **Non-zero exit → gate failure → re-dispatch the implementer** with the failing command + its captured output. A source-changing fix re-runs `unitTestCmd` if defined (skip if absent), re-runs `/code-review` (honoring the "fresh review is the last action before commit" rule above), and re-runs `preflightCmd`.
+   - **Cap: at most 2 implementer re-dispatches** on a failing preflight gate. If `preflightCmd` is still non-zero after the 2nd re-dispatch, **park `blocked`**: comment on the issue describing what failed and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. Park-don't-prompt, consistent with every other gate.
+   - A non-converging preflight gate usually means the plan is wrong (see Autonomy).
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
 3. **Assemble the Code Review section** for the PR body — the evidence half of the audit trail (the Decision Log records *why* a choice was made; the Code Review section records *what review found* and how it was cleared). Record: whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered park). If a run returned zero findings, state that with the run's effort level. **Absence of this section on a PR is a visible defect on PR review.** Use this template in the PR body:
 
@@ -169,6 +194,10 @@ A change is **architecture** (→ park) if it touches any of: a component or dat
 | Moving data ownership from ViewModel A to Service B | Architecture | Park |
 
 **Audit trail (always):** a Decision Log on every PR, a **Code Review** section recording every `/code-review` run and its findings/resolutions, and a `judgment call` label on borderline calls, so post-run PR review surfaces every judgment.
+
+## Output style
+
+Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
 
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only — never `protectedBranch`.

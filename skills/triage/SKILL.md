@@ -233,6 +233,10 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 | **Blocker** | Parks the issue (triage comments + recommends the label; the caller applies it via setup Phase 4 and leaves it open); the loop continues with clean issues |
 | **Advisory** | Logged in the gap table and output; not gating; build proceeds |
 
+## Output style
+
+Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
 ## Non-negotiables
 
 - **Authors no code.** Never edits a source file, never creates a branch, never opens a PR.

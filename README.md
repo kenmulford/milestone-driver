@@ -94,11 +94,23 @@ A parked issue carries exactly one *blocker* label (`blocked` / `needs design` /
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
+## Preflight (optional, CI-parity-lite)
+
+An optional, consumer-named `preflightCmd` runs your repo's fast pre-PR checks (lint / format / static analysis / security scan) locally during a run. **CI stays the authority** — your CI runs these on the PR regardless, so preflight catches nothing CI would miss. Its only value is moving a red result earlier, before the PR, so a lint/static/security failure is caught and fixed up front instead of turning the PR red and costing a fix → push → wait round trip.
+
+Where it slots: the concluding action of `solve-issue` step 6.1 — after the `/code-review` resolve loop converges, and before the version bump and commit. It behaves like the unit gate (step 4): a non-zero exit re-dispatches the implementer with the failing command + output (its own "at most 2" cap), and a non-converging gate parks the issue `blocked`. When `preflightCmd` is absent the gate is skipped cleanly.
+
+This is a **procedural (skill-level) gate, not a mechanical `PreToolUse` hook** — it is not one of the four hooks in [The mechanical gates](#the-mechanical-gates). See [`docs/profile-schema.md`](docs/profile-schema.md) for the `preflightCmd` key.
+
 ## The skills
 
 - **`/milestone-driver:solve-milestone <name>`** — triages the whole milestone for design gaps + dependency order (Phase 0), then iterates the buildable issues by the validated dependency graph, running `/milestone-driver:solve-issue` on each; auto-merges logic-only issues to the integration branch on green (UI issues open a PR for your visual sign-off), and re-syncs before the next dependent issue. Runs unattended; **parks** blocked/gapped issues and continues with clean ones — only a systemic failure ends the run early.
 - **`/milestone-driver:solve-issue <n>`** — the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself): single-issue triage, root-cause-or-park, implementer dispatch, unit + E2E gates, code review, PR, and auto-merge (or the visual-review hold for UI issues). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline.
 - **`/milestone-driver:triage <milestone | issue>`** — the standalone Layer-0 review phase: emits an all-clear or a gap table and posts a blocker summary on each affected issue, without building anything. Invoked automatically by the two skills above; runnable on its own to pre-flight a milestone.
+
+### Output style
+
+The skills and agents follow a concise, tabular output norm: status and outcomes are stated flatly, steps / gates / lists / options are presented as tables rather than inline prose, and any item that needs a human is marked with 🔴.
 
 ## Requirements
 
