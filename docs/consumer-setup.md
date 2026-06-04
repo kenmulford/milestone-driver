@@ -64,6 +64,20 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
 To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
+## Releasing to your protected branch
+
+The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it). When the integration branch is ready to ship:
+
+1. **Merge** `integrationBranch` → `protectedBranch` yourself (open the PR by hand).
+2. **Tag and cut the GitHub Release** on `protectedBranch`, so the Releases page tracks what shipped:
+   ```
+   gh release create v<version> --target <protectedBranch> --generate-notes
+   ```
+   In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to; `--generate-notes` builds the changelog from the PRs since the previous tag. Version-free repos can tag the date or skip this.
+3. **Deploy** on your own schedule.
+
+Cut the Release (step 2) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
+
 ## Verify the gates
 
 | Test | Expected |
