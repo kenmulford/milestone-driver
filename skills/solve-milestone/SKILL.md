@@ -110,6 +110,26 @@ The loop **never waits on a human**. It runs to completion — every issue is ei
 
 In **versioned mode** the **first issue's PR** sets `plugin.json` to the target version. Every subsequent issue's PR is **idempotent** — if `plugin.json` already carries the target version, the version bump step in `solve-issue` makes no change. In **version-free mode** (`versioning: false`) no PR carries a version change at all.
 
+### Parallelizable-set selection (parallel mode)
+
+This subsection applies **only** to `--parallel` mode (#72, not yet built). The sequential loop above is **unchanged** — sequential processing builds issues one at a time in dependency-graph order, and nothing here alters that path. This subsection defines **only** which set a parallel orchestrator may dispatch concurrently; it consumes triage's existing outputs and adds no new behavior to the default run.
+
+**The parallelizable set.** From the issues in the current Wave, an issue belongs to the parallelizable set **iff both** hold:
+
+- it is **buildable this pass** — the three conditions **(a)/(b)/(c)** already defined above (every issue in `dependencyGraph.edges["<n>"]` merged to `integrationBranch`; no live blocker label; `issueStates[n].blockers == false`); **AND**
+- it carries **no `dependencyGraph.edges["<n>"]` edge to another issue currently in the same candidate set** (mutual independence).
+
+In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive buildability here — it is exactly the (a)/(b)/(c) definition the sequential loop already uses; this subsection only adds the intra-set independence guard.)
+
+**Why the intra-set edge check is a guard, not the workhorse.** Within a single Wave the issues are already mutually independent by construction — that is how triage forms a Wave — so in the common case the intra-set edge check excludes nothing. Its real job is the **shared-file-but-not-a-build-dependency** case: two same-Wave issues whose files overlap are **not** a build-time dependency (their files are disjoint *at build*), so triage draws **no `DEPENDS_ON` edge** between them and they correctly stay in the set. That overlap surfaces only **at merge**, where the orchestrator-owned **serial verified merge tail** (#73) reconciles it (git's `ort` strategy auto-resolves non-overlapping edits to the same file). Field-validated: two issues each appended a distinct child route to the same `app.routes.ts` — no `DEPENDS_ON` edge, both built concurrently, and the two non-overlapping additions auto-merged in the serial tail.
+
+**Worked example.** A Wave holds buildable issues #A, #B, #C (deps merged, unparked, this-run triage-clean), and `dependencyGraph.edges` shows none of them depends on another → the parallelizable set is **{#A, #B, #C}**, dispatched concurrently (one `solve-issue --worker` each).
+
+- **Guard via buildability (the common exclusion).** A later pass surfaces #D with no live block and `issueStates["D"].blockers == false`, but `edges["D"]` still names an unmerged #B. #D fails condition (a) → it is **not buildable**, so it is excluded — by the existing buildability definition, before the intra-set check even runs.
+- **Guard via the shared-file case (what the edge check is actually for).** Suppose #A and #B both edit `app.routes.ts` but neither has a `DEPENDS_ON` edge to the other. They **stay in the set** and build concurrently; their same-file overlap is reconciled by the merge tail (#73), **not** by excluding either from the set.
+
+**No triage change.** This selection consumes triage's existing `dependencyGraph` (`waves` + `edges`) and `issueStates` outputs **unchanged** — there is no modification to `triage` or `triage-reviewer`. It reads the same graph the sequential loop already drives from.
+
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
 
