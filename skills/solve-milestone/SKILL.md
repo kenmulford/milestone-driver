@@ -115,7 +115,7 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 
 ### Parallelizable-set selection (parallel mode)
 
-This subsection applies **only** to `--parallel` mode (#72, not yet built). The sequential loop above is **unchanged** — sequential processing builds issues one at a time in dependency-graph order, and nothing here alters that path. This subsection defines **only** which set a parallel orchestrator may dispatch concurrently; it consumes triage's existing outputs and adds no new behavior to the default run.
+This subsection applies **only** to `--parallel` mode (#72). The sequential loop above is **unchanged** — sequential processing builds issues one at a time in dependency-graph order, and nothing here alters that path. This subsection defines **only** which set a parallel orchestrator may dispatch concurrently; it consumes triage's existing outputs and adds no new behavior to the default run.
 
 **The parallelizable set.** From the issues in the current Wave, an issue belongs to the parallelizable set **iff both** hold:
 
@@ -138,11 +138,11 @@ In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive b
 This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). **Absent the `--parallel` token / NL trigger, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
 
 - **Phase 1 (this issue, #72)** — concurrent build + barrier. Builds the parallelizable set in a worktree fleet, but **does not integrate**. The barriered green set is held (branches built + pushed) for Phase 2.
-- **Phase 2 (#73, not yet built)** — the **serial verified merge tail**. Integrates the held green set to `integrationBranch` one branch at a time, running the deferred gates (E2E, any server-starting preflight) once against accumulated state.
+- **Phase 2 (#73)** — the **serial verified merge tail**. Integrates the held green set to `integrationBranch` one branch at a time, running the deferred gates (E2E, any server-starting preflight) once against accumulated state. See `### Parallel mode (--parallel) — Phase 2: serial verified merge tail` below.
 
-The parallel path is complete **only once Phase 2 (#73) lands** — Phase 1 alone builds-but-does-not-integrate. Until #73 exists, parallel mode builds the fleet and barriers; integration of the green set is owed to Phase 2.
+The parallel path completes across both phases: Phase 1 builds-but-does-not-integrate and barriers the green set; Phase 2 integrates that green set through the serial verified merge tail.
 
-When active, after Phase 0 triage, process the milestone **Wave by Wave** (same Wave order the sequential loop uses). For each Wave:
+When active, after Phase 0 triage, process the milestone **Wave by Wave** (same Wave order the sequential loop uses). **Each Wave runs to completion across BOTH phases before the next Wave begins:** Phase 2 runs to completion at the end of the Wave — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. This makes a dependent Wave N+1 build on Wave N's integrated result (exactly like the sequential loop), so buildability condition (a) sees Wave N's upstream edges already merged rather than stale pre-Wave-N state. For each Wave:
 
 1. **Compute the parallelizable set.** Per the `### Parallelizable-set selection` subsection above: the set is **buildable ∧ mutually-independent** (the (a)/(b)/(c) buildability conditions plus the intra-set independence guard). An empty set (every Wave issue parked or dependency-held) advances to the next Wave with nothing dispatched.
 
@@ -187,11 +187,26 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
    git worktree remove .milestone-driver-worktrees/issue-<n>
    ```
 
-   A built-green worker has already **pushed its branch** (and, in issue granularity, opened a PR), so its **local worktree is safe to remove at Wave end / run end regardless of Phase 2** — the work is preserved on the remote branch / PR, not in the local worktree. Removing at Wave end / run end (rather than gating cleanup on Phase 2, which does not exist until #73) prevents built-green worktrees from being orphaned in the #72-before-#73 interim, and — together with step 2's pre-clean guard — keeps the next `--parallel` run collision-free. Run `git worktree prune` **best-effort** at Wave end, at run end, and on systemic failure, to clear any stale fleet entries. The scratch dir `.milestone-driver-worktrees/` is gitignored, so the fleet never pollutes the working tree or a commit.
+   A built-green worker has already **pushed its branch** (and, in issue granularity, opened a PR), so its **local worktree is safe to remove at Wave end / run end regardless of Phase 2** — the work is preserved on the remote branch / PR, not in the local worktree. Removing at Wave end / run end (rather than gating cleanup on Phase 2) prevents built-green worktrees from being orphaned, and — together with step 2's pre-clean guard — keeps the next `--parallel` run collision-free. Run `git worktree prune` **best-effort** at Wave end, at run end, and on systemic failure, to clear any stale fleet entries. The scratch dir `.milestone-driver-worktrees/` is gitignored, so the fleet never pollutes the working tree or a commit.
 
-7. **Hand the green set to Phase 2.** The barriered `built-green` set is held (branches built + pushed) and integrated by **Phase 2 — the serial verified merge tail (#73)**. The split is explicit so #73 slots in cleanly: **Phase 1 (this issue) = concurrent build + barrier; Phase 2 (#73) = serial verified merge tail.** Phase 1 performs **no merge to `integrationBranch`** — workers build-but-do-not-merge (#70 Delta 2), and the green set waits at the barrier for Phase 2.
+7. **Hand the green set to Phase 2.** The barriered `built-green` set is held (branches built + pushed) and integrated by **Phase 2 — the serial verified merge tail (#73)**. The split is explicit: **Phase 1 = concurrent build + barrier; Phase 2 (#73) = the serial verified merge tail below.** Phase 1 performs **no merge to `integrationBranch`** — workers build-but-do-not-merge (#70 Delta 2), and the green set waits at the barrier for Phase 2.
 
 **Blast-radius boundary unchanged.** As in sequential mode, workers and the serial tail merge only to `integrationBranch`, **never** `protectedBranch`. Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. **Reaffirmed: absent the `--parallel` token / NL trigger, none of Phase 1 runs and the sequential loop (steps 1–5) is byte-unchanged.**
+
+### Parallel mode (`--parallel`) — Phase 2: serial verified merge tail
+
+This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). It runs **after** Phase 1's barrier, consuming the barriered `built-green` handbacks. **Phase 2 runs to completion at the end of each Wave** — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. A dependent Wave therefore always builds on the prior Wave's integrated result, exactly as the sequential loop guarantees. **Parked** workers are excluded — Phase 1 already omitted them, with branch + label + comment intact. **UI built-green issues are also NOT merged here** — they are held open with the `needs review` label (the Layer-2 visual gate, `solve-issue` step 7, unchanged). The tail integrates **only the non-UI built-green branches**.
+
+**Run on the main working tree** (not in a worktree), over the built-green non-UI branches in **ascending-issue order**. **Force-free by default (merge-in — no history rewrite).** The **integration target advances after each merge**, so two same-Wave siblings that touch overlapping files are re-verified against each other — restoring the "every increment tested against accumulated state" guarantee that naive concurrent merging throws away. For each such branch:
+
+1. **Merge the integration target INTO the worker branch.** `git fetch`, then `git merge <target>` where `<target>` is `integrationBranch` in issue granularity, or the **wave branch** in wave granularity (#75, forward reference — not yet built). This brings accumulated state onto the worker branch as an ordinary merge commit — a **fast-forwardable** push, **no `--force`**.
+2. **Clean merge** → push (fast-forward) → **re-verify against accumulated state**: run `unitTestCmd` if defined, **plus the worker-deferred E2E / port-binding gates** (the gates the worker deferred per #70) — run **once here against accumulated integrated state**, where they are more meaningful. On green → `gh pr merge --squash --delete-branch` → re-sync local `integrationBranch` (`git fetch`, fast-forward). The `--squash` collapses the merge-in commit so the integration target's history stays linear.
+3. **Conflict** → **bounded auto-resolve**: attempt resolution with full-milestone context (git's `ort` strategy already auto-resolves non-overlapping same-file edits — e.g. two siblings each appending a distinct route to the same file), then re-verify. **Resolvable AND green** → proceed to step 2's merge. **Non-trivial / ambiguous OR red** → `git merge --abort`, **park `blocked`** (comment + label + preserve branch), continue with the next branch.
+4. **Clean merge but red re-verify** → **park `blocked`** (the combination is broken; a human decides), continue with the next branch.
+
+**Why merge-in, not rebase + force (field-found).** A history-rewriting push is fragile across consumer safety setups: in a real run, `--force-with-lease` (and the delete-then-fresh-push fallback) were **BLOCKED** by two independent guards — a consumer destructive-command hook that treats the safe `--force-with-lease` like a raw `--force`, and the runtime's destructive-action classifier. A `no-push` hook permitting the push is **necessary but not sufficient** when those other guards stand. **Merge-in gives the identical re-verify guarantee with no history rewrite**, so it is the default. The **rebase + `--force-with-lease` variant stays available** as the allow-list-required alternative — but it **MUST be allow-listed** in the consumer's hooks / destructive-action classifier first.
+
+**Reaffirm the blast-radius boundary:** the serial tail merges only to `integrationBranch`, **never** `protectedBranch`.
 
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
@@ -212,6 +227,8 @@ On completion or systemic-failure halt, report:
 - **Open UI PRs** awaiting human merge: PRs carrying the `needs review` label (UI issues per issue #18 that were built but left open for visual sign-off), listed with their PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section** in their body — flagged, like `judgment call` PRs, as requiring post-run human review before the `integrationBranch` → `protectedBranch` merge.
+- **Auto-resolved-conflict issues** (parallel mode) — issues whose merge conflict the serial verified merge tail **auto-resolved** (bounded auto-resolve) before merging, listed so a human can sanity-check the reconciliation.
+- **Per-Wave parallel-set sizes** (parallel mode) — for each Wave, how many issues built **concurrently** (the parallelizable-set size dispatched that Wave).
 - **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
 - The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` and deploy manually.
 
