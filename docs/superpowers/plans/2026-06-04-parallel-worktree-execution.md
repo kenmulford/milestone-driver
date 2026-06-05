@@ -65,7 +65,7 @@ Worker mode is today's `solve-issue` with **exactly three deltas** — everythin
 
 | Concern | Behavior |
 |---|---|
-| Creation | Worker creates its worktree off the current `integrationBranch` tip. |
+| Creation | Orchestrator creates the worktree off the current `integrationBranch` tip (`git worktree add <path> -b issue/<n>-<slug> <integrationBranch>`) and passes the path to the worker; the worker runs inside it and never cuts its own branch. |
 | Cleanup | Orchestrator removes each worktree after its branch merges or parks (`git worktree remove`), and runs `git worktree prune` best-effort at run end / on systemic failure. |
 | `force-subagent` | `cwd`-relative profile resolution; worker is a subagent → edits allowed ([force-subagent.sh:18-21](../../../hooks/force-subagent.sh)). ✅ fires correctly per-worktree. |
 | `tests-green` | Stamp `.milestone-driver-tests-stamp` is keyed `branch:treeSHA` ([tests-green.sh:31-35](../../../hooks/tests-green.sh)) → a per-worktree stamp is *correct*, not a collision. ✅ |
@@ -88,7 +88,7 @@ The merge-tail mechanism is **unchanged** — only its *target* and the worker's
 |---|---|
 | Worker (#70) | Builds + verifies + commits + pushes its branch, **opens no per-issue PR**; hands the branch back. |
 | Merge tail (#73) | Integrates each branch into the **wave branch** (not `integrationBranch`) via the same merge-in + re-verify + bounded-auto-resolve policy. |
-| Wave PR (#75) | Orchestrator opens **one** PR `wave/<milestone>-w<N>` → `integrationBranch` with `Closes #a #b #c`; on CI green, merges the wave and advances. Auto-merge-on-green moves per-issue → **per-wave**. |
+| Wave PR (#75) | Orchestrator opens **one** PR `wave/<milestone>-w<N>` → `integrationBranch` listing the wave's logic issues; on CI green, squash-merges the wave, then **explicitly `gh issue close`s** the wave's logic issues (the `Closes #…` keyword does **not** fire on a merge to the non-default `integrationBranch`, so the close is an explicit step), and advances. Auto-merge-on-green moves per-issue → **per-wave**. |
 
 **Logic-only carve-out:** the Layer-2 visual gate is per-UI-issue, so a wave PR cannot both auto-merge (logic) and hold open (UI). A wave containing UI issues keeps those **per-issue / held**; only the logic issues join the wave branch.
 
