@@ -61,6 +61,10 @@ Discipline is enforced by local hooks, not by trust. Commits are blocked on red 
 
 The full architecture, the gating model, the label taxonomy, and the mechanical gates live in [docs/architecture.md](docs/architecture.md).
 
+## Parallel mode (optional)
+
+By default the loop builds one issue at a time. Version 1.5.0 adds an opt-in `--parallel` mode that builds the mutually-independent issues within a Wave concurrently, each in its own git worktree, then integrates them through one serial verified merge tail. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each) or per wave (one branch, one PR, and one CI run for the whole Wave). The trade-off is speed and CI cost against failure isolation: parallel and wave granularity finish wider work faster, at the cost of a worktree fleet and coarser isolation when something goes wrong. Both stay off unless you opt in. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to turn them on.
+
 ## Requirements
 
 - The superpowers plugin. The per-issue inner loop is built on it, and it is auto-installed as a dependency on install, provided you have the official marketplace added.
@@ -70,7 +74,7 @@ The full architecture, the gating model, the label taxonomy, and the mechanical 
 
 ## Status
 
-v1.4.0, self-hosted. milestone-driver drives its own releases through its committed `milestone-driver.json`. First external-consumer wiring is in progress.
+v1.5.0, self-hosted. milestone-driver drives its own releases through its committed `milestone-driver.json`. First external-consumer wiring is in progress.
 
 ## Docs
 

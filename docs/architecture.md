@@ -76,6 +76,68 @@ This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It 
 - `/milestone-driver:solve-issue <n>`: the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself): single-issue triage, root-cause-or-park, implementer dispatch, unit plus E2E gates, code review, PR, and auto-merge (or the visual-review hold for UI issues). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline.
 - `/milestone-driver:triage <milestone | issue>`: the standalone Layer-0 review phase: emits an all-clear or a gap table and posts a blocker summary on each affected issue, without building anything. Invoked automatically by the two skills above; runnable on its own to pre-flight a milestone.
 
+## Parallel mode (optional)
+
+By default the milestone loop is sequential: it builds one issue at a time in dependency order, single working tree, no worktrees. Version 1.5.0 adds an opt-in `--parallel` mode that builds the mutually-independent issues within a single Wave concurrently, each in its own git worktree, then integrates them through one orchestrator-owned serial verified merge tail. The default stays sequential; parallel mode is purely additive.
+
+Parallel mode is not a CLI flag the engine parses. Claude Code does no argument parsing, so the mode is recognized when the invocation contains either a `--parallel` token or the natural-language phrase "in parallel". Absent either signal, the sequential path runs unchanged.
+
+### Wave-by-Wave model
+
+Parallel mode reuses the same Phase 0 triage and the same Wave-ordered dependency graph the sequential loop uses, and it processes the milestone Wave by Wave. Each Wave runs to completion before the next Wave begins, so a dependent Wave still builds on the prior Wave's integrated result. Per Wave:
+
+1. Compute the parallelizable set. From the current Wave, an issue is in the set if it is buildable this pass (its dependencies are merged to the integration branch, it carries no live blocker label, and triage found no spec gap) and it is mutually independent of the other issues in the set. In short, the set is buildable and mutually-independent. Within a Wave the issues are already mutually independent by triage's construction, so the independence check is a guard; its real job is the shared-file-but-not-a-build-dependency case (two same-Wave issues whose files overlap but which carry no dependency edge), which the merge tail reconciles later.
+2. Dispatch concurrently in a worktree fleet. The orchestrator owns worktree creation: it creates one git worktree per set issue (under the gitignored scratch dir `.milestone-driver-worktrees/`) and dispatches one `solve-issue --worker` subagent into each. The worker runs inside the provided worktree and never cuts its own branch. Dispatch is capped at 4 concurrent workers (a conservative default, not a profile key); a larger set uses a rolling window so the in-flight count never exceeds 4.
+3. Barrier on the whole set. The Wave does not advance and integration does not begin until every dispatched worker hands back. A worker returns either built-green (branch built, verified, pushed) or parked (the worker handled the park itself, with branch plus label plus comment intact, and is simply excluded from integration).
+
+Worker mode is today's `solve-issue` pipeline with three deltas: it runs in the orchestrator-provided worktree, it builds but does not auto-merge (it returns the branch instead), and it returns a structured handback. Everything else (triage, the root-cause gate, the implementer dispatch, the unit gate, `/code-review`, the version bump, park-don't-prompt, the audit trail, and the at-most-2 re-dispatch cap on every gate) carries over verbatim.
+
+### Serial verified merge tail
+
+Phase 1 builds but does not integrate. Phase 2, the serial verified merge tail, integrates the barriered built-green branches one at a time, in ascending-issue order, on the main working tree. It is force-free by default (merge-in, no history rewrite). For each branch the orchestrator merges the integration target into the worker branch as an ordinary merge commit (a fast-forwardable push, no `--force`), re-verifies against accumulated state (the unit suite if defined, plus the worker-deferred E2E and any server-starting preflight gates, run once here against the integrated result where they are more meaningful), and on green squash-merges the PR. The squash collapses the merge-in commit so the integration target's history stays linear. The integration target advances after each merge, so two same-Wave siblings that touch overlapping files are re-verified against each other, restoring the "every increment tested against accumulated state" guarantee that naive concurrent merging throws away.
+
+Merge-in is the default rather than rebase plus force because a history-rewriting push is fragile across consumer safety setups: a consumer destructive-command hook and the runtime's destructive-action classifier can both block even the safe `--force-with-lease`, and a `no-push` hook permitting the push is necessary but not sufficient when those other guards stand. Merge-in gives the identical re-verify guarantee with no history rewrite. The rebase plus `--force-with-lease` variant stays available, but it must be allow-listed in the consumer's hooks and destructive-action classifier first.
+
+UI issues are not merged by the tail. They are held open with the `needs review` label for human visual sign-off (the Layer-2 visual gate, unchanged). The tail integrates only the non-UI built-green branches.
+
+### Bounded auto-resolve conflict policy
+
+When a merge-in conflicts, the tail applies bounded auto-resolve. Git's `ort` merge strategy already auto-resolves non-overlapping edits to the same file (for example, two siblings each appending a distinct route to the same routes file), and the tail re-verifies the result. A resolvable and green merge proceeds. A non-trivial or ambiguous conflict, or a red re-verify, is not auto-accepted: the tail runs `git merge --abort`, parks the issue `blocked` (comment plus label plus preserved branch), and continues with the next branch. A clean merge that re-verifies red is parked the same way, because the combination is broken and a human decides. The final summary lists every auto-resolved-conflict issue so a human can sanity-check the reconciliation.
+
+### Hooks inside a worktree
+
+The four mechanical gates behave correctly inside a worktree with no worktree-specific configuration:
+
+| Gate | Behavior in a worktree |
+|---|---|
+| force-subagent | A worker is a dispatched subagent, so its edits are already allowed. The profile is a committed file present in every worktree, and the hook resolves it relative to the working directory, so it fires identically per-worktree. |
+| tests-green | The `.milestone-driver-tests-stamp` is keyed `branch:treeSHA`, so a per-worktree stamp is correct, not a collision. Each worktree's branch and tree get their own key. |
+| no-push | Unaffected. It guards only `protectedBranch`; feature-branch pushes from a worktree are allowed. |
+| no-pr-to-protected | Unaffected. The worker opens PRs with `--base <integrationBranch>`, so they pass. |
+
+One per-clone marker becomes per-worktree: the `.milestone-driver-preflight-notice` one-time notice marker is per-clone, so inside a worktree it becomes per-worktree (the notice could print once per worktree). This is acceptable, and the worktree setup can `touch` the marker to suppress it.
+
+### Blast radius is unchanged
+
+Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. As in sequential mode, the workers and the serial tail merge only to the integration branch, never to the protected branch. Release (integration branch to protected branch) and deploy stay manual and human-only.
+
+## Integration granularity (issue vs wave)
+
+`integrationGranularity` is a profile key, `"issue"` or `"wave"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to `--parallel` (which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue or wave granularity, is valid.
+
+`"issue"` (the default) is today's model, unchanged. Each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
+
+`"wave"` integrates a whole Wave on one branch. The merge-tail mechanism is unchanged (merge-in plus re-verify against accumulated state plus bounded auto-resolve); only the target and the PR-opening differ:
+
+- The worker opens no per-issue PR. It builds, verifies, commits, and pushes its branch, then hands the branch back.
+- The orchestrator integrates the Wave's built-green logic branches into a wave branch `wave/<milestone>-w<N>` (N is the Wave number), applying the same merge-tail policy with the wave branch as the integration target, so siblings are re-verified against each other exactly as in the per-issue tail.
+- The orchestrator opens one wave PR to the integration branch and squash-merges it on CI green. Auto-merge-on-green moves from per-issue to per-wave: the whole assembled Wave merges on one green CI run.
+- After the squash-merge the orchestrator explicitly closes the Wave's logic issues with `gh issue close`. A GitHub `Closes #n` keyword auto-closes an issue only when the PR merges into the repository's default branch; the wave PR targets the integration branch, which is typically not the default branch, so the keyword would not fire. The explicit close is the reliable mechanism.
+
+The logic-only carve-out: the visual-review gate is per-UI-issue, so a single wave PR cannot both auto-merge (logic) and hold open (UI). A Wave containing UI issues keeps those per-issue and held, each opening its own `needs review` PR for human visual sign-off, and only the logic issues join the wave branch.
+
+The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave, catching integration-level issues an isolated per-issue build misses. But one red wave-PR CI blocks the whole Wave. That is acceptable because the strong local gates (unit plus static preflight plus `/code-review` plus the tail's re-verify) catch most failures before CI, so CI is the backstop. It is not for repos with weak local gates. As with parallel mode, the wave PR targets the integration branch, never the protected branch.
+
 ## Output style
 
 The skills and agents follow a concise, tabular output norm: status and outcomes are stated flatly, steps / gates / lists / options are presented as tables rather than inline prose, and any item that needs a human is marked with 🔴.
