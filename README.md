@@ -1,6 +1,6 @@
 # milestone-driver
 
-Containerize the development process in the context of git flow.
+Systematize the development process in the context of git flow.
 
 milestone-driver is a Claude Code plugin. A milestone is the largest body of work. Issues go under milestones. You hand it a GitHub milestone and it works the issues to merged PRs, and each issue is solved in a consistent, controlled manner: it triages the design for gaps, finds the root cause, has a subagent write the change test-first, reviews the diff, opens a PR, and merges to your integration branch when CI is green.
 
