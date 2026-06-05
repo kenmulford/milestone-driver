@@ -1,6 +1,7 @@
 ---
 name: solve-milestone
-description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early.
+argument-hint: <milestone-name> [--parallel]
+description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Accepts an optional `--parallel` flag (or the phrase 'in parallel') to build mutually-independent issues within a Wave concurrently in git worktrees.
 ---
 
 # solve-milestone — autonomous driver
@@ -8,6 +9,8 @@ description: This skill should be used when the user invokes "/milestone-driver:
 Drive an entire GitHub milestone to completion by ordering its issues and running `/milestone-driver:solve-issue` on each, integrating to `integrationBranch` between issues. This skill owns **ordering, the loop, branch re-sync, parking, and the final summary**; the full per-issue pipeline — root-cause, implementer dispatch, gates, review, PR, auto-merge on green (non-UI) or visual-review hold (UI), close — is delegated to `/milestone-driver:solve-issue`.
 
 **Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`) and deploy stay manual and human-only. That boundary is what makes unattended operation safe.
+
+**`--parallel` activation (recognized, not parsed).** Claude Code does **no** argument parsing — `$ARGUMENTS` is string-substituted — so this skill is **not** a CLI parser. Parallel mode is **recognized** when the invocation contains **either** a `--parallel` token in `$ARGUMENTS` **OR** the natural-language equivalent ("in parallel"); both route to the same parallel-mode behavior (`### Parallel mode (--parallel) — Phase 1: concurrent worker dispatch` below). **Absent either signal, today's sequential path runs byte-unchanged** — the loop (steps 1–5), the buildability conditions (a)/(b)/(c), and the buildable / not-buildable branches are untouched. Parallel mode is an additive opt-in; the blast-radius boundary above is identical in both modes (workers and the merge tail merge only to `integrationBranch`, never `protectedBranch`).
 
 ## Before starting
 
@@ -129,6 +132,66 @@ In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive b
 - **Guard via the shared-file case (what the edge check is actually for).** Suppose #A and #B both edit `app.routes.ts` but neither has a `DEPENDS_ON` edge to the other. They **stay in the set** and build concurrently; their same-file overlap is reconciled by the merge tail (#73), **not** by excluding either from the set.
 
 **No triage change.** This selection consumes triage's existing `dependencyGraph` (`waves` + `edges`) and `issueStates` outputs **unchanged** — there is no modification to `triage` or `triage-reviewer`. It reads the same graph the sequential loop already drives from.
+
+### Parallel mode (`--parallel`) — Phase 1: concurrent worker dispatch
+
+This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). **Absent the `--parallel` token / NL trigger, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
+
+- **Phase 1 (this issue, #72)** — concurrent build + barrier. Builds the parallelizable set in a worktree fleet, but **does not integrate**. The barriered green set is held (branches built + pushed) for Phase 2.
+- **Phase 2 (#73, not yet built)** — the **serial verified merge tail**. Integrates the held green set to `integrationBranch` one branch at a time, running the deferred gates (E2E, any server-starting preflight) once against accumulated state.
+
+The parallel path is complete **only once Phase 2 (#73) lands** — Phase 1 alone builds-but-does-not-integrate. Until #73 exists, parallel mode builds the fleet and barriers; integration of the green set is owed to Phase 2.
+
+When active, after Phase 0 triage, process the milestone **Wave by Wave** (same Wave order the sequential loop uses). For each Wave:
+
+1. **Compute the parallelizable set.** Per the `### Parallelizable-set selection` subsection above: the set is **buildable ∧ mutually-independent** (the (a)/(b)/(c) buildability conditions plus the intra-set independence guard). An empty set (every Wave issue parked or dependency-held) advances to the next Wave with nothing dispatched.
+
+2. **Create the worktree fleet (orchestrator-owned).** The orchestrator creates **one worktree per set issue** into the gitignored scratch dir `.milestone-driver-worktrees/`:
+
+   ```
+   git worktree add .milestone-driver-worktrees/issue-<n> -b issue/<n>-<slug> <integrationBranch>
+   ```
+
+   **Pre-clean guard (resume-aware: makes fleet creation idempotent / re-runnable without destroying in-progress work).** `git worktree add` hard-fails if either the path `.milestone-driver-worktrees/issue-<n>` or the branch `issue/<n>-<slug>` is a leftover from a prior or interrupted run (`fatal: '…' already exists`, or `fatal: a branch named '…' already exists`), and `git worktree prune` does **not** remove an intact leftover directory. But a leftover branch may carry **real in-progress work** — commits from a worker that was interrupted (or parked) after committing but before pushing. `git branch -D` is a **force** delete that silently discards such unpushed commits, so the guard must **preserve-don't-clobber**: clear only provably-safe leftovers, and **resume** any leftover that carries work. Before each `git worktree add`, decide per leftover branch `issue/<n>-<slug>`:
+   - **No leftover at all (cold case):** `git worktree add .milestone-driver-worktrees/issue-<n> -b issue/<n>-<slug> <integrationBranch>` as shown above.
+   - **Leftover branch carries commits ahead of `integrationBranch` that are not yet pushed/merged** (in-progress work from an interrupted or parked prior run — check with `git rev-list --count <integrationBranch>..issue/<n>-<slug>` and confirm those commits are not on `origin/issue/<n>-<slug>`): do **NOT** `git branch -D`. **Attach a worktree to the existing branch** — `git worktree add .milestone-driver-worktrees/issue-<n> issue/<n>-<slug>` (no `-b`; checks out the existing branch with its commits) — and dispatch the worker against it. The worker's branch-state probe (`solve-issue` resume paths (a)/(b)/(c)) then **resumes** that work instead of losing it. (If a stale worktree **directory** is registered at that path, `git worktree remove --force .milestone-driver-worktrees/issue-<n>` / `git worktree prune` the directory entry first — but the **branch and its commits are preserved**.)
+   - **Leftover is provably safe to discard** — the branch is **0 commits ahead** of `integrationBranch`, **or** already merged, **or** already pushed (its work survives on `origin`): clear it fully — `git worktree remove --force .milestone-driver-worktrees/issue-<n>` (if registered/present), `git worktree prune` (clear stale admin entries), `git branch -D issue/<n>-<slug>` — **then** create fresh with `git worktree add .milestone-driver-worktrees/issue-<n> -b issue/<n>-<slug> <integrationBranch>`.
+
+   This **mirrors** the plugin's resume culture (`solve-issue`'s branch-state probe / resume paths (a)/(b)/(c)): re-running preserves in-progress work and only clears leftovers that are provably safe to discard — never force-deleting a branch that carries unpushed commits.
+
+   The orchestrator owns `git worktree add` (consistent with the #70 worker contract, `solve-issue` Delta 1) — the worker runs **inside** the provided worktree and never cuts its own branch. Use explicit fleet management (`git worktree add -b … / remove / prune`); do **not** lean on generic worktree isolation, which can strand the shared checkout on a stray `issue/<n>` branch and leave worktrees needing prune.
+
+3. **Dispatch concurrently, capped at 4.** Dispatch **one subagent per set issue** running:
+
+   ```
+   /milestone-driver:solve-issue <n> --worker
+   ```
+
+   in worker mode (#70), passing the issue's worktree path. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
+
+4. **Barrier on the whole set.** **Await every dispatched worker's handback** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until the entire set has returned.
+
+5. **Collect handbacks.** Each worker returns the structured handback (#70):
+
+   ```text
+   { issue, status: built-green | parked, branch, worktreePath, prUrl?, isUI, declarations, parkLabel?, parkReason? }
+   ```
+
+   Separate `built-green` from `parked`:
+   - **`built-green`** workers form the green set handed to Phase 2 (branches built + pushed, per-issue PR opened in issue granularity).
+   - **`parked`** workers are **excluded from the merge tail**. The park was already handled inside the worker (park-don't-prompt): its **branch, label, and comment stay intact**. The orchestrator does not re-park or re-label — it simply omits the issue from Phase 2, exactly as the sequential loop excludes a parked issue, signaled through the handback rather than inferred from labels.
+
+6. **Cleanup the fleet.** The orchestrator removes a worktree once it is integrated by Phase 2, **or** its issue parked, **or** at Wave end / run end:
+
+   ```
+   git worktree remove .milestone-driver-worktrees/issue-<n>
+   ```
+
+   A built-green worker has already **pushed its branch** (and, in issue granularity, opened a PR), so its **local worktree is safe to remove at Wave end / run end regardless of Phase 2** — the work is preserved on the remote branch / PR, not in the local worktree. Removing at Wave end / run end (rather than gating cleanup on Phase 2, which does not exist until #73) prevents built-green worktrees from being orphaned in the #72-before-#73 interim, and — together with step 2's pre-clean guard — keeps the next `--parallel` run collision-free. Run `git worktree prune` **best-effort** at Wave end, at run end, and on systemic failure, to clear any stale fleet entries. The scratch dir `.milestone-driver-worktrees/` is gitignored, so the fleet never pollutes the working tree or a commit.
+
+7. **Hand the green set to Phase 2.** The barriered `built-green` set is held (branches built + pushed) and integrated by **Phase 2 — the serial verified merge tail (#73)**. The split is explicit so #73 slots in cleanly: **Phase 1 (this issue) = concurrent build + barrier; Phase 2 (#73) = serial verified merge tail.** Phase 1 performs **no merge to `integrationBranch`** — workers build-but-do-not-merge (#70 Delta 2), and the green set waits at the barrier for Phase 2.
+
+**Blast-radius boundary unchanged.** As in sequential mode, workers and the serial tail merge only to `integrationBranch`, **never** `protectedBranch`. Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. **Reaffirmed: absent the `--parallel` token / NL trigger, none of Phase 1 runs and the sequential loop (steps 1–5) is byte-unchanged.**
 
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.

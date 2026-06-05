@@ -19,3 +19,6 @@ desktop.ini
 
 # milestone-driver first-run preflight notice marker (per-clone, one-time)
 /.milestone-driver-preflight-notice
+
+# milestone-driver parallel-mode worktree fleet scratch dir (per-clone)
+.milestone-driver-worktrees/
