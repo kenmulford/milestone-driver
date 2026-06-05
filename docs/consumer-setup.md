@@ -64,6 +64,48 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
 To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
+## Parallel mode and integration granularity (optional)
+
+These two opt-ins (added in 1.5.0) trade speed and CI cost against failure isolation. Both default off, and they are orthogonal: `--parallel` controls **how** issues build, `integrationGranularity` controls **how** they integrate. You can use either, both, or neither.
+
+### `--parallel`: build a Wave's independent issues concurrently
+
+Opt in per run, not in the profile. Add a `--parallel` token to the invocation, or just say "in parallel":
+
+```
+/milestone-driver:solve-milestone "<name>" --parallel
+```
+
+When active, the run builds the mutually-independent issues within a single dependency Wave at the same time, each in its own git worktree (under a gitignored scratch dir `.milestone-driver-worktrees/`), then integrates them one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-overlapping same-file edits; anything non-trivial or red parks `blocked` for you instead of guessing. Concurrency is capped at 4 workers per Wave.
+
+The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that the sequential path does not. The serial merge tail and the park-on-conflict policy bound that risk, but the sequential default is still the lowest-risk choice. Nothing about the blast radius changes: the workers and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
+
+### `integrationGranularity`: integrate per issue or per wave
+
+Set this in the profile (it is a repo-stable choice, not a per-run flag):
+
+```json
+{ "integrationGranularity": "wave" }
+```
+
+Default `"issue"` is today's model, unchanged: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ. UI issues stay per-issue and held for your visual sign-off even in wave granularity; only the logic issues join the wave branch.
+
+The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
+
+## Releasing to your protected branch
+
+The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it). When the integration branch is ready to ship:
+
+1. **Merge** `integrationBranch` → `protectedBranch` yourself (open the PR by hand).
+2. **Tag and cut the GitHub Release** on `protectedBranch`, so the Releases page tracks what shipped:
+   ```
+   gh release create v<version> --target <protectedBranch> --generate-notes
+   ```
+   In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to; `--generate-notes` builds the changelog from the PRs since the previous tag. Version-free repos can tag the date or skip this.
+3. **Deploy** on your own schedule.
+
+Cut the Release (step 2) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
+
 ## Verify the gates
 
 | Test | Expected |
