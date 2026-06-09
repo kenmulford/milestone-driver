@@ -20,6 +20,8 @@ every clone for the gates to behave identically for every contributor and on CI.
 
 Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); the agent keys `implementerAgent`, `triageAgent`, and `designReviewAgent` are **default-filled** (they default to `milestone-driver:implementer`, `milestone-driver:triage-reviewer`, and `milestone-driver:design-reviewer`) so a profile may omit them. All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
 
+> **Risk classification needs no profile key.** The `light` / `heavy` build profile is computed automatically by triage from observable inputs (gap types, dependency edges, issue labels, body signals) and is label-overridable per issue (`risk:light` / `risk:heavy`). No profile key is required or introduced.
+
 ## Key tiers
 
 | Tier | Keys | Required? |

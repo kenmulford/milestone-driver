@@ -59,6 +59,18 @@ session knows the repo is milestone-driver–driven.
 Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:solve-issue <n>`) runs a gated pipeline. Two phases matter to you as a consumer:
 
 - **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering — through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues — it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
+- **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as **light** or **heavy** (default: **heavy**). The profile right-sizes ceremony — it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
+
+  | What changes | Light | Heavy (default) |
+  |---|---|---|
+  | Implementer verification | Targeted verify in place of full TDD red→green (still verifies — never skips) | Full TDD red→green |
+  | E2E gate | Skipped when the issue touches no UI surface | Per step 5 (UI surface + e2eTestCmd) |
+  | `/code-review` effort | `low` / `medium` | `high` / `xhigh` |
+
+  **Override labels.** Apply `risk:light` or `risk:heavy` to an issue to force the profile directly (bypasses the automatic rubric). When **both** labels are present, `risk:heavy` wins (safety-first). Absent both labels, the rubric decides with default-heavy-on-ambiguity.
+
+  **What the rubric looks at.** Triage classifies an issue as **heavy** when any of the following is true: a gap of type `contradiction` or `not-buildable`; an undeclared `DEPENDS_ON` edge; a UI surface with a design-review need; the issue body names a shared interface, schema, auth path, or payment path; or genuine ambiguity. An issue is **light** only when none of the above heavy conditions is triggered, all triage criteria are clean, and no shared boundary is named.
+
 - **Visual-review gate (post-build, for UI issues).** An issue whose changes touch `uiSurfaceGlobs` is **not** auto-merged. Its PR is opened and left **open** with a `needs review` label for your visual sign-off. If you've configured a render capability (`e2eEnv`, or a `screenshotCmd`), light + dark screenshots of the new surface are attached to the PR; if not, the gate posts a note that a human visual test is required before merge. Either way the PR waits for you — logic-only issues still auto-merge on green.
 - **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority — this just surfaces a red result earlier. Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it — this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-driver-preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 

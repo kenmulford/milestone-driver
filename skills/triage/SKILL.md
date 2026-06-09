@@ -122,6 +122,28 @@ GAPS:
 
 Collect all GAPS across all agent returns for each issue. Aggregate by `lens` / `severity` / `description` / `to_clear` — the `type` tokens differ between the two agents by design; match on the other fields, not `type`.
 
+#### Risk classification
+
+After aggregating gaps for each issue, classify it as **`light`** or **`heavy`** (default **`heavy`** when inconclusive). Store the result in `issueStates[n].risk` (returned at Step 7).
+
+**Operator override labels (checked first).** If the issue carries a `risk:heavy` or `risk:light` label, that label sets the profile directly — skip the observable rubric below. When **both** labels are present, **`risk:heavy` wins** (safety-first).
+
+**Observable rubric (runs only when no override label is present).** All inputs are available at Step 4: gap types from `triageAgent`, the validated `DEPENDS_ON` edges, the `NEEDS_DESIGN_REVIEW` signal, and the issue body.
+
+**Classify as `heavy` when ANY of the following is true:**
+- A triage gap of type `contradiction` or `not-buildable` is present.
+- The `triageAgent` adds an undeclared `DEPENDS_ON` edge (i.e. an edge not declared in the milestone's Wave order).
+- `NEEDS_DESIGN_REVIEW: yes` AND the issue names or touches a UI surface.
+- The issue body names a shared interface, schema, auth path, or payment path.
+- Classification is genuinely ambiguous (default heavy).
+
+**Classify as `light`** only when ALL of the following hold:
+- None of the `heavy` conditions above is triggered.
+- All triage criteria are clean (no Blockers from either lens).
+- The issue body names no shared interface, schema, auth path, or payment path.
+- The `triageAgent` adds no undeclared `DEPENDS_ON` edges.
+- NOT (`NEEDS_DESIGN_REVIEW: yes` AND UI surface).
+
 Build the **validated dependency graph** from all `DEPENDS_ON` edges:
 
 - Preserve the per-issue edges exactly as returned by each `triageAgent` (before any wave aggregation) — these form the `edges` map in the returned `dependencyGraph` (see Step 7).
@@ -216,7 +238,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
     }
   },
   issueStates: {
-    "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, advisories: ["<one-line advisory>", …] },
+    "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, advisories: ["<one-line advisory>", …], risk: "light" | "heavy" },
     …
   }
 }
@@ -225,6 +247,8 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 `dependencyGraph.waves` gives the Wave-ordered sequence for loop ordering and output presentation (unchanged). `dependencyGraph.edges` is the per-issue map: each key is an issue number (as a string) and its value is the array of issue numbers that issue **directly depends on** — preserved from the `triageAgent` `DEPENDS_ON` returns before wave aggregation. An issue with no dependencies has an empty array or is absent from the map. The calling skill uses `edges["<n>"]` for per-issue buildability checks (not wave-level `dependsOn`, which is shared across all wave siblings).
 
 `blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`. `blockers: false` means it is all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, uses the `label` field to apply the park label via setup Phase 4's apply-time helper, and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph.edges`.
+
+`risk` is the per-issue risk classification computed in Step 4: `"light"` or `"heavy"`. Default is `"heavy"` when classification is inconclusive. The calling skill (`solve-issue`) reads `issueStates["<n>"].risk` to resolve the build profile for that issue.
 
 ## Severity → effect
 
