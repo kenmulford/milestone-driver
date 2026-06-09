@@ -114,6 +114,7 @@ The four mechanical gates behave correctly inside a worktree with no worktree-sp
 | tests-green | The `.milestone-driver-tests-stamp` is keyed `branch:treeSHA`, so a per-worktree stamp is correct, not a collision. Each worktree's branch and tree get their own key. |
 | no-push | Unaffected. It guards only `protectedBranch`; feature-branch pushes from a worktree are allowed. |
 | no-pr-to-protected | Unaffected. The worker opens PRs with `--base <integrationBranch>`, so they pass. |
+| **Shared external services (test DB, caches, fixed ports)** | A worktree isolates the **filesystem**, not external services. Under `--parallel`, all N concurrent `unitTestCmd` runs share external services (notably `DATABASE_URL` / the test DB) unless the consumer's harness provides per-worker isolation (e.g. `parallel_tests` / `TEST_ENV_NUMBER` DB-suffix pattern, or per-worker `DATABASE_URL`). This is a **consumer responsibility** — `--parallel` does not inject DB isolation. See [consumer setup — DB isolation under `--parallel`](consumer-setup.md#db-isolation-under---parallel-consumer-responsibility). |
 
 One per-clone marker becomes per-worktree: the `.milestone-driver-preflight-notice` one-time notice marker is per-clone, so inside a worktree it becomes per-worktree (the notice could print once per worktree). This is acceptable, and the worktree setup can `touch` the marker to suppress it.
 

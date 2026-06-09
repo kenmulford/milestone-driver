@@ -161,7 +161,9 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
    The orchestrator owns `git worktree add` (consistent with the #70 worker contract, `solve-issue` Delta 1) — the worker runs **inside** the provided worktree and never cuts its own branch. Use explicit fleet management (`git worktree add -b … / remove / prune`); do **not** lean on generic worktree isolation, which can strand the shared checkout on a stray `issue/<n>` branch and leave worktrees needing prune.
 
-3. **Dispatch concurrently, capped at 4.** Dispatch **one subagent per set issue** running:
+3. **Dispatch concurrently, capped at 4.** Before dispatching: if `unitTestCmd` is defined in the profile (checkable) **and** `--parallel` mode is active (checkable), emit a one-time advisory: _"⚠ Parallel unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker — see docs/consumer-setup.md §DB isolation under --parallel."_ Then proceed with parallel dispatch regardless; do not serialize.
+
+   Dispatch **one subagent per set issue** running:
 
    ```
    /milestone-driver:solve-issue <n> --worker
