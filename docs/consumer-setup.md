@@ -80,6 +80,23 @@ When active, the run builds the mutually-independent issues within a single depe
 
 The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that the sequential path does not. The serial merge tail and the park-on-conflict policy bound that risk, but the sequential default is still the lowest-risk choice. Nothing about the blast radius changes: the workers and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
+#### DB isolation under `--parallel` (consumer responsibility)
+
+A git worktree isolates the **filesystem**, not external services. When `--parallel` builds N issues concurrently, each worker runs `unitTestCmd` in its own worktree directory — but all N workers share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). `--parallel` does **not** inject DB isolation automatically; the consumer's harness is responsible.
+
+**Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds — and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
+
+**How to isolate.** Use a per-worker database pattern:
+
+| Stack | Isolation mechanism |
+|---|---|
+| Ruby / RSpec | [`parallel_tests`](https://github.com/grosser/parallel_tests) gem — sets `TEST_ENV_NUMBER` per worker; configure `database.yml` to suffix the DB name with `ENV['TEST_ENV_NUMBER']` so each worker gets `myapp_test1`, `myapp_test2`, … |
+| Python / pytest | [`pytest-xdist`](https://pytest-xdist.readthedocs.io/) with `--dist=loadscope` + a DB-naming fixture that reads `worker_id` from `pytest-xdist`'s `request` fixture and suffixes `DATABASE_URL` |
+| .NET / xUnit | Spin up an isolated `TestContainers` DB per test class, or set `DATABASE_URL` per worker via a `GlobalSetup` that appends the worker index |
+| Any stack | Set `DATABASE_URL` (or equivalent) per worker to a dedicated per-worker DB name, and ensure `db:test:prepare` (or equivalent) runs for each DB before the suite |
+
+**What the orchestrator does.** When `unitTestCmd` is defined and `--parallel` mode is active, the orchestrator emits a one-time advisory that concurrent unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker, then **proceeds with parallel dispatch**. It does not serialize, and it does not auto-inject DB isolation. This mirrors the per-worktree `PORT` escape-hatch treatment: the notice is informational; the consumer opts in to the correct isolation.
+
 ### `integrationGranularity`: integrate per issue or per wave
 
 Set this in the profile (it is a repo-stable choice, not a per-run flag):
