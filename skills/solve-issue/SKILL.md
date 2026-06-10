@@ -73,8 +73,19 @@ When found, write an **architecture-aware plan** with full awareness of the code
 
 **`design-cleared` means a decision was recorded**, not that it is correct or buildable. The orchestrator may still **park** a `design-cleared` issue with `needs design` if the recorded/locked design is internally contradictory or will produce a poor result.
 
+### Build profile resolution (resolved after step 0, governs steps 3–6)
+
+Read `issueStates["<n>"].risk` from the step-0 triage return. That value is either `"light"` or `"heavy"` (default `"heavy"` when absent or inconclusive). This single read governs the entire build profile for this issue:
+
+| Profile | Implementer brief | E2E gate (step 5) | `/code-review` effort (step 6.1) |
+|---|---|---|---|
+| **Light** | Include a `risk:light` token in the brief | Skip when the issue touches no UI surface | `low` or `medium` |
+| **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 5 (UI surface + e2eTestCmd) | `high` or `xhigh` |
+
+The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run regardless of profile. Light relaxes ceremony only — it never skips verification.
+
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope. Note: extract/rename issues that touch a widely-shared symbol or component carry ~2–3× the call-site-migration surface of a typical feature issue, so they are more likely to consume both allowed re-dispatches before converging — the "at most 2" cap still applies, and an issue that cannot converge within it parks like any other (orchestrator judgment, not a profile key).
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override in the profile uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, and the expected file scope; when the build profile resolved above is `light`, the brief MUST include a `risk:light` token so the implementer applies the right verification mode. Note: extract/rename issues that touch a widely-shared symbol or component carry ~2–3× the call-site-migration surface of a typical feature issue, so they are more likely to consume both allowed re-dispatches before converging — the "at most 2" cap still applies, and an issue that cannot converge within it parks like any other (orchestrator judgment, not a profile key).
 
 Verify the returned report honors the implementer contract: least-code / reuse-first, TDD red→green observed (or a `VERIFICATION (no test layer)` section when `unitTestCmd` is absent), verified citations where citable sources exist, a Decision Log, a `USER-FACING CHANGES` block (with `NEW_UI_ELEMENTS: yes|no`, `DESTRUCTIVE_OPS: yes|no`, and `POST_REVIEW_CHANGES: yes|no`), and **changes left uncommitted**.
 
