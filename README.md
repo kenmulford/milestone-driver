@@ -65,6 +65,10 @@ The full architecture, the gating model, the label taxonomy, and the mechanical 
 
 By default the loop builds one issue at a time. Version 1.5.0 adds an opt-in `--parallel` mode that builds the mutually-independent issues within a Wave concurrently, each in its own git worktree, then integrates them through one serial verified merge tail. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each) or per wave (one branch, one PR, and one CI run for the whole Wave). The trade-off is speed and CI cost against failure isolation: parallel and wave granularity finish wider work faster, at the cost of a worktree fleet and coarser isolation when something goes wrong. Both stay off unless you opt in. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to turn them on.
 
+## Optional integrations
+
+When the `@delorenj/mcp-server-trello` MCP server is loaded in your Claude Code session and `integrations.trello` is added to your profile, milestone progress is mirrored to a Trello board: a card is adopted or created in the Queue list at run start (with a GitHub milestone back-link), moved to In Progress after triage if the card is not already there (cards already In Progress are left as-is; cards in unmanaged lists are left in place with a log line), updated with a per-issue checklist that ticks as issues merge, and finally given a summary comment and moved to In Review when the run finishes with no open issues carrying a blocker label. The integration is opt-in, best-effort, and never gates a run — if the MCP server is absent, every Trello step is skipped with a single session-wide log line; if Trello is reachable but an individual operation fails, one log line is emitted per failed operation and the run continues. See [docs/consumer-setup.md](docs/consumer-setup.md) for setup steps and known limitations.
+
 ## Requirements
 
 - The superpowers plugin. The per-issue inner loop is built on it, and it is auto-installed as a dependency on install, provided you have the official marketplace added.
