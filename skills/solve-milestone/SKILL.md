@@ -101,7 +101,7 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 **If buildable:**
 
 1. Ensure `integrationBranch` is current (`git fetch`, fast-forward) so dependent issues build on already-merged work.
-2. Run `/milestone-driver:solve-issue <n>` (the target version from step 3 is already in the orchestrator's context and will be applied at the version-bump step).
+2. Run `/milestone-driver:solve-issue <n>` (the target version from step 3 is already in the orchestrator's context and will be applied at the version-bump step). The orchestrator MUST restate the Phase 0 triage result inline when invoking step 0 — e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]" — so that step 0's Branch A recognizes the explicitly supplied result and skips re-invoking triage. If the result is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage) — Branch B is the safe default, never an error.
 3. **Park-and-continue on STOP/PAUSE:** if `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
    a. Apply the appropriate label using the apply-time label helper (`needs decision` for a new dependency or architecture call; `needs design` for a design/spec gap; `blocked` for an unresolvable unmet gate).
    b. Apply `in progress` if a branch exists with commits.
@@ -221,7 +221,7 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
    /milestone-driver:solve-issue <n> --worker
    ```
 
-   in worker mode (#70), passing the issue's worktree path. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
+   in worker mode (#70), passing the issue's worktree path. The brief MUST embed the per-issue triage result as explicit named fields with ACTUAL VALUES — e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]` (the concrete arrays/objects, not just the field names). A brief whose triage fields are absent, label-only, or partial causes the worker's step 0 to fall to Branch B (fresh single-issue triage) — this is the enforcement mechanism; Branch B is the safe default, never an error. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
 
 4. **Barrier on the whole set.** **Await every dispatched worker's handback** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until the entire set has returned.
 
