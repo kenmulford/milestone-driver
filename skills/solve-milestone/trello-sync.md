@@ -178,4 +178,57 @@ Placeholder: Trello loop hook logic added by #102.
 
 ## Finish hooks
 
-Placeholder: Trello finish hook logic added by #103.
+Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), before or alongside the `## Final summary` output — specifically, fire the summary card comment and move evaluation immediately after the loop, so the comment content matches the final run state. On the clean-completion path the `## Final summary` Template 3 output is deferred to step 6.9; the Finish hooks fire before step 6 (the CHANGELOG step). On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, post the summary card comment if Trello is reachable (per Convention 2 probe result), but do NOT move the card — the run did not finish cleanly.
+
+If no card was resolved at run start (Convention 5 found or created no card), skip all Finish hooks.
+
+### Final summary card comment
+
+Post a card comment that mirrors the canonical Final summary fields, condensed for a Trello card comment. Use `mcp__trello__add_comment` on the resolved card. Best-effort: failure is logged per Convention 1 and the run is unaffected.
+
+**Fields to include in the comment:**
+
+- **Issues built and merged** — list each issue number and title with its PR link (e.g. `#12 Add login page — PR #45`)
+- **Issues parked** — for each parked issue: number, title, park label (one of `needs design`, `needs decision`, `blocked`), and a one-line blocker reason
+- **Open `needs review` UI PRs** — list any PRs awaiting human visual sign-off (these are built issues held at the visual gate, not parked issues)
+- **Trello updates skipped this run** — any Trello operations that failed and were skipped, from the best-effort log accumulated per Convention 1
+
+### Move condition: inProgress → inReview
+
+Move the card from *inProgress* to *inReview* if and only if **zero open milestone issues carry any of the three blocker labels**: `needs design`, `needs decision`, `blocked`.
+
+Check this live at finish time:
+
+```bash
+gh issue list --milestone "<milestone-name>" --state open --json labels
+```
+
+Inspect the returned labels array for each open issue. If any open issue carries `needs design`, `needs decision`, or `blocked`, the move condition fails.
+
+**`needs review` issues are NOT parked.** Issues held at the visual gate — a UI issue with an open `needs review` PR awaiting human visual sign-off — are built work awaiting human review, not blocked work. They do not carry a blocker label and do NOT prevent the move.
+
+On move condition met: call `mcp__trello__move_card` to the `inReview` list (list ID resolved per Convention 4 at run start). Best-effort: move failure is logged per Convention 1.
+
+### Parks remaining (move condition fails)
+
+When one or more open issues carry a blocker label, the card STAYS in *inProgress* — no move call is made. Post an additional card comment (best-effort):
+
+```
+Card remains In Progress — N issue(s) parked: #a Title A, #b Title B. Resolve the parks and re-run to advance to In Review.
+```
+
+Post via `mcp__trello__add_comment` on the resolved card (best-effort per Convention 1).
+
+### Systemic-halt path
+
+When the run ends due to a systemic failure, post summary comment if Trello was reachable at run start (per Convention 2 probe result) but do NOT move the card. The move is skipped regardless of label state — the run did not finish cleanly.
+
+### Out-of-scope: Completed list
+
+Moving the card to a Completed or Done list is a **manual human step** after the `integrationBranch` → `protectedBranch` release merge. No `lists.completed` key exists in the profile. The finish hooks do not touch a completed list.
+
+### Edge cases
+
+**Stale blocked label.** The move condition checks `--state open` issues only — a closed (merged) issue's labels are not visible to the check. A stale `blocked` label on a **closed** issue does not block the move. A stale `blocked` label on an **open** issue (e.g., an issue not built this run) does block the move, even if no code work remains — the stays-in-Progress comment surfaces it for the human to clear.
+
+**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of which list the card is currently in. The Convention 8 "any other list → leave-and-log" rule applies only at run START (to avoid overriding a human decision before the run begins), not at finish (where the run result justifies the transition).

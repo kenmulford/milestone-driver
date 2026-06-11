@@ -325,6 +325,7 @@ Where N = the just-completed Wave number, X = issues merged this Wave (non-UI bu
 
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
+If `integrations.trello` is present, apply `## Finish hooks` from `skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
 
 ## Autonomy
 
