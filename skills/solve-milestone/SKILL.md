@@ -101,8 +101,17 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 **If buildable:**
 
 1. Ensure `integrationBranch` is current (`git fetch`, fast-forward) so dependent issues build on already-merged work.
-2. Run `/milestone-driver:solve-issue <n>` (the target version from step 3 is already in the orchestrator's context and will be applied at the version-bump step). The orchestrator MUST restate the Phase 0 triage result inline when invoking step 0 — e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]" — so that step 0's Branch A recognizes the explicitly supplied result and skips re-invoking triage. If the result is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage) — Branch B is the safe default, never an error.
-3. **Park-and-continue on STOP/PAUSE:** if `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
+2. **Before dispatching the first issue in the run** (once per run, not per issue): run the **permission pre-flight gate** per `### Permission pre-flight gate`. If a gap is found → fall back to synchronous dispatch for this run (today's behavior, steps 2–4 unchanged, no background concurrency). If no gap → dispatch each issue as a background agent (`Agent(run_in_background: true)`), embedding BOTH the target version AND the Phase 0 triage result as named fields in the agent's prompt brief (e.g. `targetVersion: <x.y.z>` and `step-0 result for #N: { ... }`). A background agent has a fresh context and does NOT inherit the orchestrator's in-memory state — both values must be literally present in the prompt string, not inherited from context.
+
+   When dispatching as a background agent: invoke `solve-issue <n> --async`. The orchestrator MUST embed the Phase 0 triage result as before (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]") so that step 0's Branch A can reuse it. **Await the completion notification** from the background agent before proceeding to the next issue — the main line is live (interactive) between dispatches. When the notification arrives, re-derive terminal state from live `gh` queries — `gh issue view <n> --json labels,state` and `gh pr list --head issue/<n>-*` — to determine whether the issue was merged, held for visual review, or parked (there is no structured handback in `--async` mode). **Surface the wave-boundary status update using Template 2 from `## Output spec`**. Narrate any park (label + reason) sourced from the live issue labels. Apply park labels if needed. Re-sync `integrationBranch` (`git fetch`, fast-forward). Then dispatch the next issue.
+
+   **Operator redirect window.** Between dispatches the main line is interactive — the background agent has completed and the main line is live. The operator can redirect before the next dispatch begins. Redirects are only possible at these chunk boundaries; they are not possible mid-run while a background agent is executing.
+
+   **Background agents never call PushNotification** (that is #97's scope) and **SendMessage/mid-chunk redirect does not exist in Claude Code** — do not narrate either.
+
+   When falling back to synchronous dispatch: invoke `solve-issue <n>` as today (no `--async`). The orchestrator MUST restate the Phase 0 triage result inline when invoking step 0 — e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]" — so that step 0's Branch A recognizes the explicitly supplied result and skips re-invoking triage. If the result is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage) — Branch B is the safe default, never an error.
+
+3. **Park-and-continue on STOP/PAUSE:** *(Under async dispatch: the background agent already ran park-don't-prompt — skip step (3c) below (the comment was already posted by the agent); the live label read in step 4.2 is the park confirmation. Under synchronous dispatch: proceed as follows.)* If `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
    a. Apply the appropriate label using the apply-time label helper (`needs decision` for a new dependency or architecture call; `needs design` for a design/spec gap; `blocked` for an unresolvable unmet gate).
    b. Apply `in progress` if a branch exists with commits.
    c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there; if not, post it via `gh issue comment <n>`.
@@ -215,7 +224,9 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
 3. **Dispatch concurrently, capped at 4.** Before dispatching: if `unitTestCmd` is defined in the profile (checkable) **and** `--parallel` mode is active (checkable), emit a one-time advisory: _"⚠ Parallel unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker — see docs/consumer-setup.md §DB isolation under --parallel."_ Then proceed with parallel dispatch regardless; do not serialize.
 
-   Dispatch **one subagent per set issue** running:
+   The permission pre-flight gate (see `### Permission pre-flight gate`) runs **once per run, before the first background dispatch in step 3**. If a gap is found → fall back to synchronous dispatch for this run. If no gap → proceed with background dispatch as described here.
+
+   Dispatch **one background agent per set issue** as `Agent(run_in_background: true)` running:
 
    ```
    /milestone-driver:solve-issue <n> --worker
@@ -223,7 +234,11 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
    in worker mode (#70), passing the issue's worktree path. The brief MUST embed the per-issue triage result as explicit named fields with ACTUAL VALUES — e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]` (the concrete arrays/objects, not just the field names). A brief whose triage fields are absent, label-only, or partial causes the worker's step 0 to fall to Branch B (fresh single-issue triage) — this is the enforcement mechanism; Branch B is the safe default, never an error. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
 
-4. **Barrier on the whole set.** **Await every dispatched worker's handback** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until the entire set has returned.
+   **Workers never call PushNotification** (that is #97's scope) and **SendMessage/mid-chunk redirect does not exist in Claude Code** — do not narrate either.
+
+   **Phase-2-before-next-Wave guarantee (explicit constraint).** Phase 2 runs to completion at the end of each Wave — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. This prevents port-binding-gate contention across waves and ensures every Wave builds on the prior Wave's fully integrated result.
+
+4. **Barrier on the whole set.** **Await ALL completion notifications from dispatched background agents** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until ALL background agents have returned their completion notification — i.e. until the entire dispatched set has completed.
 
 5. **Collect handbacks.** Each worker returns the structured handback (#70):
 

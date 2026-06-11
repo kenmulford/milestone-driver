@@ -315,6 +315,39 @@ The worker returns a structured handback so the orchestrator can drive the merge
 
 These three deltas are the **only** differences. With no `--worker` token, the pipeline above runs exactly as written — same gates, same caps, same merge, same close. Worker mode adds an opt-in path; it changes nothing about the default sequential run.
 
+## Async mode (`--async`)
+
+**`--async` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so async mode is **recognized** when the invocation text contains an `--async` token. **When the `--async` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Async mode is an opt-in signal to the caller (main line or user session) to dispatch this skill as `Agent(run_in_background: true)` — it does not alter the internal pipeline, except for Delta A1 below.
+
+### How the caller dispatches
+
+When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes. There is no mid-run redirect — the background agent runs to completion; redirects are impossible once it is dispatched. **No PushNotification is sent by the background agent** — that is #97's scope; the caller receives the completion notification from the Agent tool itself.
+
+### Pre-dispatch: permission pre-flight gate
+
+Before the caller dispatches any background agent, run the **permission pre-flight gate** per `## Permission pre-flight gate` above.
+
+- **No gaps:** proceed — dispatch `solve-issue <n>` as `Agent(run_in_background: true)`.
+- **Gap detected:** do **not** dispatch as a background agent. Surface the 🔴 gap table and recommend `/fewer-permission-prompts`. **Fall back to synchronous dispatch** — invoke `solve-issue <n>` (no `--async`) as the normal sequential pipeline. The run completes; it just does not use background concurrency.
+
+### Inside the background agent: the pipeline runs byte-unchanged
+
+The full sequential pipeline (steps 0–9) runs **byte-unchanged** inside the background agent — all gates, park-don't-prompt, PR, auto-merge on green for non-UI issues, visual-review hold for UI issues, close — **except Delta A1**.
+
+### Delta A1 — Version-bump confirm suppressed
+
+The standalone-run patch-bump confirm (the interactive "ask whether it should be minor or major" in step 6.4 standalone runs) cannot prompt from a background context — background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior).
+
+Under `--async`, the bump **defaults to patch** (`x.y.Z` → `x.y.(Z+1)`). This default is **logged in the Decision Log** and the PR carries a `judgment call` label so the call is auditable post-run. Milestone runs are **unaffected** — the milestone-derived target version already replaces the confirm entirely (step 6.4 milestone-run path).
+
+Delta A1 is the **only** behavioral delta because it is the only step in the sequential pipeline that would interactively prompt in a standalone run. All other gates, caps, and park-don't-prompt behavior are unchanged.
+
+### Background agent constraints
+
+- **Auto-deny:** background subagents auto-deny any tool call that would otherwise prompt. The permission pre-flight gate (run before dispatch) guards against un-allowlisted tool calls; Delta A1 eliminates the only remaining interactive confirm. Any unexpected auto-deny mid-run is treated as a park — same park-don't-prompt contract as every other gate.
+- **No PushNotification:** the background agent does not send notifications — that is #97's scope.
+- **No SendMessage/mid-chunk redirect:** the background agent runs to completion; mid-run redirect is not possible in Claude Code.
+
 ## Output spec
 
 <!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
