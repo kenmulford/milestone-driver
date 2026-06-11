@@ -59,7 +59,16 @@ On the "no PR, branch/uncommitted-changes" paths, commit **only if there are unc
 ## The procedure
 
 ### 0. Triage
-Invoke `milestone-driver:triage <n>` (single-issue mode). If triage returns a **Blocker** for this issue → **park**: triage has already posted the `🔴 Triage` comment on the issue; apply the recommended label from `issueStates["<n>"].label` — `needs design` for a design gap, `needs decision` for a non-design decision — via the apply-time helper (idempotent `gh label create --force` then `gh issue edit --add-label`); leave the issue open; do **not** proceed to step 1. Return to the caller — the milestone loop continues with independent, clean issues. All-clear or Advisory-only → proceed to step 1.
+
+**Two branches — always run one:**
+
+**Branch A — Explicit-supply path (reuse).** Fires **iff the caller explicitly supplied this issue's triage result at invocation time** — in worker mode, as named-value fields embedded in the dispatch brief with actual values (e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]`); in sequential mode, as an inline restatement by the orchestrator when invoking step 0 (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]"). When the result is explicitly supplied this way, use it directly — do **NOT** re-invoke `milestone-driver:triage <n>`. Proceed to the **Blocker check** below using the supplied result. This is not a skip: the explicitly supplied result IS the verified Phase 0 triage result for this run; the reuse branch consumes it rather than recomputing it.
+
+**Branch B — Standalone / fallback path.** When no triage result was explicitly supplied at invocation time — anything absent, partial, or merely recalled from earlier context — invoke `milestone-driver:triage <n>` (single-issue mode) and use the returned result for the **Blocker check** below. Branch B is the safe default, never an error.
+
+**Blocker check (both branches).** If the result indicates a Blocker for this issue → **park**: triage has already posted the `🔴 Triage` comment on the issue; VERIFY the comment exists (`gh issue view <n> --comments`) and post it if missing (idempotent); apply the recommended label from `issueStates["<n>"].label` — `needs design` for a design gap, `needs decision` for a non-design decision — via the apply-time helper (idempotent `gh label create --force` then `gh issue edit --add-label`); leave the issue open; do **not** proceed to step 1. Return to the caller — the milestone loop continues with independent, clean issues. All-clear or Advisory-only → proceed to step 1.
+
+The safety floor is unconditional: triage step 0 always runs (via Branch A explicit-supply or Branch B fresh invocation) regardless of build profile. Light profile relaxes ceremony only — it never skips triage.
 
 ### 1. Read the issue
 Run `gh issue view <n>` with comments. Restate the acceptance criteria plainly before continuing.
@@ -67,7 +76,7 @@ Run `gh issue view <n>` with comments. Restate the acceptance criteria plainly b
 ### 2. Evaluate the codebase for root cause
 Invoke `superpowers:systematic-debugging`. Read the implicated code — the file(s) plus direct callers and callees.
 
-**🔴 GATE — root cause:** If the root cause cannot be identified from the codebase, **park** the issue: post a comment describing the blocker (`gh issue comment <n>`), apply the `blocked` label (or `needs design` if the gap is a design gap), apply `in progress` if the branch has commits, leave the branch open with any work done, and return. The milestone loop continues. Do not proceed to implementation.
+**🔴 GATE — root cause:** If the root cause cannot be identified from the codebase, **park** the issue: post a comment opening with `🔴 Parked — ` and describing the blocker (`gh issue comment <n>`), apply the `blocked` label (or `needs design` if the gap is a design gap), apply `in progress` if the branch has commits, leave the branch open with any work done, and return. The milestone loop continues. Do not proceed to implementation.
 
 When found, write an **architecture-aware plan** with full awareness of the codebase and its conventions. This plan is the **locked** architecture for this issue.
 
@@ -75,7 +84,7 @@ When found, write an **architecture-aware plan** with full awareness of the code
 
 ### Build profile resolution (resolved after step 0, governs steps 3–6)
 
-Read `issueStates["<n>"].risk` from the step-0 triage return. That value is either `"light"` or `"heavy"` (default `"heavy"` when absent or inconclusive). This single read governs the entire build profile for this issue:
+Read `issueStates["<n>"].risk` from the step-0 triage result (held Phase 0 result in a milestone run, or fresh single-issue return in a standalone run). That value is either `"light"` or `"heavy"` (default `"heavy"` when absent or inconclusive). This single read governs the entire build profile for this issue:
 
 | Profile | Implementer brief | E2E gate (step 5) | `/code-review` effort (step 6.1) |
 |---|---|---|---|
@@ -91,12 +100,12 @@ Verify the returned report honors the implementer contract: least-code / reuse-f
 
 After verifying the report, apply the following declaration gates:
 
-- **`NEW_UI_ELEMENTS: yes`** and the issue's acceptance criteria are silent on the element's visual/UX detail → **park** with `needs design`: document the new elements and what direction is needed in a comment (`gh issue comment <n>`), preserve the branch, apply the label (+ `in progress` if the branch has commits), and return. The human supplies direction and re-runs; there is no mid-run interactive resume.
-- **`DESTRUCTIVE_OPS: yes`** and the confirmation UX is unspecified → **park** with `needs decision` (a missing confirm flow usually means the plan is incomplete): document on the issue, preserve the branch, apply the label (+ `in progress` if the branch has commits), and return.
+- **`NEW_UI_ELEMENTS: yes`** and the issue's acceptance criteria are silent on the element's visual/UX detail → **park** with `needs design`: post a comment opening with `🔴 Parked — ` documenting the new elements and what direction is needed (`gh issue comment <n>`), preserve the branch, apply the label (+ `in progress` if the branch has commits), and return. The human supplies direction and re-runs; there is no mid-run interactive resume.
+- **`DESTRUCTIVE_OPS: yes`** and the confirmation UX is unspecified → **park** with `needs decision` (a missing confirm flow usually means the plan is incomplete): post a comment opening with `🔴 Parked — ` documenting the missing confirm flow on the issue (`gh issue comment <n>`), preserve the branch, apply the label (+ `in progress` if the branch has commits), and return.
 
-**🔴 GATE — new dependency:** If the implementer reports that the optimal solution requires a new library or toolkit, **park** with `needs decision`: post the library plus its license / OSS status on the issue (`gh issue comment <n>`), preserve the branch, apply the `needs decision` label (+ `in progress` if the branch has commits), and return. The milestone loop continues. Do not ask the operator interactively.
+**🔴 GATE — new dependency:** If the implementer reports that the optimal solution requires a new library or toolkit, **park** with `needs decision`: post a comment opening with `🔴 Parked — ` followed by the library name and its license / OSS status on the issue (`gh issue comment <n>`), preserve the branch, apply the `needs decision` label (+ `in progress` if the branch has commits), and return. The milestone loop continues. Do not ask the operator interactively.
 
-**🔴 GATE — implementer STOPPED:** If the implementer returns `STATUS: STOPPED` (architecture conflict, scope overrun, out-of-scope edit, or missing/ambiguous brief), **park** the issue: post a comment describing the conflict (`gh issue comment <n>`), apply the appropriate label (`needs design` for a design/spec conflict, `needs decision` for an architecture call, `blocked` for an otherwise-unresolvable gate) + `in progress` if the branch has commits, preserve the branch, and return. The milestone loop continues. (Architecture stays LOCKED — a plan proven wrong is a park, not a pivot.) `PAUSED-FOR-APPROVAL` from the implementer indicates a new-dependency case and routes to the new-dependency gate above.
+**🔴 GATE — implementer STOPPED:** If the implementer returns `STATUS: STOPPED` (architecture conflict, scope overrun, out-of-scope edit, or missing/ambiguous brief), **park** the issue: post a comment opening with `🔴 Parked — ` and describing the conflict (`gh issue comment <n>`), apply the appropriate label (`needs design` for a design/spec conflict, `needs decision` for an architecture call, `blocked` for an otherwise-unresolvable gate) + `in progress` if the branch has commits, preserve the branch, and return. The milestone loop continues. (Architecture stays LOCKED — a plan proven wrong is a park, not a pivot.) `PAUSED-FOR-APPROVAL` from the implementer indicates a new-dependency case and routes to the new-dependency gate above.
 
 ### 4. Unit suite → green
 If `unitTestCmd` is defined in the profile: run it and invoke `superpowers:verification-before-completion`. Report real output, never assertion.
@@ -105,9 +114,7 @@ If `unitTestCmd` is absent: skip this gate. The implementer is responsible for v
 
 **🔴 GATE — tests (when `unitTestCmd` is defined):** A red suite blocks progress. Re-dispatch the implementer with the failure, or **park** if the failure reveals the plan is wrong (see Autonomy).
 
-**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **park** the issue: comment on the issue describing the failure and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A suite that won't go green usually means the plan is wrong (see Autonomy).
-
-**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **STOP and resurface** — do not loop. A suite that won't go green usually means the plan is wrong (see Autonomy).
+**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **park** the issue: comment on the issue opening with `🔴 Parked — ` and describing the failure and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A suite that won't go green usually means the plan is wrong (see Autonomy).
 
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
@@ -119,29 +126,27 @@ Use the profile's `e2eEnv` configuration. Skip this step only when the issue tou
 **Cap: at most 2 E2E fix attempts.** If the E2E suite still fails after the 2nd fix, apply the following escape policy:
 
 - **Verified by other means** (a DB assertion + an attached screenshot confirming the feature works): **quarantine** the flaky test, proceed, and log the quarantine in the PR's Code Review section + apply a `judgment call` label. Stack-specific E2E environment fixes stay consumer-side per the profile / `e2eEnv` — the engine adds only this policy.
-- **Not otherwise verified**: **park** with `blocked` — comment on the issue documenting the flake and what is unverified, preserve the branch, apply the label (+ `in progress` if the branch has commits), and return. The milestone loop continues.
+- **Not otherwise verified**: **park** with `blocked` — comment on the issue opening with `🔴 Parked — ` and documenting the flake and what is unverified, preserve the branch, apply the label (+ `in progress` if the branch has commits), and return. The milestone loop continues.
 
 A non-converging E2E gate usually means the plan is wrong (see Autonomy).
 
 ### 6. Review → integrate → close
 1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — do **not** pause to ask the operator about an in-scope finding:
    - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log.
-   - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** the issue — comment the finding on the issue, apply the appropriate label (`needs design`, `needs decision`, or `blocked`) (+ `in progress` if the branch has commits), preserve the branch, and return. Do not commit.
+   - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** the issue — comment opening with `🔴 Parked — ` on the issue, apply the appropriate label (`needs design`, `needs decision`, or `blocked`) (+ `in progress` if the branch has commits), preserve the branch, and return. Do not commit.
 
    **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a park trigger — comment the reason on the issue, preserve the branch, apply `blocked` (+ `in progress` if the branch has commits), and return.
-
-   **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
 
    **After a fix, before committing:**
    - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review. `POST_REVIEW_CHANGES: yes` is the implementer's machine-checkable signal that its edits were review-driven and the re-review is due; any `sourceGlobs` change independently triggers the re-review as a backstop, so a re-dispatch that changed source is always re-reviewed even if the field is `no`.
    - **Document-only** (`*.md`, READMEs, doc/comment text — nothing under `sourceGlobs`): commit directly; no re-run needed (`tests-green` no-ops on doc-only, and `/code-review` need not be re-run for a doc-only fix).
    - **No in-scope findings:** commit directly.
 
-   **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **park** the issue: comment the current diff state on the issue, apply `needs design` or `blocked` as appropriate (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A review that won't converge usually means the plan is wrong.
+   **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **park** the issue: comment opening with `🔴 Parked — ` and the current diff state on the issue, apply `needs design` or `blocked` as appropriate (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A review that won't converge usually means the plan is wrong.
 
    **Preflight gate (after the `/code-review` resolve loop converges, before version bump/commit).** Once the `/code-review` loop above has converged, run the profile's `preflightCmd` in the repo root — the consumer-named fast pre-PR checks (lint / format / static analysis / security scan). Skip cleanly if `preflightCmd` is absent (exactly like `unitTestCmd`/`e2eTestCmd` absent). Capture real output, never assert. This mirrors the unit gate (step 4); it is positioned here as the concluding action of 6.1 rather than as a numbered sibling step so the `6.1 … 6.9` ordinals (and their internal + external cross-references) stay fixed.
    - **Non-zero exit → gate failure → re-dispatch the implementer** with the failing command + its captured output. A source-changing fix re-runs `unitTestCmd` if defined (skip if absent), re-runs `/code-review` (honoring the "fresh review is the last action before commit" rule above), and re-runs `preflightCmd`.
-   - **Cap: at most 2 implementer re-dispatches** on a failing preflight gate. If `preflightCmd` is still non-zero after the 2nd re-dispatch, **park `blocked`**: comment on the issue describing what failed and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. Park-don't-prompt, consistent with every other gate.
+   - **Cap: at most 2 implementer re-dispatches** on a failing preflight gate. If `preflightCmd` is still non-zero after the 2nd re-dispatch, **park `blocked`**: comment on the issue opening with `🔴 Parked — ` and describing what failed and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. Park-don't-prompt, consistent with every other gate.
    - A non-converging preflight gate usually means the plan is wrong (see Autonomy).
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
 3. **Assemble the Code Review section** for the PR body — the evidence half of the audit trail (the Decision Log records *why* a choice was made; the Code Review section records *what review found* and how it was cleared). Record: whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered park). If a run returned zero findings, state that with the run's effort level. **Absence of this section on a PR is a visible defect on PR review.** Use this template in the PR body:
@@ -182,7 +187,7 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
 
 **PARK & continue (the autonomous runtime parks; it does not interactively wait):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent; `/code-review` omission or substitution — skipping `/code-review` for any reason (time, token budget, tool error, self-review substitution) is **not** an in-scope autonomous decision; budget pressure is not a permitted exception.
 
-In the autonomous runtime, a park means: post a comment on the issue documenting what was hit and what is needed to clear it; apply the appropriate label (`needs design`, `needs decision`, or `blocked`); also apply the `in progress` label (via the apply-time helper) when the feature branch has commits — `in progress` is the open-WIP signal the milestone loop and post-run review rely on; leave the issue open; leave the branch open with any work preserved; and return — the milestone loop continues with independent, clean issues. **Only a systemic failure** (auth/`gh` failure, broken `integrationBranch`, missing tooling) halts the whole run. A standalone interactive `solve-issue` still parks durably (comment + label + open branch); it may additionally narrate to the watching operator.
+In the autonomous runtime, a park means: post a comment on the issue that **opens with `🔴 Parked — ` followed by the reason** (e.g. `🔴 Parked — architecture conflict: shared interface change required`); apply the appropriate label (`needs design`, `needs decision`, or `blocked`); also apply the `in progress` label (via the apply-time helper) when the feature branch has commits — `in progress` is the open-WIP signal the milestone loop and post-run review rely on; leave the issue open; leave the branch open with any work preserved; and return — the milestone loop continues with independent, clean issues. **Only a systemic failure** (auth/`gh` failure, broken `integrationBranch`, missing tooling) halts the whole run. A standalone interactive `solve-issue` still parks durably (comment + label + open branch); it may additionally narrate to the watching operator.
 
 **Additional park triggers:**
 - The recorded/locked design is internally contradictory → park with `needs design`.
@@ -206,13 +211,58 @@ A change is **architecture** (→ park) if it touches any of: a component or dat
 
 **Audit trail (always):** a Decision Log on every PR, a **Code Review** section recording every `/code-review` run and its findings/resolutions, and a `judgment call` label on borderline calls, so post-run PR review surfaces every judgment.
 
+## Permission pre-flight gate
+
+**Runs once per run, before the first background dispatch. Zero cost on synchronous paths.**
+
+**Scope: this gate applies only when background dispatch is about to be used (the async dispatch points introduced in #89). Sequential/synchronous runs SKIP it entirely — skipped, not merely cheap; the gate is not executed at all on a sequential run.**
+
+> **Sequential / synchronous runs SKIP this gate entirely** — it is not merely cheap, it is not executed at all. The gate applies only when background dispatch is about to be used (the async dispatch points introduced in #89). On a sequential run, proceed directly to the first background-dispatch step without any gate evaluation.
+
+Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. Before activating any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
+
+**Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
+
+| Priority | File |
+|---|---|
+| 1 | `~/.claude/settings.json` (user global) |
+| 2 | `.claude/settings.json` (project) |
+| 3 | `.claude/settings.local.json` (project local) |
+
+Absent or unreadable layers are skipped in the union (not treated as gaps). The union covers all readable layers. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
+
+**Pipeline tool surface.** The allowlist must cover, at minimum:
+
+| Tool category | Required grants |
+|---|---|
+| Read-only gh ops | `gh pr list`, `gh issue view`, `gh issue list` |
+| Git | `git commit`, `git push` |
+| PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
+| Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
+| Label management | `gh label create` |
+| Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
+
+**Gap detection and response.**
+
+- **No gaps:** proceed with background dispatch as planned.
+- **Gap detected (union does not cover the required surface, or no layer is readable):** do **not** fire the background chunk. Instead:
+  1. Surface a 🔴 gap table listing each missing grant and which settings layer(s) could supply it.
+  2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
+  3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
+
+The gate fires **once per run**, not once per issue. After the first background-dispatch decision point, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+
+**Worker auto-deny handling.** If a background worker chunk receives an auto-deny on a tool call mid-execution, treat it as a **park** — post a comment opening with `🔴 Parked — auto-deny on <tool>` on the issue, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and return the structured handback with `status: parked`, `parkLabel: "blocked"`, and `parkReason: "auto-deny on <tool>"` (see Worker mode Delta 3 for the full handback schema — `parkLabel`, `parkReason`, and the handback structure are defined there). This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure. On a sequential (non-worker) run, no structured handback exists — park via the normal park steps (comment, label, preserve branch, return); there is no `parkLabel`/`parkReason` handback because there is no orchestrator to receive one.
+
 ## Worker mode (`--worker`)
 
 Worker mode is the per-issue half of `solve-milestone`'s opt-in `--parallel` flow (milestone 1.5.0): the orchestrator builds mutually-independent issues within a dependency Wave concurrently — each in its own git worktree — then integrates them through an orchestrator-owned **serial verified merge tail**. This section defines the contract the parallel orchestration (#72), the merge tail (#73), and branch-per-Wave granularity (#75) consume; those skills do not exist yet, so the terms used here (`--worker`, "worker mode", "merge tail", "handback", "wave branch", "parallel-safe gates", "deferred gates") are the authoritative source.
 
 **`--worker` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so worker mode is **recognized** when the dispatch text contains a `--worker` token (with the orchestrator-provided worktree path), exactly as the rest of the plugin treats flags. **When the `--worker` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Sequential (non-worker) `solve-issue` is the default and is unaffected.
 
-Worker mode **is today's `solve-issue` pipeline with EXACTLY THREE DELTAS.** Everything else is identical: triage and the root-cause gate, the implementer dispatch and its contract, the declaration gates, the unit gate, `/code-review` and its **Code Review** section, the citations, park-don't-prompt (a worker never prompts a human — it parks), the Decision Log, the version-bump rules (step 6.4), and the audit trail all carry over verbatim. The **at-most-2 re-dispatch cap on every gate** carries over too, but follows its gate: each cap applies to the gate it guards, so the caps on the **parallel-safe gates the worker actually runs** travel with the worker, while the caps on the **deferred gates (E2E, any server-starting preflight)** move to the serial tail with those gates (Delta 2). This gate-split is the **mechanism** of Delta 2 ("builds but does not merge") — it is not a hidden fourth behavioral change. Only the three deltas below differ.
+Worker mode **is today's `solve-issue` pipeline with EXACTLY THREE DELTAS.** Everything else is identical: triage (run as Branch A when the brief embeds the result as explicit named values, or Branch B fallback when absent — workers re-invoke triage ONLY as Branch B fallback if the caller supplied no result) and the root-cause gate, the implementer dispatch and its contract, the declaration gates, the unit gate, `/code-review` and its **Code Review** section, the citations, park-don't-prompt (a worker never prompts a human — it parks), the Decision Log, the version-bump rules (step 6.4), and the audit trail all carry over verbatim. **The permission pre-flight gate is not in this carry-over list** — it is orchestrator-level, pre-dispatch behavior (see the section above); a worker is already backgrounded past it and never runs it. The **at-most-2 re-dispatch cap on every gate** carries over too, but follows its gate: each cap applies to the gate it guards, so the caps on the **parallel-safe gates the worker actually runs** travel with the worker, while the caps on the **deferred gates (E2E, any server-starting preflight)** move to the serial tail with those gates (Delta 2). This gate-split is the **mechanism** of Delta 2 ("builds but does not merge") — it is not a hidden fourth behavioral change. Only the three deltas below differ. Both Branch A and Branch B return the identical Step 7 schema — an issueStates entry plus an edges array, per skills/triage/SKILL.md — so the Blocker check and build-profile read are shape-identical regardless of which branch ran.
+
+> **Permission pre-flight gate and worker mode.** The permission pre-flight gate (described in the section above) is **orchestrator-level, pre-dispatch behavior**. A worker is already backgrounded past it — the gate ran (or was skipped on a synchronous path) before the worker was dispatched. A worker **never runs the gate itself**.
 
 ### Delta 1 — Runs in an orchestrator-provided worktree
 
@@ -261,9 +311,84 @@ The worker returns a structured handback so the orchestrator can drive the merge
 
 These three deltas are the **only** differences. With no `--worker` token, the pipeline above runs exactly as written — same gates, same caps, same merge, same close. Worker mode adds an opt-in path; it changes nothing about the default sequential run.
 
+## Async mode (`--async`)
+
+**`--async` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so async mode is **recognized** when the invocation text contains an `--async` token. **When the `--async` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Async mode is an opt-in signal to the caller (main line or user session) to dispatch this skill as `Agent(run_in_background: true)` — it does not alter the internal pipeline, except for Delta A1 below.
+
+### How the caller dispatches
+
+When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes. There is no mid-run redirect — the background agent runs to completion; redirects are impossible once it is dispatched. **No PushNotification is sent by the background agent** — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main line (caller) emits the park or wave-boundary notification at this chunk boundary, after receiving the Agent tool completion notification and re-deriving terminal state from live `gh` queries.
+
+### Pre-dispatch: permission pre-flight gate
+
+Before the caller dispatches any background agent, run the **permission pre-flight gate** per `## Permission pre-flight gate` above.
+
+- **No gaps:** proceed — dispatch `solve-issue <n>` as `Agent(run_in_background: true)`.
+- **Gap detected:** do **not** dispatch as a background agent. Surface the 🔴 gap table and recommend `/fewer-permission-prompts`. **Fall back to synchronous dispatch** — invoke `solve-issue <n>` (no `--async`) as the normal sequential pipeline. The run completes; it just does not use background concurrency.
+
+### Inside the background agent: the pipeline runs byte-unchanged
+
+The full sequential pipeline (steps 0–9) runs **byte-unchanged** inside the background agent — all gates, park-don't-prompt, PR, auto-merge on green for non-UI issues, visual-review hold for UI issues, close — **except Delta A1**.
+
+### Delta A1 — Version-bump confirm suppressed
+
+The standalone-run patch-bump confirm (the interactive "ask whether it should be minor or major" in step 6.4 standalone runs) cannot prompt from a background context — background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior).
+
+Under `--async`, the bump **defaults to patch** (`x.y.Z` → `x.y.(Z+1)`). This default is **logged in the Decision Log** and the PR carries a `judgment call` label so the call is auditable post-run. Milestone runs are **unaffected** — the milestone-derived target version already replaces the confirm entirely (step 6.4 milestone-run path).
+
+Delta A1 is the **only** behavioral delta because it is the only step in the sequential pipeline that would interactively prompt in a standalone run. All other gates, caps, and park-don't-prompt behavior are unchanged.
+
+### Background agent constraints
+
+- **Auto-deny:** background subagents auto-deny any tool call that would otherwise prompt. The permission pre-flight gate (run before dispatch) guards against un-allowlisted tool calls; Delta A1 eliminates the only remaining interactive confirm. Any unexpected auto-deny mid-run is treated as a park — same park-don't-prompt contract as every other gate.
+- **No PushNotification:** the background agent does not send notifications — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main-line caller emits at chunk boundaries (parks + wave completions + run complete/halt).
+- **Caller obligation on completion** *(applies to the calling session, not the background agent)*. When the background chunk's completion notification arrives, the calling session re-derives terminal state from live `gh` queries and emits **one notification per dispatched issue**: `⏸️ #N parked — <reason>` if the issue was parked (park reason = the last comment on the issue opening with `🔴 Triage`, `🔴 Blocked`, or `🔴 Parked` — gh returns comments oldest-first, take the LAST match; if none, report "park reason not recorded"), or a `🏁`-style one-liner (e.g. `🏁 #N merged` or `🏁 #N open — awaiting visual review`) if the issue completed (PR merged or held for visual review). This mirrors the handback facts for `--worker` mode; one emit per run, always by the calling session, never by the background agent. (When `--async` is dispatched by `solve-milestone`, solve-milestone's own emit rules govern — per-issue completion notifications are suppressed in sequential mode in favor of the aggregate `🏁` run-complete signal; this per-issue obligation applies to standalone callers outside solve-milestone's orchestration.)
+- **No SendMessage/mid-chunk redirect:** the background agent runs to completion; mid-run redirect is not possible in Claude Code.
+
+## Output spec
+
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
+
+### Template 1 — Run start / plan board
+
+Show after the ### 0. Triage step completes.
+
+```text
+🚀 Issue #201 — [title] · [risk: light | heavy] · [UI | non-UI]
+
+| Issue | Title   | Risk   | UI | Status      |
+|-------|---------|--------|----|-------------|
+| #201  | [title] | [risk] | —  | 🔨 building |
+
+▶ Building — the floor is yours.
+```
+
+### Template 2 — Issue completion (terminal output)
+
+This is the terminal output for solve-issue. It mirrors the issue-row format of solve-milestone's Template 2.
+<!-- Structural mirror of solve-milestone Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
+
+One row per issue; emit only the row that matches the actual outcome and suppress the other rows — the `✅ merged` row when the PR was merged, the `👁️ open` row when the PR is awaiting visual review, or the `⏸️ parked` row when the issue was parked.
+
+```text
+🏁 Issue #[n] · [T] min
+
+| Issue | Result     | Gates | PR | Note                    |
+|-------|------------|-------|----|-------------------------|
+| #201  | ✅ merged  | 🔍✓(0 findings)  | #301 | —    |
+| #203  | 👁️ open   | 🔍✓(1 fixed)     | #303 | awaiting visual review  |
+| #202  | ⏸️ parked  | —                | [#pr | —] | [park label]      |
+```
+PR cell: show the PR number if the issue has one, else —.
+
+Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+
 ## Output style
 
 Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
+Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.
 
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only — never `protectedBranch`.

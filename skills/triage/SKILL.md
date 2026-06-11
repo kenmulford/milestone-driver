@@ -71,9 +71,67 @@ Extract:
 
 Both modes end with the same inputs for Step 3: each issue's number, title, body, labels, AND its comments — because the Step 3 agent brief requires "all comments and any design-cleared notes."
 
+### Step 2.5 — Cache lookup (before dispatching agents)
+
+Read `.milestone-driver-triage-cache.json` at the repo root into memory as the **cache store**.
+
+**Degradation rules (never error — always degrade gracefully):**
+- Bash path: `jq . .milestone-driver-triage-cache.json 2>/dev/null` — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh:6-7`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
+- PowerShell path: `try { Get-Content .milestone-driver-triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (pattern from `hooks/tests-green.ps1:6`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
+- File absent, unreadable, or invalid JSON → empty cache in all cases
+
+For **each issue** gathered in Step 2, fetch all issue timestamps in a **single batched/aliased GraphQL query** — one round-trip for all issues. Fall back to per-issue calls only if the batch call fails (graceful degradation):
+
+```graphql
+query BatchTimestamps {
+  issue_1: repository(owner:"<owner>", name:"<repo>") { issue(number:<n1>) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } }
+  issue_2: repository(owner:"<owner>", name:"<repo>") { issue(number:<n2>) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } }
+  # … one alias per issue
+}
+```
+
+Per-issue fallback (used only when the batch call fails):
+
+```
+gh api graphql -f query='query { repository(owner:"<o>", name:"<r>") { issue(number:<n>) {
+  lastEditedAt createdAt labels(first:100){nodes{name}} comments{totalCount} } } }'
+```
+
+Compose the **live cache key** for each issue. Use the appropriate null-coalescing form for the execution environment:
+
+- **jq form** (Bash/shell): `(.lastEditedAt // .createdAt)` — `//` is jq's alternative/null-coalescing operator
+- **pwsh form** (PowerShell 7+): `$x.lastEditedAt ?? $x.createdAt` — `??` is the PowerShell null-coalescing operator
+
+```
+key = "<n>:<lastEditedAt // createdAt (jq) | $x.lastEditedAt ?? $x.createdAt (pwsh)>:<comments.totalCount>:<sorted label names joined by comma>"
+```
+
+- `lastEditedAt` is null until the body is first edited → fall back to `createdAt`
+- Comment count is ALL comments, no author filter (over-broad but safe — simplicity first)
+- Label names sorted lexicographically, joined by comma (empty string when no labels)
+
+**Note:** `bodyLastEditedAt` is NOT a valid field for `gh issue view --json` (verified 2026-06-11) — use `lastEditedAt` via GraphQL only.
+
+Compare the live key to the cached entry for each issue:
+
+| Result | Condition | Action |
+|---|---|---|
+| **HIT** | Cached entry exists AND `key` matches the live key AND no stale-edge condition (see below) | Reuse cached `result`; do NOT dispatch `triageAgent`; do NOT dispatch `designReviewAgent` |
+| **MISS** | No entry OR key mismatch OR stale-edge condition | Proceed to Step 3 dispatch normally |
+
+**Stale-edge invalidation rule (applied on every candidate HIT):** After a key match, inspect each issue number in the cached `result.edges` array. For each referenced issue, check its current state via `gh issue view <n> --json state,stateReason`. If any referenced issue is **closed but NOT merged** (i.e., `state == "CLOSED"` and `stateReason != "COMPLETED"`) → treat the candidate HIT as a **MISS** and force re-triage. Rationale: a dependency closed without merging (e.g., abandoned) leaves dependents permanently blocked on a stale cached edge that claims they're blocked by an open issue that is actually abandoned.
+
+**Performance note:** These checks can be parallelized — run them concurrently when the tool environment supports it. Preferred: batch all referenced issue numbers into a single aliased GraphQL query (`query { issue_1: repository(owner:"<o>", name:"<r>") { issue(number:<n1>) { state stateReason } }, issue_2: repository(owner:"<o>", name:"<r>") { issue(number:<n2>) { state stateReason } }, … }`) rather than N sequential `gh issue view` calls. Per-issue `gh issue view` fallback only if the batch query fails.
+
+**Risk staleness corollary (Fix 3):** A HIT returns cached `risk` only while its edge references remain valid. Any stale-edge condition (the closed-without-merge check above) forces a MISS, which causes `risk` to be re-derived from live data along with the edges. When the HIT is clean (no stale edges), the cached `risk` value is authoritative.
+
+Partition issues into **HIT set** (cache-reused) and **MISS set** (fresh dispatch needed). Carry both sets forward.
+
+**Single mode:** cache lookup, key comparison, and the stale-edge invalidation check all apply identically for the one issue. (A single issue with no edges makes the stale-edge check vacuous — it passes trivially.)
+
 ### Step 3 — Dispatch `triageAgent` per issue
 
-Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue. Dispatches are **parallelizable** — run them concurrently when the tool environment supports it.
+Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only** (HIT issues are not re-dispatched). Dispatches are **parallelizable** — run them concurrently when the tool environment supports it.
 
 **Brief each agent with:**
 
@@ -97,7 +155,7 @@ GAPS:
   - … (or "none")
 ```
 
-For each issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW: yes`, dispatch `designReviewAgent` (default `milestone-driver:design-reviewer`).
+For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW: yes`, dispatch `designReviewAgent` (default `milestone-driver:design-reviewer`). HIT issues are excluded — their `designReviewAgent` dispatch was already done on the prior run; see Step 2.5 HIT table.
 
 **Brief the design agent with:**
 
@@ -120,7 +178,12 @@ GAPS:
 
 ### Step 4 — Aggregate findings
 
-Collect all GAPS across all agent returns for each issue. Aggregate by `lens` / `severity` / `description` / `to_clear` — the `type` tokens differ between the two agents by design; match on the other fields, not `type`.
+**Merge cached and fresh results first.** Combine the HIT set's cached `result` objects (from Step 2.5) with the fresh agent returns (from Step 3) into one unified result set covering all issues.
+
+- For HIT issues: the cached `result` carries `blockers`, `label`, `advisories`, `risk`, and `edges` — use them directly. Risk classification for HIT issues comes from the cached `risk` value (the label component of the cache key guarantees that override labels have not changed since the entry was written).
+- For MISS issues: use the fresh agent returns as normal.
+
+Collect all GAPS across all results for each issue. Aggregate by `lens` / `severity` / `description` / `to_clear` — the `type` tokens differ between the two agents by design; match on the other fields, not `type`.
 
 #### Risk classification
 
@@ -144,14 +207,22 @@ After aggregating gaps for each issue, classify it as **`light`** or **`heavy`**
 - The `triageAgent` adds no undeclared `DEPENDS_ON` edges.
 - NOT (`NEEDS_DESIGN_REVIEW: yes` AND UI surface).
 
-Build the **validated dependency graph** from all `DEPENDS_ON` edges:
+Build the **validated dependency graph** from all `DEPENDS_ON` edges across the merged result set:
 
-- Preserve the per-issue edges exactly as returned by each `triageAgent` (before any wave aggregation) — these form the `edges` map in the returned `dependencyGraph` (see Step 7).
-- Merge agent-returned edges with the milestone's declared Wave order.
+- Preserve the per-issue edges exactly as returned by each `triageAgent` (before any wave aggregation) — plus the `edges` carried in each HIT issue's cached `result` — these together form the `edges` map in the returned `dependencyGraph` (see Step 7).
+- Merge all edges (cached + fresh) with the milestone's declared Wave order. Rebuild `dependencyGraph.waves` from the merged per-issue `edges` map plus the milestone's declared Wave order using a pure in-context topological sort — no additional agent cost.
 - Where an agent finds an undeclared dependency, add it to the graph (and it surfaces as a Blocker in the gap table).
 - Produce the Wave-ordered graph for output AND maintain the raw per-issue `edges` map alongside it — the calling skill uses `edges` for per-issue buildability checks; `waves` gives ordering and presentation.
 
 ### Step 5 — Output to the user
+
+Open every output block with the cache split so reuse is never silent. Example:
+
+```
+Triage: 4 reused (cache), 2 fresh
+```
+
+(Substitute the actual counts. When all issues are HIT: `Triage: N reused (cache), 0 fresh`. When all are MISS: `Triage: 0 reused (cache), N fresh`.)
 
 **All clear** (no Blocker gaps across all issues):
 
@@ -183,7 +254,15 @@ Include the Wave-ordered dependency graph after the table (even when gaps are pr
 
 ### Step 6 — Comment on each affected issue and recommend its park label
 
-For every issue that has **Blocker** gaps:
+For every **freshly-triaged** (MISS) issue that has **Blocker** gaps:
+
+> **Cache-hit Blocker issues do NOT receive a duplicate `🔴 Triage` comment.** Their original comment from the first run persists on the issue. Only MISS issues that have Blockers get a new comment this run.
+>
+> **Previously-blockered issues that get a MISS always post a fresh comment.** When a cached entry shows `blockers: true` (the issue was previously blockered) but the cache is invalidated (key mismatch or stale-edge condition), the re-triage is treated as a full MISS. If the re-triage result still has Blockers, post a fresh `🔴 Triage` comment — do NOT guard on the stale cached `blockers: true` to skip posting. The stale cached result is not authoritative for the current run; only the fresh re-triage result governs whether a comment is posted.
+>
+> **Accepted trade-off:** the `🔴 Triage` comment is posted AFTER the cache key is computed. Posting it increments the issue's comment count, which self-invalidates the cache entry on the next run. This is the recorded accepted behavior — a blockered issue re-triages fresh on the next run, which is desirable. Do NOT add a dedup guard; that would deviate from the recorded design.
+
+For each qualifying MISS issue:
 
 1. **Post a triage comment** (`gh issue comment <n> --body "..."`). The comment body must:
    - Open with `🔴 Triage`
@@ -220,6 +299,40 @@ For every issue that has **Blocker** gaps:
 
 A Blocker **parks** the issue — triage posts the comment (Step 6) and returns the recommended label in `issueStates` (Step 7); the calling skill applies that label (via setup Phase 4's apply-time helper) and leaves the issue open. The loop continues with clean issues. This is a durable async handoff — never an interactive prompt.
 
+### Step 6.5 — Cache write (best-effort)
+
+After posting Blocker comments in Step 6, write/update entries for every **freshly-triaged** (MISS) issue. This step is **best-effort: a write failure logs a warning and does not error the triage run.**
+
+1. Re-read `.milestone-driver-triage-cache.json` at the repo root using the same degradation rules as Step 2.5 (absent/unreadable/invalid JSON → start from an empty object). **Why re-read instead of reusing the Step 2.5 parse:** Step 6 posts Blocker comments, which increments each blockered issue's comment count — this count is part of the cache key. The re-read captures any concurrent writes (e.g., from a parallel triage run) and ensures the written object is based on the most current file state rather than the snapshot from Step 2.5. This prevents silently overwriting entries that were updated between Step 2.5 and Step 6.5.
+2. For each freshly-triaged issue, write or overwrite its entry using **the key computed at Step 2.5** (the pre-comment key — intentionally, so the next run re-triages blockered issues whose comment count has since changed; see "Accepted trade-off" in Step 6) and the aggregated result from Step 4:
+
+   ```json
+   {
+     "<issue_number>": {
+       "key": "<composed change-signal key from Step 2.5>",
+       "triaged_at": "<ISO 8601 timestamp of this run>",
+       "result": {
+         "blockers": false,
+         "label": null,
+         "advisories": [],
+         "risk": "light",
+         "edges": []
+       }
+     }
+   }
+   ```
+
+   The `result` object carries: `blockers` (boolean), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
+
+3. Write the updated cache object back to `.milestone-driver-triage-cache.json` at the repo root.
+
+**Write paths (both are best-effort — failure skips write, does not abort the run):**
+
+- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. If `jq` is absent, skip the write entirely (same fail-open pattern as `hooks/tests-green.sh:7`: `command -v jq >/dev/null 2>&1 || exit 0`). Wrap in a conditional: if write fails, log a warning to stderr and continue.
+- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. Wrap the entire write in `try { … } catch { Write-Warning "triage cache write failed: $_" }` — skip on error (pattern from `hooks/tests-green.ps1:6`: `try { … } catch { exit 0 }`).
+
+**Single mode:** cache write applies identically — write the single issue's entry.
+
 ### Step 7 — Return to the calling skill
 
 Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the following:
@@ -238,6 +351,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
     }
   },
   issueStates: {
+    // **`issueStates` covers all issues** — both cache-HIT issues (populated from cached `result` via the Step 4 merge) and freshly-triaged MISS issues. Do not return only MISS-derived results.
     "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, advisories: ["<one-line advisory>", …], risk: "light" | "heavy" },
     …
   }

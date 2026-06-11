@@ -1,6 +1,6 @@
 ---
 name: solve-milestone
-argument-hint: <milestone-name> [--parallel]
+argument-hint: <milestone-name | milestone-number> [--parallel]
 description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Accepts an optional `--parallel` flag (or the phrase 'in parallel') to build mutually-independent issues within a Wave concurrently in git worktrees.
 ---
 
@@ -14,8 +14,9 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
 
 ## Before starting
 
-1. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
-   1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** the marker file `.milestone-driver-preflight-notice` does **not** exist at the repo root, print the notice below verbatim, then create the marker (`touch .milestone-driver-preflight-notice`). Stay **silent** if `preflightCmd` is set **or** the marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-driver-tests-stamp`).
+1. **Auth preflight.** Run `gh auth status`. If it fails (non-zero exit or any "not logged in" / "authentication failed" output), print a clear error — e.g. `"Error: gh auth status failed — authenticate with 'gh auth login' before running solve-milestone."` — and **halt immediately**. Do NOT proceed to profile read, milestone resolution, or any other step.
+2. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+   2.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** the marker file `.milestone-driver-preflight-notice` does **not** exist at the repo root, print the notice below verbatim, then create the marker (`touch .milestone-driver-preflight-notice`). Stay **silent** if `preflightCmd` is set **or** the marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-driver-tests-stamp`).
 
       <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
       ```text
@@ -35,16 +36,24 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       | Any w/ pre-commit | pre-commit run --all-files                 |
       | Makefile     | make lint                                       |
       ```
-2. Confirm `gh auth status` is healthy and the named milestone exists.
-3. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
+3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
+   - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
+   - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
+   - **Ambiguity note:** a purely-numeric milestone *title* (e.g. a milestone literally titled `"2"`) is reachable via the numeric-input path (routing is determined by `$ARGUMENTS` form — digits only — not by title content). After resolution, check the resolved title: **if it is purely numeric, halt immediately and prompt the human.** Triage interprets a bare number as single-issue mode, so the milestone title must be renamed to a non-numeric value before this skill can drive it unattended — do not proceed to Phase 0.
+   - **Available-milestones table format** (for the error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` formatted as a Markdown table with columns `#` and `Title`.
+
+   All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
+4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 
 ## The procedure
 
 ### 1. List the milestone's open issues
-Run `gh issue list --milestone "<name>" --state open`.
+Run `gh issue list --milestone "<resolved-title>" --state open`.
+
+(Where `<resolved-title>` means the title from the canonical `{number, title}` resolved in Before-starting step 3.)
 
 ### 2. Determine the order
-The **milestone description is the ordering source of truth**. Read it (e.g. `gh api "repos/{owner}/{repo}/milestones" --jq '.[] | select(.title=="<name>") | .description'`) and follow the recorded Wave / dependency sequence. If the description records no explicit order, fall back to ascending issue number and **state that assumption explicitly** in the run output — do not silently pick an order.
+The **milestone description is the ordering source of truth**. Read it (e.g. `gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'` or `gh api "repos/{owner}/{repo}/milestones?state=all" --jq '.[] | select(.title=="<resolved-title>") | .description'`) and follow the recorded Wave / dependency sequence. (Using the resolved number is more direct — prefer the by-number endpoint since it is already resolved.) If the description records no explicit order, fall back to ascending issue number and **state that assumption explicitly** in the run output — do not silently pick an order.
 
 ### 3. Determine the target version
 
@@ -61,8 +70,10 @@ Read `versioning` from the profile. **Version-free mode** (`versioning: false`):
 Before the build loop begins, invoke the triage phase across the entire milestone:
 
 ```
-/milestone-driver:triage <milestone-name>
+/milestone-driver:triage <resolved-title>
 ```
+
+(Pass the resolved title — triage's bare-number path means single-issue mode, so always pass the title here. If the resolved title is purely numeric, the Before-starting step 3 guard applies — see the Caution there.)
 
 1. **Present triage output.** Surface the all-clear or gap table in the run output so the operator can see what was found. The Wave-ordered dependency graph is included in triage's output regardless of whether there are gaps.
 
@@ -90,8 +101,21 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 **If buildable:**
 
 1. Ensure `integrationBranch` is current (`git fetch`, fast-forward) so dependent issues build on already-merged work.
-2. Run `/milestone-driver:solve-issue <n>` (the target version from step 3 is already in the orchestrator's context and will be applied at the version-bump step).
-3. **Park-and-continue on STOP/PAUSE:** if `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
+2. **Before dispatching the first issue in the run** (once per run, not per issue): run the **permission pre-flight gate** per `### Permission pre-flight gate`. If a gap is found → fall back to synchronous dispatch for this run (today's behavior, steps 2–4 unchanged, no background concurrency). If no gap → dispatch each issue as a background agent (`Agent(run_in_background: true)`), embedding BOTH the target version AND the Phase 0 triage result as named fields in the agent's prompt brief (e.g. `targetVersion: <x.y.z>` and `step-0 result for #N: { ... }`). A background agent has a fresh context and does NOT inherit the orchestrator's in-memory state — both values must be literally present in the prompt string, not inherited from context.
+
+   When dispatching as a background agent: invoke `solve-issue <n> --async`. The orchestrator MUST embed the Phase 0 triage result as before (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]") so that step 0's Branch A can reuse it. **Await the completion notification** from the background agent before proceeding to the next issue — the main line is live (interactive) between dispatches. When the notification arrives, re-derive terminal state from live `gh` queries — `gh issue view <n> --json labels,state` and `gh pr list --head issue/<n>-*` — to determine whether the issue was merged, held for visual review, or parked (there is no structured handback in `--async` mode). **Surface the wave-boundary status update using Template 2 from `## Output spec`**. Narrate any park (label + reason) sourced from the live issue labels. Apply park labels if needed. Re-sync `integrationBranch` (`git fetch`, fast-forward). Then dispatch the next issue.
+
+   **Operator redirect window.** Between dispatches the main line is interactive — the background agent has completed and the main line is live. The operator can redirect before the next dispatch begins. Redirects are only possible at these chunk boundaries; they are not possible mid-run while a background agent is executing.
+
+   **Background agents never call PushNotification** — confirmed absent from subagent tool registries (see issue #97 recorded decision); the main line emits at this boundary. **SendMessage/mid-chunk redirect does not exist in Claude Code** — do not narrate it.
+
+   **Sequential mode only** (not applicable to parallel worker handbacks — those are handled by Phase 1 step 5's parked-handback emit): After each issue completes in **sequential mode** (whether dispatched as a background agent or run synchronously as fallback), post the chunk-boundary board first (Template 2), then emit a `PushNotification` for the terminal state of the just-completed issue:
+   - **Issue parked** (any park subtype — triage-park, dependency-hold, STOP/build-park): emit `⏸️ #N parked — <reason>` (where `<reason>` is the park label + brief blocker description, e.g. "needs decision: new dependency").
+   - **Issue completed** (merged or held for visual review): no per-issue notification here — the 🏁 run-complete notification (emitted after the Final summary) is the aggregate end signal.
+
+   When falling back to synchronous dispatch: invoke `solve-issue <n>` as today (no `--async`). The orchestrator MUST restate the Phase 0 triage result inline when invoking step 0 — e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]" — so that step 0's Branch A recognizes the explicitly supplied result and skips re-invoking triage. If the result is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage) — Branch B is the safe default, never an error.
+
+3. **Park-and-continue on STOP/PAUSE:** *(Under async dispatch: the background agent already ran park-don't-prompt — skip step (3c) below (the comment was already posted by the agent); the live label read in step 4.2 is the park confirmation. Under synchronous dispatch: proceed as follows.)* If `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
    a. Apply the appropriate label using the apply-time label helper (`needs decision` for a new dependency or architecture call; `needs design` for a design/spec gap; `blocked` for an unresolvable unmet gate).
    b. Apply `in progress` if a branch exists with commits.
    c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there; if not, post it via `gh issue comment <n>`.
@@ -133,6 +157,47 @@ In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive b
 
 **No triage change.** This selection consumes triage's existing `dependencyGraph` (`waves` + `edges`) and `issueStates` outputs **unchanged** — there is no modification to `triage` or `triage-reviewer`. It reads the same graph the sequential loop already drives from.
 
+### Permission pre-flight gate
+
+**Runs once per run, before the first background dispatch. Zero cost on synchronous paths.**
+
+**Scope: this gate applies only when background dispatch is about to be used (`--parallel` mode or another background-dispatch path, #89). Sequential/synchronous runs never reach it — zero cost preserved.**
+
+Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. Before activating any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
+
+**Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
+
+| Priority | File |
+|---|---|
+| 1 | `~/.claude/settings.json` (user global) |
+| 2 | `.claude/settings.json` (project) |
+| 3 | `.claude/settings.local.json` (project local) |
+
+Absent or unreadable layers are skipped in the union (not treated as gaps). The union covers all readable layers. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
+
+**Pipeline tool surface.** The allowlist must cover, at minimum:
+
+| Tool category | Required grants |
+|---|---|
+| Read-only gh ops | `gh pr list`, `gh issue view`, `gh issue list` |
+| Git | `git commit`, `git push` |
+| PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
+| Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
+| Label management | `gh label create` |
+| Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
+
+**Gap detection and response.**
+
+- **No gaps:** proceed with background dispatch as planned.
+- **Gap detected (union does not cover the required surface, or no layer is readable):** do **not** fire the background chunk. Instead:
+  1. Surface a 🔴 gap table listing each missing grant and which settings layer(s) could supply it.
+  2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
+  3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
+
+The gate fires **once per run**, not once per issue. After the first background-dispatch decision point, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+
+**Worker auto-deny handling.** If a background worker chunk receives an auto-deny on a tool call mid-execution, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and return the structured handback with `status: parked`, `parkLabel: "blocked"`, and `parkReason: "auto-deny on <tool>"`. This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure.
+
 ### Parallel mode (`--parallel`) — Phase 1: concurrent worker dispatch
 
 This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). **Absent the `--parallel` token / NL trigger, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
@@ -163,15 +228,21 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
 3. **Dispatch concurrently, capped at 4.** Before dispatching: if `unitTestCmd` is defined in the profile (checkable) **and** `--parallel` mode is active (checkable), emit a one-time advisory: _"⚠ Parallel unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker — see docs/consumer-setup.md §DB isolation under --parallel."_ Then proceed with parallel dispatch regardless; do not serialize.
 
-   Dispatch **one subagent per set issue** running:
+   The permission pre-flight gate (see `### Permission pre-flight gate`) runs **once per run, before the first background dispatch in step 3**. If a gap is found → fall back to synchronous dispatch for this run. If no gap → proceed with background dispatch as described here.
+
+   Dispatch **one background agent per set issue** as `Agent(run_in_background: true)` running:
 
    ```
    /milestone-driver:solve-issue <n> --worker
    ```
 
-   in worker mode (#70), passing the issue's worktree path. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
+   in worker mode (#70), passing the issue's worktree path. The brief MUST embed the per-issue triage result as explicit named fields with ACTUAL VALUES — e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]` (the concrete arrays/objects, not just the field names). A brief whose triage fields are absent, label-only, or partial causes the worker's step 0 to fall to Branch B (fresh single-issue triage) — this is the enforcement mechanism; Branch B is the safe default, never an error. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
 
-4. **Barrier on the whole set.** **Await every dispatched worker's handback** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until the entire set has returned.
+   **Workers never call PushNotification** — confirmed absent from subagent tool registries (see issue #97 recorded decision); workers return park/completion facts in the structured handback; the main line emits at Wave boundaries. **SendMessage/mid-chunk redirect does not exist in Claude Code** — do not narrate it.
+
+   **Phase-2-before-next-Wave guarantee (explicit constraint).** Phase 2 runs to completion at the end of each Wave — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. This prevents port-binding-gate contention across waves and ensures every Wave builds on the prior Wave's fully integrated result.
+
+4. **Barrier on the whole set.** **Await ALL completion notifications from dispatched background agents** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until ALL background agents have returned their completion notification — i.e. until the entire dispatched set has completed.
 
 5. **Collect handbacks.** Each worker returns the structured handback (#70):
 
@@ -181,7 +252,7 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
    Separate `built-green` from `parked`:
    - **`built-green`** workers form the green set handed to Phase 2 (branches built + pushed, per-issue PR opened in issue granularity).
-   - **`parked`** workers are **excluded from the merge tail**. The park was already handled inside the worker (park-don't-prompt): its **branch, label, and comment stay intact**. The orchestrator does not re-park or re-label — it simply omits the issue from Phase 2, exactly as the sequential loop excludes a parked issue, signaled through the handback rather than inferred from labels.
+   - **`parked`** workers are **excluded from the merge tail**. The park was already handled inside the worker (park-don't-prompt): its **branch, label, and comment stay intact**. The orchestrator does not re-park or re-label — it simply omits the issue from Phase 2, exactly as the sequential loop excludes a parked issue, signaled through the handback rather than inferred from labels. For each parked handback, **emit one `⏸️ #N parked — <reason>` notification** (using `parkLabel` + `parkReason` from the handback) **before emitting the aggregate 🌊 wave-boundary notification**.
 
 6. **Cleanup the fleet.** The orchestrator removes a worktree once it is integrated by Phase 2, **or** its issue parked, **or** at Wave end / run end:
 
@@ -209,6 +280,12 @@ This subsection applies **only** when parallel mode is active (recognized per **
 **Why merge-in, not rebase + force (field-found).** A history-rewriting push is fragile across consumer safety setups: in a real run, `--force-with-lease` (and the delete-then-fresh-push fallback) were **BLOCKED** by two independent guards — a consumer destructive-command hook that treats the safe `--force-with-lease` like a raw `--force`, and the runtime's destructive-action classifier. A `no-push` hook permitting the push is **necessary but not sufficient** when those other guards stand. **Merge-in gives the identical re-verify guarantee with no history rewrite**, so it is the default. The **rebase + `--force-with-lease` variant stays available** as the allow-list-required alternative — but it **MUST be allow-listed** in the consumer's hooks / destructive-action classifier first.
 
 **Reaffirm the blast-radius boundary:** the serial tail merges only to `integrationBranch`, **never** `protectedBranch`.
+
+**Wave-boundary notification.** After Phase 2 completes for a Wave (all built-green non-UI branches merged, UI PRs held open, parked workers excluded) and before the next Wave's Phase 1 begins, emit a `PushNotification` — **only when another Wave follows** (🌊 is suppressed on the final Wave; the 🏁 run-complete notification is the single end signal):
+```
+🌊 Wave N done · X/Y ✅ · next: Wave N+1
+```
+Where N = the just-completed Wave number, X = issues merged this Wave (non-UI built-green, by Phase 2), Y = total issues in this Wave (all outcomes: merged + parked + triage-parked), next = Wave N+1 number. Parked-wave notifications (Class 1, per-issue) are already emitted individually as each park occurs; this wave-boundary notification covers the Wave's aggregate result.
 
 ### Integration granularity (issue vs wave)
 
@@ -238,16 +315,92 @@ Continue until every issue is done (merged), held at the visual-review gate (a U
 ## Autonomy
 
 - **Unattended between systemic failures.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues — it does **not** halt the loop. Only a systemic failure ends the run early.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, and stop.
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, then present the final summary and stop — the **Run-complete notification** block (below `## Final summary`) emits the `🚨 Run halted — <reason>` notification as its last step.
 - **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
+## Output spec
+
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
+
+### Template 1 — Run start / plan board
+
+Show after Phase 0 triage completes.
+
+```text
+🚀 Milestone v[version] — [N] issues · [W] waves · [--parallel | sequential] · ~[T]–[T2] min
+   develop ← integration PRs · profile: <H> heavy / <L> light
+
+| Wave | Issue | Title                    | Risk  | UI | Status      |
+|------|-------|--------------------------|-------|----|-------------|
+| 1    | #201  | Background wave dispatch | heavy | —  | 🔨 building |
+| 2    | #203  | Status board templates   | light | 👁️  | ⏭️ queued   |
+
+⏸️ Parked at triage: #202 — needs design (contradictory grouping spec)
+▶ Wave 1 dispatched — the floor is yours.
+```
+
+### Template 2 — Status update at each wave boundary
+
+Show after each Wave completes.
+<!-- Structural mirror of solve-issue Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
+
+```text
+🌊 Wave [N] done · [T] min · milestone [done]/[total] ✅
+
+| Issue | Result    | Gates            | PR   | Note                    |
+|-------|-----------|------------------|------|-------------------------|
+| #201  | ✅ merged | 🧪✓ 🔍✓(2 fixed) | #301        | ⚖️ quarantined flaky E2E |
+| #202  | ⏸️ parked | —                | [#pr | —]   | needs decision: new dep  |
+
+▶ Next: Wave 2 (#203 👁️, #204) — redirect or reprioritize before it lands.
+```
+PR cell: show the PR number if the issue has one, else —.
+
+Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+
+### Template 3 — Final results
+
+Use as the layout for the Final summary section (see `## Final summary` below).
+<!-- Post-run summary: columns differ from Template 2 by design — Gates is omitted (not relevant post-merge), Result → Outcome, Note → Follow-up (action-oriented framing). -->
+Populate the metadata lines below the table from the `## Final summary` requirements below: derive each field from the run's tracked context.
+
+```text
+🏁 v[version] complete · [T] min · ✅ [M] merged · 👁️ [U] open · ⏸️ [P] parked
+
+| Issue | Outcome   | PR          | Follow-up                                  |
+|-------|-----------|-------------|--------------------------------------------|
+| #201  | ✅ merged | #301        | —                                          |
+| #203  | 👁️ open   | #303        | render + merge (light/dark shots attached) |
+| #202  | ⏸️ parked | [#pr | —]   | clear `needs decision` (new dep)           |
+
+Judgment-call PRs: [list or "none"]
+PRs missing Code Review section: [list or "none"]
+Auto-resolved conflicts: [list or "none"]
+Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
+
+🔴 Your move:
+1. Review & merge each open PR (👁️ rows above) — visual sign-off; check ⚖️ judgment-call PRs too
+2. Clear park labels → re-run
+3. All merged → integration → protected, deploy
+```
+PR cell: show the PR number if the issue has one, else —.
+
+## Output style
+
+Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
+Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.
+
 ## Final summary
+
+Use Template 3 from `## Output spec` (above) as the layout for this summary. All content requirements below remain in effect — each bullet maps to a row or section in the template.
 
 On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch` (with PR links).
-- **Issues parked** — for each: the issue number and title, the park label applied, the blocker reason, and the open feature branch (if applicable). Report each parked issue's blocker reason from the run's tracked context — the loop recorded WHY each issue was parked as it happened (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). If a reason is not in active context, read the issue's comments (`gh issue view <n> --json comments`) and use the park-reason comment posted during THIS run — the `🔴 Triage` comment (triage-park), the `🔴 Blocked` comment (dependency-hold), or the recorded STOP/PAUSE reason (build-park; note this may not carry a `🔴` prefix). Identify the park-reason comment by its content and recency-within-this-run; do **not** invent or hallucinate a reason, and do not mistake an external reply for the park reason.
+- **Issues parked** — for each: the issue number and title, the park label applied, the blocker reason, and the open feature branch (if applicable). Report each parked issue's blocker reason from the run's tracked context — the loop recorded WHY each issue was parked as it happened (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). If a reason is not in active context, read the issue's comments (`gh issue view <n> --json comments`) and use the most recent format-matching comment on the issue (which may be from a prior run — e.g. a cache-HIT park posts no fresh comment). A format-matching comment is one whose body opens with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first — take the LAST format-matching comment. Back-compat note: issues parked by pre-1.7.0 runs may carry un-anchored build-park comments; if no anchored match exists, report "park reason not recorded (pre-1.7.0 park format)". Do **not** invent or hallucinate a reason.
 - **Open UI PRs** awaiting human merge: PRs carrying the `needs review` label (UI issues per issue #18 that were built but left open for visual sign-off), listed with their PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section** in their body — flagged, like `judgment call` PRs, as requiring post-run human review before the `integrationBranch` → `protectedBranch` merge.
@@ -256,6 +409,6 @@ On completion or systemic-failure halt, report:
 - **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
 - The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` and deploy manually.
 
-## Output style
-
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+**Run-complete notification.** After presenting the final summary (Template 3), emit a `PushNotification`:
+- **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
+- **Systemic halt** (invoked from the Autonomy section's halt path): `🚨 Run halted — <reason>` (where `<reason>` is the systemic-failure description, e.g. "gh auth failure").
