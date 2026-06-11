@@ -306,9 +306,49 @@ The worker returns a structured handback so the orchestrator can drive the merge
 
 These three deltas are the **only** differences. With no `--worker` token, the pipeline above runs exactly as written — same gates, same caps, same merge, same close. Worker mode adds an opt-in path; it changes nothing about the default sequential run.
 
+## Output spec
+
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 your move
+
+### Template 1 — Run start / plan board
+
+Show after the ### 0. Triage step completes.
+
+```text
+🚀 Issue #<n> — <title> · [risk: light | heavy] · [UI | non-UI]
+
+| Issue | Title   | Risk   | UI | Status      |
+|-------|---------|--------|----|-------------|
+| #<n>  | <title> | <risk> | —  | 🔨 building |
+
+▶ Building — the floor is yours.
+```
+
+### Template 2 — Issue completion (terminal output)
+
+This is the terminal output for solve-issue. It mirrors the issue-row format of solve-milestone's Template 2.
+<!-- Structural mirror of solve-milestone Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
+
+One row per issue; emit only the row that matches the actual outcome and suppress the other rows — the `✅ merged` row when the PR was merged, the `👁️ open` row when the PR is awaiting visual review, or the `⏸️ parked` row when the issue was parked.
+
+```text
+🏁 Issue #<n> · <T> min
+
+| Issue | Result     | Gates | PR | Note                    |
+|-------|------------|-------|----|-------------------------|
+| #<n>  | ✅ merged  | 🔍✓(0 findings)  | #<p> | —    |
+| #<n>  | 👁️ open   | 🔍✓(1 fixed)     | #<p> | awaiting visual review  |
+| #<n>  | ⏸️ parked  | —                | #<p> or — | <park label>      |
+```
+
+Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+
 ## Output style
 
 Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
+Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.
 
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only — never `protectedBranch`.
