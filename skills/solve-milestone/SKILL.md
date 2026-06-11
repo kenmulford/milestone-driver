@@ -319,9 +319,83 @@ Continue until every issue is done (merged), held at the visual-review gate (a U
 - **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
+## Output spec
+
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
+
+### Template 1 — Run start / plan board
+
+Show after Phase 0 triage completes.
+
+```text
+🚀 Milestone v[version] — [N] issues · [W] waves · [--parallel | sequential] · ~[T]–[T2] min
+   develop ← integration PRs · profile: <H> heavy / <L> light
+
+| Wave | Issue | Title                    | Risk  | UI | Status      |
+|------|-------|--------------------------|-------|----|-------------|
+| 1    | #201  | Background wave dispatch | heavy | —  | 🔨 building |
+| 2    | #203  | Status board templates   | light | 👁️  | ⏭️ queued   |
+
+⏸️ Parked at triage: #202 — needs design (contradictory grouping spec)
+▶ Wave 1 dispatched — the floor is yours.
+```
+
+### Template 2 — Status update at each wave boundary
+
+Show after each Wave completes.
+<!-- Structural mirror of solve-issue Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
+
+```text
+🌊 Wave [N] done · [T] min · milestone [done]/[total] ✅
+
+| Issue | Result    | Gates            | PR   | Note                    |
+|-------|-----------|------------------|------|-------------------------|
+| #201  | ✅ merged | 🧪✓ 🔍✓(2 fixed) | #301        | ⚖️ quarantined flaky E2E |
+| #202  | ⏸️ parked | —                | [#pr | —]   | needs decision: new dep  |
+
+▶ Next: Wave 2 (#203 👁️, #204) — redirect or reprioritize before it lands.
+```
+PR cell: show the PR number if the issue has one, else —.
+
+Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+
+### Template 3 — Final results
+
+Use as the layout for the Final summary section (see `## Final summary` below).
+<!-- Post-run summary: columns differ from Template 2 by design — Gates is omitted (not relevant post-merge), Result → Outcome, Note → Follow-up (action-oriented framing). -->
+Populate the metadata lines below the table from the `## Final summary` requirements below: derive each field from the run's tracked context.
+
+```text
+🏁 v[version] complete · [T] min · ✅ [M] merged · 👁️ [U] open · ⏸️ [P] parked
+
+| Issue | Outcome   | PR          | Follow-up                                  |
+|-------|-----------|-------------|--------------------------------------------|
+| #201  | ✅ merged | #301        | —                                          |
+| #203  | 👁️ open   | #303        | render + merge (light/dark shots attached) |
+| #202  | ⏸️ parked | [#pr | —]   | clear `needs decision` (new dep)           |
+
+Judgment-call PRs: [list or "none"]
+PRs missing Code Review section: [list or "none"]
+Auto-resolved conflicts: [list or "none"]
+Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
+
+🔴 Your move:
+1. Review & merge each open PR (👁️ rows above) — visual sign-off; check ⚖️ judgment-call PRs too
+2. Clear park labels → re-run
+3. All merged → integration → protected, deploy
+```
+PR cell: show the PR number if the issue has one, else —.
+
+## Output style
+
+Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+
+Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.
+
 ## Final summary
 
-Use Template 3 from `## Output spec` (below) as the layout for this summary. All content requirements below remain in effect — each bullet maps to a row or section in the template.
+Use Template 3 from `## Output spec` (above) as the layout for this summary. All content requirements below remain in effect — each bullet maps to a row or section in the template.
 
 On completion or systemic-failure halt, report:
 
@@ -338,74 +412,3 @@ On completion or systemic-failure halt, report:
 **Run-complete notification.** After presenting the final summary (Template 3), emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
 - **Systemic halt** (invoked from the Autonomy section's halt path): `🚨 Run halted — <reason>` (where `<reason>` is the systemic-failure description, e.g. "gh auth failure").
-
-## Output spec
-
-<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 your move
-
-### Template 1 — Run start / plan board
-
-Show after Phase 0 triage completes.
-
-```text
-🚀 Milestone v<version> — <N> issues · <W> waves · [--parallel | sequential] · ~<T>–<T2> min
-   develop ← integration PRs · profile: <H> heavy / <L> light
-
-| Wave | Issue | Title                    | Risk  | UI | Status      |
-|------|-------|--------------------------|-------|----|-------------|
-| 1    | #201  | Background wave dispatch | heavy | —  | 🔨 building |
-| 2    | #203  | Status board templates   | light | 👁️  | ⏭️ queued   |
-
-⏸️ Parked at triage: #205 — needs design (contradictory grouping spec)
-▶ Wave 1 dispatched — the floor is yours.
-```
-
-### Template 2 — Status update at each wave boundary
-
-Show after each Wave completes.
-<!-- Structural mirror of solve-issue Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
-
-```text
-🌊 Wave <N> done · <T> min · milestone <done>/<total> ✅
-
-| Issue | Result    | Gates            | PR   | Note                    |
-|-------|-----------|------------------|------|-------------------------|
-| #201  | ✅ merged | 🧪✓ 🔍✓(2 fixed) | #301 | ⚖️ quarantined flaky E2E |
-| #202  | ⏸️ parked | —                | —    | needs decision: new dep |
-
-▶ Next: Wave 2 (#203 👁️, #204) — redirect or reprioritize before it lands.
-```
-
-Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
-
-### Template 3 — Final results
-
-Use as the layout for the Final summary section (see `## Final summary` above).
-<!-- Post-run summary: columns differ from Template 2 by design — Gates is omitted (not relevant post-merge), Result → Outcome, Note → Follow-up (action-oriented framing). -->
-Populate the metadata lines below the table from the `## Final summary` requirements above: derive each field from the run's tracked context.
-
-```text
-🏁 v<version> complete · <T> min · ✅ <M> merged · 👁️ <U> open · ⏸️ <P> parked
-
-| Issue | Outcome   | PR   | Follow-up                                  |
-|-------|-----------|------|--------------------------------------------|
-| #203  | 👁️ open   | #302 | render + merge (light/dark shots attached) |
-| #202  | ⏸️ parked | —    | clear `needs decision` (new dep)           |
-
-Judgment-call PRs: <list or "none">
-PRs missing Code Review section: <list or "none">
-Auto-resolved conflicts: <list or "none">
-Per-wave sizes: Wave 1 · <N> issues · <T> min | Wave 2 · …
-
-🔴 Your move:
-1. Review & merge each open PR (👁️ rows above) — visual sign-off; check ⚖️ judgment-call PRs too
-2. Clear park labels → re-run
-3. All merged → integration → protected, deploy
-```
-
-## Output style
-
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
-
-Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.

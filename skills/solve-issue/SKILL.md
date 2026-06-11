@@ -352,18 +352,18 @@ Delta A1 is the **only** behavioral delta because it is the only step in the seq
 ## Output spec
 
 <!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 your move
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
 
 Show after the ### 0. Triage step completes.
 
 ```text
-🚀 Issue #<n> — <title> · [risk: light | heavy] · [UI | non-UI]
+🚀 Issue #201 — [title] · [risk: light | heavy] · [UI | non-UI]
 
 | Issue | Title   | Risk   | UI | Status      |
 |-------|---------|--------|----|-------------|
-| #<n>  | <title> | <risk> | —  | 🔨 building |
+| #201  | [title] | [risk] | —  | 🔨 building |
 
 ▶ Building — the floor is yours.
 ```
@@ -376,14 +376,15 @@ This is the terminal output for solve-issue. It mirrors the issue-row format of 
 One row per issue; emit only the row that matches the actual outcome and suppress the other rows — the `✅ merged` row when the PR was merged, the `👁️ open` row when the PR is awaiting visual review, or the `⏸️ parked` row when the issue was parked.
 
 ```text
-🏁 Issue #<n> · <T> min
+🏁 Issue #[n] · [T] min
 
 | Issue | Result     | Gates | PR | Note                    |
 |-------|------------|-------|----|-------------------------|
-| #<n>  | ✅ merged  | 🔍✓(0 findings)  | #<p> | —    |
-| #<n>  | 👁️ open   | 🔍✓(1 fixed)     | #<p> | awaiting visual review  |
-| #<n>  | ⏸️ parked  | —                | #<p> or — | <park label>      |
+| #201  | ✅ merged  | 🔍✓(0 findings)  | #301 | —    |
+| #203  | 👁️ open   | 🔍✓(1 fixed)     | #303 | awaiting visual review  |
+| #202  | ⏸️ parked  | —                | [#pr | —] | [park label]      |
 ```
+PR cell: show the PR number if the issue has one, else —.
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
