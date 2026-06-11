@@ -321,7 +321,7 @@ These three deltas are the **only** differences. With no `--worker` token, the p
 
 ### How the caller dispatches
 
-When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes. There is no mid-run redirect — the background agent runs to completion; redirects are impossible once it is dispatched. **No PushNotification is sent by the background agent** — that is #97's scope; the caller receives the completion notification from the Agent tool itself.
+When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes. There is no mid-run redirect — the background agent runs to completion; redirects are impossible once it is dispatched. **No PushNotification is sent by the background agent** — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main line (caller) emits the park or wave-boundary notification at this chunk boundary, after receiving the Agent tool completion notification and re-deriving terminal state from live `gh` queries.
 
 ### Pre-dispatch: permission pre-flight gate
 
@@ -345,7 +345,8 @@ Delta A1 is the **only** behavioral delta because it is the only step in the seq
 ### Background agent constraints
 
 - **Auto-deny:** background subagents auto-deny any tool call that would otherwise prompt. The permission pre-flight gate (run before dispatch) guards against un-allowlisted tool calls; Delta A1 eliminates the only remaining interactive confirm. Any unexpected auto-deny mid-run is treated as a park — same park-don't-prompt contract as every other gate.
-- **No PushNotification:** the background agent does not send notifications — that is #97's scope.
+- **No PushNotification:** the background agent does not send notifications — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main-line caller emits at chunk boundaries (parks + wave completions + run complete/halt).
+- **Caller obligation on completion** *(applies to the calling session, not the background agent)*. When the background chunk's completion notification arrives, the calling session re-derives terminal state from live `gh` queries and emits **one notification per dispatched issue**: `⏸️ #N parked — <reason>` if the issue was parked (park label + brief blocker description from the live issue labels/comments), or a `🏁`-style one-liner (e.g. `🏁 #N merged` or `🏁 #N open — awaiting visual review`) if the issue completed (PR merged or held for visual review). This mirrors the handback facts for `--worker` mode; one emit per run, always by the calling session, never by the background agent. (When `--async` is dispatched by `solve-milestone`, solve-milestone's own emit rules govern — per-issue completion notifications are suppressed in sequential mode in favor of the aggregate `🏁` run-complete signal; this per-issue obligation applies to standalone callers outside solve-milestone's orchestration.)
 - **No SendMessage/mid-chunk redirect:** the background agent runs to completion; mid-run redirect is not possible in Claude Code.
 
 ## Output spec
