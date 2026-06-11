@@ -423,6 +423,246 @@ On completion or systemic-failure halt, report:
 - **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
 - The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` and deploy manually.
 
+**Output ordering (clean-completion path only):** On the clean-completion path, do not emit the Template 3 final summary until after step 6 completes (see step 6.9 — the CHANGELOG result is appended to the `🔴 Your move:` section before the summary is output). On the systemic-halt path, step 6 is skipped entirely (per step 6's preamble) — emit the Template 3 final summary immediately.
+
+### 6. Author the CHANGELOG entry
+
+**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the Run-complete notification. The systemic-halt path is identified by the fact that the run ended with a 🚨 reason (not a 🏁 reason).
+
+**Guard — skip this step entirely if any condition holds:**
+
+- The parked count for this run is greater than zero (any issue was parked), OR
+- The run ended via a systemic halt (see preamble above)
+
+The parked count is derived from this run's **in-context tracking** — it counts ALL issues that did not reach "merged" or "held at visual-review gate" status in this run: issues parked at build time, issues skipped due to triage blockers, AND issues excluded by the buildability check due to a live blocker label (e.g., `blocked` from a prior run). This is the `⏸️ P` count in Template 3's summary line. Do NOT re-derive via a live `gh issue list` query — a live query may find labels unrelated to this run's completion status.
+
+If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the Run-complete notification.
+
+Only proceed through steps 6.1–6.9 when **every issue in the milestone is either merged (non-UI) or held at the visual-review gate (UI)** — i.e. no parks. Visual-review holds (open `needs review` PRs for UI issues) are expected clean-completion state and do NOT block CHANGELOG authoring.
+
+#### 6.1 Idempotency check
+
+Determine the heading prefix based on the versioning mode:
+
+- **Versioned mode** (`versioning: true` or absent): prefix is `## v<target-version> ` (with a trailing space)
+- **Version-free mode** (`versioning: false`): full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. Strip leading and trailing whitespace (including `\r` on Windows) from each line before comparing — the trimmed line content must equal the heading with no additional characters. This prevents false-positive matches against entries like `## Q3 Hardening` when the current milestone is titled `Q3`.
+
+If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync). Scan each line for the prefix starting at the beginning of the line. For versioned mode use a line-start prefix match on the trimmed line; for version-free mode use a full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the Run-complete notification. If no match → continue.
+
+If `CHANGELOG.md` is absent, treat it as "no existing entry" and continue.
+
+#### 6.2 Fetch PR summaries
+
+For each issue merged in this run, look up its PR number from the **run's in-context issue→PR tracking table** (the same data that populates Template 2 and Template 3's PR column). If the PR number for a particular issue is not in active context, fall back to querying the issue's closing PR references:
+
+```bash
+gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | map(select(.state == "MERGED")) | .[0].number // empty'
+```
+
+Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. If it is null or empty (no linked PR found), apply the following fallback: use the issue title as the What-column content for that issue and skip `gh pr view` for that issue. Record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
+
+When a valid PR number is confirmed, call:
+
+```bash
+gh pr view <pr-number> --json title,body
+```
+
+Extract the summary line:
+
+1. Look for a `## Summary` heading in the body (case-insensitive match on the heading text).
+2. Take the **first non-blank line** immediately following that heading.
+3. If no `## Summary` section is found, fall back to the PR title.
+
+Record a triple for each issue: `{ issue: #N, pr: #P, summary: "<extracted line>" }`.
+
+#### 6.3 Categorize issues
+
+Group the merged issues into two buckets based on labels and title prefixes:
+
+- **✨ Features / enhancements:** issues with label `enhancement`, `feature`, or title prefixes `feat(`, `polish(`. Issues that don't clearly match either bucket default to this one.
+- **🔧 Fixes:** issues with label `bug` or `fix`, or title prefixes `fix(`.
+
+A single issue belongs to exactly one bucket. If an issue matches both, prefer the fix bucket.
+
+#### 6.4 Determine the milestone theme
+
+1. Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`).
+2. Look for a dedicated theme line (a line starting with `Theme:` or `**Theme:**`). Use the text after the prefix as the one-sentence theme description.
+3. If no theme line is found in the description, use the milestone title as both the heading theme and the theme description.
+
+#### 6.5 Author the CHANGELOG entry
+
+Construct the markdown block using the structure below. Mirror the v1.7.0 entry in `CHANGELOG.md` exactly — same heading format, same table schema, same section names.
+
+**Versioned mode entry:**
+
+```markdown
+## v<target-version> — <milestone theme>
+
+**Theme:** <one-sentence theme description>
+
+### ✨ <Feature category label>
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### Consumer notes (upgrading from <prev version>)
+
+- <upgrade-relevant behavior changes, new artifacts, schema impact>
+- **No schema changes** to `milestone-driver.json` (include this line only when true)
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
+```
+
+**Version-free mode entry** (omit the version number and theme suffix; include Consumer notes and ⚖️ Post-run audit trail sections using the same rules as versioned mode — only the heading format differs):
+
+```markdown
+## <milestone title>
+
+**Theme:** <one-sentence theme description>
+
+### ✨ <Feature category label>
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### Consumer notes
+
+- <upgrade-relevant behavior changes, new artifacts, schema impact>
+- **No schema changes** to `milestone-driver.json` (include this line only when true)
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
+```
+
+Rules for authoring the entry:
+
+- Omit the `### 🔧 Fixes` section entirely if there are no fix-bucket issues.
+- Omit the `### ✨` section entirely if there are no feature-bucket issues (unusual, but possible).
+- Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".
+- Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes — authored from what was actually built. Include the "No schema changes" line only when confirmed true.
+- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (the same set used for the Template 3 row entries — do NOT re-query `gh pr list`; read from context); write "none" if the list is empty.
+- Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. If CHANGELOG is absent or contains no `## v...` heading, use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched CHANGELOG.md, then run `git show <commit>:CHANGELOG.md | grep '^## v' | head -1` to extract the most recent version heading from history. If no prior CHANGELOG exists in history, omit the prev-version parenthetical from the Consumer notes heading and use simply `### Consumer notes`. Do NOT use `plugin.json` as a fallback — `plugin.json` holds the target version, not the previous one.
+
+**Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose that precedes the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create a new one with a standard `# Changelog` header and intro paragraph, then append the new entry below. To retrieve an existing structure as a template: first run `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched the file, then run `git show <commit>:CHANGELOG.md` to retrieve the content. If no prior version exists in history, use a minimal header (`# Changelog` followed by a blank line).
+
+#### 6.6 Determine the branch name
+
+- **Versioned mode:** `docs/changelog-v<target-version>` (e.g. `docs/changelog-v1.8.0`)
+- **Version-free mode:** `docs/changelog-<milestone-slug>`, where slug = milestone title lowercased, spaces replaced by hyphens, non-alphanumeric characters (except hyphens) removed (e.g. milestone "Q3 Hardening" → `docs/changelog-q3-hardening`)
+
+#### 6.7 Open the doc-only PR
+
+Cut the branch from the current `integrationBranch` tip (step 6.7 re-syncs integrationBranch inline before branching — do not rely on a prior re-sync having occurred):
+
+If the docs branch already exists from a prior interrupted run (local or on remote), check it out instead of creating it anew. This makes step 6.7 re-runnable.
+
+```bash
+# Ensure integrationBranch is current before cutting the docs branch
+git checkout <integrationBranch>
+git fetch
+git merge --ff-only origin/<integrationBranch>
+# Guard: if the docs branch already exists from a prior interrupted run, check it out instead of creating a new one
+if git show-ref --verify --quiet refs/heads/docs/changelog-<slug>; then
+  git checkout docs/changelog-<slug>
+elif git ls-remote --exit-code origin docs/changelog-<slug> > /dev/null 2>&1; then
+  git checkout --track origin/docs/changelog-<slug>
+else
+  git checkout -b docs/changelog-<slug> <integrationBranch>
+fi
+# edit CHANGELOG.md as authored in step 6.5
+# If CHANGELOG.md was already committed on this branch (re-run after interruption), the commit is skipped (CHANGELOG is already in place).
+git add CHANGELOG.md
+# Run exactly ONE of the following — choose based on versioning mode:
+git diff --cached --quiet || git commit -m "docs: v<version> release notes"           # VERSIONED MODE
+# git diff --cached --quiet || git commit -m "docs: <milestone-title> release notes"  # VERSION-FREE MODE
+# Run the versioned commit line when `versioning` is true or absent; uncomment the version-free line (and comment out the versioned line) when `versioning: false`.
+git push -u origin docs/changelog-<slug>
+# Check if a PR already exists for this branch (re-run safety)
+existing_pr=$(gh pr list --head "docs/changelog-<slug>" --json number --jq '.[0].number // empty' 2>/dev/null)
+if [ -n "$existing_pr" ]; then
+  echo "CHANGELOG PR already open: #$existing_pr"
+else
+  # PR title uses the versioned or version-free form depending on mode:
+  #   Versioned:    "docs: v<version> release notes"
+  #   Version-free: "docs: <milestone-title> release notes"
+  gh pr create \
+    --base <integrationBranch> \
+    --title "docs: <title>" \
+    --body "$(cat <<'EOF'
+## CHANGELOG preview
+
+<paste the authored CHANGELOG entry verbatim here>
+
+---
+
+_This entry doubles as the GitHub-release body for the human release step._
+EOF
+)"
+fi
+```
+
+Record the PR number and URL — either the newly created PR or the existing one found by the re-run guard.
+
+#### 6.8 Handle CI result
+
+The PR is doc-only; CI is typically vacuously green (no required status checks on a documentation-only change). Immediately attempt:
+
+```bash
+gh pr merge <pr-number> --squash --delete-branch
+```
+
+- **Success (CI green or no CI):** record _"CHANGELOG entry merged."_ and record the merge for the final summary. Then clean up the working tree:
+
+  ```bash
+  git checkout <integrationBranch>
+  git fetch
+  git merge --ff-only origin/<integrationBranch>   # fast-forward local branch to include the squash-merge commit
+  # fast-forward local branch — git fetch alone does not advance the local ref
+  git branch -d docs/changelog-<slug>   # safe to delete: local tip is reachable from integrationBranch after fast-forward
+  ```
+
+- **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR (`gh pr edit <pr-number> --add-label "needs review"`). Add a 🔴 item to the run output:
+
+  > 🔴 CHANGELOG PR needs human merge (CI red): #P — <pr-url>
+
+  Return to `integrationBranch` but preserve the local `docs/changelog-<slug>` branch (the remote PR is still open and needs the branch):
+
+  ```bash
+  git checkout <integrationBranch>
+  # do NOT delete the local docs/changelog-<slug> branch — remote PR is still open
+  ```
+
+  Do NOT re-attempt the merge. Proceed to the Run-complete notification.
+
+#### 6.9 Surface in the final summary "Your move" section
+
+**Output ordering:** The Template 3 final summary MUST NOT be emitted until step 6 completes. Hold the summary in-context through steps 6.1–6.8, then add this line to the `🔴 Your move:` section, and emit the complete Template 3 only after step 6.9.
+
+Add one line to the `🔴 Your move:` list in Template 3 (the final summary):
+
+- **Merged:** `CHANGELOG entry merged → use as GitHub release body (#P)`
+- **Held open (CI red):** `🔴 CHANGELOG PR needs human merge (CI red): #P`
+
+**Label collision note:** A CHANGELOG PR carrying the `needs review` label must be surfaced in the `🔴 Your move:` list only — it must NOT appear in the `👁️ open` rows of Template 3. The Final summary's "Open UI PRs awaiting human merge" bullet is scoped to PRs opened for issues in this run's issue set (cross-referenced against the run's in-context issue→PR tracking table), not all `needs review` PRs in the repo.
+
 **Run-complete notification.** After presenting the final summary (Template 3), emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
 - **Systemic halt** (invoked from the Autonomy section's halt path): `🚨 Run halted — <reason>` (where `<reason>` is the systemic-failure description, e.g. "gh auth failure").
