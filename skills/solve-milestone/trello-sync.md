@@ -166,15 +166,158 @@ ALL Trello calls are made by the **solve-milestone orchestrator main thread only
 
 ---
 
-## Convention 10 — Section stubs for later waves
+## Convention 10 — Phase hooks
 
 ## Phase 0 hooks
 
-Placeholder: Trello Phase 0 hook logic added by #101.
+Invoked by SKILL.md Phase 0 after step 2 (apply park labels) and before step 3 (seed the build queue). All operations follow Convention 1 (best-effort). The orchestrator main thread makes all calls.
+
+### Edge case: no card handle
+
+If the run-start card resolution (earlier in the run) failed and no card handle exists, skip BOTH Phase 0 operations with a single log line and return:
+
+```
+Trello: Phase 0 hooks skipped — no card handle (run-start resolution failed)
+```
+
+No retry is attempted.
+
+### Step 1 — Post triage summary comment
+
+Call `mcp__trello__add_comment` on the milestone card. Compose the comment body from triage's output:
+
+**All-clear case** (no issues have `blockers == true`):
+
+```
+✅ All clear — triage found no blocking gaps.
+
+<Wave-ordered dependency graph from triage Step 5 output>
+```
+
+> If triage returned advisory notes, append them after the dependency graph. Omit this section entirely when there are no advisories.
+
+**Gaps case** (one or more issues have `blockers == true`):
+
+```
+<Gap table — Blockers first, then Advisories>
+
+| Issue | Lens | Severity | Gap | What's needed |
+|-------|------|----------|-----|---------------|
+| ...   | ...  | Blocker  | ... | ...           |
+| ...   | ...  | Advisory | ... | ...           |
+
+<Wave-ordered dependency graph from triage Step 5 output>
+```
+
+**Truncation edge case:** if the triage output exceeds Trello's comment character limit:
+
+- **Gaps case:** truncate the table body (keep the table header row) and append:
+  ```
+  (truncated — full table in the run output / GitHub issues)
+  ```
+- **All-clear case:** truncate the dependency graph text (keep the `✅ All clear` header line) and append:
+  ```
+  (truncated — full dependency graph in the run output / GitHub issues)
+  ```
+
+Wrap this entire operation best-effort. On failure, log:
+
+```
+Trello: triage summary comment skipped — <error>
+```
+
+and continue to Step 2.
+
+### Step 2 — Move card (Queue → inProgress) or stay
+
+Evaluate the move condition using `issueStates` from triage:
+
+- **Move condition:** `issueStates` contains at least one entry where `blockers == false` (at least one issue is buildable — partial-clear counts).
+- **All-parked condition:** every entry in `issueStates` has `blockers == true` (zero buildable issues).
+
+**If card is already in inProgress:** the move is a no-op regardless of condition — skip silently (re-run case; card already advanced).
+
+**If move condition is met and card is in queue list:** call `mcp__trello__move_card` to move the card to the inProgress list. Wrap best-effort. On failure, log:
+
+```
+Trello: card move (Queue → In Progress) skipped — <error>
+```
+
+**If move condition is met and card is in any other list** (unmanaged, e.g., "Done"): leave the card in place and log one line:
+
+```
+Trello: card in unmanaged list — not moved; human may have repositioned it
+```
+
+**If all-parked condition:** do NOT move the card regardless of which list it is in. Post one additional comment via `mcp__trello__add_comment`:
+
+```
+All issues are parked — see triage summary above. Card remains in Queue.
+```
+
+Wrap this comment best-effort. On failure, log:
+
+```
+Trello: all-parked comment skipped — <error>
+```
 
 ## Loop hooks
 
-Placeholder: Trello loop hook logic added by #102.
+Two call sites fire checklist ticks during the solve-milestone loop. Both are main-thread only (Convention 9). Both are no-ops when `integrations.trello` is absent from the profile.
+
+### Issue granularity
+
+**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged non-UI issue.
+
+**When a card handle is available:**
+
+1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
+2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only — titles may have been edited after checklist creation).
+3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
+
+**What is NOT ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) are never ticked at this call site — they have not been merged and closed.
+
+**Parallel mode (`--parallel`):** ticks fire in the serial verified merge tail (main thread, Phase 2) as each issue's branch is squash-merged. The merge tail's per-branch squash-merge loop passes through the same on-success tick logic as the sequential step 4 path — no separate call site is needed.
+
+**Best-effort per item:** any failure logs one line and the loop continues:
+
+```
+Trello: checklist tick #<n> skipped — <error>
+```
+
+**Edge case — item not found:** the issue was added to the milestone after card creation (known non-reconciliation limitation per Convention 7). Log:
+
+```
+Trello: checklist tick #<n> skipped — item not found
+```
+
+Do NOT add a new item. Continue.
+
+**Edge case — no card handle:** if run-start card resolution failed (no handle available for this run), skip silently. The single run-start log was already emitted (Convention 2 if tools are absent, Convention 3 if boardId is missing, or Convention 1 if card resolution itself failed); no per-issue log spam.
+
+---
+
+### Wave granularity
+
+**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `gh issue close #a #b #c --reason completed`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
+
+**When a card handle is available:**
+
+For each issue `#<n>` closed in the wave:
+
+1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
+2. Find the item whose text starts with `#<n>`.
+3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
+
+Execute as a sequence of calls — one tick per closed issue. (The checklist items call may be shared/cached across the sequence if the implementation prefers, but each item update is a separate call.)
+
+**Best-effort per item:** each tick failure logs one line and the sequence continues to the next issue:
+
+```
+Trello: checklist tick #<n> skipped — <error>
+```
+
+**Edge case — item not found** and **edge case — no card handle:** same rules as issue granularity above.
 
 ## Finish hooks
 
