@@ -45,7 +45,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Preflight → Release → Enrichment**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Preflight → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -94,6 +94,40 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Releas
 |---|---|---|
 | `domainSkills` | "Any stack-specific skills the implementer should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer relies on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
+
+**Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations** — suppressed when setup runs as an auto-bootstrap sub-step invoked by solve-issue/solve-milestone)
+
+> **Auto-bootstrap suppression.** When setup is auto-invoked as a bootstrap sub-step (because a required Core key is missing), skip the External integrations tier entirely — never an interactive Trello question mid-run. The External integrations tier appears only when the user runs `/milestone-driver:setup` directly.
+
+**Tier flow (direct invocation only):**
+
+> **Re-run behavior.** If `integrations.trello` already exists in the profile (Phase 1 pre-filled it), show the existing `boardId` as the default in Step 3 (board picker) and the existing `lists` overrides as defaults in Step 4 (list mapping). The user can accept, edit, or re-configure — the full flow still runs, but with existing values pre-filled.
+
+1. **Detect** Trello MCP availability by probing `mcp__trello__get_health`. If the tool is absent or errors:
+   - Print: "Trello MCP (`@delorenj/mcp-server-trello`) not available in this session — skipping External integrations tier."
+   - Move on to Phase 3.
+
+2. **Offer** the integration with a plain-language label and skip-consequence:
+   - Label: "Would you like to configure Trello board integration? (`@delorenj/mcp-server-trello` is available in this session.)"
+   - Skip-consequence: "Skip → Trello integration not configured — all Trello sync steps skip silently in future runs."
+   - On skip: move on to Phase 3.
+
+3. **Board picker** (on accept): call `mcp__trello__list_boards` to fetch the user's boards. Present board names in a table for selection. Store the selected board's ID as `integrations.trello.boardId`.
+   - **On failure (`list_boards` errors):** fall back to manual text entry — prompt: "Enter your Trello board ID directly:" and use the entered value as `boardId`. (The board ID is visible in the Trello board URL.)
+
+4. **List mapping** (after board selection):
+   - Attempt to fetch the board's actual lists via `mcp__trello__get_lists`.
+   - **On success:** present the board's actual list names for the queue / inProgress / inReview mapping, with the three defaults (`"Queue"`, `"In Progress"`, `"In Review"`) shown as suggestions.
+   - **On failure (get_lists errors):** fall back to manual text entry — prompt for each of the three list names using the defaults as suggestions. Note that wrong names are tolerated: the runtime skill auto-creates any missing list (Wave-2 behavior).
+   - Defaults accepted → **omit `lists` from the written profile** (absent-means-default, same convention as `versioning`). Only overridden sub-keys are written (sparse object — e.g., only `"queue": "Backlog"` if only queue was changed).
+   - User aborts at any point (mid-board-pick or mid-list-mapping) → write no partial `integrations.trello` node (consistent with "do not write a partial profile"). Either the full `boardId` (and any overridden list names) is written, or nothing is written — never a partial node.
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `integrations.trello.boardId` | "Which Trello board should I track milestone work on? (Select from your boards above.)" | Skip → no Trello integration configured. |
+| `integrations.trello.lists.queue` | "What is your 'queue' list name? (Default: `Queue`)" | Skip → default `"Queue"` used at runtime. |
+| `integrations.trello.lists.inProgress` | "What is your 'in progress' list name? (Default: `In Progress`)" | Skip → default `"In Progress"` used at runtime. |
+| `integrations.trello.lists.inReview` | "What is your 'in review' list name? (Default: `In Review`)" | Skip → default `"In Review"` used at runtime. |
 
 ### Phase 3 — Write and confirm
 
