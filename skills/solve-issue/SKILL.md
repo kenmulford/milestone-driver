@@ -116,8 +116,6 @@ If `unitTestCmd` is absent: skip this gate. The implementer is responsible for v
 
 **Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **park** the issue: comment on the issue describing the failure and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A suite that won't go green usually means the plan is wrong (see Autonomy).
 
-**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **STOP and resurface** — do not loop. A suite that won't go green usually means the plan is wrong (see Autonomy).
-
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
@@ -138,8 +136,6 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
    - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** the issue — comment the finding on the issue, apply the appropriate label (`needs design`, `needs decision`, or `blocked`) (+ `in progress` if the branch has commits), preserve the branch, and return. Do not commit.
 
    **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a park trigger — comment the reason on the issue, preserve the branch, apply `blocked` (+ `in progress` if the branch has commits), and return.
-
-   **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
 
    **After a fix, before committing:**
    - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review. `POST_REVIEW_CHANGES: yes` is the implementer's machine-checkable signal that its edits were review-driven and the re-review is due; any `sourceGlobs` change independently triggers the re-review as a backstop, so a re-dispatch that changed source is always re-reviewed even if the field is `no`.
