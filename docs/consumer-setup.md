@@ -59,6 +59,8 @@ session knows the repo is milestone-driver–driven.
 Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:solve-issue <n>`) runs a gated pipeline. Two phases matter to you as a consumer:
 
 - **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering — through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues — it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
+
+  **Triage reuse.** Results are cached in `.milestone-driver-triage-cache.json` at the repo root (gitignored, per-clone). On subsequent runs, an issue is re-triaged only when its body, comments, or labels have changed — unchanged issues reuse the cached result at zero agent cost. The run reports the reused/fresh split in its output. To force a full re-triage (e.g. after updating the triage agent itself), delete this file.
 - **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as **light** or **heavy** (default: **heavy**). The profile right-sizes ceremony — it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
 
   | What changes | Light | Heavy (default) |
