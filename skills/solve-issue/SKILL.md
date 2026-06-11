@@ -116,8 +116,6 @@ If `unitTestCmd` is absent: skip this gate. The implementer is responsible for v
 
 **Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **park** the issue: comment on the issue opening with `🔴 Parked — ` and describing the failure and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A suite that won't go green usually means the plan is wrong (see Autonomy).
 
-**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **STOP and resurface** — do not loop. A suite that won't go green usually means the plan is wrong (see Autonomy).
-
 ### 5. E2E pre-merge gate
 Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
 - **Bug:** run a targeted subset that proves the fix.
@@ -138,8 +136,6 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
    - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** the issue — comment opening with `🔴 Parked — ` on the issue, apply the appropriate label (`needs design`, `needs decision`, or `blocked`) (+ `in progress` if the branch has commits), preserve the branch, and return. Do not commit.
 
    **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a park trigger — comment the reason on the issue, preserve the branch, apply `blocked` (+ `in progress` if the branch has commits), and return.
-
-   **Omitting `/code-review` is not permitted.** If skipped under any constraint (time, token budget, tool error, self-review substitution), treat the omission as a STOP trigger — halt, post the reason on the issue, and do not commit.
 
    **After a fix, before committing:**
    - **Code changed** (any `sourceGlobs` file): re-run `unitTestCmd` if defined (skip if absent), then re-run `/code-review` — the fresh review must be the **last action before commit**. The procedure does not loop past a second clean review. `POST_REVIEW_CHANGES: yes` is the implementer's machine-checkable signal that its edits were review-driven and the re-review is due; any `sourceGlobs` change independently triggers the re-review as a backstop, so a re-dispatch that changed source is always re-reviewed even if the field is `no`.
@@ -352,18 +348,18 @@ Delta A1 is the **only** behavioral delta because it is the only step in the seq
 ## Output spec
 
 <!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 your move
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
 
 Show after the ### 0. Triage step completes.
 
 ```text
-🚀 Issue #<n> — <title> · [risk: light | heavy] · [UI | non-UI]
+🚀 Issue #201 — [title] · [risk: light | heavy] · [UI | non-UI]
 
 | Issue | Title   | Risk   | UI | Status      |
 |-------|---------|--------|----|-------------|
-| #<n>  | <title> | <risk> | —  | 🔨 building |
+| #201  | [title] | [risk] | —  | 🔨 building |
 
 ▶ Building — the floor is yours.
 ```
@@ -376,14 +372,15 @@ This is the terminal output for solve-issue. It mirrors the issue-row format of 
 One row per issue; emit only the row that matches the actual outcome and suppress the other rows — the `✅ merged` row when the PR was merged, the `👁️ open` row when the PR is awaiting visual review, or the `⏸️ parked` row when the issue was parked.
 
 ```text
-🏁 Issue #<n> · <T> min
+🏁 Issue #[n] · [T] min
 
 | Issue | Result     | Gates | PR | Note                    |
 |-------|------------|-------|----|-------------------------|
-| #<n>  | ✅ merged  | 🔍✓(0 findings)  | #<p> | —    |
-| #<n>  | 👁️ open   | 🔍✓(1 fixed)     | #<p> | awaiting visual review  |
-| #<n>  | ⏸️ parked  | —                | #<p> or — | <park label>      |
+| #201  | ✅ merged  | 🔍✓(0 findings)  | #301 | —    |
+| #203  | 👁️ open   | 🔍✓(1 fixed)     | #303 | awaiting visual review  |
+| #202  | ⏸️ parked  | —                | [#pr | —] | [park label]      |
 ```
+PR cell: show the PR number if the issue has one, else —.
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
