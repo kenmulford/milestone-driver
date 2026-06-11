@@ -121,6 +121,23 @@ Default `"issue"` is today's model, unchanged: each built issue opens its own PR
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
+## Permission pre-flight gate (parallel mode)
+
+When you run `/milestone-driver:solve-milestone --parallel`, a pre-flight gate fires once before the first background worker is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to synchronous dispatch automatically.
+
+**The fastest fix when you see a 🔴 gap table:** run `/fewer-permission-prompts` in the repo. That skill scans recent transcripts for tool calls you've already approved and builds a prioritized allowlist in `.claude/settings.json`, covering the pipeline surface in one pass. After running it, re-run the milestone command; the gate should clear.
+
+**What the pipeline requires.** At minimum the union must grant:
+
+| Tool category | Required grants |
+|---|---|
+| Read-only gh ops | `gh pr list`, `gh issue view`, `gh issue list` |
+| Git | `git commit`, `git push` |
+| PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
+| Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
+| Label management | `gh label create` |
+| Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
+
 ## Releasing to your protected branch
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it). When the integration branch is ready to ship:
