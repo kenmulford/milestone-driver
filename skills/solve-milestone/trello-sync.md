@@ -174,7 +174,61 @@ Placeholder: Trello Phase 0 hook logic added by #101.
 
 ## Loop hooks
 
-Placeholder: Trello loop hook logic added by #102.
+Two call sites fire checklist ticks during the solve-milestone loop. Both are main-thread only (Convention 9). Both are no-ops when `integrations.trello` is absent from the profile.
+
+### Issue granularity
+
+**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged non-UI issue.
+
+**When a card handle is available:**
+
+1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
+2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only — titles may have been edited after checklist creation).
+3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
+
+**What is NOT ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) are never ticked at this call site — they have not been merged and closed.
+
+**Parallel mode (`--parallel`):** ticks fire in the serial verified merge tail (main thread, Phase 2) as each issue's branch is squash-merged. The merge tail's per-branch squash-merge loop passes through the same on-success tick logic as the sequential step 4 path — no separate call site is needed.
+
+**Best-effort per item:** any failure logs one line and the loop continues:
+
+```
+Trello: checklist tick #<n> skipped — <error>
+```
+
+**Edge case — item not found:** the issue was added to the milestone after card creation (known non-reconciliation limitation per Convention 7). Log:
+
+```
+Trello: checklist tick #<n> skipped — item not found
+```
+
+Do NOT add a new item. Continue.
+
+**Edge case — no card handle:** if run-start card resolution failed (no handle available for this run), skip silently. The single run-start log was already emitted (Convention 2 if tools are absent, Convention 3 if boardId is missing, or Convention 1 if card resolution itself failed); no per-issue log spam.
+
+---
+
+### Wave granularity
+
+**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `gh issue close #a #b #c --reason completed`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
+
+**When a card handle is available:**
+
+For each issue `#<n>` closed in the wave:
+
+1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
+2. Find the item whose text starts with `#<n>`.
+3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
+
+Execute as a sequence of calls — one tick per closed issue. (The checklist items call may be shared/cached across the sequence if the implementation prefers, but each item update is a separate call.)
+
+**Best-effort per item:** each tick failure logs one line and the sequence continues to the next issue:
+
+```
+Trello: checklist tick #<n> skipped — <error>
+```
+
+**Edge case — item not found** and **edge case — no card handle:** same rules as issue granularity above.
 
 ## Finish hooks
 
