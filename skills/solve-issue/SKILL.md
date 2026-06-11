@@ -206,13 +206,58 @@ A change is **architecture** (→ park) if it touches any of: a component or dat
 
 **Audit trail (always):** a Decision Log on every PR, a **Code Review** section recording every `/code-review` run and its findings/resolutions, and a `judgment call` label on borderline calls, so post-run PR review surfaces every judgment.
 
+## Permission pre-flight gate
+
+**Runs once per run, before the first background dispatch. Zero cost on synchronous paths.**
+
+**Scope: this gate applies only when background dispatch is about to be used (the async dispatch points introduced in #89). Sequential/synchronous runs SKIP it entirely — skipped, not merely cheap; the gate is not executed at all on a sequential run.**
+
+> **Sequential / synchronous runs SKIP this gate entirely** — it is not merely cheap, it is not executed at all. The gate applies only when background dispatch is about to be used (the async dispatch points introduced in #89). On a sequential run, proceed directly to the first background-dispatch step without any gate evaluation.
+
+Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. Before activating any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
+
+**Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
+
+| Priority | File |
+|---|---|
+| 1 | `~/.claude/settings.json` (user global) |
+| 2 | `.claude/settings.json` (project) |
+| 3 | `.claude/settings.local.json` (project local) |
+
+Absent or unreadable layers are skipped in the union (not treated as gaps). The union covers all readable layers. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
+
+**Pipeline tool surface.** The allowlist must cover, at minimum:
+
+| Tool category | Required grants |
+|---|---|
+| Read-only gh ops | `gh pr list`, `gh issue view`, `gh issue list` |
+| Git | `git commit`, `git push` |
+| PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
+| Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
+| Label management | `gh label create` |
+| Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
+
+**Gap detection and response.**
+
+- **No gaps:** proceed with background dispatch as planned.
+- **Gap detected (union does not cover the required surface, or no layer is readable):** do **not** fire the background chunk. Instead:
+  1. Surface a 🔴 gap table listing each missing grant and which settings layer(s) could supply it.
+  2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
+  3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
+
+The gate fires **once per run**, not once per issue. After the first background-dispatch decision point, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+
+**Worker auto-deny handling.** If a background worker chunk receives an auto-deny on a tool call mid-execution, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and return the structured handback with `status: parked`, `parkLabel: "blocked"`, and `parkReason: "auto-deny on <tool>"` (see Worker mode Delta 3 for the full handback schema — `parkLabel`, `parkReason`, and the handback structure are defined there). This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure. On a sequential (non-worker) run, no structured handback exists — park via the normal park steps (comment, label, preserve branch, return); there is no `parkLabel`/`parkReason` handback because there is no orchestrator to receive one.
+
 ## Worker mode (`--worker`)
 
 Worker mode is the per-issue half of `solve-milestone`'s opt-in `--parallel` flow (milestone 1.5.0): the orchestrator builds mutually-independent issues within a dependency Wave concurrently — each in its own git worktree — then integrates them through an orchestrator-owned **serial verified merge tail**. This section defines the contract the parallel orchestration (#72), the merge tail (#73), and branch-per-Wave granularity (#75) consume; those skills do not exist yet, so the terms used here (`--worker`, "worker mode", "merge tail", "handback", "wave branch", "parallel-safe gates", "deferred gates") are the authoritative source.
 
 **`--worker` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so worker mode is **recognized** when the dispatch text contains a `--worker` token (with the orchestrator-provided worktree path), exactly as the rest of the plugin treats flags. **When the `--worker` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Sequential (non-worker) `solve-issue` is the default and is unaffected.
 
-Worker mode **is today's `solve-issue` pipeline with EXACTLY THREE DELTAS.** Everything else is identical: triage and the root-cause gate, the implementer dispatch and its contract, the declaration gates, the unit gate, `/code-review` and its **Code Review** section, the citations, park-don't-prompt (a worker never prompts a human — it parks), the Decision Log, the version-bump rules (step 6.4), and the audit trail all carry over verbatim. The **at-most-2 re-dispatch cap on every gate** carries over too, but follows its gate: each cap applies to the gate it guards, so the caps on the **parallel-safe gates the worker actually runs** travel with the worker, while the caps on the **deferred gates (E2E, any server-starting preflight)** move to the serial tail with those gates (Delta 2). This gate-split is the **mechanism** of Delta 2 ("builds but does not merge") — it is not a hidden fourth behavioral change. Only the three deltas below differ.
+Worker mode **is today's `solve-issue` pipeline with EXACTLY THREE DELTAS.** Everything else is identical: triage and the root-cause gate, the implementer dispatch and its contract, the declaration gates, the unit gate, `/code-review` and its **Code Review** section, the citations, park-don't-prompt (a worker never prompts a human — it parks), the Decision Log, the version-bump rules (step 6.4), and the audit trail all carry over verbatim. **The permission pre-flight gate is not in this carry-over list** — it is orchestrator-level, pre-dispatch behavior (see the section above); a worker is already backgrounded past it and never runs it. The **at-most-2 re-dispatch cap on every gate** carries over too, but follows its gate: each cap applies to the gate it guards, so the caps on the **parallel-safe gates the worker actually runs** travel with the worker, while the caps on the **deferred gates (E2E, any server-starting preflight)** move to the serial tail with those gates (Delta 2). This gate-split is the **mechanism** of Delta 2 ("builds but does not merge") — it is not a hidden fourth behavioral change. Only the three deltas below differ.
+
+> **Permission pre-flight gate and worker mode.** The permission pre-flight gate (described in the section above) is **orchestrator-level, pre-dispatch behavior**. A worker is already backgrounded past it — the gate ran (or was skipped on a synchronous path) before the worker was dispatched. A worker **never runs the gate itself**.
 
 ### Delta 1 — Runs in an orchestrator-provided worktree
 

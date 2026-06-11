@@ -144,6 +144,47 @@ In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive b
 
 **No triage change.** This selection consumes triage's existing `dependencyGraph` (`waves` + `edges`) and `issueStates` outputs **unchanged** — there is no modification to `triage` or `triage-reviewer`. It reads the same graph the sequential loop already drives from.
 
+### Permission pre-flight gate
+
+**Runs once per run, before the first background dispatch. Zero cost on synchronous paths.**
+
+**Scope: this gate applies only when background dispatch is about to be used (`--parallel` mode or another background-dispatch path, #89). Sequential/synchronous runs never reach it — zero cost preserved.**
+
+Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. Before activating any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
+
+**Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
+
+| Priority | File |
+|---|---|
+| 1 | `~/.claude/settings.json` (user global) |
+| 2 | `.claude/settings.json` (project) |
+| 3 | `.claude/settings.local.json` (project local) |
+
+Absent or unreadable layers are skipped in the union (not treated as gaps). The union covers all readable layers. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
+
+**Pipeline tool surface.** The allowlist must cover, at minimum:
+
+| Tool category | Required grants |
+|---|---|
+| Read-only gh ops | `gh pr list`, `gh issue view`, `gh issue list` |
+| Git | `git commit`, `git push` |
+| PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
+| Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
+| Label management | `gh label create` |
+| Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
+
+**Gap detection and response.**
+
+- **No gaps:** proceed with background dispatch as planned.
+- **Gap detected (union does not cover the required surface, or no layer is readable):** do **not** fire the background chunk. Instead:
+  1. Surface a 🔴 gap table listing each missing grant and which settings layer(s) could supply it.
+  2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
+  3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
+
+The gate fires **once per run**, not once per issue. After the first background-dispatch decision point, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+
+**Worker auto-deny handling.** If a background worker chunk receives an auto-deny on a tool call mid-execution, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and return the structured handback with `status: parked`, `parkLabel: "blocked"`, and `parkReason: "auto-deny on <tool>"`. This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure.
+
 ### Parallel mode (`--parallel`) — Phase 1: concurrent worker dispatch
 
 This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). **Absent the `--parallel` token / NL trigger, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
