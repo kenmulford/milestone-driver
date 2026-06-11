@@ -36,6 +36,19 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       | Any w/ pre-commit | pre-commit run --all-files                 |
       | Makefile     | make lint                                       |
       ```
+   1.2. **One-time Trello upgrade notice (solve-milestone only).** *(Positioned here alongside step 2.1 — both run immediately after the profile read in step 2.)* After step 2.1: if ALL THREE conditions hold — (a) `mcp__trello__*` tools are present in the session (probe by checking if `mcp__trello__get_health` is available), (b) `integrations.trello` is **absent** from the profile, (c) the marker file `.milestone-driver-trello-notice` does **not** exist at the repo root — print the notice below, then create the marker (`touch .milestone-driver-trello-notice`). Stay **silent** if any condition fails. The marker is per-clone and gitignored.
+
+      ```text
+      ▶ New in 1.8.0 — optional Trello integration (one-time notice)
+
+      | What | Mirror milestone progress to a Trello board (card per milestone,
+      |      | checklist per issue, automatic state transitions).
+      | Why  | Keep your Trello board in sync without manual updates.
+      | How  | Run `/milestone-driver:setup` and choose the Trello tier, or add
+      |      | `integrations.trello` to milestone-driver.json manually.
+      |      | Optional — skip and nothing changes.
+      | Req  | Requires @delorenj/mcp-server-trello in your Claude Code session.
+      ```
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
@@ -43,6 +56,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
    - **Available-milestones table format** (for the error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` formatted as a Markdown table with columns `#` and `Title`.
 
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
+   **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 
 ## The procedure
