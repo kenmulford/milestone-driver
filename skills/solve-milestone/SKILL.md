@@ -100,6 +100,8 @@ Before the build loop begins, invoke the triage phase across the entire mileston
 
    Use the hex color and description from the taxonomy table in `skills/setup/SKILL.md` Phase 4.
 
+2.5. If `integrations.trello` is configured, run trello-sync.md `## Phase 0 hooks` (best-effort).
+
 3. **Seed the build queue.** Carry the full `dependencyGraph` and `issueStates` returned by triage into the loop below. The loop drives from the validated dependency graph — not the raw declared order — from this point forward.
 
 ### 4. Loop over issues in dependency-graph order
