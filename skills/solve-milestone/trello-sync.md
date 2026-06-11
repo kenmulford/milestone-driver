@@ -166,11 +166,100 @@ ALL Trello calls are made by the **solve-milestone orchestrator main thread only
 
 ---
 
-## Convention 10 — Section stubs for later waves
+## Convention 10 — Phase hooks
 
 ## Phase 0 hooks
 
-Placeholder: Trello Phase 0 hook logic added by #101.
+Invoked by SKILL.md Phase 0 after step 2 (apply park labels) and before step 3 (seed the build queue). All operations follow Convention 1 (best-effort). The orchestrator main thread makes all calls.
+
+### Edge case: no card handle
+
+If the run-start card resolution (earlier in the run) failed and no card handle exists, skip BOTH Phase 0 operations with a single log line and return:
+
+```
+Trello: Phase 0 hooks skipped — no card handle (run-start resolution failed)
+```
+
+No retry is attempted.
+
+### Step 1 — Post triage summary comment
+
+Call `mcp__trello__add_comment` on the milestone card. Compose the comment body from triage's output:
+
+**All-clear case** (no issues have `blockers == true`):
+
+```
+✅ All clear — triage found no blocking gaps.
+
+<Wave-ordered dependency graph from triage Step 5 output>
+```
+
+> If triage returned advisory notes, append them after the dependency graph. Omit this section entirely when there are no advisories.
+
+**Gaps case** (one or more issues have `blockers == true`):
+
+```
+<Gap table — Blockers first, then Advisories>
+
+| Issue | Lens | Severity | Gap | What's needed |
+|-------|------|----------|-----|---------------|
+| ...   | ...  | Blocker  | ... | ...           |
+| ...   | ...  | Advisory | ... | ...           |
+
+<Wave-ordered dependency graph from triage Step 5 output>
+```
+
+**Truncation edge case:** if the triage output exceeds Trello's comment character limit:
+
+- **Gaps case:** truncate the table body (keep the table header row) and append:
+  ```
+  (truncated — full table in the run output / GitHub issues)
+  ```
+- **All-clear case:** truncate the dependency graph text (keep the `✅ All clear` header line) and append:
+  ```
+  (truncated — full dependency graph in the run output / GitHub issues)
+  ```
+
+Wrap this entire operation best-effort. On failure, log:
+
+```
+Trello: triage summary comment skipped — <error>
+```
+
+and continue to Step 2.
+
+### Step 2 — Move card (Queue → inProgress) or stay
+
+Evaluate the move condition using `issueStates` from triage:
+
+- **Move condition:** `issueStates` contains at least one entry where `blockers == false` (at least one issue is buildable — partial-clear counts).
+- **All-parked condition:** every entry in `issueStates` has `blockers == true` (zero buildable issues).
+
+**If card is already in inProgress:** the move is a no-op regardless of condition — skip silently (re-run case; card already advanced).
+
+**If move condition is met and card is in queue list:** call `mcp__trello__move_card` to move the card to the inProgress list. Wrap best-effort. On failure, log:
+
+```
+Trello: card move (Queue → In Progress) skipped — <error>
+```
+
+**If move condition is met and card is in any other list** (unmanaged, e.g., "Done"): leave the card in place and log one line:
+
+```
+Trello: card in unmanaged list — not moved; human may have repositioned it
+```
+
+**If all-parked condition:** do NOT move the card regardless of which list it is in. Post one additional comment via `mcp__trello__add_comment`:
+
+```
+All issues are parked — see triage summary above. Card remains in Queue.
+```
+
+Wrap this comment best-effort. On failure, log:
+
+```
+Trello: all-parked comment skipped — <error>
+```
 
 ## Loop hooks
 
