@@ -294,18 +294,26 @@ The worker builds, runs the **parallel-safe gates in the worktree**, does the ve
 
 ### Delta 3 — Returns a structured handback
 
-The worker returns a structured handback so the orchestrator can drive the merge tail and the final summary without re-deriving state from git/gh:
+The worker returns a structured handback as an **optimization hint** — it lets the orchestrator skip redundant git/gh queries when driving the merge tail and the final summary. It is explicitly **not** the source of truth. The Phase 1 barrier (`solve-milestone` step 5) **re-derives terminal state from git/gh** via the step-3 branch-state probe and uses the handback only as a hint: when the handback is present and well-formed the barrier skips the queries the probe would otherwise run; when the handback is **absent or partial** — e.g. the worker's final assistant message drifted off-format under a long, tool-heavy run — the barrier **fills in every field from ground truth** and no work is stranded. Each field below is independently re-derivable from git/gh, so the handback degrades gracefully:
 
 ```text
 { issue, status: built-green | parked, branch, worktreePath, prUrl?, isUI, declarations, parkLabel?, parkReason? }
 ```
+
+| Handback field | Ground-truth source the barrier re-derives from |
+|---|---|
+| `status: built-green` | open PR for `issue/<n>-*`, or branch pushed with commits ahead of `integrationBranch` (step-3 probe paths a/b) |
+| `status: parked` | park label (`needs design` / `needs decision` / `blocked`) + `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment (the same signal the sequential loop reads) |
+| `prUrl` | `gh pr list … select(.headRefName \| startswith("issue/<n>-"))` (verbatim step-3 path-a query) |
+| `isUI` | `git diff <integrationBranch>...HEAD --name-only` ∩ `uiSurfaceGlobs` (re-derived as below, not from a PR) |
+| `declarations` | the only field not in git/gh; reinforces `isUI`, which is independently computable — so a drop degrades gracefully |
 
 - `prUrl?` — optional: present in **issue** granularity (the worker opened a PR); absent in **Wave** granularity (no per-issue PR).
 - `isUI` — whether the issue touched a UI surface (drives the visual-review hold in the tail). The worker derives this from the **worktree diff against `integrationBranch`** — changed files matching `uiSurfaceGlobs` (`git diff <integrationBranch>...HEAD --name-only`), not from a PR's changed-file list — so `isUI` is computable whether or not a per-issue PR was opened (Wave granularity and parked workers have no per-issue PR). An implementer `NEW_UI_ELEMENTS: yes` declaration reinforces the signal, mirroring step 7.
 - `declarations` — the implementer's `USER-FACING CHANGES` block (e.g. `NEW_UI_ELEMENTS`), carried through so the orchestrator does not re-read it.
 - `parkLabel?` / `parkReason?` — present **only** when `status: parked`.
 
-**A worker that parks hands back `status: parked`** with its `parkLabel` and `parkReason` (the same label/reason it would otherwise post per park-don't-prompt). The orchestrator excludes a parked issue from the merge tail with its branch and labels intact — exactly as the sequential loop excludes a parked issue, just signaled through the handback instead of inferred from labels.
+**A worker that parks hands back `status: parked`** with its `parkLabel` and `parkReason` (the same label/reason it would otherwise post per park-don't-prompt). The orchestrator excludes a parked issue from the merge tail with its branch and labels intact — exactly as the sequential loop excludes a parked issue. The barrier **re-derives the park from git/gh** (live labels + the step-3 probe), using `parkLabel` / `parkReason` from the handback only as a corroborating hint; the park is never inferred from the handback alone, so a dropped final message cannot hide a parked issue any more than it can strand a built-green one.
 
 ### Sequential behavior is byte-unchanged
 

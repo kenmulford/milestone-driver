@@ -3,6 +3,41 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.8.1 — Surface what the engine already does (and fix the capture defect underneath)
+
+**Theme:** Most of this milestone is making existing capability *visible* — fewer
+false triage Blockers, a triage cache that says when it skips, the wave trade-off
+surfaced at the setup decision point — sitting on one real reliability repair: the
+parallel barrier now reads git/gh ground truth instead of trusting a worker's
+free-text handback. Plus a cross-platform gate fix reported from the field.
+
+### ✨ Surfacing the engine's existing behavior
+
+| Issue | PR | What |
+|---|---|---|
+| #135 setup Integration tier | #141 | Adds an optional **Integration tier** to `/milestone-driver:setup` for `integrationGranularity` (an already-existing schema key that was never prompted), defaulting to `issue`. Choosing `wave` fires a non-blocking precondition prompt — *is `preflightCmd` set? is `unitTestCmd` your full suite?* — surfacing the "one red wave-PR CI blocks the whole Wave" trade-off where the choice is actually made. Default stays `issue`; `"full suite?"` is a human question, not a machine check. |
+| #134 visible cache writes | #139 | The best-effort triage cache write no longer fails **silently**: the Bash path emits a stderr line on `jq`-absent and on write-fail, the PowerShell `catch` surfaces a `Write-Warning`, and the Step 5 output line gains a conditional `; cache write skipped this run` clause. The never-gating contract is unchanged — only silence became a visible warning. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #132 barrier reads ground truth | #137 | The `--parallel` Phase 1 barrier now **re-derives each worker's terminal state from git/gh** (the `solve-issue` step-3 probe) instead of trusting the worker's free-text final-message handback — fixing the ~37% handback **tail-drop** and the hand-finish **race**. The handback is demoted to an optimization hint; the happy-path partition is byte-identical. |
+| #133 fewer false triage Blockers | #138 | `triage-reviewer` downgrades a choice an established repo convention or sibling pattern already answers from **Blocker** to **Advisory** (criterion 2 carve-out + a severity-rule row), so routine calls no longer trip a manual filtering pass. Genuine ambiguity still escalates to Blocker; no new mechanism (Advisory is already non-gating). |
+| #136 Unix gate exec bit | #140 | `hooks/run-hook.cmd` was committed mode `100644`, so on macOS/Linux `/bin/sh -c` couldn't `exec` it (`EACCES`, exit 126) and **every PreToolUse gate was silently inert on Unix**. Now committed `0755`. Cross-platform safe (Unix no-shebang → `ENOEXEC` → `sh` fallback; Windows unchanged). Reported and verified by @gcpeacock-npm. |
+
+### Consumer notes (upgrading from v1.8.0)
+
+- **🔴 macOS/Linux: all gates now actually run.** Before this release, `hooks/run-hook.cmd` shipped non-executable, so every milestone-driver PreToolUse gate (`force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`) died with "Permission denied" on Unix and was silently inert. After updating to 1.8.1 the packaged launcher is `0755` and the gates fire. If you applied the `chmod +x` cache workaround, it is no longer needed.
+- **New `/milestone-driver:setup` Integration tier** offers `integrationGranularity`. **No schema change** — the key already existed; setup just prompts for it now (default `issue`, absent-means-issue). Existing profiles need no migration.
+- **Triage: fewer false Blockers.** Choices an established convention/sibling pattern answers are now Advisory (logged, non-gating) rather than parking the issue — expect fewer manual clarifications.
+- **Triage cache writes are now observable** — a skipped/failed write prints a one-line warning instead of nothing; the run is otherwise unchanged (still best-effort, never-gating).
+- **`--parallel` is more robust to dropped worker handbacks** — no behavior change on the happy path; the barrier just no longer strands a built branch when a worker's final message drifts off-format.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
 ## v1.8.0 — Optional Trello board sync + auto-authored release notes
 
 **Theme:** milestone progress optionally mirrors to a Trello board — a card per
