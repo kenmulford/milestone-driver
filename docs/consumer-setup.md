@@ -140,6 +140,84 @@ When you run `/milestone-driver:solve-milestone --parallel`, a pre-flight gate f
 | Label management | `gh label create` |
 | Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
 
+## Trello integration (optional)
+
+milestone-driver can mirror milestone progress to a Trello board. The integration is **opt-in, best-effort, and never gates a run** — a Trello outage or absent MCP server never blocks or parks an issue.
+
+### Prerequisite
+
+The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/delorenj/mcp-server-trello) MCP server (`mcp__trello__*` tools) to be loaded in your Claude Code session. This is a prerequisite of the integration, NOT of milestone-driver itself — the plugin functions fully without it.
+
+**Timing distinction:**
+- **At setup time:** the MCP server must be present and loaded for the Integrations tier to appear in `/milestone-driver:setup`. If the server is absent during setup, no `integrations.trello` node will be written to your profile (though you can hand-add it as described below).
+- **At run time:** if the MCP server is absent, every Trello step is skipped with a single log line (`Trello MCP tools not available in this session — all Trello steps skipped`) and the run proceeds normally. The plugin itself has no Trello dependency.
+
+### How to enable
+
+**Option 1 — re-run setup.** With the `@delorenj/mcp-server-trello` MCP server loaded, run `/milestone-driver:setup` directly. The Integrations tier (the last tier) will appear and walk you through board selection and list naming. Existing profile values are pre-filled, so re-running is safe for upgraders — no core keys are overwritten.
+
+**Option 2 — hand-add the node.** Add an `integrations.trello` object directly to `milestone-driver.json`. Only `boardId` is required; the `lists` sub-keys are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"`. Remember: the `@delorenj/mcp-server-trello` MCP server must be loaded in your Claude Code session at run time or all Trello steps will skip with a single log line. A profile written with all defaults accepted needs only `boardId`:
+
+```json
+{
+  "integrationBranch": "develop",
+  "protectedBranch": "main",
+  "sourceGlobs": ["src/**"],
+  "integrations": {
+    "trello": {
+      "boardId": "abc123xyz"
+    }
+  }
+}
+```
+
+To override list names (all names are case-sensitive; a missing list is auto-created at runtime):
+
+```json
+{
+  "integrationBranch": "develop",
+  "protectedBranch": "main",
+  "sourceGlobs": ["src/**"],
+  "integrations": {
+    "trello": {
+      "boardId": "abc123xyz",
+      "lists": {
+        "queue": "Backlog",
+        "inProgress": "In Progress",
+        "inReview": "In Review"
+      }
+    }
+  }
+}
+```
+
+For the full `integrations.trello` key reference — `boardId`, `lists.queue`, `lists.inProgress`, `lists.inReview`, and their types, defaults, and constraints — see [profile-schema.md](profile-schema.md#keys).
+
+### What it tracks
+
+Each lifecycle event below is best-effort. Two distinct skip modes apply: if the `@delorenj/mcp-server-trello` MCP server is absent from the session, **all** Trello steps are skipped for the whole run with a single session-wide log line; if Trello is reachable but an individual operation fails, **one** log line is emitted per failed operation and the run continues.
+
+| Lifecycle event | What happens |
+|---|---|
+| **Run start** | Card resolution runs in order: (1) the `<!-- trello: <card-url> -->` back-link in the GitHub milestone description is checked first and is authoritative if present; (2) if absent, a name-match is attempted across Queue / In Progress / In Review; (3) if still unresolved, a new card is created in the Queue list. A back-link is written to the milestone description after resolution for idempotent lookup on future runs. An "Issues" checklist is populated with every open milestone issue at card-creation time (adoption leaves the existing checklist as-is). |
+| **Phase 0 (after triage)** | A triage summary comment is posted to the card (all-clear or gap table + Wave dependency graph). If at least one issue is buildable, the card is moved from Queue to In Progress. If all issues are parked, the card stays in Queue with an explanatory comment. |
+| **On each issue merge** | The matching checklist item (matched on the leading `#<n>` token) is ticked complete. Under `integrationGranularity: "wave"`, ticks fire after the wave PR merges and issues are bulk-closed — not per-merge during the build. |
+| **Run finish** | A summary comment is posted with merged issues, parked issues, open `needs review` UI PRs, and any skipped Trello updates. If zero open milestone issues carry a blocker label (`needs design`, `needs decision`, `blocked`), the card moves to In Review. If parks remain, the card stays In Progress with an explanatory comment. |
+
+> **Note on checklist ticks.** UI issues held at the visual-review gate (`needs review`) are not ticked at merge time — they have not been merged yet. A future run that observes their merge will tick them only if a re-run encounters the merge event; in practice, visual-gate issues are not auto-ticked.
+
+For the full operational spec — the card-resolution order, the card state machine, the back-link mechanics, and the Phase 0 / loop / finish hooks — see [trello-sync.md](../skills/solve-milestone/trello-sync.md), the normative reference the orchestrator reads at run time.
+
+### Known limitations
+
+1. **Moving to a Completed list is manual.** The plugin never moves a card to a "Completed" or "Done" list. After the `integrationBranch` → `protectedBranch` release merge, move the card yourself.
+
+2. **The checklist is not reconciled on re-runs.** The "Issues" checklist is created once at card-creation time and never updated. Issues added to the milestone after card creation do not appear in the checklist automatically. Manually closed issues are not auto-ticked. On adoption (an existing card matched by name), the existing checklist is preserved as-is — no reconciliation.
+
+3. **All updates are best-effort and never-gating.** A Trello outage never blocks or fails a run. Skipped updates are collected and listed in the final summary comment and run output.
+
+4. **List-name matching is case-sensitive; missing lists are auto-created.** If your profile lists (or the defaults `Queue`, `In Progress`, `In Review`) do not exactly match the names on your board, new lists are created automatically. Check your profile's `lists` keys if you see unexpected new lists.
+
 ## Releasing to your protected branch
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it). When the integration branch is ready to ship:

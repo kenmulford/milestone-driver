@@ -3,6 +3,51 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.8.0 — Optional Trello board sync + auto-authored release notes
+
+**Theme:** milestone progress optionally mirrors to a Trello board — a card per
+milestone that moves through Queue → In Progress → In Review with a per-issue
+checklist — and the release notes you are reading now author themselves at
+milestone completion. Both are opt-in and best-effort; absent their config, the
+loop is byte-unchanged.
+
+### ✨ Trello integration (the #99–#104 family)
+
+| Issue | PR | What |
+|---|---|---|
+| #99 Profile node + setup tier | #123 | New optional `integrations.trello` profile node (`boardId` required when present; `lists.queue`/`inProgress`/`inReview` default independently to `Queue`/`In Progress`/`In Review`) and an "External integrations" tier added last in `/milestone-driver:setup` (suppressed on auto-bootstrap). Presence enables; absence skips silently. |
+| #100 trello-sync.md + run-start resolution | #125 | New `skills/solve-milestone/trello-sync.md` reference (read only when `integrations.trello` is present — zero token cost otherwise) holding all ten sync conventions: best-effort wrapper, availability probe, ensure-list auto-create, card-resolution order (back-link anchor → name-match → create), idempotent `<!-- trello: … -->` back-link, card state machine, and main-thread-only thread safety. Adds the run-start card resolution (SKILL.md step 3.5) and the one-time upgrade notice (step 1.2). |
+| #101 Phase 0 hooks | #128 | After triage, posts the triage summary (all-clear or gap table + Wave graph) as a card comment and moves Queue → In Progress when ≥1 issue is buildable; all-parked leaves the card in Queue with an explanatory comment. |
+| #102 Loop hooks | #126 | Ticks the card's `#<n>` checklist item when an issue merges (visual-gate holds excluded), under both issue and wave granularity; in `--parallel`, ticks fire in the serial merge tail on the main thread. Per-item best-effort. |
+| #103 Finish hooks | #127 | Posts the final-summary card comment (merged / parked / open `needs review` PRs / skipped Trello updates) and moves In Progress → In Review only when zero open issues carry a blocker label; parks-remaining stays In Progress with a comment; a systemic halt posts the comment but does not move. |
+| #104 Docs + dogfood | #129 | README "Optional integrations" paragraph and a `docs/consumer-setup.md` "Trello integration (optional)" section: the MCP-prerequisite distinction, both enablement paths, the tracked lifecycle, and the four known limitations — cross-linked to `profile-schema.md` and `trello-sync.md` with no duplication. Dogfood recorded as a manual lifecycle walkthrough on the issue. |
+
+### ✨ Release automation
+
+| Issue | PR | What |
+|---|---|---|
+| #121 Auto-author the CHANGELOG | #124 | When a `solve-milestone` run ends with every issue merged (no parks, no holds), the orchestrator authors a `## v<version>` CHANGELOG entry as a final doc-only PR to the integration branch — themed `\| Issue \| PR \| What \|` tables (the "What" distilled from each merged PR's summary, title fallback), Consumer notes, and a Post-run audit trail. Idempotent (heading-prefix match), skips on any park/hold, and headed by the milestone title in version-free mode. This entry is the first one it produced. |
+
+### Consumer notes (upgrading from 1.7.0)
+
+- **New optional profile node `integrations.trello`** (additive — no migration).
+  Absent → every Trello step skips silently and the loop is byte-unchanged.
+  Present → requires the `@delorenj/mcp-server-trello` MCP server loaded in your
+  Claude Code session; the plugin itself has no Trello dependency.
+- **Enable it** by re-running `/milestone-driver:setup` (the External
+  integrations tier is last; existing values pre-fill) or by hand-adding the
+  node — see `docs/consumer-setup.md`.
+- **New gitignored marker:** `.milestone-driver-trello-notice` at the repo root
+  (drives the one-time upgrade notice). Safe to delete.
+- **Release notes now author themselves.** A fully-completed milestone run ends
+  with a CHANGELOG PR; a run with any park or hold authors nothing (a later
+  completing re-run authors them then).
+
+### ⚖️ Post-run audit trail
+
+No `judgment call` PRs this release. All seven PRs (#123–#129) carry a
+`## Code Review` section with their findings and resolutions.
+
 ## v1.7.0 — Interactive background orchestration, scannable output, triage reuse
 
 **Theme:** the orchestrator no longer clogs the main conversation line, the run is

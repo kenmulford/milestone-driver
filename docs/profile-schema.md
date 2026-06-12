@@ -35,6 +35,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | **Triage / Visual** | `uiSurfaceGlobs` | Optional |
 | **Release** | `versioning` | Optional |
 | **Enrichment** | `domainSkills`, `nonNegotiables` | Optional |
+| **External integrations** | `integrations.trello` | Optional |
 
 **Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, and `designReviewAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common.
 
@@ -57,6 +58,11 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | `versioning` | boolean | Release | Should each PR bump a plugin version? Absent or `true` → versioned: the run determines a target version from the milestone and bumps `.claude-plugin/plugin.json` per PR. `false` → version-free: no semver parse, no prompt, no bump (the milestone name need not be a version). Fail-safe: in versioned mode, if `.claude-plugin/plugin.json` is missing the run does not fail — it degrades to version-free with a logged note. | — |
 | `domainSkills` | string[] | Enrichment | Stack-specific skill identifiers the implementer consults for citations (e.g. `["maui-skills:*"]`). Absent → general docs + repo conventions only. | — |
 | `nonNegotiables` | string[] | Enrichment | Hard constraints the implementer must honour (framework versions, platform targets). Absent → none recorded. | — |
+| `integrations.trello` | object | External integrations | Trello board integration node. Presence = enabled; absence = skip (absent-means-skip, same convention as `unitTestCmd`). When present, `boardId` is required; a node without `boardId` is treated as absent with a one-line misconfiguration log. | — |
+| `integrations.trello.boardId` | string | External integrations | Trello board ID to track work on. Required when the `integrations.trello` node is present. | — |
+| `integrations.trello.lists.queue` | string | External integrations | Name of the "queue" list on the board. Default: `"Queue"`. Case-sensitive — must match the Trello list name exactly. A missing list is auto-created at runtime (Wave-2 behavior, deferred to the trello-sync conventions issue). | — |
+| `integrations.trello.lists.inProgress` | string | External integrations | Name of the "in progress" list on the board. Default: `"In Progress"`. Case-sensitive — must match the Trello list name exactly. A missing list is auto-created at runtime (Wave-2 behavior, deferred to the trello-sync conventions issue). | — |
+| `integrations.trello.lists.inReview` | string | External integrations | Name of the "in review" list on the board. Default: `"In Review"`. Case-sensitive — must match the Trello list name exactly. A missing list is auto-created at runtime (Wave-2 behavior, deferred to the trello-sync conventions issue). | — |
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
 
@@ -69,6 +75,14 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
 **Note on `integrationGranularity` and wave granularity.** Default (absent or `"issue"`) is **today's model, byte-unchanged**: each built issue opens its own PR → its own CI run → merges individually. Set `integrationGranularity: "wave"` for a repo with **long or expensive CI**, where O(issues) per-issue CI runs are wasteful: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens **one** wave PR → `integrationBranch`, and runs **one** CI run for the assembled Wave — trading O(issues) CI runs for O(waves), and CI-validating the *assembled* Wave (catching integration-level issues an isolated per-issue build misses). The merge-tail **mechanism** (#73 — merge-in + re-verify against accumulated state + bounded auto-resolve) is **unchanged**; only the **target** (the wave branch instead of `integrationBranch`) and **PR-opening** (one wave PR instead of per-issue PRs) differ. **Logic-only carve-out:** the visual-review gate is per-UI-issue, so UI issues in a Wave stay **per-issue / held** (each opens its own `needs review` PR for human visual sign-off); only the logic issues join the wave branch. **Trade-off:** one red wave-PR CI blocks the whole Wave — acceptable because the strong local gates (unit + static preflight + `/code-review` + the tail's re-verify) catch most failures before CI; CI is the backstop. **Not** for repos with weak local gates. **Orthogonal to `--parallel`** (which is *how* issues build; this is *how* they integrate) — the two combine or apply independently. See `solve-milestone`'s `### Integration granularity (issue vs wave)` for the orchestrator mechanics.
 
 **Note on `--parallel` (a run argument, not a profile key).** `--parallel` is **not** a profile key. It is a run-time argument to `solve-milestone`, opted in per run. Claude Code does no argument parsing, so the mode is **recognized** when the invocation contains either a `--parallel` token or the natural-language phrase "in parallel"; absent either signal the sequential path runs unchanged. When active, the run builds the mutually-independent issues within a Wave concurrently, each in its own git worktree, then integrates them through the serial verified merge tail. Concurrency is **capped at a hardcoded default of 4 workers per Wave** (a conservative default, deliberately **not** a profile key: per the design principle above, a tuning key waits for a real consumer need). `--parallel` is orthogonal to `integrationGranularity`: the former is *how* issues build, the latter is *how* they integrate. See `solve-milestone`'s `### Parallel mode (--parallel) - Phase 1` and `### Integration granularity (issue vs wave)` for the mechanics.
+
+**Note on `integrations.trello`.** When `integrations.trello` is absent, every Trello step in every skill skips silently — the established absent-means-skip convention (same as `unitTestCmd`, `preflightCmd`). When present, `boardId` is required; a node without `boardId` is treated as absent with a one-line misconfiguration log. The `lists` key and each of its three sub-keys (`queue`, `inProgress`, `inReview`) are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"` respectively — **a profile written with defaults accepted contains only `integrations.trello.boardId` (no `lists` key)**. List-name matching against the Trello board is **case-sensitive**; when the MCP is available at runtime, a missing list is auto-created (Wave-2 behavior, enforced in the trello-sync conventions issue). The `integrations.trello` integration is **best-effort and never-gating**: Trello steps skip with a log if the MCP tools are unavailable at runtime; no issue or PR is ever blocked by a Trello failure.
+
+**MCP prerequisite (integration only).** The Trello integration requires the `@delorenj/mcp-server-trello` MCP server (`mcp__trello__*` tools) in the consumer's Claude Code session. This is a prerequisite of the *integration*, NOT of milestone-driver itself — the plugin functions fully without it. Consumers who do not configure Trello skip silently; the MCP server does not need to be installed for any other milestone-driver feature.
+
+**Partial list-override write shape.** When a consumer overrides only some of the three list names (e.g., only `queue`), the profile stores only the overridden sub-keys as a sparse `lists` object — omitted sub-keys use the defaults at runtime. Example: `"lists": { "queue": "Backlog" }` means `inProgress` and `inReview` use their defaults. This is consistent with absent-means-default: writing only overridden sub-keys rather than all three keeps the profile minimal.
+
+**Setup-time `get_lists` failure.** If the board-list fetch fails during `/milestone-driver:setup` (after board selection), the setup skill falls back to manual text entry of the three list names using the defaults as suggestions. This is safe because the runtime skill auto-creates any list name that does not exist (Wave-2 behavior) — wrong names are tolerated.
 
 ## Minimal example (Core keys only)
 
@@ -107,6 +121,24 @@ The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewA
 ```
 
 These three keys satisfy the consumer-driven rule above with a real consumer, not speculation: PracticingPrayer (consumer #1) uses `uiSurfaceGlobs` for its XAML views (shown above); `triageAgent` and `designReviewAgent` are auto-filled, so the profile omits them while the bundled triage / visual-review phases consume their defaults. PracticingPrayer runs version-free (`versioning: false`) because its version lives in the `.csproj`, not a `plugin.json`, so the loop bumps nothing and its milestones need no semver name.
+
+## External integrations example — only `queue` overridden; `inProgress` and `inReview` use their defaults.
+
+```json
+{
+  "integrationBranch": "develop",
+  "protectedBranch": "main",
+  "sourceGlobs": ["skills/**", "agents/**", "hooks/**"],
+  "integrations": {
+    "trello": {
+      "boardId": "abc123xyz",
+      "lists": {
+        "queue": "Backlog"
+      }
+    }
+  }
+}
+```
 
 ## How the gates use the profile
 

@@ -20,6 +20,9 @@ desktop.ini
 # milestone-driver first-run preflight notice marker (per-clone, one-time)
 /.milestone-driver-preflight-notice
 
+# milestone-driver Trello integration one-time notice marker (per-clone)
+/.milestone-driver-trello-notice
+
 # milestone-driver triage result cache (per-clone)
 /.milestone-driver-triage-cache.json
 

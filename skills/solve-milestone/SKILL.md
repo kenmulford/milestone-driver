@@ -36,6 +36,19 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       | Any w/ pre-commit | pre-commit run --all-files                 |
       | Makefile     | make lint                                       |
       ```
+   1.2. **One-time Trello upgrade notice (solve-milestone only).** *(Positioned here alongside step 2.1 — both run immediately after the profile read in step 2.)* After step 2.1: if ALL THREE conditions hold — (a) `mcp__trello__*` tools are present in the session (probe by checking if `mcp__trello__get_health` is available), (b) `integrations.trello` is **absent** from the profile, (c) the marker file `.milestone-driver-trello-notice` does **not** exist at the repo root — print the notice below, then create the marker (`touch .milestone-driver-trello-notice`). Stay **silent** if any condition fails. The marker is per-clone and gitignored.
+
+      ```text
+      ▶ New in 1.8.0 — optional Trello integration (one-time notice)
+
+      | What | Mirror milestone progress to a Trello board (card per milestone,
+      |      | checklist per issue, automatic state transitions).
+      | Why  | Keep your Trello board in sync without manual updates.
+      | How  | Run `/milestone-driver:setup` and choose the Trello tier, or add
+      |      | `integrations.trello` to milestone-driver.json manually.
+      |      | Optional — skip and nothing changes.
+      | Req  | Requires @delorenj/mcp-server-trello in your Claude Code session.
+      ```
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
@@ -43,6 +56,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
    - **Available-milestones table format** (for the error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` formatted as a Markdown table with columns `#` and `Title`.
 
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
+   **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 
 ## The procedure
@@ -86,6 +100,8 @@ Before the build loop begins, invoke the triage phase across the entire mileston
 
    Use the hex color and description from the taxonomy table in `skills/setup/SKILL.md` Phase 4.
 
+2.5. If `integrations.trello` is configured, run trello-sync.md `## Phase 0 hooks` (best-effort).
+
 3. **Seed the build queue.** Carry the full `dependencyGraph` and `issueStates` returned by triage into the loop below. The loop drives from the validated dependency graph — not the raw declared order — from this point forward.
 
 ### 4. Loop over issues in dependency-graph order
@@ -121,7 +137,7 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
    c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there; if not, post it via `gh issue comment <n>`.
    d. Leave the issue open; note it in the run output.
    e. Continue to the next issue in the dependency graph whose dependencies are merged.
-4. **On success**, `/milestone-driver:solve-issue` has reached one of two terminal states: for a **non-UI issue** it has squash-merged to `integrationBranch` and closed the issue; for a **UI issue** held at the visual-review gate (`solve-issue` steps 7–9) it has left the PR **open** with the `needs review` label — not merged, issue not closed — for human visual sign-off (the final summary reports these open PRs). Re-sync the local `integrationBranch` (`git fetch`, fast-forward) before the next issue either way — for a UI issue nothing was merged, so the re-sync is a no-op.
+4. **On success**, `/milestone-driver:solve-issue` has reached one of two terminal states: for a **non-UI issue** it has squash-merged to `integrationBranch` and closed the issue; for a **UI issue** held at the visual-review gate (`solve-issue` steps 7–9) it has left the PR **open** with the `needs review` label — not merged, issue not closed — for human visual sign-off (the final summary reports these open PRs). For non-UI merged issues, if `integrations.trello` is present and a card handle was resolved, tick the checklist item for issue `#<n>` per `trello-sync.md § Issue granularity` (under `## Loop hooks`; best-effort; failure logged, loop continues). Re-sync the local `integrationBranch` (`git fetch`, fast-forward) before the next issue either way — for a UI issue nothing was merged, so the re-sync is a no-op.
 
 **If not buildable (triage-parked, live-label park, or dependency not yet merged):**
 
@@ -298,7 +314,7 @@ Where N = the just-completed Wave number, X = issues merged this Wave (non-UI bu
 - **Worker opens no per-issue PR.** The worker (#70) builds + verifies + commits + pushes its branch and **hands it back** — it opens **no per-issue PR** (the `solve-issue` worker contract is already granularity-conditional: Wave granularity → no per-issue PR). Its handback carries no `prUrl`.
 - **Integrate into a wave branch.** The orchestrator integrates the Wave's built-green **logic** branches into a **wave branch** `wave/<milestone>-w<N>` (N = the Wave number). **Create the wave branch fresh and idempotently:** unlike the per-issue `issue/<n>-<slug>` branches — which may carry **unpushed** worker commits that Phase 1's resume-aware pre-clean guard must preserve-don't-clobber (step 2) — the wave branch is a **regenerable integration artifact**, assembled entirely from the already-pushed per-issue logic branches, so it carries no unique unpushed work and is **safe to force-clear and rebuild** on every run. Before creating it, if a stale leftover exists from an interrupted prior run, delete it (`git branch -D wave/<milestone>-w<N>` locally; `git push origin --delete wave/<milestone>-w<N>` if it was pushed) and recreate it fresh from the current `integrationBranch` tip — no preserve concern, because the source work lives on the pushed per-issue logic branches. This keeps the wave path re-runnable, consistent with Phase 1's fleet idempotency. Then apply the **#73 policy unchanged**: merge each branch into the wave branch, re-verify against accumulated state (unit + deferred E2E / port-binding gates), bounded auto-resolve on conflict, else park `blocked` (label + comment + preserve branch) and continue with the next branch. The integration target is the wave branch, so siblings are re-verified against each other exactly as in the per-issue tail.
 - **One wave PR.** The orchestrator opens **one wave PR** → `integrationBranch` whose body lists the Wave's logic issues. On **CI green**, it **squash-merges** the wave PR. A repo with **no required checks (no CI)** is **vacuously green** — proceed to squash-merge immediately, exactly as the per-issue path does (with no required status checks to gate on, `gh pr merge --squash` is mergeable; same behavior the per-issue auto-merge relies on, `solve-issue` step 8). Auto-merge-on-green moves from per-issue to **per-wave** — the whole assembled Wave merges on one green CI run.
-- **Explicit issue close (do NOT rely on the `Closes #…` keyword).** A GitHub `Closes #n` keyword auto-closes an issue only when the PR merges into the repository's **default** branch. The wave PR targets `integrationBranch`, which is typically **not** the default branch (e.g. `develop` vs `main`), so the keyword would **not** fire. Therefore, after the wave PR squash-merges, the **orchestrator explicitly closes the Wave's logic issues** — `gh issue close #a #b #c --reason completed` — exactly as the per-issue path closes issues as a separate explicit action (the orchestrator merges and closes). The wave PR body may still list the issues for traceability, but the close is the explicit `gh issue close` step, never the keyword.
+- **Explicit issue close (do NOT rely on the `Closes #…` keyword).** A GitHub `Closes #n` keyword auto-closes an issue only when the PR merges into the repository's **default** branch. The wave PR targets `integrationBranch`, which is typically **not** the default branch (e.g. `develop` vs `main`), so the keyword would **not** fire. Therefore, after the wave PR squash-merges, the **orchestrator explicitly closes the Wave's logic issues** — `gh issue close #a #b #c --reason completed` — exactly as the per-issue path closes issues as a separate explicit action (the orchestrator merges and closes). If `integrations.trello` is present and a card handle was resolved, tick the checklist items for all logic issues just closed per `trello-sync.md § Wave granularity` (under `## Loop hooks`; best-effort per item; failure logged, loop continues). The wave PR body may still list the issues for traceability, but the close is the explicit `gh issue close` step, never the keyword.
 - **Wave-branch disposition + re-sync.** After the wave PR squash-merges, **delete the wave branch** (`gh pr merge --squash --delete-branch`, plus `git branch -D wave/<milestone>-w<N>` locally if a local copy remains) and **re-sync the local `integrationBranch`** (`git fetch`, fast-forward) **before the next Wave** — consistent with the per-issue tail's `--delete-branch` + re-sync (Phase 2 step 2).
 
 **Logic-only carve-out.** The Layer-2 visual gate is per-UI-issue, so a single wave PR cannot both auto-merge (logic) and hold open (UI). A Wave containing UI issues keeps those **per-issue / held**: each UI issue's worker opens its own PR with the `needs review` label (issue-granularity handling for that issue, held open for human visual sign-off), and **only the logic issues join the wave branch**. The wave PR's explicit-close list scopes **only the logic issues that actually joined the wave branch** — never the held UI issues.
@@ -311,6 +327,7 @@ Where N = the just-completed Wave number, X = issues merged this Wave (non-UI bu
 
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
+If `integrations.trello` is present, apply `## Finish hooks` from `skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
 
 ## Autonomy
 
@@ -408,6 +425,246 @@ On completion or systemic-failure halt, report:
 - **Per-Wave parallel-set sizes** (parallel mode) — for each Wave, how many issues built **concurrently** (the parallelizable-set size dispatched that Wave).
 - **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
 - The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` and deploy manually.
+
+**Output ordering (clean-completion path only):** On the clean-completion path, do not emit the Template 3 final summary until after step 6 completes (see step 6.9 — the CHANGELOG result is appended to the `🔴 Your move:` section before the summary is output). On the systemic-halt path, step 6 is skipped entirely (per step 6's preamble) — emit the Template 3 final summary immediately.
+
+### 6. Author the CHANGELOG entry
+
+**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the Run-complete notification. The systemic-halt path is identified by the fact that the run ended with a 🚨 reason (not a 🏁 reason).
+
+**Guard — skip this step entirely if any condition holds:**
+
+- The parked count for this run is greater than zero (any issue was parked), OR
+- The run ended via a systemic halt (see preamble above)
+
+The parked count is derived from this run's **in-context tracking** — it counts ALL issues that did not reach "merged" or "held at visual-review gate" status in this run: issues parked at build time, issues skipped due to triage blockers, AND issues excluded by the buildability check due to a live blocker label (e.g., `blocked` from a prior run). This is the `⏸️ P` count in Template 3's summary line. Do NOT re-derive via a live `gh issue list` query — a live query may find labels unrelated to this run's completion status.
+
+If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the Run-complete notification.
+
+Only proceed through steps 6.1–6.9 when **every issue in the milestone is either merged (non-UI) or held at the visual-review gate (UI)** — i.e. no parks. Visual-review holds (open `needs review` PRs for UI issues) are expected clean-completion state and do NOT block CHANGELOG authoring.
+
+#### 6.1 Idempotency check
+
+Determine the heading prefix based on the versioning mode:
+
+- **Versioned mode** (`versioning: true` or absent): prefix is `## v<target-version> ` (with a trailing space)
+- **Version-free mode** (`versioning: false`): full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. Strip leading and trailing whitespace (including `\r` on Windows) from each line before comparing — the trimmed line content must equal the heading with no additional characters. This prevents false-positive matches against entries like `## Q3 Hardening` when the current milestone is titled `Q3`.
+
+If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync). Scan each line for the prefix starting at the beginning of the line. For versioned mode use a line-start prefix match on the trimmed line; for version-free mode use a full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the Run-complete notification. If no match → continue.
+
+If `CHANGELOG.md` is absent, treat it as "no existing entry" and continue.
+
+#### 6.2 Fetch PR summaries
+
+For each issue merged in this run, look up its PR number from the **run's in-context issue→PR tracking table** (the same data that populates Template 2 and Template 3's PR column). If the PR number for a particular issue is not in active context, fall back to querying the issue's closing PR references:
+
+```bash
+gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | map(select(.state == "MERGED")) | .[0].number // empty'
+```
+
+Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. If it is null or empty (no linked PR found), apply the following fallback: use the issue title as the What-column content for that issue and skip `gh pr view` for that issue. Record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
+
+When a valid PR number is confirmed, call:
+
+```bash
+gh pr view <pr-number> --json title,body
+```
+
+Extract the summary line:
+
+1. Look for a `## Summary` heading in the body (case-insensitive match on the heading text).
+2. Take the **first non-blank line** immediately following that heading.
+3. If no `## Summary` section is found, fall back to the PR title.
+
+Record a triple for each issue: `{ issue: #N, pr: #P, summary: "<extracted line>" }`.
+
+#### 6.3 Categorize issues
+
+Group the merged issues into two buckets based on labels and title prefixes:
+
+- **✨ Features / enhancements:** issues with label `enhancement`, `feature`, or title prefixes `feat(`, `polish(`. Issues that don't clearly match either bucket default to this one.
+- **🔧 Fixes:** issues with label `bug` or `fix`, or title prefixes `fix(`.
+
+A single issue belongs to exactly one bucket. If an issue matches both, prefer the fix bucket.
+
+#### 6.4 Determine the milestone theme
+
+1. Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`).
+2. Look for a dedicated theme line (a line starting with `Theme:` or `**Theme:**`). Use the text after the prefix as the one-sentence theme description.
+3. If no theme line is found in the description, use the milestone title as both the heading theme and the theme description.
+
+#### 6.5 Author the CHANGELOG entry
+
+Construct the markdown block using the structure below. Mirror the v1.7.0 entry in `CHANGELOG.md` exactly — same heading format, same table schema, same section names.
+
+**Versioned mode entry:**
+
+```markdown
+## v<target-version> — <milestone theme>
+
+**Theme:** <one-sentence theme description>
+
+### ✨ <Feature category label>
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### Consumer notes (upgrading from <prev version>)
+
+- <upgrade-relevant behavior changes, new artifacts, schema impact>
+- **No schema changes** to `milestone-driver.json` (include this line only when true)
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
+```
+
+**Version-free mode entry** (omit the version number and theme suffix; include Consumer notes and ⚖️ Post-run audit trail sections using the same rules as versioned mode — only the heading format differs):
+
+```markdown
+## <milestone title>
+
+**Theme:** <one-sentence theme description>
+
+### ✨ <Feature category label>
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #N <issue title> | #P | <summary line> |
+
+### Consumer notes
+
+- <upgrade-relevant behavior changes, new artifacts, schema impact>
+- **No schema changes** to `milestone-driver.json` (include this line only when true)
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
+```
+
+Rules for authoring the entry:
+
+- Omit the `### 🔧 Fixes` section entirely if there are no fix-bucket issues.
+- Omit the `### ✨` section entirely if there are no feature-bucket issues (unusual, but possible).
+- Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".
+- Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes — authored from what was actually built. Include the "No schema changes" line only when confirmed true.
+- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (the same set used for the Template 3 row entries — do NOT re-query `gh pr list`; read from context); write "none" if the list is empty.
+- Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. If CHANGELOG is absent or contains no `## v...` heading, use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched CHANGELOG.md, then run `git show <commit>:CHANGELOG.md | grep '^## v' | head -1` to extract the most recent version heading from history. If no prior CHANGELOG exists in history, omit the prev-version parenthetical from the Consumer notes heading and use simply `### Consumer notes`. Do NOT use `plugin.json` as a fallback — `plugin.json` holds the target version, not the previous one.
+
+**Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose that precedes the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create a new one with a standard `# Changelog` header and intro paragraph, then append the new entry below. To retrieve an existing structure as a template: first run `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched the file, then run `git show <commit>:CHANGELOG.md` to retrieve the content. If no prior version exists in history, use a minimal header (`# Changelog` followed by a blank line).
+
+#### 6.6 Determine the branch name
+
+- **Versioned mode:** `docs/changelog-v<target-version>` (e.g. `docs/changelog-v1.8.0`)
+- **Version-free mode:** `docs/changelog-<milestone-slug>`, where slug = milestone title lowercased, spaces replaced by hyphens, non-alphanumeric characters (except hyphens) removed (e.g. milestone "Q3 Hardening" → `docs/changelog-q3-hardening`)
+
+#### 6.7 Open the doc-only PR
+
+Cut the branch from the current `integrationBranch` tip (step 6.7 re-syncs integrationBranch inline before branching — do not rely on a prior re-sync having occurred):
+
+If the docs branch already exists from a prior interrupted run (local or on remote), check it out instead of creating it anew. This makes step 6.7 re-runnable.
+
+```bash
+# Ensure integrationBranch is current before cutting the docs branch
+git checkout <integrationBranch>
+git fetch
+git merge --ff-only origin/<integrationBranch>
+# Guard: if the docs branch already exists from a prior interrupted run, check it out instead of creating a new one
+if git show-ref --verify --quiet refs/heads/docs/changelog-<slug>; then
+  git checkout docs/changelog-<slug>
+elif git ls-remote --exit-code origin docs/changelog-<slug> > /dev/null 2>&1; then
+  git checkout --track origin/docs/changelog-<slug>
+else
+  git checkout -b docs/changelog-<slug> <integrationBranch>
+fi
+# edit CHANGELOG.md as authored in step 6.5
+# If CHANGELOG.md was already committed on this branch (re-run after interruption), the commit is skipped (CHANGELOG is already in place).
+git add CHANGELOG.md
+# Run exactly ONE of the following — choose based on versioning mode:
+git diff --cached --quiet || git commit -m "docs: v<version> release notes"           # VERSIONED MODE
+# git diff --cached --quiet || git commit -m "docs: <milestone-title> release notes"  # VERSION-FREE MODE
+# Run the versioned commit line when `versioning` is true or absent; uncomment the version-free line (and comment out the versioned line) when `versioning: false`.
+git push -u origin docs/changelog-<slug>
+# Check if a PR already exists for this branch (re-run safety)
+existing_pr=$(gh pr list --head "docs/changelog-<slug>" --json number --jq '.[0].number // empty' 2>/dev/null)
+if [ -n "$existing_pr" ]; then
+  echo "CHANGELOG PR already open: #$existing_pr"
+else
+  # PR title uses the versioned or version-free form depending on mode:
+  #   Versioned:    "docs: v<version> release notes"
+  #   Version-free: "docs: <milestone-title> release notes"
+  gh pr create \
+    --base <integrationBranch> \
+    --title "docs: <title>" \
+    --body "$(cat <<'EOF'
+## CHANGELOG preview
+
+<paste the authored CHANGELOG entry verbatim here>
+
+---
+
+_This entry doubles as the GitHub-release body for the human release step._
+EOF
+)"
+fi
+```
+
+Record the PR number and URL — either the newly created PR or the existing one found by the re-run guard.
+
+#### 6.8 Handle CI result
+
+The PR is doc-only; CI is typically vacuously green (no required status checks on a documentation-only change). Immediately attempt:
+
+```bash
+gh pr merge <pr-number> --squash --delete-branch
+```
+
+- **Success (CI green or no CI):** record _"CHANGELOG entry merged."_ and record the merge for the final summary. Then clean up the working tree:
+
+  ```bash
+  git checkout <integrationBranch>
+  git fetch
+  git merge --ff-only origin/<integrationBranch>   # fast-forward local branch to include the squash-merge commit
+  # fast-forward local branch — git fetch alone does not advance the local ref
+  git branch -d docs/changelog-<slug>   # safe to delete: local tip is reachable from integrationBranch after fast-forward
+  ```
+
+- **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR (`gh pr edit <pr-number> --add-label "needs review"`). Add a 🔴 item to the run output:
+
+  > 🔴 CHANGELOG PR needs human merge (CI red): #P — <pr-url>
+
+  Return to `integrationBranch` but preserve the local `docs/changelog-<slug>` branch (the remote PR is still open and needs the branch):
+
+  ```bash
+  git checkout <integrationBranch>
+  # do NOT delete the local docs/changelog-<slug> branch — remote PR is still open
+  ```
+
+  Do NOT re-attempt the merge. Proceed to the Run-complete notification.
+
+#### 6.9 Surface in the final summary "Your move" section
+
+**Output ordering:** The Template 3 final summary MUST NOT be emitted until step 6 completes. Hold the summary in-context through steps 6.1–6.8, then add this line to the `🔴 Your move:` section, and emit the complete Template 3 only after step 6.9.
+
+Add one line to the `🔴 Your move:` list in Template 3 (the final summary):
+
+- **Merged:** `CHANGELOG entry merged → use as GitHub release body (#P)`
+- **Held open (CI red):** `🔴 CHANGELOG PR needs human merge (CI red): #P`
+
+**Label collision note:** A CHANGELOG PR carrying the `needs review` label must be surfaced in the `🔴 Your move:` list only — it must NOT appear in the `👁️ open` rows of Template 3. The Final summary's "Open UI PRs awaiting human merge" bullet is scoped to PRs opened for issues in this run's issue set (cross-referenced against the run's in-context issue→PR tracking table), not all `needs review` PRs in the repo.
 
 **Run-complete notification.** After presenting the final summary (Template 3), emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
