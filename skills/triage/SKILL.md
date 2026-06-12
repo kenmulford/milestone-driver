@@ -224,6 +224,14 @@ Triage: 4 reused (cache), 2 fresh
 
 (Substitute the actual counts. When all issues are HIT: `Triage: N reused (cache), 0 fresh`. When all are MISS: `Triage: 0 reused (cache), N fresh`.)
 
+When the Step 6.5 cache write was **skipped or failed this run** (jq absent on the Bash path, or any write error on either path — see Step 6.5), append a single concise clause to that same line so the operator knows the cache did not persist this run:
+
+```
+Triage: 4 reused (cache), 2 fresh; cache write skipped this run
+```
+
+Show the clause **only when a skip/failure actually occurred**. On a successful write, emit the plain "N reused, M fresh" line with no extra clause.
+
 **All clear** (no Blocker gaps across all issues):
 
 ```
@@ -328,8 +336,13 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
 
 **Write paths (both are best-effort — failure skips write, does not abort the run):**
 
-- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. If `jq` is absent, skip the write entirely (same fail-open pattern as `hooks/tests-green.sh:7`: `command -v jq >/dev/null 2>&1 || exit 0`). Wrap in a conditional: if write fails, log a warning to stderr and continue.
-- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. Wrap the entire write in `try { … } catch { Write-Warning "triage cache write failed: $_" }` — skip on error (pattern from `hooks/tests-green.ps1:6`: `try { … } catch { exit 0 }`).
+- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. This stays fail-open (same pattern as `hooks/tests-green.sh:7`), but the skip/failure is now **visible** — emit one stderr line and continue (never abort the run):
+  - If `jq` is absent, emit `milestone-driver: triage cache write skipped (jq not found)` to stderr, then continue (effectively `exit 0` for the write — the run proceeds). Do **not** silently `exit 0`.
+  - If the write itself fails, emit `milestone-driver: triage cache write failed: <err>` to stderr (with the captured error), then continue.
+  - Both branches set the "cache write skipped this run" condition consumed by the Step 5 output line.
+- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. These are built-in cmdlets with **no external-tool dependency** (no `jq`), so there is no tool-absent case here — the only realistic visible case is a thrown write error. The failure is **visible** (mirroring the Bash path's intent — visible, fail-open), still fail-open (pattern from `hooks/tests-green.ps1:6`):
+  - Failure branch: wrap the write in `try { … } catch { Write-Warning "triage cache write failed: $_" }` and continue — do **not** fail the run.
+  - The failure (`catch`) branch sets the "cache write skipped this run" condition consumed by the Step 5 output line.
 
 **Single mode:** cache write applies identically — write the single issue's entry.
 
