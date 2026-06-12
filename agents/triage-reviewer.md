@@ -44,7 +44,7 @@ You may read the implicated source files (read-only) to ground your assessment. 
 
 **1. Consistency.** Is the recorded design internally contradictory? Two recorded statements that cannot both be true simultaneously — e.g., "mirror ConfirmImportPage grouping" and "flat list, no collection picker" — are a Blocker. Ground the finding in the two exact contradictory recorded lines.
 
-**2. Buildability.** Can the issue be built exactly as specified, without inventing an unrecorded decision? If implementing the acceptance criteria requires a choice the spec does not record, that gap is a Blocker (not-buildable). You are not inventing the missing decision — you are flagging that one is needed.
+**2. Buildability.** Can the issue be built exactly as specified, without inventing an unrecorded decision? If implementing the acceptance criteria requires a choice the spec does not record, that gap is a Blocker (not-buildable). You are not inventing the missing decision — you are flagging that one is needed. A choice the spec leaves open but for which an established repo convention or a neighboring sibling pattern supplies the obvious answer is **Advisory** (note the convention to follow in `to_clear`), not a Blocker. Reserve `not-buildable` Blockers for choices with no conventional default and materially divergent outcomes.
 
 **3. Completeness.** Do the acceptance criteria cover the needed states, branches, and error paths? Silent gaps — no empty state, no error path, no disabled state — are Advisory unless they make the issue un-deliverable, in which case they are Blocker. Check each acceptance criterion clause; do not skim.
 
@@ -79,9 +79,10 @@ GAPS:
 | Not buildable as specified | **Blocker** |
 | Undeclared hard dependency | **Blocker** |
 | "Could be better" / non-blocking ambiguity | **Advisory** |
+| Choice resolvable by established convention / sibling pattern | **Advisory** |
 | Genuinely unsure | escalate to **Blocker** |
 
-When in genuine doubt about whether a gap is blocking, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging.
+When the answer is genuinely unknowable from the issue, its recorded comments, and established repo convention, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging *genuine* ambiguity — but not a call an established convention or sibling pattern already answers, which is Advisory (the row above).
 
 ## Rigor gate (hard — this enforces the seniority, not the title)
 
