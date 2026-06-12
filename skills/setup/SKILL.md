@@ -45,7 +45,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Preflight → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -81,6 +81,20 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Releas
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
 | `preflightCmd` | "What command runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`)" | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+
+**Tier: Integration** (optional; pure preference — no Phase-1 inference signal, since granularity is not detectable from repo signals. Show `"issue"` as the default/example.)
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `integrationGranularity` | "How should built issues integrate — one PR per issue (default), or one PR per dependency wave?" | Skip → `issue` (each built issue gets its own PR / CI / merge). |
+
+**Wave precondition prompt.** When — and only when — the user selects `"wave"`, fire this informational, **non-blocking** prompt (every wave selection, unconditionally — NOT gated on detected gate-strength):
+
+> "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge — the failing issue isolates, the rest merge — use `issue` (the default)."
+
+`"full suite?"` is posed as a **question to the human**, NOT a check the skill performs — it is not machine-detectable at setup time. The prompt does **not** block: after the user acknowledges, `"wave"` is still written. Selecting `"issue"` (or accepting the default) shows no prompt.
+
+**Write rule:** omit `integrationGranularity` from the written profile when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `integrationGranularity: "wave"` only when wave is explicitly chosen.
 
 **Tier: Release** (optional; default inferred from the `.claude-plugin/plugin.json` presence signal — present → versioned, absent → suggest `versioning: false`)
 
@@ -131,7 +145,7 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Releas
 
 ### Phase 3 — Write and confirm
 
-Assemble the collected keys into a valid JSON object and write to `<repo-root>/milestone-driver.json`. Omit any key the user skipped (do not write `null` or empty values). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. Print the final file contents so the user can verify.
+Assemble the collected keys into a valid JSON object and write to `<repo-root>/milestone-driver.json`. Omit any key the user skipped (do not write `null` or empty values). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write `integrationGranularity: "wave"` only when wave is explicitly chosen. Print the final file contents so the user can verify.
 
 Writing the file is sufficient for the mechanical gates to read it immediately this session — no commit is required for the gates to function.
 
