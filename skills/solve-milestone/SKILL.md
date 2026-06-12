@@ -260,15 +260,25 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
 4. **Barrier on the whole set.** **Await ALL completion notifications from dispatched background agents** before proceeding to Phase 2. This is the **barrier**: the Wave does not advance and Phase 2 does not begin until ALL background agents have returned their completion notification — i.e. until the entire dispatched set has completed.
 
-5. **Collect handbacks.** Each worker returns the structured handback (#70):
+5. **Re-derive terminal state from git/gh (handback is a hint).** A worker's final message is a free-text natural-language summary with no schema enforcement, so under a long, tool-heavy run it can drift off-format and the structured facts are lost. The barrier therefore **does not trust the handback as the source of truth** — after awaiting completions (step 4), it **re-derives each dispatched issue's terminal state from git + gh ground truth**, exactly the way the rest of the engine already does:
+   - run the `solve-issue` **step-3 branch-state probe** against each issue's worktree branch — PR state for `issue/<n>-*` (path-a query `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`), commits ahead of `integrationBranch` (path-b, `git rev-list --count <integrationBranch>..issue/<n>-<slug>`), and park state from **live labels** (`gh issue view <n> --json labels` — `needs design` / `needs decision` / `blocked`) plus the `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment (the same signal the sequential loop reads at step 4);
+   - derive `isUI` independently from `git diff <integrationBranch>...HEAD --name-only` ∩ `uiSurfaceGlobs` (the same derivation `solve-issue` Delta 3 uses — not from a PR's changed-file list).
+
+   This mirrors precedents already in the engine: the **`solve-issue` step-3 probe** (~lines 36–55) re-derives merged / open-PR / branch+commits-ahead / parked entirely from git+gh **with no checkpoint file**, and the **`--async` path** (~line 122) likewise re-derives terminal state from live `gh` "because there is no structured handback in `--async` mode." The barrier reuses that ground-truth derivation; it invents nothing new.
+
+   **The structured handback is a hint/optimization, not the source of truth:**
 
    ```text
    { issue, status: built-green | parked, branch, worktreePath, prUrl?, isUI, declarations, parkLabel?, parkReason? }
    ```
 
-   Separate `built-green` from `parked`:
-   - **`built-green`** workers form the green set handed to Phase 2 (branches built + pushed, per-issue PR opened in issue granularity).
-   - **`parked`** workers are **excluded from the merge tail**. The park was already handled inside the worker (park-don't-prompt): its **branch, label, and comment stay intact**. The orchestrator does not re-park or re-label — it simply omits the issue from Phase 2, exactly as the sequential loop excludes a parked issue, signaled through the handback rather than inferred from labels. For each parked handback, **emit one `⏸️ #N parked — <reason>` notification** (using `parkLabel` + `parkReason` from the handback) **before emitting the aggregate 🌊 wave-boundary notification**.
+   When the handback is **present and well-formed**, use it to **skip the redundant queries** above (the field values match the ground truth a probe would return — see the per-field ground-truth table in `solve-issue` Delta 3). When it is **absent or partial** — e.g. the worker's final message drifted off-format into a conversational "stop polling" note — the step-3 probe **fills in** every field from git/gh, so a dropped or garbled final message can no longer strand a built-green branch.
+
+   **Partition `built-green` from `parked` from the ground-truth derivation, not from parsing the final message:**
+   - **`built-green`** — the probe found an open PR for `issue/<n>-*`, or a pushed branch with commits ahead of `integrationBranch` (probe paths a/b), **and** no park label. These form the green set handed to Phase 2 (branches built + pushed, per-issue PR opened in issue granularity).
+   - **`parked`** — the probe found a park label (`needs design` / `needs decision` / `blocked`) with its `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment. These are **excluded from the merge tail**. The park was already handled inside the worker (park-don't-prompt): its **branch, label, and comment stay intact**. The orchestrator does not re-park or re-label — it simply omits the issue from Phase 2, exactly as the sequential loop excludes a parked issue. The park is **re-derived from git/gh** (live labels + the step-3 probe), with `parkLabel` / `parkReason` from the handback used only as a corroborating hint — never inferred from the handback alone. For each parked issue, **emit one `⏸️ #N parked — <reason>` notification** (preferring `parkLabel` + `parkReason` from the handback when present, else the live label + comment reason) **before emitting the aggregate 🌊 wave-boundary notification**.
+
+   On the well-formed-handback happy path the partition is **identical** to trusting the handback directly — the hint and the ground truth agree, so behavior is unchanged; the probe only changes what happens when the handback is missing or wrong.
 
 6. **Cleanup the fleet.** The orchestrator removes a worktree once it is integrated by Phase 2, **or** its issue parked, **or** at Wave end / run end:
 
