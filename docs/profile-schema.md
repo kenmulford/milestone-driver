@@ -201,7 +201,7 @@ Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.
 
 **`tests-green` stamp-skip.** When `unitTestCmd` is set, `tests-green` maintains a
-gitignored `.milestone-driver-tests-stamp` file at the repo root. The stamp holds a
+gitignored `.milestone-config/tests-stamp` file. The stamp holds a
 `<branch>:<treeSHA>` key where `treeSHA` is the output of `git write-tree` (the
 current staged/index tree). On each qualifying commit, if the stamp exists and its key
 matches, the hook logs `staged tree unchanged since last green run — skipping unit suite`
