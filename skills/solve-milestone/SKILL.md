@@ -15,7 +15,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
 ## Before starting
 
 1. **Auth preflight.** Run `gh auth status`. If it fails (non-zero exit or any "not logged in" / "authentication failed" output), print a clear error — e.g. `"Error: gh auth status failed — authenticate with 'gh auth login' before running solve-milestone."` — and **halt immediately**. Do NOT proceed to profile read, milestone resolution, or any other step.
-2. Read the profile at `milestone-driver.json` (repo root; see the plugin's `docs/profile-schema.md`). If the file is absent or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+2. Read the profile (see the plugin's `docs/profile-schema.md`). **Resolution (transitional READ only — the orchestrator performs no migration move):** read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json`. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. solve-milestone does **not** run a `git mv` on its own (orchestrator) working tree — that would leave an uncommitted relocation sitting on `integrationBranch` with no commit path. Instead, on a legacy layout the migration is performed by the **first dispatched `solve-issue`** (it runs the move on its feature branch at step 3.5, so the relocation rides that issue's PR). An all-parked milestone (no building run this pass) defers the move to the next building run; the transitional READ above covers the gap until it lands. If neither file exists, or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
    2.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** the marker file `.milestone-driver-preflight-notice` does **not** exist at the repo root, print the notice below verbatim, then create the marker (`touch .milestone-driver-preflight-notice`). Stay **silent** if `preflightCmd` is set **or** the marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-driver-tests-stamp`).
 
       <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
@@ -26,8 +26,8 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       |      | (lint, format, static analysis, security scan).
       | Why  | It runs that locally before opening the PR, so those checks are
       |      | caught and fixed up front instead of turning your PR red later.
-      | How  | Add "preflightCmd" to milestone-driver.json. Optional — skip it
-      |      | and nothing changes.
+      | How  | Add "preflightCmd" to .milestone-config/driver.json. Optional — skip
+      |      | it and nothing changes.
 
       Examples:
       | Stack        | preflightCmd                                   |
@@ -45,7 +45,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       |      | checklist per issue, automatic state transitions).
       | Why  | Keep your Trello board in sync without manual updates.
       | How  | Run `/milestone-driver:setup` and choose the Trello tier, or add
-      |      | `integrations.trello` to milestone-driver.json manually.
+      |      | `integrations.trello` to .milestone-config/driver.json manually.
       |      | Optional — skip and nothing changes.
       | Req  | Requires @delorenj/mcp-server-trello in your Claude Code session.
       ```
@@ -529,7 +529,7 @@ Construct the markdown block using the structure below. Mirror the v1.7.0 entry 
 ### Consumer notes (upgrading from <prev version>)
 
 - <upgrade-relevant behavior changes, new artifacts, schema impact>
-- **No schema changes** to `milestone-driver.json` (include this line only when true)
+- **No schema changes** to `.milestone-config/driver.json` (include this line only when true)
 
 ### ⚖️ Post-run audit trail
 
@@ -558,7 +558,7 @@ Judgment-call PRs for this release: <comma-separated list of PRs with `judgment 
 ### Consumer notes
 
 - <upgrade-relevant behavior changes, new artifacts, schema impact>
-- **No schema changes** to `milestone-driver.json` (include this line only when true)
+- **No schema changes** to `.milestone-config/driver.json` (include this line only when true)
 
 ### ⚖️ Post-run audit trail
 

@@ -12,17 +12,24 @@ published). Confirm both are enabled with `/plugin`.
 ## 2. Add the project profile
 
 The first time you run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`,
-the plugin **auto-invokes `/milestone-driver:setup`** if `milestone-driver.json` is absent
+the plugin **auto-invokes `/milestone-driver:setup`** if the driver profile is absent
 or missing a Core key. The bootstrap infers every key it can from repo signals (default branch,
 gitflow layout, project type, test scripts) and presents detected defaults — you accept, edit,
-or skip. After writing the file it returns control so the original task continues immediately.
+or skip. It writes the profile to the canonical `.milestone-config/driver.json`. After writing
+the file it returns control so the original task continues immediately.
 
 You can also run `/milestone-driver:setup` directly at any time to create or repair the profile.
 
 If your repo has no `.claude-plugin/plugin.json` (or you simply don't want a per-PR version bump), set `versioning: false` for **version-free mode**: the loop then needs no semver-named milestone and bumps nothing. Versioned is the default; a versioned repo whose `plugin.json` goes missing degrades to version-free with a logged note rather than failing.
 
-**Manual authoring (fallback):** Create `milestone-driver.json` at the repo root. Only the
-Core keys are required. See [`profile-schema.md`](profile-schema.md) for the full schema.
+**Manual authoring (fallback):** Create `.milestone-config/driver.json` (the canonical
+location). Only the Core keys are required. A legacy root `milestone-driver.json` is still
+read transitionally, and the migration to `.milestone-config/driver.json` is performed by the
+commands with a commit path — **`setup`** and **`solve-issue`** (the latter on its feature
+branch, so the move rides the issue PR); **`solve-milestone`** migrates via the first build it
+dispatches; **`triage`** surfaces detection but does not move the file; the **gate hooks** stay
+read-only. The move is idempotent and the transitional read covers the gap until it lands — see
+[`profile-schema.md`](profile-schema.md) for the full schema and the resolution/migration rules.
 Minimal example (Core keys only):
 
 ```json
@@ -51,7 +58,7 @@ hook is bypassed or absent.
 ## 5. Point CLAUDE.md at the plugin
 
 Add a short section to the consuming repo's `CLAUDE.md` summarizing the per-issue
-flow and the non-negotiables, and pointing at `milestone-driver.json`, so a fresh
+flow and the non-negotiables, and pointing at `.milestone-config/driver.json`, so a fresh
 session knows the repo is milestone-driver–driven.
 
 ## What a run does (the gated flow)
@@ -156,7 +163,7 @@ The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/
 
 **Option 1 — re-run setup.** With the `@delorenj/mcp-server-trello` MCP server loaded, run `/milestone-driver:setup` directly. The Integrations tier (the last tier) will appear and walk you through board selection and list naming. Existing profile values are pre-filled, so re-running is safe for upgraders — no core keys are overwritten.
 
-**Option 2 — hand-add the node.** Add an `integrations.trello` object directly to `milestone-driver.json`. Only `boardId` is required; the `lists` sub-keys are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"`. Remember: the `@delorenj/mcp-server-trello` MCP server must be loaded in your Claude Code session at run time or all Trello steps will skip with a single log line. A profile written with all defaults accepted needs only `boardId`:
+**Option 2 — hand-add the node.** Add an `integrations.trello` object directly to `.milestone-config/driver.json` (or the legacy root `milestone-driver.json` until it migrates). Only `boardId` is required; the `lists` sub-keys are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"`. Remember: the `@delorenj/mcp-server-trello` MCP server must be loaded in your Claude Code session at run time or all Trello steps will skip with a single log line. A profile written with all defaults accepted needs only `boardId`:
 
 ```json
 {

@@ -1,5 +1,5 @@
 {
-  "description": "milestone-driver mechanical gates (per <repo>/milestone-driver.json), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch. no-bom: reject writes whose content begins with the UTF-8 BOM.",
+  "description": "milestone-driver mechanical gates (per <repo>/.milestone-config/driver.json, with a transitional root milestone-driver.json fallback), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch. no-bom: reject writes whose content begins with the UTF-8 BOM.",
   "hooks": {
     "PreToolUse": [
       {

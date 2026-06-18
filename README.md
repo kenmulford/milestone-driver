@@ -23,7 +23,7 @@ Install the plugin. It pulls in the required superpowers dependency:
 
 Restart Claude Code after install so the plugin hooks load.
 
-Add a `milestone-driver.json` profile at your repo root. The minimum is three keys:
+Add a `.milestone-config/driver.json` profile (a legacy root `milestone-driver.json` is still read transitionally and migrated to the canonical path on the first `setup` or `solve-issue` build — see [`docs/profile-schema.md`](docs/profile-schema.md) for which commands own the move). The minimum is three keys:
 
 ```json
 {
@@ -78,7 +78,7 @@ When the `@delorenj/mcp-server-trello` MCP server is loaded in your Claude Code 
 
 ## Status
 
-v1.5.0, self-hosted. milestone-driver drives its own releases through its committed `milestone-driver.json`. First external-consumer wiring is in progress.
+v1.9.0, self-hosted. milestone-driver drives its own releases through its committed `.milestone-config/driver.json` profile (with a transitional root `milestone-driver.json` fallback). First external-consumer wiring is in progress.
 
 ## Docs
 

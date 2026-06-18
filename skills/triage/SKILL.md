@@ -24,7 +24,7 @@ Say this to the user before doing any work:
 
 ### Step 1 — Read the profile
 
-Read `milestone-driver.json` at the repo root. If absent or missing a required Core key, invoke `milestone-driver:setup` to bootstrap it, then continue.
+Read the profile (see the plugin's `docs/profile-schema.md`). **Resolution (transitional READ only — triage performs no migration move):** read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json`. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. Triage authors no code, edits no source, and opens no PRs, so it **does not** perform the working-tree `git mv` — the relocation is owned by `setup` and `solve-issue` (the commands with a commit path; `solve-milestone` migrates via its dispatched build). On detecting the legacy layout (root `milestone-driver.json` present and `.milestone-config/driver.json` absent), triage may surface a one-line note — "legacy profile detected — will migrate on the next build/setup" — but does **not** move the file. The transitional READ above covers the gap until a building command performs the move. If neither file exists or a required Core key is missing, invoke `milestone-driver:setup` to bootstrap it, then continue.
 
 Extract:
 
@@ -390,7 +390,7 @@ Be concise — report status and outcomes flatly, no wall-of-text. Present steps
 
 ## Non-negotiables
 
-- **Authors no code.** Never edits a source file, never creates a branch, never opens a PR.
-- **Opens no PRs.** The triage phase is read-only except for posting issue comments — it applies no labels, creates no branches, and opens no PRs.
+- **Authors no code.** Never edits a source file, never creates a branch, never opens a PR. Triage **performs no migration move either** — it does not `git mv` a legacy root `milestone-driver.json` to `.milestone-config/driver.json`; the config relocation is owned by `setup` and `solve-issue` (the commands with a commit path). Triage does the transitional READ only (Step 1) and may surface a one-line legacy-detected note.
+- **Opens no PRs.** The triage phase is read-only except for posting issue comments — it applies no labels, creates no branches, opens no PRs, and moves no files.
 - **No interactive prompts.** Blocker comments are durable async handoffs on the originating issue — never a mid-run pause waiting for a human reply.
 - **No fabricated findings.** Every gap cites its grounding (the exact recorded line, or `file:line` for a dependency). A claim that cannot be grounded in the actual artifact is emitted as a Blocker ("cannot verify X from the issue/code"), never as a confident guess. If an issue cannot be retrieved, STOP — do not fabricate a stand-in.

@@ -1,18 +1,22 @@
 ---
 name: setup
-description: This skill should be used when "milestone-driver:setup" is invoked directly, OR auto-invoked by solve-issue/solve-milestone when milestone-driver.json is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), writes milestone-driver.json, and returns control so the original task continues — no re-invocation needed.
+description: This skill should be used when "milestone-driver:setup" is invoked directly, OR auto-invoked by solve-issue/solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues — no re-invocation needed.
 ---
 
 # setup — first-run profile bootstrap
 
-Generate or repair `milestone-driver.json` through a guided, inference-first flow. Every key is presented with a plain-language description and a detected default. Optional keys state their skip-consequence. No blank prompts — if a default cannot be inferred, an example is shown.
+Generate or repair the driver profile through a guided, inference-first flow. Every key is presented with a plain-language description and a detected default. Optional keys state their skip-consequence. No blank prompts — if a default cannot be inferred, an example is shown.
+
+The canonical profile location is `<repo>/.milestone-config/driver.json`. New profiles are always written there. An existing legacy root `<repo>/milestone-driver.json` is **migrated** (moved) to the canonical location by the migration preamble that runs before Phase 1 (see below), so Phase 3 only writes the assembled profile to the canonical path.
 
 **After writing the file, return control to the caller** (solve-issue or solve-milestone) so the original task continues immediately. The user does not need to re-run the command.
 
 ## When this runs
 
-- **Auto-invoked** by `solve-issue`/`solve-milestone` when `milestone-driver.json` is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`).
+- **Auto-invoked** by `solve-issue`/`solve-milestone` when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`).
 - **Direct invocation** (`/milestone-driver:setup`) when onboarding a new repo or repairing an existing profile.
+
+**Migration preamble (run first, before Phase 1).** Run the idempotent migration preamble so Phase 1 pre-fills from the already-migrated canonical file: **Profile resolution & migration.** Resolve the profile: if `<repo>/.milestone-config/driver.json` exists, use it. Else if a legacy root `<repo>/milestone-driver.json` exists, migrate it first — `mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` (when git-tracked, else plain `mv`) — then continue. Else (neither) it is a new project (this skill creates the canonical file in Phase 3). Idempotent: once `.milestone-config/driver.json` exists this is a no-op. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. The transitional READ (canonical first, legacy root fallback) covers the gap before the move lands. Because this preamble runs first, by Phase 1 any existing profile is already at the canonical path `.milestone-config/driver.json`.
 
 ## Procedure
 
@@ -30,7 +34,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Preflight (fast pre-PR checks) command | `.pre-commit-config.yaml` present → `pre-commit run --all-files`; `package.json` `.scripts.lint` → `npm run lint`; `Makefile` `lint`/`check` target → `make lint` / `make check` |
 | Stack signals | Language/framework files for `domainSkills` mapping (see table below) |
 | Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` (version-free) |
-| Existing profile | Read `milestone-driver.json` if present — pre-fill any already-set keys |
+| Existing profile | Read `.milestone-config/driver.json` if present, else the legacy root `milestone-driver.json` — pre-fill any already-set keys |
 
 **Stack → domainSkills inference table:**
 
@@ -145,12 +149,17 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Integr
 
 ### Phase 3 — Write and confirm
 
-Assemble the collected keys into a valid JSON object and write to `<repo-root>/milestone-driver.json`. Omit any key the user skipped (do not write `null` or empty values). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write `integrationGranularity: "wave"` only when wave is explicitly chosen. Print the final file contents so the user can verify.
+The canonical profile location is `<repo-root>/.milestone-config/driver.json`. The migration preamble (run before Phase 1) has already relocated any legacy root profile, so by Phase 3 there is no migration left to do here — there are only two cases:
+
+- **New project** — neither file present (the preamble found nothing to migrate): create the `.milestone-config/` directory (`mkdir -p .milestone-config`) and write the assembled profile to `.milestone-config/driver.json`. Never write a fresh profile to the root.
+- **Existing profile** — `.milestone-config/driver.json` present (the preamble used or migrated it): write the assembled profile to `.milestone-config/driver.json` in place. If a leftover root `milestone-driver.json` is also present (the both-present case the preamble left untouched), `.milestone-config/driver.json` wins: do **not** overwrite the canonical file from the root, and do **not** delete the leftover root file (no destructive surprise — the operator removes it; no `.gitignore` change is made).
+
+Assemble the **full** profile object — every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 — into a valid JSON object, and write that complete object to `.milestone-config/driver.json`. **Drop no accepted key:** a key that was pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (do not write `null` or empty values for it). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write `integrationGranularity: "wave"` only when wave is explicitly chosen. Print the final file contents so the user can verify.
 
 Writing the file is sufficient for the mechanical gates to read it immediately this session — no commit is required for the gates to function.
 
 ```
-milestone-driver.json written.
+.milestone-config/driver.json written.
 
 {
   "integrationBranch": "develop",
@@ -226,4 +235,4 @@ Be concise — report status and outcomes flatly, no wall-of-text. Present steps
 - Never present a blank prompt. Every key shows either a detected default or an illustrative example.
 - Skip always states its consequence. A user who skips knows exactly what gate or behavior is affected.
 - Do not write a partial profile. Either all three required Core keys (`integrationBranch`, `protectedBranch`, `sourceGlobs`) are present, or no file is written. (`implementerAgent` is auto-filled; the optional keys may be omitted.)
-- **Committing the profile:** writing the file is enough for the gates to read it this session. When `setup` is invoked **directly** (`/milestone-driver:setup`), suggest the user commit it (`git add milestone-driver.json && git commit -m "chore: add milestone-driver.json profile"`) so every clone and CI has it. When `setup` is auto-invoked **as a bootstrap sub-step**, leave the commit to the normal flow — do not create a commit on the current branch.
+- **Committing the profile:** writing the file is enough for the gates to read it this session. When `setup` is invoked **directly** (`/milestone-driver:setup`), suggest the user commit it (`git add .milestone-config/driver.json && git commit -m "chore: add milestone-driver profile"`) so every clone and CI has it; when a legacy root `milestone-driver.json` was migrated, the `git mv` is already staged and is committed by the same flow (the move and the new file land in one commit). When `setup` is auto-invoked **as a bootstrap sub-step**, leave the commit to the normal flow — do not create a commit on the current branch.
