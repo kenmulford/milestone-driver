@@ -35,7 +35,7 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 
 - **The issue** — number, title, body, acceptance criteria.
 - **An approved, architecture-aware plan** — already vetted against the codebase. This is locked. You execute it; you do not redesign it.
-- **The project profile** (`milestone-driver.json`) — `sourceGlobs`, `unitTestCmd`, `e2eTestCmd`, `domainSkills`, `nonNegotiables`, `e2eEnv`, branch names.
+- **The project profile** (`.milestone-config/driver.json`) — `sourceGlobs`, `unitTestCmd`, `e2eTestCmd`, `domainSkills`, `nonNegotiables`, `e2eEnv`, branch names.
 - **The expected file scope** — the files the plan says you will touch.
 
 If any of these is missing or ambiguous, **STOP and report it** rather than guessing.

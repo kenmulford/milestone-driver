@@ -9,9 +9,56 @@ particular stack.
 
 ## Location
 
+The canonical profile location is:
+
 ```
-<repo-root>/milestone-driver.json
+<repo-root>/.milestone-config/driver.json
 ```
+
+This is the single canonical home for the driver profile (the suite-wide
+`.milestone-config/` config directory that sibling plugins such as
+`milestone-feeder` also read from).
+
+**Transitional root read.** For backward compatibility during the upgrade
+window, the skills and hooks resolve the profile by reading
+`.milestone-config/driver.json` first, and falling back to the legacy root
+`<repo-root>/milestone-driver.json` when the canonical file is absent — so a
+repo that upgraded but has not yet migrated keeps its gates firing exactly as
+before.
+
+**Migration ownership (move, not coexistence).** This is a migration, not
+permanent coexistence — but the `git mv` is performed **only by the commands
+that have a clean commit path** to `integrationBranch`, so the relocation always
+lands in a commit rather than sitting uncommitted on a shared branch:
+
+- **`setup`** migrates the legacy root `milestone-driver.json` to
+  `.milestone-config/driver.json` (its migration preamble, before Phase 1) and
+  writes the assembled profile there — committed per its existing convention.
+- **`solve-issue`** migrates on the **feature branch** (step 3.5, after the
+  clean-tree check and branch cut), so the move rides that issue's PR.
+- **`solve-milestone`** does **not** `git mv` on its own (orchestrator) working
+  tree — that would strand an uncommitted move on `integrationBranch`. It reads
+  transitionally and lets the **first `solve-issue` it dispatches** perform the
+  move (which rides that issue's PR). An all-parked milestone defers the move to
+  the next building run; the transitional read covers the gap.
+- **`triage`** is read-only: it mutates nothing, so it performs **no** migration
+  move. On detecting the legacy layout it may surface a one-line note ("legacy
+  profile detected — will migrate on the next build/setup") but does not move the
+  file.
+- **Gate hooks** stay non-mutating — they perform the **transitional read only**
+  (the read covers the gap before the move lands).
+
+The move is idempotent: once `.milestone-config/driver.json` exists every
+command's resolution is a plain read and no move occurs. New projects always
+create the profile at `.milestone-config/driver.json`; a fresh profile is never
+written to the root.
+
+**Precedence (both present).** If both files exist (a half-migrated or
+manually-edited edge), `.milestone-config/driver.json` wins. The migration step
+never overwrites an existing `.milestone-config/driver.json` and never
+auto-deletes the leftover root `milestone-driver.json` (no destructive
+surprise): the leftover stays tracked but unused by resolution, and the operator
+removes it. No `.gitignore` change is made.
 
 **Commit it.** The mechanical gates read the profile, so it must be present in
 every clone for the gates to behave identically for every contributor and on CI.
