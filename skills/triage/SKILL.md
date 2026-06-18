@@ -73,12 +73,12 @@ Both modes end with the same inputs for Step 3: each issue's number, title, body
 
 ### Step 2.5 — Cache lookup (before dispatching agents)
 
-Read `.milestone-driver-triage-cache.json` at the repo root into memory as the **cache store**.
+Read the cache into memory as the **cache store**. **Resolution (transitional read):** read the new canonical path `.milestone-config/triage-cache.json` first; if it is absent, fall back to the legacy root `.milestone-driver-triage-cache.json` (mirrors the profile two-step read — `.milestone-config/driver.json || milestone-driver.json`). The write in Step 6.5 always targets the new path and cleans up the legacy root cache.
 
 **Degradation rules (never error — always degrade gracefully):**
-- Bash path: `jq . .milestone-driver-triage-cache.json 2>/dev/null` — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh:6-7`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
-- PowerShell path: `try { Get-Content .milestone-driver-triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (pattern from `hooks/tests-green.ps1:6`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
-- File absent, unreadable, or invalid JSON → empty cache in all cases
+- Bash path: `jq . .milestone-config/triage-cache.json 2>/dev/null` (then the legacy `jq . .milestone-driver-triage-cache.json 2>/dev/null` only if the new path is absent) — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh:6-7`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
+- PowerShell path: `try { Get-Content .milestone-config/triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (falling back to the legacy root `.milestone-driver-triage-cache.json` only if the new path is absent) (pattern from `hooks/tests-green.ps1:6`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
+- File absent (neither path present), unreadable, or invalid JSON → empty cache in all cases
 
 For **each issue** gathered in Step 2, fetch all issue timestamps in a **single batched/aliased GraphQL query** — one round-trip for all issues. Fall back to per-issue calls only if the batch call fails (graceful degradation):
 
@@ -311,7 +311,7 @@ A Blocker **parks** the issue — triage posts the comment (Step 6) and returns 
 
 After posting Blocker comments in Step 6, write/update entries for every **freshly-triaged** (MISS) issue. This step is **best-effort: a write failure logs a warning and does not error the triage run.**
 
-1. Re-read `.milestone-driver-triage-cache.json` at the repo root using the same degradation rules as Step 2.5 (absent/unreadable/invalid JSON → start from an empty object). **Why re-read instead of reusing the Step 2.5 parse:** Step 6 posts Blocker comments, which increments each blockered issue's comment count — this count is part of the cache key. The re-read captures any concurrent writes (e.g., from a parallel triage run) and ensures the written object is based on the most current file state rather than the snapshot from Step 2.5. This prevents silently overwriting entries that were updated between Step 2.5 and Step 6.5.
+1. Re-read the cache using the same transitional resolution and degradation rules as Step 2.5 (new `.milestone-config/triage-cache.json` first, legacy root `.milestone-driver-triage-cache.json` as fallback; absent/unreadable/invalid JSON → start from an empty object). **Why re-read instead of reusing the Step 2.5 parse:** Step 6 posts Blocker comments, which increments each blockered issue's comment count — this count is part of the cache key. The re-read captures any concurrent writes (e.g., from a parallel triage run) and ensures the written object is based on the most current file state rather than the snapshot from Step 2.5. This prevents silently overwriting entries that were updated between Step 2.5 and Step 6.5.
 2. For each freshly-triaged issue, write or overwrite its entry using **the key computed at Step 2.5** (the pre-comment key — intentionally, so the next run re-triages blockered issues whose comment count has since changed; see "Accepted trade-off" in Step 6) and the aggregated result from Step 4:
 
    ```json
@@ -332,7 +332,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
 
    The `result` object carries: `blockers` (boolean), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
 
-3. Write the updated cache object back to `.milestone-driver-triage-cache.json` at the repo root.
+3. Write the updated cache object to the new canonical path `.milestone-config/triage-cache.json` — `mkdir -p .milestone-config` (Bash) / `New-Item -ItemType Directory -Force` (PowerShell) first, since no writer may assume the directory exists. After the new file is written successfully, **remove the stale legacy root cache** `.milestone-driver-triage-cache.json` if present (`rm -f` / `Remove-Item -ErrorAction SilentlyContinue`), so it stops shadowing future transitional reads. The directory-create and stale-removal are best-effort, on the same fail-open footing as the write itself.
 
 **Write paths (both are best-effort — failure skips write, does not abort the run):**
 

@@ -3,6 +3,33 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.9.1 — Finish the `.milestone-config/` relocation: the per-clone runtime markers move out of the repo root
+
+**Theme:** v1.9.0 relocated the **committed** driver profile to `.milestone-config/driver.json`
+but left five **per-clone runtime artifacts** still written into the target repo root. This
+release moves all five under `.milestone-config/`, dropping the redundant `milestone-driver-`
+prefix (the directory already namespaces them), so a fresh run no longer litters the repo
+root. Each marker is read **transitionally** — new path first, legacy root as fallback —
+and the stale root file is **auto-cleaned on the first write to the new path**, mirroring
+the commit-clean two-step read the gate hooks already use for the profile. Existing clones
+upgrade silently: no duplicate notice, no cache rebuild, no re-run of an already-green suite.
+
+### ✨ Per-clone runtime markers move under `.milestone-config/`
+
+| Issue | PR | What |
+|---|---|---|
+| #148 Relocate the 5 remaining root-litter runtime markers | #TBD | Move all five per-clone runtime artifacts out of the repo root and under `.milestone-config/`, dropping the `milestone-driver-` prefix: `tests-stamp`, `preflight-notice`, `trello-notice`, `triage-cache.json`, and the `worktrees/` scratch dir. Each persistent marker is read new-path-first with a legacy-root fallback and writes only to the new path (`mkdir -p .milestone-config` / `New-Item -Force` before every write — no writer assumes the dir exists), removing the stale root file on the first new write. The `tests-green` hook (`.sh` + `.ps1`) skips the suite on either path's matching `branch:treeSHA` and clears **both** stamps on red; `triage` reads/writes the cache transitionally on both the `jq` and `ConvertFrom-Json` paths with degradation rules intact; the `preflight-notice` / `trello-notice` one-time markers stay silent if **either** marker exists and clean up the stale root marker when suppressing; the `worktrees/` fleet is a pure path relocation (ephemeral per-run scratch — no fallback read needed). `.sh`/`.ps1` parity preserved. |
+
+### Consumer notes (upgrading from v1.9.0)
+
+- **The five runtime markers now live under `.milestone-config/`.** Existing repos keep working with **no action** — each marker is read from the new `.milestone-config/<marker>` path first and falls back **transitionally** to the legacy root `.milestone-driver-<marker>` so an in-flight clone behaves identically on upgrade (no duplicate preflight/Trello notice, no triage-cache rebuild, no re-run of an already-green unit suite). On the first write to the new path, the stale legacy root file is **automatically removed**.
+- **No schema change** and **no config action required.** These markers are per-clone and gitignored — they were never committed. The `.gitignore` adds the five new `.milestone-config/<marker>` paths and **keeps** the legacy root ignores (commented as transitional) so any leftover root file in an existing clone stays ignored until it is cleaned up. The committed `.milestone-config/driver.json` is **not** ignored.
+- **Leftover root files self-clean.** A pre-existing `.milestone-driver-tests-stamp` / `-preflight-notice` / `-trello-notice` / `-triage-cache.json` is read once (as the fallback), then removed when the new-path file is first written. A leftover `.milestone-driver-worktrees/` dir is harmless — gitignored and simply unused by the new `.milestone-config/worktrees/` path; remove it at leisure.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
 ## v1.9.0 — Suite-wide `.milestone-config/` profile location
 
 **Theme:** The driver profile moves to a canonical `<repo>/.milestone-config/driver.json`,

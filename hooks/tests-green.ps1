@@ -30,13 +30,23 @@ if (-not $globs) { $touched = $true } else {
 }
 if (-not $touched) { exit 0 }
 # --- stamp-skip: skip re-running the suite when staged tree is identical to last green run ---
-$stampPath = Join-Path $projectDir '.milestone-driver-tests-stamp'
+# New canonical path under .milestone-config/; old root path read transitionally as a
+# fallback (mirrors the profile two-step read above). Write always goes to the new path.
+$stampPath = Join-Path $projectDir '.milestone-config' 'tests-stamp'
+$oldStampPath = Join-Path $projectDir '.milestone-driver-tests-stamp'
 $branch = git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
 $treeSHA = git -C $projectDir write-tree 2>$null
 if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
     $branch = ([string]$branch).Trim(); $treeSHA = ([string]$treeSHA).Trim()
     $key = "${branch}:${treeSHA}"
-    if ((Test-Path $stampPath) -and ((([string](Get-Content $stampPath -Raw -ErrorAction SilentlyContinue)) -replace '[\r\n]', '') -eq $key)) {
+    # Read the new path; if absent, fall back to the old root path. Skip on either match.
+    $readStamp = $null
+    if (Test-Path $stampPath) {
+        $readStamp = ([string](Get-Content $stampPath -Raw -ErrorAction SilentlyContinue)) -replace '[\r\n]', ''
+    } elseif (Test-Path $oldStampPath) {
+        $readStamp = ([string](Get-Content $oldStampPath -Raw -ErrorAction SilentlyContinue)) -replace '[\r\n]', ''
+    }
+    if ($readStamp -eq $key) {
         [Console]::Error.WriteLine("milestone-driver: staged tree unchanged since last green run — skipping unit suite.")
         exit 0
     }
@@ -57,13 +67,20 @@ try {
     $testOutput | ForEach-Object { [Console]::Error.WriteLine($_) }
 } finally { Pop-Location }
 if ($testCode -ne 0) {
-    # Clear stale green stamp so a red run never grants a future skip.
+    # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
     if (Test-Path $stampPath) { Remove-Item $stampPath -ErrorAction SilentlyContinue }
+    if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
     [Console]::Error.WriteLine("milestone-driver: unit tests failed — commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
     exit 2
 }
-# Write stamp on green (best-effort — failure does not fail the hook).
+# Write stamp on green to the new path (best-effort — failure does not fail the hook).
+# Ensure .milestone-config/ exists first; remove the stale legacy root stamp once the
+# new one is written, so it stops shadowing future reads.
 if ($null -ne $key) {
-    try { [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false)) } catch {}
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $projectDir '.milestone-config') -ErrorAction SilentlyContinue | Out-Null
+        [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false))
+        if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
+    } catch {}
 }
 exit 0
