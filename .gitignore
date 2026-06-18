@@ -14,17 +14,20 @@ desktop.ini
 /tmp/
 /scratch/
 
-# milestone-driver tests-green stamp
+# milestone-driver per-clone runtime markers (under .milestone-config/, gitignored).
+# NOTE: the committed profile .milestone-config/driver.json is NOT ignored — never add a
+# blanket /.milestone-config/ ignore here.
+/.milestone-config/tests-stamp
+/.milestone-config/preflight-notice
+/.milestone-config/trello-notice
+/.milestone-config/triage-cache.json
+/.milestone-config/worktrees/
+
+# Legacy root marker paths (transitional, pre-v1.9.1). Kept so leftover files in an
+# existing clone stay ignored during the read-old / clean-up migration; safe to drop
+# once no clone carries them.
 /.milestone-driver-tests-stamp
-
-# milestone-driver first-run preflight notice marker (per-clone, one-time)
 /.milestone-driver-preflight-notice
-
-# milestone-driver Trello integration one-time notice marker (per-clone)
 /.milestone-driver-trello-notice
-
-# milestone-driver triage result cache (per-clone)
 /.milestone-driver-triage-cache.json
-
-# milestone-driver parallel-mode worktree fleet scratch dir (per-clone)
 .milestone-driver-worktrees/
