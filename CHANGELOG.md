@@ -3,6 +3,32 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.9.0 — Suite-wide `.milestone-config/` profile location
+
+**Theme:** The driver profile moves to a canonical `<repo>/.milestone-config/driver.json`,
+read transitionally from the legacy root and auto-migrated on the first build — the
+precondition the sibling `milestone-feeder` plugin assumes when it reads the driver's
+shared keys (`sourceGlobs`, `uiSurfaceGlobs`, `integrationBranch`) from the same directory.
+Migration is **commit-clean**: only the commands with a PR path to the integration branch
+move the file, so the relocation always lands durably instead of stranding an uncommitted
+move on the orchestrator's tree.
+
+### ✨ Canonical `.milestone-config/` profile location
+
+| Issue | PR | What |
+|---|---|---|
+| #144 Resolve profile from `.milestone-config/driver.json` first | #145 | Resolve the driver profile from `<repo>/.milestone-config/driver.json`, falling back **transitionally** to the legacy root `milestone-driver.json` so gates keep firing on un-migrated repos. All eight gate hooks (`.sh` + `.ps1`) do the two-step read and never mutate (`.ps1` uses the portable multi-arg `Join-Path`). Migration is **commit-clean**: `setup` and `solve-issue` perform the `git mv` (solve-issue on the feature branch at step 3.5, riding the issue PR), `solve-milestone` migrates via its first dispatched build, and `triage` stays read-only — it surfaces a "legacy profile detected" note but never moves the file. Idempotent everywhere; when both files exist `.milestone-config/driver.json` wins (no overwrite, no deletion of the leftover root file). New projects always create at `.milestone-config/driver.json`. |
+
+### Consumer notes (upgrading from v1.8.1)
+
+- **Canonical profile location is now `.milestone-config/driver.json`.** Existing repos keep working with **no action** — the legacy root `milestone-driver.json` is still read transitionally. On the first `setup` or `solve-issue` build, a legacy root profile is automatically **moved** (`git mv`) to `.milestone-config/driver.json`; `solve-milestone` migrates via its first dispatched build, and `triage` is read-only (it only surfaces the detection). When both files exist, `.milestone-config/driver.json` wins and the leftover root file is left untouched for you to remove (no `.gitignore` change is made).
+- **No schema change** to the profile — the keys are identical; only the file location moved (and the canonical filename inside the directory is `driver.json`). Add new keys like `preflightCmd` / `integrations.trello` to `.milestone-config/driver.json` going forward.
+- **PowerShell gate hooks** now resolve the new path with the portable multi-arg `Join-Path` form (PowerShell 7+).
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
 ## v1.8.1 — Surface what the engine already does (and fix the capture defect underneath)
 
 **Theme:** Most of this milestone is making existing capability *visible* — fewer
