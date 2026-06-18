@@ -24,7 +24,8 @@ cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 project_dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
 [ -z "$project_dir" ] && project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
 project_dir="${project_dir//\\//}"
-profile="$project_dir/milestone-driver.json"
+profile="$project_dir/.milestone-config/driver.json"
+[ -f "$profile" ] || profile="$project_dir/milestone-driver.json"
 [ -f "$profile" ] || exit 0
 
 protected="$(jq -r '.protectedBranch // empty' "$profile" 2>/dev/null)"

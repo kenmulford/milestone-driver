@@ -12,7 +12,8 @@ $projectDir = $hook.cwd
 if (-not $projectDir) { $projectDir = $env:CLAUDE_PROJECT_DIR }
 if (-not $projectDir) { $projectDir = (Get-Location).Path }
 $projectDir = ([string]$projectDir) -replace '\\', '/'
-$profilePath = Join-Path $projectDir 'milestone-driver.json'
+$profilePath = Join-Path $projectDir '.milestone-config' 'driver.json'
+if (-not (Test-Path $profilePath)) { $profilePath = Join-Path $projectDir 'milestone-driver.json' }
 if (-not (Test-Path $profilePath)) { exit 0 }
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $unitCmd = $cfg.unitTestCmd
