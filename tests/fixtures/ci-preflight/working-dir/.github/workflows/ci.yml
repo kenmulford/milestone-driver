@@ -1,0 +1,14 @@
+name: Monorepo
+on:
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Typecheck
+        working-directory: packages/web
+        run: npm run typecheck
+      - name: Flaky lint
+        continue-on-error: true
+        run: npm run lint:experimental

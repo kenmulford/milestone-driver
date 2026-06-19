@@ -1,0 +1,10 @@
+name: Zeta
+on:
+  pull_request:
+
+jobs:
+  z:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Z check
+        run: echo zeta

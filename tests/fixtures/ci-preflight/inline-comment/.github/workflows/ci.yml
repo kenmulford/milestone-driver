@@ -1,0 +1,13 @@
+name: Inline Comment
+on:
+  pull_request: # PRs only
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # pin
+      - name: Echo
+        run: echo hi # trailing comment
+      - name: Grep literal hash
+        run: grep '#define' src

@@ -1,0 +1,5 @@
+SKIP	ci.yml	call-shared	uses-reusable-workflow	my-org/.github/.github/workflows/shared-ci.yml@main
+SKIP	ci.yml	more	uses-step	actions/checkout@v4
+SKIP	ci.yml	more	uses-step	my-org/composite-action@v1
+WARN	PR-gating workflow 'ci.yml' produced ZERO runnable steps (real checks may live behind a uses: reusable/composite workflow) — this is NOT a clean pass
+SUMMARY	mirrored=0	skipped=3

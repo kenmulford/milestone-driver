@@ -1,0 +1,6 @@
+SKIP	ci.yml	audit	uses-step	actions/checkout@v4
+STEP	ci.yml	audit	0		npm ci
+CHECK	ci.yml/audit/step2
+STEP	ci.yml	audit	0		npm audit --omit=dev --audit-level=high --package-lock-only
+CHECK	ci.yml/audit/step3
+SUMMARY	mirrored=2	skipped=1
