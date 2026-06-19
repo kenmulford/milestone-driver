@@ -14,3 +14,7 @@
 # PowerShell scripts: keep LF too for clean cross-platform diffs.
 # pwsh 7+ runs LF scripts fine on Windows, Linux, and macOS.
 *.ps1 text eol=lf
+
+# The golden test matrix is TAB-delimited and parsed byte-for-byte by both
+# runners; keep it LF so the parity contract stays stable cross-platform.
+*.tsv text eol=lf

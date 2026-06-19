@@ -3,6 +3,14 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.10.0 — Deterministic, tested semver extraction for milestone version detection
+
+**Theme:** `solve-milestone` step 3 no longer parses the milestone version by model judgment. A behavior-identical `scripts/extract-version.{sh,ps1}` pair — driven by a shared golden test matrix (`tests/extract-version.cases.tsv`) and two thin runners — deterministically extracts the version from the milestone title (description as fallback) and reports `none` / `ambiguous:<candidates>` on a miss. Step 3 maps that outcome against `versioning` to versioned / version-free / prompt, splitting the previously-identical `absent` vs `true` semantics.
+
+### Consumer notes
+
+- **Behavior change (default `versioning`):** `solve-milestone` now uses a deterministic version extractor. With `versioning` absent (the default), a milestone whose title has no parseable version now **silently runs version-free** instead of parsing-by-judgment/prompting — a consumer relying on the default bump should confirm their milestone titles carry a version, or set `versioning: true` to be prompted on a miss.
+
 ## v1.9.2 — Make the manual close-the-milestone step explicit
 
 **Theme:** The driver closes a milestone's issues and authors the CHANGELOG, but never closes the GitHub milestone object itself — that stays in the human-owned release tail alongside the `integrationBranch` → `protectedBranch` merge and deploy. This release spells that boundary out and surfaces the exact command, so an operator finishing a clean run isn't left to look up a REST call GitHub gives no first-class command for.
