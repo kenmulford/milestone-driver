@@ -120,7 +120,7 @@ One per-clone marker becomes per-worktree: the `.milestone-config/preflight-noti
 
 ### Blast radius is unchanged
 
-Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. As in sequential mode, the workers and the serial tail merge only to the integration branch, never to the protected branch. Release (integration branch to protected branch) and deploy stay manual and human-only.
+Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. As in sequential mode, the workers and the serial tail merge only to the integration branch, never to the protected branch. Release (integration branch to protected branch), closing the GitHub milestone object, and deploy stay manual and human-only — the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself.
 
 ## Integration granularity (issue vs wave)
 

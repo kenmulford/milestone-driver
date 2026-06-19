@@ -8,7 +8,7 @@ description: This skill should be used when the user invokes "/milestone-driver:
 
 Drive an entire GitHub milestone to completion by ordering its issues and running `/milestone-driver:solve-issue` on each, integrating to `integrationBranch` between issues. This skill owns **ordering, the loop, branch re-sync, parking, and the final summary**; the full per-issue pipeline — root-cause, implementer dispatch, gates, review, PR, auto-merge on green (non-UI) or visual-review hold (UI), close — is delegated to `/milestone-driver:solve-issue`.
 
-**Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`) and deploy stay manual and human-only. That boundary is what makes unattended operation safe.
+**Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`), **closing the GitHub milestone object**, and deploy stay manual and human-only — the driver closes the milestone's **issues** and authors the CHANGELOG, but never closes the **milestone** itself. That boundary is what makes unattended operation safe.
 
 **`--parallel` activation (recognized, not parsed).** Claude Code does **no** argument parsing — `$ARGUMENTS` is string-substituted — so this skill is **not** a CLI parser. Parallel mode is **recognized** when the invocation contains **either** a `--parallel` token in `$ARGUMENTS` **OR** the natural-language equivalent ("in parallel"); both route to the same parallel-mode behavior (`### Parallel mode (--parallel) — Phase 1: concurrent worker dispatch` below). **Absent either signal, today's sequential path runs byte-unchanged** — the loop (steps 1–5), the buildability conditions (a)/(b)/(c), and the buildable / not-buildable branches are untouched. Parallel mode is an additive opt-in; the blast-radius boundary above is identical in both modes (workers and the merge tail merge only to `integrationBranch`, never `protectedBranch`).
 
@@ -410,7 +410,7 @@ Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
 🔴 Your move:
 1. Review & merge each open PR (👁️ rows above) — visual sign-off; check ⚖️ judgment-call PRs too
 2. Clear park labels → re-run
-3. All merged → integration → protected, deploy
+3. All merged → integration → protected, close the milestone (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`), deploy
 ```
 PR cell: show the PR number if the issue has one, else —.
 
@@ -434,7 +434,7 @@ On completion or systemic-failure halt, report:
 - **Auto-resolved-conflict issues** (parallel mode) — issues whose merge conflict the serial verified merge tail **auto-resolved** (bounded auto-resolve) before merging, listed so a human can sanity-check the reconciliation.
 - **Per-Wave parallel-set sizes** (parallel mode) — for each Wave, how many issues built **concurrently** (the parallelizable-set size dispatched that Wave).
 - **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
-- The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` and deploy manually.
+- The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch`, close the GitHub milestone object (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed` — the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself), and deploy manually.
 
 **Output ordering (clean-completion path only):** On the clean-completion path, do not emit the Template 3 final summary until after step 6 completes (see step 6.9 — the CHANGELOG result is appended to the `🔴 Your move:` section before the summary is output). On the systemic-halt path, step 6 is skipped entirely (per step 6's preamble) — emit the Template 3 final summary immediately.
 

@@ -3,6 +3,26 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.9.2 — Make the manual close-the-milestone step explicit
+
+**Theme:** The driver closes a milestone's issues and authors the CHANGELOG, but never closes the GitHub milestone object itself — that stays in the human-owned release tail alongside the `integrationBranch` → `protectedBranch` merge and deploy. This release spells that boundary out and surfaces the exact command, so an operator finishing a clean run isn't left to look up a REST call GitHub gives no first-class command for.
+
+### ✨ Release-tail clarity
+
+| Issue | PR | What |
+|---|---|---|
+| #153 make the manual close-the-milestone step explicit | #154 | Names closing the GitHub milestone object as a manual, human-only step in both blast-radius statements (`solve-milestone` SKILL + `docs/architecture.md`), and surfaces the `gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed` command in the `🔴 Your move` block and the Final-summary "next human step" bullet — with the caveat that the driver closes the milestone's issues and authors the CHANGELOG but never the milestone itself. |
+
+### Consumer notes (upgrading from v1.9.1)
+
+- **Documentation-only behavior clarification** — no change to how the driver runs. After it merges every issue and authors the CHANGELOG, the release tail now explicitly tells you to close the GitHub milestone object (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`) as part of the manual, human-owned release step.
+- **No schema changes** to `.milestone-config/driver.json`.
+- Milestone #16 also included #152 — locking this repository's own `develop` branch to PR-only to match the governance baseline. That is a change to the author's repo configuration with **no effect on the installed plugin**; it is noted here only for milestone completeness.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.9.1 — Finish the `.milestone-config/` relocation: the per-clone runtime markers move out of the repo root
 
 **Theme:** v1.9.0 relocated the **committed** driver profile to `.milestone-config/driver.json`
@@ -18,7 +38,7 @@ upgrade silently: no duplicate notice, no cache rebuild, no re-run of an already
 
 | Issue | PR | What |
 |---|---|---|
-| #148 Relocate the 5 remaining root-litter runtime markers | #TBD | Move all five per-clone runtime artifacts out of the repo root and under `.milestone-config/`, dropping the `milestone-driver-` prefix: `tests-stamp`, `preflight-notice`, `trello-notice`, `triage-cache.json`, and the `worktrees/` scratch dir. Each persistent marker is read new-path-first with a legacy-root fallback and writes only to the new path (`mkdir -p .milestone-config` / `New-Item -Force` before every write — no writer assumes the dir exists), removing the stale root file on the first new write. The `tests-green` hook (`.sh` + `.ps1`) skips the suite on either path's matching `branch:treeSHA` and clears **both** stamps on red; `triage` reads/writes the cache transitionally on both the `jq` and `ConvertFrom-Json` paths with degradation rules intact; the `preflight-notice` / `trello-notice` one-time markers stay silent if **either** marker exists and clean up the stale root marker when suppressing; the `worktrees/` fleet is a pure path relocation (ephemeral per-run scratch — no fallback read needed). `.sh`/`.ps1` parity preserved. |
+| #148 Relocate the 5 remaining root-litter runtime markers | #149 | Move all five per-clone runtime artifacts out of the repo root and under `.milestone-config/`, dropping the `milestone-driver-` prefix: `tests-stamp`, `preflight-notice`, `trello-notice`, `triage-cache.json`, and the `worktrees/` scratch dir. Each persistent marker is read new-path-first with a legacy-root fallback and writes only to the new path (`mkdir -p .milestone-config` / `New-Item -Force` before every write — no writer assumes the dir exists), removing the stale root file on the first new write. The `tests-green` hook (`.sh` + `.ps1`) skips the suite on either path's matching `branch:treeSHA` and clears **both** stamps on red; `triage` reads/writes the cache transitionally on both the `jq` and `ConvertFrom-Json` paths with degradation rules intact; the `preflight-notice` / `trello-notice` one-time markers stay silent if **either** marker exists and clean up the stale root marker when suppressing; the `worktrees/` fleet is a pure path relocation (ephemeral per-run scratch — no fallback read needed). `.sh`/`.ps1` parity preserved. |
 
 ### Consumer notes (upgrading from v1.9.0)
 
