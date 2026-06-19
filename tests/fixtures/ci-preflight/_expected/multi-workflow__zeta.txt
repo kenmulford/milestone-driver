@@ -1,0 +1,3 @@
+STEP	zeta.yml	z	0		echo zeta
+CHECK	zeta.yml/z/step1
+SUMMARY	mirrored=1	skipped=0

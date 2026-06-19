@@ -1,0 +1,14 @@
+name: Block Scalar
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Multi-line
+        run: |
+          npm ci
+          npm test
+      - name: Single
+        run: npm run build

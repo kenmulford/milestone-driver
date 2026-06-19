@@ -1,0 +1,6 @@
+SKIP	ci.yml	test	uses-step	actions/checkout@v4
+STEP	ci.yml	test	0		echo hi
+CHECK	ci.yml/test/step2
+STEP	ci.yml	test	0		grep '#define' src
+CHECK	ci.yml/test/step3
+SUMMARY	mirrored=2	skipped=1

@@ -1,0 +1,2 @@
+WARN	no .github/workflows directory found at tests/fixtures/ci-preflight/no-workflows-dir — nothing to mirror
+SUMMARY	mirrored=0	skipped=0

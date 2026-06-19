@@ -1,0 +1,5 @@
+STEP	ci.yml	test	0		npm ci\nnpm test
+CHECK	ci.yml/test/step1
+STEP	ci.yml	test	0		npm run build
+CHECK	ci.yml/test/step2
+SUMMARY	mirrored=2	skipped=0
