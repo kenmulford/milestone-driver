@@ -1,0 +1,12 @@
+name: Reusable
+on:
+  pull_request:
+
+jobs:
+  call-shared:
+    uses: my-org/.github/.github/workflows/shared-ci.yml@main
+  more:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: my-org/composite-action@v1

@@ -84,7 +84,7 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Integr
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `preflightCmd` | "What command runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`)" | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to auto-derive the gate from your GitHub Actions CI — front-running a cheap CI check locally without hand-transcribing it. With `github-ci`, optionally set `ciWorkflow` to one workflow-file basename (e.g. `ci.yml`) to narrow discovery; omit it to discover all PR-gating workflows." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
 **Tier: Integration** (optional; pure preference — no Phase-1 inference signal, since granularity is not detectable from repo signals. Show `"issue"` as the default/example.)
 
@@ -104,7 +104,7 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Integr
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `versioning` | "Should I bump a plugin version on each PR via `.claude-plugin/plugin.json`? (Inferred default: file present → versioned; absent → suggest version-free.)" | Skip → key omitted → **versioned** (absent-means-versioned). For explicit version-free, choose the inferred `versioning: false` (the suggested value when no `.claude-plugin/plugin.json` exists). |
+| `versioning` | "Should I bump a plugin version on each PR via `.claude-plugin/plugin.json`? (Inferred default: file present → versioned; absent → suggest version-free.)" | Skip → key omitted → **opportunistic versioning**: the milestone title is parsed for a version; a miss **silently degrades to version-free** (never prompts). Choose explicit `versioning: true` to make a miss/ambiguity **prompt** the operator instead (or degrade with a warning when non-interactive). For explicit version-free, choose the inferred `versioning: false` (the suggested value when no `.claude-plugin/plugin.json` exists). |
 
 **Tier: Enrichment** (optional; show inferred values — accept with one keystroke)
 

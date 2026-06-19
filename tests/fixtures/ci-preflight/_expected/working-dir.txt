@@ -1,0 +1,5 @@
+STEP	ci.yml	frontend	0	packages/web	npm run typecheck
+CHECK	ci.yml/frontend/step1
+STEP	ci.yml	frontend	1		npm run lint:experimental
+CHECK	ci.yml/frontend/step2
+SUMMARY	mirrored=2	skipped=0

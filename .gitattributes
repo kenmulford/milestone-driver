@@ -14,3 +14,15 @@
 # PowerShell scripts: keep LF too for clean cross-platform diffs.
 # pwsh 7+ runs LF scripts fine on Windows, Linux, and macOS.
 *.ps1 text eol=lf
+
+# The golden test matrix is TAB-delimited and parsed byte-for-byte by both
+# runners; keep it LF so the parity contract stays stable cross-platform.
+*.tsv text eol=lf
+
+# CI-preflight fixtures + goldens are compared byte-for-byte by both runners.
+# Pin them to LF so a Windows checkout (core.autocrlf=true) can't turn the
+# .yml/.txt/.md fixtures into CRLF and break the golden comparison.
+tests/fixtures/** text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

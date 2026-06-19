@@ -1,0 +1,18 @@
+name: Services
+on:
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+    steps:
+      - name: DB test
+        run: npm run test:integration
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unit
+        run: npm run test:unit

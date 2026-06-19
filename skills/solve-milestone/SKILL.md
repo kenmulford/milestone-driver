@@ -71,9 +71,28 @@ The **milestone description is the ordering source of truth**. Read it (e.g. `gh
 
 ### 3. Determine the target version
 
-Read `versioning` from the profile. **Version-free mode** (`versioning: false`): skip this step entirely — no semver parse, **no prompt**, no target version (the milestone name need not be a version). Record "version-free run — no version determined or bumped" in the run output and proceed to Phase 0. **Versioned mode** (`versioning` `true` or absent): parse the milestone name and description for a semantically valid version (`x.y.z`). Derive the target version, **hold it in the orchestrator's context for the duration of the loop**, and record it in the run output. If no valid semver can be parsed, **prompt the user** before proceeding — do not guess.
+Read `versioning` from the profile. **Version-free mode** (`versioning: false`): skip this step entirely — no extraction, no prompt, no target version. Record "version-free run — no version determined or bumped" and proceed to Phase 0.
 
-> **Version source vs. version target.** In versioned mode the version **source** is the milestone (parsed here). The version **target** is `.claude-plugin/plugin.json`; the missing-`plugin.json` fail-safe for that target is applied downstream at `solve-issue` step 6.4 (the bump step), not here. Step 3 determines the source only; it adds no fail-safe branch of its own.
+**Otherwise** (`versioning: true` or absent): determine the target version with the deterministic extractor `scripts/extract-version.{sh,ps1}` (issue #158) — do **not** parse by judgment. Pipe the milestone's title + description as JSON to the extractor (bash where available, else pwsh):
+
+```bash
+gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '{title, description}' \
+  | bash scripts/extract-version.sh        # pwsh -NoProfile -File scripts/extract-version.ps1 on pwsh-only hosts
+```
+
+The extractor prints the normalized version on **stdout**, or nothing — with a reason (`none` or `ambiguous:<candidates>`) on **stderr**. Branch on the result × `versioning`:
+
+| Extractor result | `versioning` absent (opportunistic) | `versioning: true` (explicit opt-in) |
+|---|---|---|
+| version on stdout | **versioned** — hold it as the target for the loop; record it | **versioned** — same |
+| empty + `none` | **version-free**, record "no parseable version in milestone — version-free run (logged)" | **prompt** the user: "No version found in milestone '<title>'. Enter a target version, or proceed version-free." |
+| empty + `ambiguous:<list>` | **version-free**, record "ambiguous version in title (<list>) — version-free run (logged)" | **prompt**, listing `<list>` as the candidates to choose from |
+
+**Non-interactive runs.** When `MILESTONE_DRIVER_NONINTERACTIVE=1` is set (scheduled / cron / headless), explicit `true` does **not** prompt — it degrades to version-free with a loud `⚠ explicit versioning:true but no parseable version — running version-free` warning and a logged note. The prompt path is interactive-main-thread only; this preserves unattended operation.
+
+The extractor is fail-open: any internal error yields empty + `none`, so a missing interpreter or malformed input degrades exactly like "no version found".
+
+> **Version source vs. version target.** In versioned mode the version **source** is the milestone (extracted here via the deterministic extractor). The version **target** is `.claude-plugin/plugin.json`; the missing-`plugin.json` fail-safe for that target is applied downstream at `solve-issue` step 6.4 (the bump step), not here. Step 3 determines the source only; it adds no fail-safe branch of its own.
 >
 > **Precedence:** in versioned mode the milestone-derived target version is authoritative. The per-issue patch-default + confirm behavior in `solve-issue` does **not** fire inside a milestone run — the target version replaces it entirely.
 >

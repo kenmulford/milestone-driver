@@ -1,0 +1,8 @@
+STEP	ci.yml	checks	0		npm run lint
+CHECK	ci.yml/checks/step1
+SKIP	ci.yml	checks	secrets	references secrets
+SKIP	ci.yml	checks	interpolation	run: contains ${{ }} expression
+SKIP	ci.yml	checks	step-if	step-level if: (github.event_name == 'push')
+STEP	ci.yml	checks	0		npm run format:check
+CHECK	ci.yml/checks/step5
+SUMMARY	mirrored=2	skipped=3

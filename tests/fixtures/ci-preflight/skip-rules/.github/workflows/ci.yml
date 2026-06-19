@@ -1,0 +1,18 @@
+name: Skip Rules
+on: [pull_request]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint
+        run: npm run lint
+      - name: Deploy
+        run: npm run deploy --token ${{ secrets.NPM_TOKEN }}
+      - name: Interpolated
+        run: echo ${{ github.sha }}
+      - name: Gated
+        if: github.event_name == 'push'
+        run: npm run only-on-push
+      - name: Format
+        run: npm run format:check

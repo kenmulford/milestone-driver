@@ -1,0 +1,4 @@
+SKIP	ci.yml	integration	services-or-deploy	job/step uses a service container or deploy/publish
+STEP	ci.yml	unit	0		npm run test:unit
+CHECK	ci.yml/unit/step1
+SUMMARY	mirrored=1	skipped=1
