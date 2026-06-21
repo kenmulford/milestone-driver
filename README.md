@@ -14,7 +14,16 @@ Issue-to-PR assistants take one big swing at a task. milestone-driver decomposes
 
 ## Quickstart
 
-Install the plugin. It pulls in the required superpowers dependency:
+Install the plugin. Either way pulls in the required superpowers dependency.
+
+Recommended: add the milestone-suite marketplace, which catalogs all three milestone plugins, and install from it:
+
+```
+/plugin marketplace add kenmulford/milestone-suite
+/plugin install milestone-driver@milestone-suite
+```
+
+Alternative (still supported): add this repo's own marketplace and install from it:
 
 ```
 /plugin marketplace add kenmulford/milestone-driver
