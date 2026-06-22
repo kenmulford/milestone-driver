@@ -63,6 +63,21 @@ fi
 # legacy root stamp once the new one is written, so it stops shadowing future reads.
 if [ -n "$stamp_key" ]; then
   mkdir -p "$project_dir/.milestone-config" 2>/dev/null || true
+  # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
+  # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
+  # is git-invisible in the consumer repo from the first write, while tracked config
+  # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
+  # only created when absent, so a user-edited file is never clobbered.
+  ignore_path="$project_dir/.milestone-config/.gitignore"
+  if [ ! -f "$ignore_path" ]; then
+    printf '%s\n' \
+      '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.' \
+      '# Committed so per-run scratch stays out of `git status` with zero user setup.' \
+      '# Patterns are relative to this .milestone-config/ directory. Tracked config' \
+      '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.' \
+      'preflight-notice' 'trello-notice' 'triage-cache.json' 'tests-stamp' \
+      '.runtime/' 'worktrees/' > "$ignore_path" 2>/dev/null || true
+  fi
   if printf '%s' "$stamp_key" > "$stamp_path" 2>/dev/null; then
     [ -f "$old_stamp_path" ] && rm -f "$old_stamp_path" 2>/dev/null || true
   fi

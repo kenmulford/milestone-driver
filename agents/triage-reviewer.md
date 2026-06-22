@@ -37,8 +37,9 @@ The dispatching `triage` skill provides:
 - **Recorded design decisions** — the issue's comments and any `design-cleared` notes.
 - **Milestone description** — the declared Wave/dependency order (`solve-milestone` uses this as the ordering source of truth).
 - **The profile** — `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`.
+- **The provided `.project/` sections** — the section excerpts the triage dispatch brief supplies (resolved once in the orchestrator's resolve-once block, not by you), grounding your five-criteria assessment in the issue's cited project-docs anchors. This set may be **empty** — when the resolve-once block was a no-op for this issue (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition and adds no new failure path.
 
-You may read the implicated source files (read-only) to ground your assessment. You never edit them.
+You may read the implicated source files (read-only) to ground your assessment, and use the same `Read`/grep tools to pull any **additional** cited `.project/` anchor not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. You never edit them.
 
 ## What you assess (five criteria — check every one positively)
 

@@ -3,6 +3,42 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.11.1 — Ground the builder in your project's house docs (anchored retrieval)
+
+_Released 2026-06-22._
+
+**Theme:** The driver writes the code; the feeder plans it. Until now only the feeder read your project's standing docs (your `.project/` house docs — conventions, design system, glossary), so the plugin that *wrote* the code never saw the same source of truth the plugin that *planned* it used. This release closes that gap: the driver's builder and its two pre-build reviewers now receive the exact `.project/` sections an issue cites — pulled **section by section** (anchored retrieval), not whole files — so grounding stays consistent with the plan without ballooning token cost. When you have no `.project/` docs, nothing changes; the feature is invisible until you add them. This is part 2 of 3 of the suite-wide grounding seam.
+
+### ✨ Project-docs grounding via anchored retrieval
+
+| Issue | PR | What |
+|---|---|---|
+| #183 Add the projectDocs profile key | #190 | New optional `projectDocs` profile key (default `.project/`, absent-means-default), mirroring the feeder; resolved at the solve-issue and triage profile reads. |
+| #184 Ship the read-doc-section primitive | #191 | New dependency-free `scripts/read-doc-section.{sh,ps1}` twin: given a doc + a `## anchor`, prints only that section; **fails loud** (non-zero exit) on a missing/renamed anchor — never silent empty grounding. Ships a 5-case test twin. |
+| #185 Resolve cited sections once in solve-issue | #192 | solve-issue resolves the issue's cited `.project/<doc>#<section>` anchors once, pulls a superset via the primitive, and passes the sections into the implementer brief. |
+| #186 Resolve cited sections once in triage | #193 | triage resolves the cited sections once per issue and passes the **same** sections into both the triage-reviewer and design-reviewer briefs. |
+| #187 Wire the implementer | #194 | The implementer's "What you receive" now consumes the provided `.project/` sections; keeps Read/grep for on-demand additional anchors. |
+| #188 Wire the triage-reviewer | #195 | The triage-reviewer grounds its five-criteria assessment in the provided `.project/` sections; on-demand reads retained. |
+| #189 Wire the design-reviewer | #196 | The design-reviewer grounds its assessment in the provided `.project/` sections; on-demand reads retained. |
+
+### 🧹 Scratch hygiene
+
+| Issue | What |
+|---|---|
+| #199 Self-ignore per-clone scratch | The driver now ships a **committed** `.milestone-config/.gitignore` that makes its per-clone runtime scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) git-invisible in **any** repo the plugin runs in, from the first write, with zero user setup — while the tracked config (`driver.json`, `feeder.json`) stays tracked. The `tests-green` hook (`.sh` + `.ps1`) and the scratch-write steps in `solve-issue` / `solve-milestone` / `triage` self-heal this file when absent, so existing consumer repos pick it up on their next run. Fixes scratch cluttering the consumer's `git status`. |
+
+### Consumer notes (upgrading from v1.11.0)
+
+- **New optional profile key `projectDocs`** in `.milestone-config/driver.json` — a string naming where your project's standing docs live. Default `.project/`; absent-means-default. You do not need to set it unless your house docs live elsewhere.
+- **No grounding without docs.** If your repo has no `.project/` directory (or an issue cites no `.project/#section` anchors), every grounding step is a clean no-op — the run proceeds exactly as before, with no error. The feature only activates once you keep house docs under `.project/` and cite their sections in issue bodies.
+- **Anchored, never whole-file.** Grounding pulls only the cited `## sections` (plus plausibly-relevant siblings), so per-dispatch token cost scales with cited-section size, not total doc size. A drifted/renamed anchor surfaces as a **loud failure**, not silent empty grounding.
+- **New artifact:** `scripts/read-doc-section.{sh,ps1}` (+ `tests/read-doc-section.test.{sh,ps1}`). Dependency-free (POSIX bash / PowerShell 7+ built-ins; no new tooling).
+- **Additive to existing gates.** Grounding raises consistency; it changes no gate logic, no five-criteria assessment, and no existing profile key.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.11.0 — Right model for each job: a stronger builder, leaner reviewers
 
 _Released 2026-06-22._
