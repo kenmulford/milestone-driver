@@ -37,8 +37,11 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 - **An approved, architecture-aware plan** — already vetted against the codebase. This is locked. You execute it; you do not redesign it.
 - **The project profile** (`.milestone-config/driver.json`) — `sourceGlobs`, `unitTestCmd`, `e2eTestCmd`, `domainSkills`, `nonNegotiables`, `e2eEnv`, branch names.
 - **The expected file scope** — the files the plan says you will touch.
+- **The provided `.project/` sections** — the section excerpts the dispatch brief supplies (resolved once in the orchestrator's solve-issue block, not by you), grounding your implementation in the issue's cited project-docs anchors. This set may be **empty** — when the orchestrator's resolve-once block was a no-op (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition.
 
-If any of these is missing or ambiguous, **STOP and report it** rather than guessing.
+If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections are the exception: an empty set is expected, not a blocker.)
+
+You keep your own `Read`/grep tools throughout. Use them to pull any **additional** cited `.project/` anchor that was not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. Pull the specific additional section on demand; do not re-read whole docs the orchestrator already resolved.
 
 ## File encoding (UTF-8, no BOM)
 
