@@ -3,6 +3,41 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.11.0 — Right model for each job: a stronger builder, leaner reviewers
+
+_Released 2026-06-22._
+
+**Theme:** The driver runs several specialized helpers as it works an issue — one that writes the code, and two that check the plan before any code is written. Until now every helper used whatever model the parent session happened to be on. This release assigns each helper to the model tier that fits its job: the **builder** runs on the strongest tier so the code it writes holds up, and the two **pre-build reviewers** run on a leaner, faster tier that an A/B test proved catches the same blocking problems. The result is steadier build quality and less wasted work, at no loss of review rigor.
+
+### ⚙️ Efficiency & quality — model assigned per helper
+
+| Issue | PR | What |
+|---|---|---|
+| #173 Pin the implementer (code-writer) to the strong tier | #177 | The implementer is the only helper that writes production + test code (test-first, version-correct citations, hard STOP if the approved design doesn't hold). Its model frontmatter changes `inherit` → `opus`, so your code is written by the strong tier regardless of the session model — protecting quality and cutting first-try misses against the driver's ≤2-per-gate retry caps. Also bumps the plugin version to 1.11.0. |
+| #176 Pin both pre-build reviewers to the mid tier | #178 | The triage-reviewer and design-reviewer only read and check an issue against five fixed criteria before any code is written; they author nothing. They are the highest-fan-out helpers in a run (~20× triage, ~17× design across a milestone). Both change `inherit` → `sonnet`, so the most-frequent checks run faster and cheaper without weakening the gate. The "genuinely unsure → escalate to Blocker" fail-safe is untouched. |
+
+### 🧪 How we know the leaner reviewers are safe
+
+An A/B test (recorded on the tracking issue) compared models on the reviewers' real job — catching blocking problems before an issue is built:
+
+- **Mid tier (Sonnet): 9 / 9 blocking problems caught — identical to the top tier (Opus 9 / 9).** No real defect slipped through.
+- The only cost was one extra false flag on an otherwise-clean issue (a quick human glance, never a missed defect).
+- The fastest tier (Haiku) was **disqualified** — it missed a real blocking problem.
+- Caveat carried forward: the A/B used text-only fixtures, so the reviewers' repo-grounded dependency/pattern checks weren't exercised. Live-run Blocker recall is being monitored; the reviewers revert to `inherit` if a real Blocker is ever missed.
+
+### 📖 Docs — simpler install
+
+The Quickstart now leads with the **milestone-suite** install path — one marketplace cataloging all three milestone plugins — as the recommended way to install, keeping the per-repo install as a clearly labeled, still-supported alternative. ([#167](https://github.com/kenmulford/milestone-driver/issues/167))
+
+### Consumer notes (upgrading from v1.10.0)
+
+- **No config changes and no schema changes.** Your `.milestone-config/driver.json` is untouched. The only changes are which model each built-in helper uses, plus a README edit.
+- **The model pins take effect on your next run automatically** — nothing to set. If you previously relied on the helpers all following your session's model, note the code-writer now always uses the top tier and the two pre-build reviewers always use the mid tier.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
 ## v1.10.0 — Deterministic, tested semver extraction for milestone version detection
 
 **Theme:** `solve-milestone` step 3 no longer parses the milestone version by model judgment. A behavior-identical `scripts/extract-version.{sh,ps1}` pair — driven by a shared golden test matrix (`tests/extract-version.cases.tsv`) and two thin runners — deterministically extracts the version from the milestone title (description as fallback) and reports `none` / `ambiguous:<candidates>` on a miss. Step 3 maps that outcome against `versioning` to versioned / version-free / prompt, splitting the previously-identical `absent` vs `true` semantics.
