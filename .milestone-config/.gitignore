@@ -1,0 +1,10 @@
+# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
+# Committed so per-run scratch stays out of `git status` with zero user setup.
+# Patterns are relative to this .milestone-config/ directory. Tracked config
+# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
+preflight-notice
+trello-notice
+triage-cache.json
+tests-stamp
+.runtime/
+worktrees/
