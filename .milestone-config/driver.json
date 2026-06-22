@@ -1,5 +1,5 @@
 {
-  "integrationBranch": "milestone/grounding-v1.11.1",
+  "integrationBranch": "develop",
   "protectedBranch": "main",
   "sourceGlobs": ["skills/**", "agents/**", "hooks/**"],
   "implementerAgent": "milestone-driver:implementer",
