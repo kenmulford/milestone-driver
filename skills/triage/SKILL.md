@@ -130,6 +130,20 @@ Partition issues into **HIT set** (cache-reused) and **MISS set** (fresh dispatc
 
 **Single mode:** cache lookup, key comparison, and the stale-edge invalidation check all apply identically for the one issue. (A single issue with no edges makes the stale-edge check vacuous — it passes trivially.)
 
+### Resolve cited project-docs sections (once per issue, before dispatch)
+
+Resolve each issue's cited `.project/` sections **once, here in the triage skill** — so the `triageAgent` and the `designReviewAgent` receive the grounding text in their briefs rather than each reviewer re-reading whole docs. This block runs after Step 2.5's cache split and **before ### Step 3 — Dispatch `triageAgent` per issue**, for every issue in the **MISS set** (HIT issues skip dispatch entirely, so they need no resolution). It is **additive grounding**: it changes no gate, no cap, no existing step's logic, the cache logic, or the five-criteria assessment — it only adds an input to the two dispatch briefs (Step 3). This is an un-numbered headed block (not a numbered Step) so the integer Step ordinals that later steps cross-reference (Step 3 / 4 / 6 / 6.5 / 7) are unchanged. (Mirrors the same block in `skills/solve-issue/SKILL.md` — "Resolve cited project-docs sections (once, before dispatch)" — for consistency across the two skills.)
+
+1. **Source the docs root.** Use `projectDocs` already resolved at Step 1 (defaults to `.project/` when the key is absent). Do **not** re-resolve the profile here.
+2. **Parse the cited anchors.** From each MISS issue's body + its acceptance criteria (gathered in Step 2), collect the `.project/<doc>#<section>` anchors the issue cites — `<doc>` is the path under the docs root, `<section>` is the heading text (an anchor like `design-system.md#data-tables`).
+3. **Pull a superset via the primitive.** For each cited anchor — plus its plausibly-relevant **sibling** sections — invoke the retrieval primitive `scripts/read-doc-section.{sh,ps1}` (pwsh on Windows, bash elsewhere — same host selection as `scripts/ci-preflight-steps.{sh,ps1}`) once per section: `read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, where `<doc-path>` is the doc under the docs root and `<anchor-text>` is the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion**: pull the cited sections and their siblings as a superset rather than the minimum, because **under-retrieval is the real risk** (`docs/efficiency-grounding-plan.md` Risks). The reviewers keep their own `Read`/grep tools for any **additional** on-demand anchor, so over-inclusion here never under-grounds a brief — but it also must never degrade into whole-file inlining (the do-NOT-do ceiling). Resolve **once per issue**; do **not** have the reviewers re-read whole files.
+4. **Feed the result into both dispatch briefs.** Collect the printed sections for each MISS issue and pass the **same** resolved sections into BOTH the `triageAgent` brief and the `designReviewAgent` brief composed in Step 3 (below) as **the resolved `.project/` sections**. Resolve once per issue, not once per reviewer.
+
+**Degradation (no error, ever):**
+- **Absent `projectDocs`** → defaults to `.project/` (resolved at Step 1).
+- **Absent `.project/` directory** (or no cited anchors on an issue) → this block is a **no-op** for that issue: dispatch proceeds with no project grounding and **no error** (skipped cleanly when absent, exactly like the cache degradation in Step 2.5).
+- **Missing/renamed cited anchor** → the primitive **fails loud** (non-zero exit, naming the anchor + file on stderr) so a drifted heading surfaces rather than returning silent empty grounding. Treat the loud failure as a signal that a cited anchor drifted — do not swallow it.
+
 ### Step 3 — Dispatch `triageAgent` per issue
 
 Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only** (HIT issues are not re-dispatched). Dispatches are **parallelizable** — run them concurrently when the tool environment supports it.
@@ -140,6 +154,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - Its recorded design decisions: all comments and any `design-cleared` notes fetched in Step 2.
 - The milestone description (the declared Wave/dependency order) — batch mode only; pass an empty string in single mode.
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`.
+- The resolved `.project/` sections for this issue (from "Resolve cited project-docs sections (once per issue, before dispatch)" above — omit this input when that block was a no-op for this issue).
 
 **Each agent returns:**
 
@@ -163,6 +178,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - The issue: number, title, body, acceptance criteria.
 - Its recorded design decisions: all comments and any `design-cleared` notes.
 - Pointers to existing UI surfaces the issue neighbors — via `uiSurfaceGlobs` from the profile.
+- The resolved `.project/` sections for this issue — the **same** sections resolved once and passed to the `triageAgent` above (from "Resolve cited project-docs sections (once per issue, before dispatch)"; omit when that block was a no-op for this issue).
 
 **The design agent returns:**
 
