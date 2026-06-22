@@ -16,6 +16,22 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
 
 1. **Auth preflight.** Run `gh auth status`. If it fails (non-zero exit or any "not logged in" / "authentication failed" output), print a clear error — e.g. `"Error: gh auth status failed — authenticate with 'gh auth login' before running solve-milestone."` — and **halt immediately**. Do NOT proceed to profile read, milestone resolution, or any other step.
 2. Read the profile (see the plugin's `docs/profile-schema.md`). **Resolution (transitional READ only — the orchestrator performs no migration move):** read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json`. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. solve-milestone does **not** run a `git mv` on its own (orchestrator) working tree — that would leave an uncommitted relocation sitting on `integrationBranch` with no commit path. Instead, on a legacy layout the migration is performed by the **first dispatched `solve-issue`** (it runs the move on its feature branch at step 3.5, so the relocation rides that issue's PR). An all-parked milestone (no building run this pass) defers the move to the next building run; the transitional READ above covers the gap until it lands. If neither file exists, or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, and `nonNegotiables` are optional; their steps are skipped cleanly when absent.
+   2.0.5. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names while leaving the config tracked. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below); if it already exists, do nothing. Unlike the profile `git mv` (which the orchestrator defers to the first `solve-issue`), this is a single new gitignore file that makes the orchestrator's own marker writes invisible; the first dispatched `solve-issue` commits it on its feature branch alongside the migration. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
+
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / triage. -->
+      ```gitignore
+      # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
+      # Committed so per-run scratch stays out of `git status` with zero user setup.
+      # Patterns are relative to this .milestone-config/ directory. Tracked config
+      # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
+      preflight-notice
+      trello-notice
+      triage-cache.json
+      tests-stamp
+      .runtime/
+      worktrees/
+      ```
+
    2.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** **neither** the new marker `.milestone-config/preflight-notice` **nor** the legacy root marker `.milestone-driver-preflight-notice` exists (transitional read — new path first, legacy root as fallback), print the notice below verbatim, then create the new marker (`mkdir -p .milestone-config && touch .milestone-config/preflight-notice`) and **remove the stale legacy root marker** `.milestone-driver-preflight-notice` if present. Stay **silent** if `preflightCmd` is set **or** either marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-config/tests-stamp`).
 
       <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->

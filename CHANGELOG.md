@@ -21,6 +21,12 @@ _Released 2026-06-22._
 | #188 Wire the triage-reviewer | #195 | The triage-reviewer grounds its five-criteria assessment in the provided `.project/` sections; on-demand reads retained. |
 | #189 Wire the design-reviewer | #196 | The design-reviewer grounds its assessment in the provided `.project/` sections; on-demand reads retained. |
 
+### 🧹 Scratch hygiene
+
+| Issue | What |
+|---|---|
+| #199 Self-ignore per-clone scratch | The driver now ships a **committed** `.milestone-config/.gitignore` that makes its per-clone runtime scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) git-invisible in **any** repo the plugin runs in, from the first write, with zero user setup — while the tracked config (`driver.json`, `feeder.json`) stays tracked. The `tests-green` hook (`.sh` + `.ps1`) and the scratch-write steps in `solve-issue` / `solve-milestone` / `triage` self-heal this file when absent, so existing consumer repos pick it up on their next run. Fixes scratch cluttering the consumer's `git status`. |
+
 ### Consumer notes (upgrading from v1.11.0)
 
 - **New optional profile key `projectDocs`** in `.milestone-config/driver.json` — a string naming where your project's standing docs live. Default `.project/`; absent-means-default. You do not need to set it unless your house docs live elsewhere.

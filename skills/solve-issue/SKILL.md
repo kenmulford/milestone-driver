@@ -12,7 +12,23 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 ## Before starting
 
 1. Read the profile (see the plugin's `docs/profile-schema.md`). **Resolution (transitional):** read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json` — this transitional READ covers the gap before any migration move lands. **Migration is deferred to step 3.5** (after the clean-tree check and the feature-branch cut), so the actual `git mv` rides the feature branch's changes and does **not** trip the clean-tree precondition (step 2); do **not** perform the move here. (When both exist, `.milestone-config/driver.json` wins for the read.) If neither file exists, or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, and `projectDocs` (defaults to `.project/` when absent) are optional; their steps are skipped cleanly when absent.
-   1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** **neither** the new marker `.milestone-config/preflight-notice` **nor** the legacy root marker `.milestone-driver-preflight-notice` exists (transitional read — new path first, legacy root as fallback), print the notice below verbatim, then create the new marker (`mkdir -p .milestone-config && touch .milestone-config/preflight-notice`) and **remove the stale legacy root marker** `.milestone-driver-preflight-notice` if present. Stay **silent** if `preflightCmd` is set **or** either marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-config/tests-stamp`).
+   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names while leaving the config tracked. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below). If it already exists, do nothing. This rides the feature branch and is committed with the issue work like any other repo change; it self-heals consumer repos that predate this seam. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
+
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / triage. -->
+      ```gitignore
+      # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
+      # Committed so per-run scratch stays out of `git status` with zero user setup.
+      # Patterns are relative to this .milestone-config/ directory. Tracked config
+      # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
+      preflight-notice
+      trello-notice
+      triage-cache.json
+      tests-stamp
+      .runtime/
+      worktrees/
+      ```
+
+   1.1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** **neither** the new marker `.milestone-config/preflight-notice` **nor** the legacy root marker `.milestone-driver-preflight-notice` exists (transitional read — new path first, legacy root as fallback), print the notice below verbatim, then create the new marker (`mkdir -p .milestone-config && touch .milestone-config/preflight-notice`) and **remove the stale legacy root marker** `.milestone-driver-preflight-notice` if present. Stay **silent** if `preflightCmd` is set **or** either marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-config/tests-stamp`).
 
       <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
       ```text

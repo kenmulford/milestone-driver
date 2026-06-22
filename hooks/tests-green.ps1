@@ -79,6 +79,23 @@ if ($testCode -ne 0) {
 if ($null -ne $key) {
     try {
         New-Item -ItemType Directory -Force -Path (Join-Path $projectDir '.milestone-config') -ErrorAction SilentlyContinue | Out-Null
+        # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
+        # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
+        # is git-invisible in the consumer repo from the first write, while tracked config
+        # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
+        # only created when absent, so a user-edited file is never clobbered.
+        $ignorePath = Join-Path $projectDir '.milestone-config' '.gitignore'
+        if (-not (Test-Path $ignorePath)) {
+            $ignoreBody = @(
+                '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.'
+                '# Committed so per-run scratch stays out of `git status` with zero user setup.'
+                '# Patterns are relative to this .milestone-config/ directory. Tracked config'
+                '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.'
+                'preflight-notice'; 'trello-notice'; 'triage-cache.json'; 'tests-stamp'
+                '.runtime/'; 'worktrees/'
+            ) -join "`n"
+            [System.IO.File]::WriteAllText($ignorePath, $ignoreBody + "`n", [System.Text.UTF8Encoding]::new($false))
+        }
         [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false))
         if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
     } catch {}
