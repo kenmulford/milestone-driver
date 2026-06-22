@@ -35,6 +35,7 @@ Extract:
 | `uiSurfaceGlobs` | *(absent → no design-lens review)* |
 | `sourceGlobs` | *(pass through to the agent brief in Step 3)* |
 | `nonNegotiables` | *(pass through to the agent brief in Step 3)* |
+| `projectDocs` | `.project/` |
 
 ### Step 2 — Gather issues
 
