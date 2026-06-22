@@ -23,6 +23,10 @@ desktop.ini
 /.milestone-config/triage-cache.json
 /.milestone-config/worktrees/
 
+# milestone-feeder per-run scratch (plan file + needs-input report + authoring temp
+# bodies). Per-clone scratch the user reviews then deploys via create; never committed.
+/.milestone-feeder/
+
 # Legacy root marker paths (transitional, pre-v1.9.1). Kept so leftover files in an
 # existing clone stay ignored during the read-old / clean-up migration; safe to drop
 # once no clone carries them.
