@@ -23,7 +23,7 @@ description: |
   assistant: "Dispatching triage-reviewer for issue #37 to assess buildability and dependency edges before any code is written."
   <commentary>An undeclared hard dependency is a Blocker. The edge cites the exact file:line where the type is referenced, grounding the finding in the actual artifact.</commentary>
   </example>
-model: inherit
+model: sonnet
 color: cyan
 ---
 
