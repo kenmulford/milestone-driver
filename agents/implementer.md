@@ -23,7 +23,7 @@ description: |
   assistant: "STOP — the approved architecture doesn't hold. Report the conflict; do not pivot autonomously."
   <commentary>Architecture is locked at plan-approval time. The implementer halts and resurfaces rather than redesigning mid-flight.</commentary>
   </example>
-model: inherit
+model: opus
 color: green
 ---
 
