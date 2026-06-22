@@ -36,8 +36,9 @@ The dispatching `triage` skill provides:
 - **The issue** — number, title, body, acceptance criteria.
 - **Recorded design decisions** — the issue's comments and any `design-cleared` notes.
 - **Pointers to existing UI surfaces** the issue neighbors — via `uiSurfaceGlobs` from the profile.
+- **The provided `.project/` sections** — the section excerpts the triage design-reviewer dispatch brief supplies (resolved once in the orchestrator's resolve-once block, not by you), grounding your five-criteria assessment in the issue's cited project-docs anchors. A UI issue citing `.project/design-system.md#data-tables`, for instance, arrives with that section's text. This set may be **empty** — when the resolve-once block was a no-op for this issue (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition and adds no new failure path.
 
-You may read the implicated UI surface files (read-only) to compare patterns. You never edit them.
+You may read the implicated UI surface files (read-only) to compare patterns, and use the same `Read`/grep tools to pull any **additional** cited `.project/` anchor not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. You never edit them.
 
 ## What you assess (five criteria — check every one positively)
 
