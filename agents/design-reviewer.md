@@ -23,7 +23,7 @@ description: |
   assistant: "Dispatching design-reviewer for issue #51 to assess the recorded UI design before building."
   <commentary>Missing affordance (no confirm dialog for a destructive action) and missing state (no post-archive state) are Blockers when required by the action type. The agent cites the absence from the actual recorded text and names the required affordance — it does not resolve the gap, only surfaces it.</commentary>
   </example>
-model: inherit
+model: sonnet
 color: magenta
 ---
 
