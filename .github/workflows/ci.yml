@@ -3,7 +3,8 @@ name: CI
 # Run the repo's shell test suites on every PR into develop, so the driver's
 # own auto-merge gate has a real check to wait on. Two jobs cover the
 # cross-platform nonNegotiable: a bash leg and its PowerShell 7+ (pwsh) twin.
-# Both run on ubuntu-latest, which ships bash, jq, and pwsh preinstalled.
+# Both run on ubuntu-latest, which ships bash, jq, pwsh, and python3
+# preinstalled (the render-daemon stub-backed cases boot a python3 HTTP server).
 on:
   pull_request:
     branches: [develop]
@@ -19,6 +20,8 @@ jobs:
         run: bash tests/extract-version.test.sh
       - name: ci-preflight-steps (bash)
         run: bash tests/ci-preflight-steps.test.sh
+      - name: render-daemon (bash)
+        run: bash tests/render-daemon.test.sh
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -30,3 +33,5 @@ jobs:
         run: pwsh tests/extract-version.test.ps1
       - name: ci-preflight-steps (pwsh)
         run: pwsh tests/ci-preflight-steps.test.ps1
+      - name: render-daemon (pwsh)
+        run: pwsh tests/render-daemon.test.ps1
