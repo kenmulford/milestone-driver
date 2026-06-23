@@ -31,6 +31,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Repo layout | List top-level dirs + key files: `package.json`, `*.sln`, `*.csproj`, `Makefile`, `pyproject.toml`, `Cargo.toml` |
 | Unit test command | `package.json` → `.scripts.test`; presence of test `.csproj`; `Makefile` targets `test`; `pyproject.toml` `[tool.pytest]`; `Cargo.toml` |
 | E2E test indicators | Presence of Appium config, Playwright config (`playwright.config.*`), Selenium project, `run-e2etests.*` script |
+| Visual-capture indicators | A dev/test sign-in seam (e.g. a `/dev/sign_in` route, a `sign_in_as`/test-login helper), a server boot command (`bin/rails server`, `npm run dev`, a `Procfile` `web:` entry), and/or appearance signals (`dark:` Tailwind variants, a theme toggle, `prefers-color-scheme`) |
 | Preflight (fast pre-PR checks) command | `.pre-commit-config.yaml` present → `pre-commit run --all-files`; `package.json` `.scripts.lint` → `npm run lint`; `Makefile` `lint`/`check` target → `make lint` / `make check` |
 | Stack signals | Language/framework files for `domainSkills` mapping (see table below) |
 | Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` (version-free) |
@@ -49,7 +50,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Visual Capture → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -79,6 +80,23 @@ Present keys in these tiers: **Core → Testing → E2E → Preflight → Integr
 |---|---|---|
 | `e2eTestCmd` | "What command runs your end-to-end / UI tests?" | Skip → "No E2E gate." |
 | `e2eEnv` | "What device/endpoint should the E2E runner target? (e.g. `{\"endpoint\":\"127.0.0.1:4723\",\"device\":\"Android emulator (AVD)\"}` for Appium)" | Skip → "No E2E environment recorded." |
+
+**Tier: Visual Capture** (optional; skip the whole tier if no visual-capture signals were detected in Phase 1 — present it only when a signal is detected, otherwise skip it silently, exactly as the E2E tier is skipped when no E2E signals are detected. The signals are listed in the Phase-1 detection row.)
+
+The `visualCapture` block declares how an automated visual-capture flow boots a seeded/persona app server — a local app instance preloaded with test data and signed in as a test persona, so the capture flow can reach real authed screens — and what it captures. The three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied for a usable block; the optional keys resolve to their defaults when skipped. Present the keys one at a time, with the detected default and the skip-consequence on the same line:
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `visualCapture.serverCmd` | "What command boots your seeded/test app server? (e.g. `bin/rails server -e test -p 3000`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
+| `visualCapture.readyUrl` | "What `/health`-style URL should the ready probe poll to know the server is up? (e.g. `http://127.0.0.1:3000/health`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
+| `visualCapture.signInPath` | "What is your passwordless test sign-in path, persona-templated? (e.g. `/dev/sign_in/{persona}`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
+| `visualCapture.persona` | "Which seeded persona should capture sign in as? (Default: `super-admin`, so every surface is reachable.)" | Skip → default `"super-admin"` used at runtime. |
+| `visualCapture.viewports` | "Which named viewports should I capture? (Default: `{\"desktop\":{\"width\":1440,\"height\":900}}`. Detected an appearance/mobile signal? Add e.g. `\"mobile\":{\"width\":390,\"height\":844}`.)" | Skip → default desktop-only `{\"desktop\":{\"width\":1440,\"height\":900}}` used at runtime. |
+| `visualCapture.appearances` | "Which appearances should I capture? (Default: `[\"light\"]`. Detected `dark:` variants / a theme toggle / `prefers-color-scheme`? Suggest `[\"light\",\"dark\"]`.)" | Skip → default single-appearance `[\"light\"]` used at runtime. |
+
+**Required-key rule:** the three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied together. If the user accepts the tier but skips any one of the three, write **no** `visualCapture` block (a node missing a required key is treated as absent + logged at runtime — there is no point writing it).
+
+**Write rule:** accepting the tier writes only the keys the user supplied as a **sparse object** — omitted optional sub-keys (`persona`, `viewports`, `appearances`) are not written and resolve to their defaults at runtime, mirroring the `integrations.trello.lists` sparse-write rule. Skipping the tier writes **no** `visualCapture` block (no `null`, no empty object). Aborting mid-tier writes **no partial node** — consistent with setup's "do not write a partial profile."
 
 **Tier: Preflight** (optional; present the inferred candidate, or an example such as `pre-commit run --all-files` if none was detected)
 

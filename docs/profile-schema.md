@@ -77,6 +77,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | **Core** (default-filled) | `implementerAgent`, `triageAgent`, `designReviewAgent` | optional in file (auto-filled) |
 | **Testing** | `unitTestCmd` | Optional |
 | **E2E** | `e2eTestCmd`, `e2eEnv` | Optional |
+| **Visual capture** | `visualCapture` (`.serverCmd`, `.readyUrl`, `.signInPath`, `.persona`, `.viewports`, `.appearances`) | Optional |
 | **Preflight** | `preflightCmd`, `ciWorkflow` | Optional |
 | **Integration** | `integrationGranularity` | Optional |
 | **Triage / Visual** | `uiSurfaceGlobs` | Optional |
@@ -99,6 +100,13 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | `unitTestCmd` | string | Testing | What command runs the unit tests? Absent → no unit gate; implementer verifies behavior another way. | — |
 | `e2eTestCmd` | string | E2E | What command runs the end-to-end / UI tests? Absent → no E2E gate. | — |
 | `e2eEnv` | object | E2E | Device/endpoint for the E2E runner (Appium, Selenium, Playwright), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. | — |
+| `visualCapture` | object | Visual capture | Visual-capture render seam — declares how an automated flow boots a seeded/persona app and what it captures. Presence = enabled; absence = skip (absent-means-skip, same convention as `unitTestCmd` / `integrations.trello`). When present, `serverCmd`, `readyUrl`, and `signInPath` are required; a node missing any of them is treated as absent with a one-line misconfiguration log. Absent → behavior byte-unchanged from the current no-`visualCapture` profile. | — |
+| `visualCapture.serverCmd` | string | Visual capture | Command that boots the seeded/persona app server (read by the render daemon, `scripts/render-daemon.sh:94`). **Required when the `visualCapture` node is present**; a node missing it is treated as absent + logged. | — |
+| `visualCapture.readyUrl` | string | Visual capture | The full `/health`-style URL the ready probe polls to know the server is up (read by the render daemon, `scripts/render-daemon.sh:95`), e.g. `http://127.0.0.1:3000/health`. **Required when present**; missing → node treated as absent + logged. | — |
+| `visualCapture.signInPath` | string | Visual capture | The passwordless test sign-in seam path, persona-templated, e.g. `/dev/sign_in/{persona}`. **Required when present**; missing → node treated as absent + logged. | — |
+| `visualCapture.persona` | string | Visual capture | Which seeded persona to sign in as. Optional; default `"super-admin"` (so every surface is reachable). Absent → default used at runtime. | — |
+| `visualCapture.viewports` | object | Visual capture | Named viewports to capture, each a `{ "width": <px>, "height": <px> }` object. Optional; default `{ "desktop": { "width": 1440, "height": 900 } }` (desktop-only). Absent → desktop-only default used. | — |
+| `visualCapture.appearances` | string[] | Visual capture | Appearances to capture (`"light"`, `"dark"`). Optional; default `["light"]`. Absent → single-appearance (`["light"]`) default used. | — |
 | `preflightCmd` | string | Preflight | Either a single literal command that runs your project's fast pre-PR checks (lint, format, static analysis, security scan), **or** the reserved sentinel `"github-ci"` which auto-derives the checks from your GitHub Actions CI (see below). CI runs them regardless; this just surfaces a red result earlier. Absent → preflight gate skipped cleanly. Run after `/code-review`, before commit. | — |
 | `ciWorkflow` | string | Preflight | Only meaningful with `preflightCmd: "github-ci"`. The basename of one workflow file (e.g. `"ci.yml"`) to narrow CI discovery to — use when the zero-config heuristic picks the wrong or too-broad workflow. Absent → discover **all** PR-gating workflows. | — |
 | `integrationGranularity` | `"issue" \| "wave"` (string enum) | Integration | How should built issues integrate? Default `"issue"` — each built issue gets its own PR → CI → merge. `"wave"` — a whole Wave integrates on one branch `wave/<milestone>-w<N>` → one PR → one CI run. | — |
@@ -115,7 +123,52 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
 
-**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability (e.g. `e2eEnv`, or a dedicated `screenshotCmd` if a consumer supplies one). When that capability is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](../README.md#the-layered-gating-model) for the three-layer model these keys participate in.
+**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability, which is the `visualCapture` seam (documented below). When `visualCapture` is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](../README.md#the-layered-gating-model) for the three-layer model these keys participate in.
+
+**Note on `visualCapture`.** `visualCapture` is the dedicated render-capability seam for the visual gate — the object-valued, optional render-capability declaration the gate note above points at. It is shaped on `e2eEnv` (an object-valued optional key) and mirrors the present/absent + sparse-optional-write conventions of `integrations.trello`; note that a *missing required* sub-key disables the whole block (unlike trello's optional-list override). With that one difference flagged:
+
+- **Absent block → byte-unchanged.** When `visualCapture` is absent, behavior is identical to today's no-`visualCapture` profile — no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
+- **Present but missing a required sub-key → two layers, two behaviors.** A `visualCapture` node present but missing `serverCmd`, `readyUrl`, or `signInPath` is handled differently by the two layers that touch it, and it matters which:
+  - **The visual-capture flow/gate (solve-issue step 7, built by #210)** treats the incomplete block as *not configured* and degrades to the PR-open-for-human-test note — the run never fails and a UI issue never auto-merges, mirroring the `integrations.trello`-without-`boardId` graceful-degrade rule.
+  - **The render daemon (#208) itself fails loud** if it is driven with an incomplete block: `read_profile` exits nonzero (`read_profile || exit 2`) with `render-daemon: profile is missing visualCapture.serverCmd and/or visualCapture.readyUrl` when either of the two keys it reads is empty (`scripts/render-daemon.sh:97-100,218`, `scripts/render-daemon.ps1:98,260`). The daemon halts rather than silently mis-rendering, so the misconfiguration surfaces.
+  In short: the gate degrades gracefully; the daemon, if invoked directly with a bad block, halts loudly. There is no path that silently captures the wrong thing.
+- **Present with only optional sub-keys omitted → resolves to defaults.** A block carrying the three required keys but omitting `persona`, `viewports`, and/or `appearances` is valid: each omitted optional sub-key resolves to its default at runtime (`persona` → `"super-admin"`, `viewports` → `{ "desktop": { "width": 1440, "height": 900 } }`, `appearances` → `["light"]`).
+
+**Required vs optional sub-keys.** Required-when-present: `serverCmd`, `readyUrl`, `signInPath`. Optional-with-default: `persona` (`"super-admin"`), `viewports` (`{ "desktop": { "width": 1440, "height": 900 } }`), `appearances` (`["light"]`). The two keys the render daemon (#208) consumes are `serverCmd` and `readyUrl` (`scripts/render-daemon.sh:94-95`); `signInPath`, `persona`, `viewports`, and `appearances` are read by the capture consumer (#210). **Sparse-write shape:** a block written with optional sub-keys at their defaults stores only the keys actually supplied (the same sparse-object rule as `integrations.trello.lists`) — omitted optional sub-keys are not written and resolve to their defaults at runtime.
+
+**Worked example.** A full, valid `visualCapture` block:
+
+```json
+{
+  "integrationBranch": "develop",
+  "protectedBranch": "main",
+  "sourceGlobs": ["app/**", "spec/**"],
+  "uiSurfaceGlobs": ["app/views/**", "app/components/**"],
+  "visualCapture": {
+    "serverCmd": "bin/rails server -e test -p 3000",
+    "readyUrl": "http://127.0.0.1:3000/health",
+    "signInPath": "/dev/sign_in/{persona}",
+    "persona": "super-admin",
+    "viewports": {
+      "desktop": { "width": 1440, "height": 900 },
+      "mobile": { "width": 390, "height": 844 }
+    },
+    "appearances": ["light", "dark"]
+  }
+}
+```
+
+A minimal valid block supplies only the three required keys and lets the optional sub-keys resolve to their defaults:
+
+```json
+{
+  "visualCapture": {
+    "serverCmd": "bin/rails server -e test -p 3000",
+    "readyUrl": "http://127.0.0.1:3000/health",
+    "signInPath": "/dev/sign_in/{persona}"
+  }
+}
+```
 
 **Note on `versioning` and version-free mode.** Both `absent` and `true` are **versioned** — `solve-milestone` runs the deterministic extractor (`scripts/extract-version.*`, issue #158) against the milestone title (description as fallback) and each issue's PR bumps `.claude-plugin/plugin.json` to the resolved version (`solve-issue` step 6.4) — but they differ on a **miss**: with `versioning` **absent** (the default) a missing or ambiguous version silently degrades to version-free with a logged note (opportunistic — never prompts); with explicit `versioning: true` it **prompts** the operator (or, under `MILESTONE_DRIVER_NONINTERACTIVE=1`, degrades with a loud warning). Set `versioning: false` for a repo that does not keep its version in `plugin.json` (or does not want a per-PR bump) — **version-free mode**: `solve-milestone` skips version determination entirely (no extraction, no prompt; the milestone title need not be a version), `solve-issue` skips the bump, and the PR's Code Review section is annotated "version-free — no version bump." **Fail-safe degradation:** in versioned mode, if `.claude-plugin/plugin.json` does not exist, the run **does not fail** — `solve-issue` step 6.4 degrades to version-free with a one-line logged note. So the worst case for a misconfigured versioned repo is a skipped bump, never a halted run.
 
