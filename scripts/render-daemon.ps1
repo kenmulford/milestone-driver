@@ -268,31 +268,51 @@ switch ($cmd) {
     $port = Get-PortFromUrl $script:readyUrl
     $token = "rd-$PID-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())-$(Get-Random)"
 
-    # Spawn serverCmd DETACHED via a shell so an arbitrary command string runs;
-    # Start-Process returns immediately (does not block) and the child survives.
-    # Detach the child's stdio so its boot output never pollutes our stdout
-    # (byte-identical contract line with the .sh twin, which redirects
-    # </dev/null >/dev/null 2>&1). The discard is baked into the shell command
-    # itself rather than via Start-Process -RedirectStandard*, because
-    # Start-Process refuses to point stdout and stderr at the SAME path (the null
-    # device) — an in-shell redirect sidesteps that and mirrors the .sh spawn.
+    # Spawn serverCmd DETACHED via a shell so an arbitrary command string runs
+    # without blocking, and so the child survives this process. Detach the child's
+    # stdio (</dev/null >/dev/null 2>&1) so its boot output never pollutes our
+    # stdout — byte-identical contract with the .sh twin.
     New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
     if ($IsWindows) {
-      # Wrap so all six PowerShell output streams are discarded inside the child.
+      # No bash on Windows: keep the Start-Process spawn. Wrap so all six
+      # PowerShell output streams are discarded inside the child. Not exercised by
+      # CI (Linux-only), but kept correct. (-WindowStyle Hidden suppresses a flash.)
       $wrapped = "& { $($script:serverCmd) } *> `$null"
       $proc = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-Command', $wrapped) -WindowStyle Hidden -PassThru
+      $srvPid = $proc.Id
     } else {
-      $wrapped = "exec </dev/null >/dev/null 2>&1; $($script:serverCmd)"
-      $proc = Start-Process -FilePath 'bash' -ArgumentList @('-c', $wrapped) -PassThru
+      # Unix: delegate to bash exactly like the .sh twin
+      # (`nohup bash -c "$SERVER_CMD" </dev/null >/dev/null 2>&1 & echo $!`),
+      # passing serverCmd through an ENV VAR rather than interpolating it into the
+      # command string. This dodges pwsh Start-Process / -ArgumentList re-quoting,
+      # which mangles a complex serverCmd (spaces, `<`, `>`, `;`) on Linux so bash
+      # receives a broken `-c` argument and exits during boot. The outer `& bash
+      # -c '...'` literal is single-quoted, so pwsh hands bash ONE clean argument
+      # and `$RD_SERVER_CMD` expands inside that bash — no quoting of the user's
+      # command anywhere. The captured pid is the backgrounded `nohup` WRAPPER
+      # (the inner `bash -c "$RD_SERVER_CMD"`): its forked server children are its
+      # descendants, so the `pgrep -P` tree-walk in Get-DescendantPids reaps them
+      # at teardown — the same pid contract the .sh twin records. (No `set -m`
+      # process-group leadership is needed here: teardown walks a parent->child
+      # pid TREE via pgrep -P, not a negative-pgid group signal.)
+      $env:RD_SERVER_CMD = $script:serverCmd
+      try {
+        $out = & bash -c 'nohup bash -c "$RD_SERVER_CMD" </dev/null >/dev/null 2>&1 & echo $!'
+      } finally {
+        Remove-Item Env:\RD_SERVER_CMD -ErrorAction SilentlyContinue
+      }
+      $srvPid = if ($out) { ([string]($out | Select-Object -First 1)).Trim() } else { '' }
     }
-    $srvPid = $proc.Id
 
     # Guard: a missing/invalid pid means the spawn failed; abort before
-    # Write-State (parity with the .sh empty-$! guard).
-    if ($null -eq $srvPid -or [int]$srvPid -le 0) {
+    # Write-State (parity with the .sh empty/non-numeric $! guard). Reuse the same
+    # pid<=1 fail-closed contract as Test-PidAlive (a positive integer >= 2).
+    $srvPidN = 0
+    if (-not [int]::TryParse([string]$srvPid, [ref]$srvPidN) -or $srvPidN -le 1) {
       Err 'render-daemon: failed to spawn serverCmd (no pid)'
       exit 1
     }
+    $srvPid = $srvPidN
 
     Write-State $port $token $srvPid $script:readyUrl (Now-Iso)
 
