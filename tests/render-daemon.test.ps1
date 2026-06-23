@@ -108,9 +108,16 @@ try {
     $r = Run-Daemon @('start', $tmp) @{ RENDER_DAEMON_TIMEOUT = '15' }
     if ($r.rc -eq 0 -and (Test-Path -LiteralPath $state)) {
       $p = State-Field 'port'; $tok = State-Field 'token'; $pidv = State-Field 'pid'
-      $rurl = State-Field 'readyUrl'; $st = State-Field 'startedAt'
-      if ([int]$p -eq $port -and $tok -and $pidv -and $rurl -eq $readyUrl -and ($st -match 'T.*Z')) { Pass-T }
-      else { Fail-T "autostart-state: port=$p tok=$tok pid=$pidv url=$rurl startedAt=$st" }
+      $rurl = State-Field 'readyUrl'
+      # startedAt: assert the RAW on-disk JSON string (parity with the .sh twin's
+      # jq read). ConvertFrom-Json auto-coerces an ISO-8601 string into a
+      # [DateTime] that stringifies to a culture format, so State-Field can't see
+      # the bytes the daemon wrote — read the file raw and match the exact
+      # "startedAt":"<ISO-8601-UTC>" the daemon's Now-Iso emits.
+      $raw = Get-Content -LiteralPath $state -Raw
+      $stOk = $raw -match '"startedAt":"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"'
+      if ([int]$p -eq $port -and $tok -and $pidv -and $rurl -eq $readyUrl -and $stOk) { Pass-T }
+      else { Fail-T "autostart-state: port=$p tok=$tok pid=$pidv url=$rurl startedAt-raw-ok=$stOk raw=[$raw]" }
     } else { Fail-T "autostart: rc=$($r.rc) out=[$($r.out)]" }
 
     # Reuse: second start reuses (same pid), reports port, exit 0.
