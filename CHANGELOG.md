@@ -3,6 +3,29 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.12.1 — A one-time nudge so upgraders find the new screenshots feature
+
+_Released 2026-06-23._
+
+**Theme:** Last release added opt-in screenshots on your UI pull requests — but you'd only ever hear about it the first time you set the driver up. If you already had the driver configured and just pulled the update, the feature was there and you'd never know. This release fixes that: the next time the driver runs in a repo that has UI screens but no visual-capture set up yet, it prints a short, one-time note telling you the feature exists and how to turn it on. It's a nudge, not a prompt — you can ignore it and nothing changes. It shows at most once per checkout, then never again, and it stays completely silent for repos that already turned visual capture on or that have no UI to screenshot in the first place.
+
+### ✨ Discoverability
+
+| Issue | PR | What |
+|---|---|---|
+| #219 Add one-time "New in 1.12.0 — optional visual capture" discovery notice to solve-issue + solve-milestone, gitignore the marker | #220 | When the driver works an issue or a milestone, it now prints a one-time, opt-in-framed note pointing you at v1.12.0's optional screenshots — but only when all three are true: your profile has no `visualCapture` block yet, your repo *does* declare UI screens (`uiSurfaceGlobs`), and this checkout hasn't shown the note before. After it prints once, it drops a small marker file and stays quiet from then on. It's silent for repos that already configured visual capture and for repos with no UI surface at all. Same pattern as the existing one-time preflight (1.4.0) and Trello (1.8.0) notices; the marker lives only at `.milestone-config/visualcapture-notice`, with no older fallback location. |
+
+### Consumer notes (upgrading from v1.12.0)
+
+- **You'll see a one-time note if you have UI screens but haven't set up visual capture yet.** The next time the driver runs in such a repo, it tells you the optional screenshots feature exists and how to opt in. It prints at most once per checkout; after that a small marker file silences it for good. It's purely a heads-up — skip it and nothing about your run changes.
+- **It stays silent when there's nothing to say:** repos that already have a `visualCapture` block, repos that declare no UI screens (`uiSurfaceGlobs`), and any checkout that already saw the note once.
+- **New per-checkout marker file `.milestone-config/visualcapture-notice`** records that the note was shown. It's git-ignored (added to the committed scratch-ignore list), so it never shows up in your `git status` and never gets committed.
+- **No schema changes** to `.milestone-config/driver.json` — purely a discovery notice; no new or changed profile keys.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.12.0 — Opt-in screenshots on your UI pull requests
 
 _Released 2026-06-23._
