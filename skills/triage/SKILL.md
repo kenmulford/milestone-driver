@@ -359,6 +359,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
    # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
    preflight-notice
    trello-notice
+   visualcapture-notice
    triage-cache.json
    tests-stamp
    .runtime/
