@@ -3,6 +3,35 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.11.2 — Ground the release tail in docs, and make the auto-merge gate real
+
+_Released 2026-06-23._
+
+**Theme:** The driver hands the last step of a release back to you — merging your integration branch into your protected branch, tagging it, and closing the milestone. Two things about that handoff were shaky. The written runbook didn't warn you which way to merge, so a wrong choice quietly broke the *next* release. And on the driver's own repo, the safety net that's supposed to stop a failing change from merging wasn't actually wired up — "green" meant nothing because no tests ran before a merge. This release fixes both halves of the same trust gap: the release process is now documented correctly (so you don't get bitten on the next cut), and the driver now runs its own test suite as a real check before anything merges (so it practices the gate it provisions for you).
+
+### 📖 Document the release tail correctly (`--merge`, not `--squash`)
+
+| Issue | PR | What |
+|---|---|---|
+| #160 Adopt `--merge` for the release PR + harden the release tail | #204 | Rewrites `docs/consumer-setup.md` § "Releasing to your protected branch" into the complete ordered runbook. **Merge the integration→protected release PR with `--merge`, never `--squash`:** a squash puts a commit on your protected branch that the integration branch never sees, so the two diverge and the *next* release PR conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`) — and if your integration branch is PR-locked, you can't just resolve-and-push to fix it; it forces a separate history-only back-merge PR. `--merge` keeps the branches permanently synced instead. The runbook now spells out the full ordered tail — **open + merge the release PR with `--merge` *before* tagging → tag and cut the Release after the merge → close the milestone object → deploy** — with the `--notes`-from-CHANGELOG form (this plugin carries one) and `--generate-notes` as the no-CHANGELOG fallback. Two footguns are called out: **(a)** don't run a bare `gh release create` before the PR merges — it tags the old tip with empty/wrong notes (happened in v1.9.2); **(b)** a PR-locked integration branch blocks direct pushes even for admins. The `solve-milestone` SKILL's "🔴 Your move" recap and Final-summary "next human step" now both name `--merge` + merge-before-tag and point at the runbook. |
+
+### 🧪 Make the driver's own auto-merge gate real
+
+| Issue | PR | What |
+|---|---|---|
+| #179 Add a CI check on develop so auto-merge gates on tests | #205 | Adds `.github/workflows/ci.yml` (new) — a GitHub Actions workflow that runs the repo's shell test suites on every PR into `develop`. Two `ubuntu-latest` jobs, `shell-tests (bash)` and `shell-tests (pwsh)`, run `tests/extract-version.test` and `tests/ci-preflight-steps.test` (the `.sh` legs and their PowerShell 7+ `.ps1` twins). In the 1.11.0 wave the driver auto-merged PRs to `develop` on "green CI" — but the repo had **no required status check**, so green was vacuous: nothing ran the suite before the merge. This closes that hole on the driver's own repo, dogfooding the gate the suite already provisions for consumer repos. |
+
+### Consumer notes (upgrading from v1.11.1)
+
+- **Documentation-only behavior clarification for #160** — no change to how the driver runs. After it merges every issue and authors the CHANGELOG, the release tail now tells you the correct *way* to merge: `--merge`, not `--squash`. If you've been squash-merging your integration→protected release PRs and hitting recurring conflicts on the next cut, that's the cause — switch to `--merge` and the branches stay synced. The full ordered runbook (merge → tag → close milestone → deploy) lives in `docs/consumer-setup.md` § "Releasing to your protected branch".
+- **The CI workflow (#179) is the driver's own dogfooding, not a consumer artifact.** `.github/workflows/ci.yml` gates *this* repo's `develop`; it doesn't change the installed plugin or your repo. The suite still provisions a CI gate for *your* consumer repo separately.
+- 🔴 **Operator follow-up (not shipped in this release):** making the two CI checks actually *required* on `develop` is a one-time branch-protection step — adding the check contexts `shell-tests (bash)` and `shell-tests (pwsh)` to the branch's required-checks list (a `gh api -X PUT .../branches/develop/protection` call, preserving `enforce_admins`). The workflow file alone makes the checks *run*; the protection PUT makes a red PR *unmergeable*. This is operator config on the driver's own repo, not part of the installed plugin.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.11.1 — Ground the builder in your project's house docs (anchored retrieval)
 
 _Released 2026-06-22._

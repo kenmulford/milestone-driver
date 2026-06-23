@@ -1,0 +1,32 @@
+name: CI
+
+# Run the repo's shell test suites on every PR into develop, so the driver's
+# own auto-merge gate has a real check to wait on. Two jobs cover the
+# cross-platform nonNegotiable: a bash leg and its PowerShell 7+ (pwsh) twin.
+# Both run on ubuntu-latest, which ships bash, jq, and pwsh preinstalled.
+on:
+  pull_request:
+    branches: [develop]
+
+jobs:
+  shell-tests-bash:
+    name: shell-tests (bash)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: extract-version (bash)
+        run: bash tests/extract-version.test.sh
+      - name: ci-preflight-steps (bash)
+        run: bash tests/ci-preflight-steps.test.sh
+
+  shell-tests-pwsh:
+    name: shell-tests (pwsh)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: extract-version (pwsh)
+        run: pwsh tests/extract-version.test.ps1
+      - name: ci-preflight-steps (pwsh)
+        run: pwsh tests/ci-preflight-steps.test.ps1

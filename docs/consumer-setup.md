@@ -227,17 +227,37 @@ For the full operational spec — the card-resolution order, the card state mach
 
 ## Releasing to your protected branch
 
-The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it). When the integration branch is ready to ship:
+The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).
 
-1. **Merge** `integrationBranch` → `protectedBranch` yourself (open the PR by hand).
-2. **Tag and cut the GitHub Release** on `protectedBranch`, so the Releases page tracks what shipped:
+**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge — and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all — it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange.
+
+When the integration branch is ready to ship, run the tail in order:
+
+1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then **merge it with `--merge`** — **before** you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
+   ```
+   gh pr merge <release-PR> --merge
+   ```
+2. **Tag and cut the GitHub Release** on `protectedBranch`, AFTER the merge, so the Releases page tracks what shipped. If your repo carries a `CHANGELOG.md` (this plugin does — `solve-milestone` authors the release entry, which doubles as the release body), pass that entry as the notes:
+   ```
+   gh release create v<version> --target <protectedBranch> --notes "$(<this release's CHANGELOG.md section>)"
+   ```
+   No `CHANGELOG.md`? Fall back to `--generate-notes`, which builds the notes from the PRs since the previous tag:
    ```
    gh release create v<version> --target <protectedBranch> --generate-notes
    ```
-   In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to; `--generate-notes` builds the changelog from the PRs since the previous tag. Version-free repos can tag the date or skip this.
-3. **Deploy** on your own schedule.
+   In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to. Version-free repos can tag the date or skip this.
+3. **Close the milestone object**: the loop closes the milestone's *issues* and authors the CHANGELOG, but never closes the milestone itself.
+   ```
+   gh api -X PATCH repos/{owner}/{repo}/milestones/<n> -f state=closed
+   ```
+4. **Deploy** on your own schedule.
 
-Cut the Release (step 2) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
+**Two footguns:**
+
+- **Don't tag before the merge.** Running a bare `gh release create v<version>` before the release PR merges tags the *old* `protectedBranch` tip with empty/wrong notes (this happened in v1.9.2). Merge first (step 1), then tag (step 2).
+- **A PR-locked `integrationBranch` blocks direct pushes** — even for admins. So you can't fix a squash-divergence by pushing `integrationBranch`; that's the second reason to use `--merge`.
+
+Cut the Release (steps 2–3) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
 
 ## Verify the gates
 
