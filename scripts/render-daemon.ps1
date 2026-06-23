@@ -160,10 +160,19 @@ function Get-DescendantPids([int]$rootPid) {
   return ,$arr
 }
 
-# Test-PidAlive <pid> -> $true if the process exists.
+# Test-PidAlive <pid> -> $true if the process exists. Rejects pid <= 1 (require
+# >= 2), matching the .sh valid_pgid contract exactly: pid 0/1 (and negative /
+# non-numeric) are NEVER treated as a usable process. This is the fail-closed
+# guard against the catastrophic kill footgun — on Linux pid 1 is init/systemd
+# (a live process), so a tree-kill seeded from a recorded `pid:1` would walk and
+# SIGTERM init's descendants = the whole session. A corrupted / zero / one /
+# negative / non-numeric recorded pid must therefore read as "not alive" so the
+# daemon reports down, cleans the state, and kills NOTHING.
 function Test-PidAlive($processId) {
-  if ($null -eq $processId -or $processId -le 0) { return $false }
-  try { $null = Get-Process -Id ([int]$processId) -ErrorAction Stop; return $true } catch { return $false }
+  $n = 0
+  if (-not [int]::TryParse([string]$processId, [ref]$n)) { return $false }
+  if ($n -le 1) { return $false }
+  try { $null = Get-Process -Id $n -ErrorAction Stop; return $true } catch { return $false }
 }
 
 function Read-State {
@@ -201,14 +210,20 @@ function Write-State([int]$port, [string]$token, [int]$processId, [string]$url, 
 function Remove-DaemonState {
   if (Test-Path -LiteralPath $state) {
     $s = Read-State
+    # Test-PidAlive rejects pid <= 1 (parity with the .sh valid_pgid guard), so a
+    # malformed `pid:0`/`pid:1` state never enters this block — the tree is never
+    # walked or killed; only the state file is removed below.
     if ($null -ne $s -and $s.PSObject.Properties['pid'] -and (Test-PidAlive $s.pid)) {
       $rootPid = [int]$s.pid
       $pids = Get-DescendantPids $rootPid   # deepest-first
       # Graceful pass: SIGTERM on Unix / taskkill /T (no /F) tree on Windows.
+      # Defense in depth: re-check Test-PidAlive at the kill site (mirrors the .sh
+      # twin re-checking valid_pgid inside teardown_state) so a pid <= 1 can never
+      # reach a kill even if the outer guard drifts.
       if ($IsWindows) {
-        try { & taskkill.exe /PID $rootPid /T 2>$null | Out-Null } catch {}
+        if (Test-PidAlive $rootPid) { try { & taskkill.exe /PID $rootPid /T 2>$null | Out-Null } catch {} }
       } else {
-        foreach ($p in $pids) { try { & kill -TERM $p 2>$null | Out-Null } catch {} }
+        foreach ($p in $pids) { if (Test-PidAlive $p) { try { & kill -TERM $p 2>$null | Out-Null } catch {} } }
       }
       # Grace window for the cleanup handlers to run.
       $graceDeadline = (Get-Date).AddSeconds(3)

@@ -240,18 +240,18 @@ case "$CMD" in
     # an `npm start` that forks — runs the real server as a CHILD of the wrapper;
     # killing only the wrapper pid would leak it). `set -m` (job-control monitor
     # mode) makes bash place the background job in a new process group whose pgid
-    # equals the job's pid, on both Linux and macOS — so the recorded pid IS the
-    # pgid. setsid (where present) gives the same new-group guarantee; we use
-    # set -m because it is portable to hosts without setsid (e.g. macOS).
+    # equals the job's pid, on both Linux and macOS — so the recorded pid ($!) IS
+    # the pgid. We do NOT use setsid: under `set -m` the background job is already
+    # a process-group leader, and setsid(1) cannot create a new session from a
+    # group leader so it FORKS and exits — leaving $! pointing at the dead setsid
+    # parent rather than the live server (the Linux-only failure mode this fixes;
+    # macOS has no setsid so it never tripped there). `nohup` is used uniformly on
+    # both platforms purely to ignore SIGHUP; the new group comes from `set -m`.
     # stdio is detached (</dev/null >/dev/null 2>&1) so `start` never blocks and
     # the child's boot output never pollutes our stdout (byte-identical contract).
     mkdir -p "$RUNTIME_DIR"
     set -m
-    if command -v setsid >/dev/null 2>&1; then
-      setsid bash -c "$SERVER_CMD" </dev/null >/dev/null 2>&1 &
-    else
-      nohup bash -c "$SERVER_CMD" </dev/null >/dev/null 2>&1 &
-    fi
+    nohup bash -c "$SERVER_CMD" </dev/null >/dev/null 2>&1 &
     SRV_PID=$!
     set +m
     disown "$SRV_PID" 2>/dev/null || true
