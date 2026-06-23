@@ -26,6 +26,7 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
       preflight-notice
       trello-notice
+      visualcapture-notice
       triage-cache.json
       tests-stamp
       .runtime/
@@ -64,6 +65,20 @@ Drive an entire GitHub milestone to completion by ordering its issues and runnin
       |      | `integrations.trello` to .milestone-config/driver.json manually.
       |      | Optional — skip and nothing changes.
       | Req  | Requires @delorenj/mcp-server-trello in your Claude Code session.
+      ```
+   1.3. **One-time visual-capture notice (solve-milestone).** *(Positioned here alongside steps 2.1/1.2 — all three run immediately after the profile read in step 2.)* After step 1.2: if `visualCapture` is **absent** from the profile **and** `uiSurfaceGlobs` is **present** in the profile **and** the marker `.milestone-config/visualcapture-notice` is **absent**, print the notice below verbatim, then create the marker (`mkdir -p .milestone-config && touch .milestone-config/visualcapture-notice`). Stay **silent** if any condition fails — `visualCapture` present (the feature is already configured), `uiSurfaceGlobs` absent (the repo has no UI surface to capture), or the marker already exists. Unlike the preflight/Trello notices, this marker is **born on the new `.milestone-config/` path**, so the gate checks **only** the new-path marker — there is **no** legacy-root fallback read and **no** stale-legacy-removal step. The marker is per-clone and gitignored, so the notice shows at most once per clone.
+
+      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+      ```text
+      ▶ New in 1.12.0 — optional visual capture (one-time notice)
+
+      | What | Capture rendered screenshots of your UI surfaces during the
+      |      | visual-review gate.
+      | Why  | The gate can then show the real rendered screenshots of your
+      |      | change instead of degrading to PR-open-for-human-test.
+      | How  | Run `/milestone-driver:setup` and choose the Visual Capture tier,
+      |      | or add a `visualCapture` block to .milestone-config/driver.json
+      |      | manually. Optional — skip and nothing changes.
       ```
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.

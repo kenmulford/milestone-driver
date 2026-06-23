@@ -22,6 +22,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
       preflight-notice
       trello-notice
+      visualcapture-notice
       triage-cache.json
       tests-stamp
       .runtime/
@@ -47,6 +48,21 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       | Node/TS      | npm run lint                                    |
       | Any w/ pre-commit | pre-commit run --all-files                 |
       | Makefile     | make lint                                       |
+      ```
+
+   1.1.2. **First-run visual-capture notice (one-time).** Immediately after the preflight notice (step 1.1.1): if `visualCapture` is **absent** from the profile **and** `uiSurfaceGlobs` is **present** in the profile **and** the marker `.milestone-config/visualcapture-notice` is **absent**, print the notice below verbatim, then create the marker (`mkdir -p .milestone-config && touch .milestone-config/visualcapture-notice`). Stay **silent** if any condition fails — `visualCapture` present (the feature is already configured), `uiSurfaceGlobs` absent (the repo has no UI surface to capture), or the marker already exists. Unlike the preflight/Trello notices, this marker is **born on the new `.milestone-config/` path**, so the gate checks **only** the new-path marker — there is **no** legacy-root fallback read and **no** stale-legacy-removal step. The marker is per-clone and gitignored, so the notice shows at most once per clone (same lifecycle as `.milestone-config/preflight-notice`).
+
+      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+      ```text
+      ▶ New in 1.12.0 — optional visual capture (one-time notice)
+
+      | What | Capture rendered screenshots of your UI surfaces during the
+      |      | visual-review gate.
+      | Why  | The gate can then show the real rendered screenshots of your
+      |      | change instead of degrading to PR-open-for-human-test.
+      | How  | Run `/milestone-driver:setup` and choose the Visual Capture tier,
+      |      | or add a `visualCapture` block to .milestone-config/driver.json
+      |      | manually. Optional — skip and nothing changes.
       ```
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). One expected exception is not a clean-tree violation and must **not** be stashed or discarded: if the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected; skip the clean-tree enforcement and proceed to step 3 immediately. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
