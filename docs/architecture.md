@@ -84,6 +84,30 @@ This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It 
 - `/milestone-driver:solve-issue <n>`: the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself): single-issue triage, root-cause-or-park, implementer dispatch, unit plus E2E gates, code review, PR, and auto-merge (or the visual-review hold for UI issues). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline.
 - `/milestone-driver:triage <milestone | issue>`: the standalone Layer-0 review phase: emits an all-clear or a gap table and posts a blocker summary on each affected issue, without building anything. Invoked automatically by the two skills above; runnable on its own to pre-flight a milestone.
 
+## Visual capture (optional)
+
+The Layer-2 visual gate (above) holds every UI-touching PR open for human sign-off regardless of tooling. `visualCapture` is the optional render seam that attaches convenience evidence — light/dark screenshots of the new surface — to that held-open PR, so the human reviews from the diff *plus* the rendered shots instead of from the diff alone. It is configured as a `visualCapture` block in the profile (`serverCmd`, `readyUrl`, `signInPath` required; see [`profile-schema.md`](profile-schema.md)) and consumed by `solve-issue` step 7. Capture never changes the merge decision — it only enriches the evidence on a PR that is already held.
+
+### One render daemon per run
+
+Capture needs a running app server, and booting one per UI issue would be wasteful and racy. So a single render daemon is **booted once per run and reused across that run's UI issues** (`scripts/render-daemon.{sh,ps1}`):
+
+- **Boot / reuse.** `render-daemon.<sh|ps1> start` is reuse-or-autostart: if a recorded daemon is still alive and its ready probe passes, it is reused as-is; otherwise a stale record is reaped and a fresh server is spawned (detached, in its own process group). The daemon reads `visualCapture.serverCmd` and `visualCapture.readyUrl` from the profile directly.
+- **State file.** Liveness is recorded in `.milestone-config/.runtime/render-daemon.json` (`port` · `token` · `pid` · `readyUrl` · `startedAt`). The `.runtime/` directory is gitignored, so nothing about the daemon lands in the repo.
+- **Ready probe.** Before any capture, readiness is confirmed by polling the `/health`-style `readyUrl` until it answers (within a bounded timeout) — the daemon never reports ready on a server that has not actually come up.
+- **Teardown.** At the end of the run the daemon is reaped (`render-daemon.<sh|ps1> stop` — idempotent SIGTERM to the recorded process group; a no-op when nothing is running).
+- **Serial inline, deferred under `--parallel`.** In a sequential run, capture runs inline in step 7 against the one shared daemon. Under `--parallel`, render capture is **deferred to the serial merge tail** — a worker must **not** boot the render daemon in the parallel phase, because a single fixed-port daemon cannot safely serve concurrent worktrees. A parallel UI-issue worker opens the PR and applies `needs review` but attaches no screenshots; the serial tail or the human captures before merge. (A consumer can inject a per-worktree `PORT` to opt capture back into the parallel phase.) This matches the ratified `--parallel` deferral in `skills/solve-issue/SKILL.md`; no shared-fixed-port multi-worktree render model exists anywhere.
+
+### The three invariants
+
+`visualCapture` is engineered so that adding it can only *add* evidence — never change a run's outcome or weaken a gate:
+
+1. **Opt-in / byte-unchanged when absent.** With no `visualCapture` block configured, run output is byte-for-byte identical to today's no-render behavior — no daemon boots, no render is attempted, no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
+2. **Never fail the run.** Any capture failure — a daemon that never becomes ready, a probe timeout, a capture command error, an absent or incomplete capability — degrades to the PR-open-for-human-test note. It never fails the build.
+3. **Never auto-merge a UI issue.** Screenshots are convenience evidence only. The human-before-merge hold is the real gate, and it holds regardless of whether evidence was captured: a UI issue is always left open with `needs review` for a human to test-render and merge.
+
+When `visualCapture` is absent or incomplete, the gate simply posts the human-visual-test note and holds the PR open — logic-only issues still auto-merge on green, and a repo with no `uiSurfaceGlobs` has no UI issues and auto-merges normally.
+
 ## Parallel mode (optional)
 
 By default the milestone loop is sequential: it builds one issue at a time in dependency order, single working tree, no worktrees. Version 1.5.0 adds an opt-in `--parallel` mode that builds the mutually-independent issues within a single Wave concurrently, each in its own git worktree, then integrates them through one orchestrator-owned serial verified merge tail. The default stays sequential; parallel mode is purely additive.
