@@ -161,10 +161,45 @@ if [ "$HAVE_PY" -eq 1 ]; then
 
   # Idempotent teardown: stop kills the recorded pid, removes the state file,
   # exit 0; the pid is no longer alive; a second stop is a clean no-op.
+  # stop sends SIGTERM to the recorded daemon's process group best-effort and
+  # returns WITHOUT waiting (non-blocking teardown). The death is therefore
+  # asynchronous, so poll for it rather than asserting in the same instant — on a
+  # loaded runner the recorded `sleep` can still be alive for a microsecond after
+  # stop returns. Mirror the sibling poll-with-timeout in the compound-teardown
+  # case below (5x1s): poll kill -0 for death. The 5s window is generous and
+  # deterministic — on the happy path stop's SIGTERM reaps the `sleep` on the
+  # first iteration, so stop_reaped flips to 1 and the case PASSES.
+  #
+  # The escalation is a DIAGNOSTIC SAFETY NET, not a silent rescue: if the grace
+  # window elapses with the process STILL alive, that means stop did NOT reap it
+  # within 5s — a real teardown regression, not flake. We still group-SIGKILL the
+  # orphan (suite hygiene — leave no leaked `sleep`), but stop_reaped stays 0 so
+  # the assertion FAILS loudly. An escalation kill must never flip the result to
+  # PASS, otherwise a broken stop would hide behind the test's own cleanup (the
+  # state-removed assertion always passes — teardown_state unconditionally rm's
+  # the state file — so the liveness check is the only thing that catches it).
   out="$(bash "$SCRIPT" stop "$TMP" 2>&1)"; rc=$?
-  alive=0; kill -0 "$pid1" 2>/dev/null && alive=1
-  if [ "$rc" -eq 0 ] && [ ! -f "$STATE" ] && [ "$alive" -eq 0 ]; then pass_t; else
-    fail_t "teardown: rc=$rc state-removed=$([ ! -f "$STATE" ] && echo y || echo n) alive=$alive"; fi
+  stop_reaped=0
+  for _ in 1 2 3 4 5; do
+    if ! kill -0 "$pid1" 2>/dev/null; then stop_reaped=1; break; fi
+    sleep 1
+  done
+  if [ "$stop_reaped" -eq 0 ]; then
+    # Orphan hygiene only — does NOT count as a pass. Guard the negative-group
+    # signal with the same valid_pgid contract the production teardown applies at
+    # its kill site (scripts/render-daemon.sh:145,192): a pgid must be a non-empty
+    # run of digits AND > 1, else `kill -- -0` signals the caller's whole group
+    # and `kill -- -1` every process the user owns. pid1 is a verified real pgid
+    # in normal flow, so this never fires on the happy path — it just ensures the
+    # escalation can never become the very footgun the file guards elsewhere.
+    case "$pid1" in
+      ''|*[!0-9]*) : ;;                                  # not digits -> never group-kill
+      *) if [ "$pid1" -gt 1 ]; then kill -KILL -- -"$pid1" 2>/dev/null || true
+         else kill -KILL "$pid1" 2>/dev/null || true; fi ;;  # 0/1 -> plain pid kill at most
+    esac
+  fi
+  if [ "$rc" -eq 0 ] && [ ! -f "$STATE" ] && [ "$stop_reaped" -eq 1 ]; then pass_t; else
+    fail_t "teardown: rc=$rc state-removed=$([ ! -f "$STATE" ] && echo y || echo n) stop-reaped=$stop_reaped (stop did not reap the daemon within 5s — teardown regression)"; fi
   out="$(bash "$SCRIPT" stop "$TMP" 2>&1)"; rc=$?
   if [ "$rc" -eq 0 ]; then pass_t; else fail_t "teardown-idempotent: rc=$rc (want exit 0)"; fi
 
