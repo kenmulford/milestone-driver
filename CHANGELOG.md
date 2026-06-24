@@ -5,6 +5,8 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 
 ## v1.12.2 — Triage now catches changes that leave existing users in the dark
 
+_Released 2026-06-23._
+
 **Theme:** Before the driver builds an issue, it triages it for gaps. Until now, that review could wave through an issue that quietly added a new config key, flipped a default, or introduced behavior an existing install would never stumble across on its own — leaving everyone who already set the driver up with no way to discover the change. This release closes that hole: when an issue actually affects existing users or their config, triage now looks for a discovery path — a one-time notice, a "re-run setup" prompt, or a documented upgrade note — and flags the issue if there's none. It's the same discovery-path principle the milestone-feeder already enforced on its own path, now made the default on the driver's main review. A second, internal-only touch-up keeps the driver's hand-maintained git-ignore scratch blocks pointing at all their sibling copies — including the two that live in the companion milestone-feeder plugin.
 
 ### ✨ Triage now insists every existing-user-facing change has a way to be found
