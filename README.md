@@ -16,7 +16,7 @@ Issue-to-PR assistants take one big swing at a task. milestone-driver decomposes
 
 Install the plugin. Either way pulls in the required superpowers dependency.
 
-Recommended: add the milestone-suite marketplace, which catalogs all three milestone plugins, and install from it:
+Recommended: add the milestone-suite marketplace, which catalogs all the milestone plugins, and install from it:
 
 ```
 /plugin marketplace add kenmulford/milestone-suite
@@ -77,6 +77,8 @@ By default the loop builds one issue at a time. Version 1.5.0 adds an opt-in `--
 ## Optional integrations
 
 When the `@delorenj/mcp-server-trello` MCP server is loaded in your Claude Code session and `integrations.trello` is added to your profile, milestone progress is mirrored to a Trello board: a card is adopted or created in the Queue list at run start (with a GitHub milestone back-link), moved to In Progress after triage if the card is not already there (cards already In Progress are left as-is; cards in unmanaged lists are left in place with a log line), updated with a per-issue checklist that ticks as issues merge, and finally given a summary comment and moved to In Review when the run finishes with no open issues carrying a blocker label. The integration is opt-in, best-effort, and never gates a run — if the MCP server is absent, every Trello step is skipped with a single session-wide log line; if Trello is reachable but an individual operation fails, one log line is emitted per failed operation and the run continues. See [docs/consumer-setup.md](docs/consumer-setup.md) for setup steps and known limitations.
+
+If you also want a read-only second opinion once an issue is built, [milestone-coherence-reviewer](https://github.com/kenmulford/milestone-coherence-reviewer) reviews a built change for how well it fits the rest of your app — post-build, no edits — as its own companion plugin.
 
 ## Requirements
 
