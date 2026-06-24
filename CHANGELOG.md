@@ -3,6 +3,27 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.12.2 — Triage now catches changes that leave existing users in the dark
+
+**Theme:** Before the driver builds an issue, it triages it for gaps. Until now, that review could wave through an issue that quietly added a new config key, flipped a default, or introduced behavior an existing install would never stumble across on its own — leaving everyone who already set the driver up with no way to discover the change. This release closes that hole: when an issue actually affects existing users or their config, triage now looks for a discovery path — a one-time notice, a "re-run setup" prompt, or a documented upgrade note — and flags the issue if there's none. It's the same discovery-path principle the milestone-feeder already enforced on its own path, now made the default on the driver's main review. A second, internal-only touch-up keeps the driver's hand-maintained git-ignore scratch blocks pointing at all their sibling copies — including the two that live in the companion milestone-feeder plugin.
+
+### ✨ Triage now insists every existing-user-facing change has a way to be found
+
+| Issue | PR | What |
+|---|---|---|
+| #224 Add an existing-user discovery/migration-path criterion to the driver's triage-reviewer | #226 | When the driver triages an issue, it now checks one more thing: if the issue affects people who already have the driver set up — a new config key, a changed default, a behavior an existing install wouldn't surface on its own — it looks for a way those users would actually find out about the change. That discovery path can be a one-time notice (the pattern the driver already ships), a prompt to re-run setup, or a documented upgrade note. If the issue affects existing users and offers none of those, triage flags it. It's an **Advisory** by default — it tells you the gap and points you at the driver's own one-time-notice pattern as the fix — and only escalates to a **Blocker** when the missing discovery path makes the issue impossible to deliver. A brand-new feature an existing install can't even reach yet is exempt: the check only fires when an already-set-up user would genuinely be affected. "It's non-breaking" on its own isn't a reason to skip it. |
+| #223 Extend the 3 KEEP-IN-SYNC markers to name the feeder's setup + plan write sites | #225 | The driver keeps three identical little git-ignore scratch blocks in sync by hand, and each one carries a comment listing where its siblings live so a maintainer editing one is pointed at the rest. Those comments now also name the two matching copies that the companion milestone-feeder plugin writes (at its setup and plan sites), so editing any one copy points you at every copy across both plugins. Comment text only — no behavior change, and nothing a consumer ever sees. |
+
+### Consumer notes (upgrading from v1.12.1)
+
+- **Triage now flags an existing-user-facing change that nobody can discover.** When the driver triages an issue that adds a config key, changes a default, or introduces behavior an existing install wouldn't surface on its own, it checks for a discovery path — a one-time notice, a re-run-setup prompt, or a documented upgrade note. No discovery path and existing users are affected → the issue is flagged as an **Advisory** (escalating to a **Blocker** only if the gap makes the issue un-deliverable). **What's exempt:** a brand-new feature an existing install can't even reach yet. The check fires on impact to an already-set-up user, not on whether a change is "breaking" — "non-breaking" alone doesn't skip it.
+- **#223 is internal maintenance only.** It updates the cross-reference comments on the driver's hand-synced git-ignore scratch blocks so they name the matching copies in the companion milestone-feeder plugin. Comment text only — no behavior change, nothing visible in your runs.
+- **No schema changes** to `.milestone-config/driver.json` — neither change adds or alters a profile key.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.12.1 — A one-time nudge so upgraders find the new screenshots feature
 
 _Released 2026-06-23._

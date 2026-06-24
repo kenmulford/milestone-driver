@@ -1,6 +1,6 @@
 {
   "name": "milestone-driver",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Drives a GitHub milestone to completion: triages each issue for design gaps + dependency order up front, then for each buildable issue finds the root cause (or parks it), dispatches a TDD implementer subagent, runs unit + E2E tests + code review, opens a PR, and auto-merges logic-only issues on CI green while holding UI issues for visual sign-off — behind mechanical PreToolUse hooks that make the discipline un-bypassable. Stack-agnostic via a thin per-repo profile.",
   "author": {
     "name": "Ken Mulford",
