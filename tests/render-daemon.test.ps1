@@ -133,11 +133,38 @@ try {
     else { Fail-T "status-up: rc=$($r.rc) out=[$($r.out)]" }
 
     # Idempotent teardown: stop kills pid, removes state, exit 0; pid dead; 2nd stop no-op.
+    # stop signals the recorded daemon best-effort and returns WITHOUT waiting, so
+    # the death is asynchronous — poll for it rather than asserting in the same
+    # instant (on a loaded runner the recorded process can still be alive for a
+    # microsecond after stop returns). Same bound as the .sh twin (5x1s) to keep
+    # the pair behavior-identical (.project/conventions.md#Test patterns), mirroring
+    # the sibling poll-with-timeout in the compound-teardown case below. The 5s
+    # window is generous and deterministic — on the happy path stop reaps the
+    # process on the first iteration, so $stopReaped flips to $true and the case
+    # PASSES.
+    #
+    # The escalation is a DIAGNOSTIC SAFETY NET, not a silent rescue (parity with
+    # the .sh twin): if the grace window elapses with the process STILL alive,
+    # stop did NOT reap it within 5s — a real teardown regression, not flake. We
+    # still Stop-Process -Force the orphan (suite hygiene — the pwsh analogue of
+    # SIGKILL; note pwsh kills an explicit pid, not a negative-pgid group, so it
+    # has no group-signal footgun and needs no valid_pgid guard), but $stopReaped
+    # stays $false so the assertion FAILS loudly. An escalation kill must never
+    # flip the result to PASS, otherwise a broken stop would hide behind the
+    # test's own cleanup (state-removed always passes — Remove-DaemonState removes
+    # the file unconditionally — so the liveness check is the only catch).
     $r = Run-Daemon @('stop', $tmp)
-    Start-Sleep -Milliseconds 500
-    $alive = [bool](Get-Process -Id ([int]$pid1) -ErrorAction SilentlyContinue)
-    if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath $state) -and -not $alive) { Pass-T }
-    else { Fail-T "teardown: rc=$($r.rc) state-exists=$(Test-Path -LiteralPath $state) alive=$alive" }
+    $stopReaped = $false
+    for ($i = 0; $i -lt 5; $i++) {
+      if (-not (Get-Process -Id ([int]$pid1) -ErrorAction SilentlyContinue)) { $stopReaped = $true; break }
+      Start-Sleep -Seconds 1
+    }
+    if (-not $stopReaped) {
+      # Orphan hygiene only — does NOT count as a pass.
+      Stop-Process -Id ([int]$pid1) -Force -ErrorAction SilentlyContinue
+    }
+    if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath $state) -and $stopReaped) { Pass-T }
+    else { Fail-T "teardown: rc=$($r.rc) state-exists=$(Test-Path -LiteralPath $state) stop-reaped=$stopReaped (stop did not reap the daemon within 5s — teardown regression)" }
     $r = Run-Daemon @('stop', $tmp)
     if ($r.rc -eq 0) { Pass-T } else { Fail-T "teardown-idempotent: rc=$($r.rc)" }
 

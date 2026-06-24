@@ -229,7 +229,7 @@ For the full operational spec — the card-resolution order, the card state mach
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).
 
-**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge — and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all — it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange.
+**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge — and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all — it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does **not** by itself keep the branches topologically in sync — the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
 
 When the integration branch is ready to ship, run the tail in order:
 
@@ -246,18 +246,23 @@ When the integration branch is ready to ship, run the tail in order:
    gh release create v<version> --target <protectedBranch> --generate-notes
    ```
    In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to. Version-free repos can tag the date or skip this.
-3. **Close the milestone object**: the loop closes the milestone's *issues* and authors the CHANGELOG, but never closes the milestone itself.
+3. **Back-merge `protectedBranch` → `integrationBranch`.** After tagging/cutting the Release, merge `protectedBranch` back into `integrationBranch` (a PR, or a direct merge if your `integrationBranch` is not PR-locked) so `integrationBranch` carries the release merge-node **and** the tag. It is history-only (no content delta, since `--merge` already kept the content in sync), so it is conflict-free. This is what keeps `integrationBranch` topologically even with `protectedBranch` and `git describe --tags` on `integrationBranch` current with the latest release. Open the back-merge PR with `protectedBranch` as the head, then merge it with `--merge` (same no-squash rule as step 1):
+   ```
+   gh pr create --base <integrationBranch> --head <protectedBranch> --title "Back-merge <protectedBranch> into <integrationBranch>"
+   gh pr merge <back-merge-PR> --merge
+   ```
+4. **Close the milestone object**: the loop closes the milestone's *issues* and authors the CHANGELOG, but never closes the milestone itself.
    ```
    gh api -X PATCH repos/{owner}/{repo}/milestones/<n> -f state=closed
    ```
-4. **Deploy** on your own schedule.
+5. **Deploy** on your own schedule.
 
 **Two footguns:**
 
 - **Don't tag before the merge.** Running a bare `gh release create v<version>` before the release PR merges tags the *old* `protectedBranch` tip with empty/wrong notes (this happened in v1.9.2). Merge first (step 1), then tag (step 2).
 - **A PR-locked `integrationBranch` blocks direct pushes** — even for admins. So you can't fix a squash-divergence by pushing `integrationBranch`; that's the second reason to use `--merge`.
 
-Cut the Release (steps 2–3) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
+Cut the Release (steps 2–4) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
 
 ## Verify the gates
 
