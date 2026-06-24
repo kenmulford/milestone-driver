@@ -3,7 +3,7 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
-## v1.13.0 (unreleased)
+## v1.13.0 — An optional coherence check before the final review
 
 - **The driver now auto-runs an optional coherence pass before the final code review.** When the milestone-coherence-reviewer companion plugin is installed, `solve-issue` dispatches it read-only over the built change just before the final `/code-review`, as a never-gating post-build coherence pass. It's wired via a new default-filled `coherenceReviewAgent` profile key (`milestone-coherence-reviewer:coherence-reviewer`) and is silently skipped when the companion is absent (absent-means-skip). It heals via follow-ups and never blocks or changes a merge. (#231)
 - **Fixed: flaky `shell-tests (bash)` render-daemon teardown.** The `render-daemon` test's idempotent-teardown case asserted process liveness the instant `stop` returned, racing the asynchronous SIGTERM that teardown sends best-effort — so on a loaded CI runner the process could still be alive for a microsecond and the required check would flake (`teardown: ... alive=1`), blocking otherwise-green merges. The test now polls for actual process death with a bounded window and escalates to a guarded SIGKILL only as a diagnostic safety net (which still fails the test if `stop` didn't reap, so a real teardown regression can't hide). Mirrored into the PowerShell twin to keep the golden-matrix pair behavior-identical. Test-infra only — no behavior change to the daemon. (#240)
