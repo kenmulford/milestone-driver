@@ -27,6 +27,10 @@ desktop.ini
 # bodies). Per-clone scratch the user reviews then deploys via create; never committed.
 /.milestone-feeder/
 
+# milestone-bootstrapper per-run scratch (the provisioning plan file). Per-clone scratch
+# the user reviews then deploys via apply; never committed. (Analog of /.milestone-feeder/.)
+/.milestone-bootstrapper/
+
 # Legacy root marker paths (transitional, pre-v1.9.1). Kept so leftover files in an
 # existing clone stay ignored during the read-old / clean-up migration; safe to drop
 # once no clone carries them.
