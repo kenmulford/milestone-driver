@@ -14,7 +14,7 @@ Issue-to-PR assistants take one big swing at a task. milestone-driver decomposes
 
 ## Quickstart
 
-Install the plugin. Either way pulls in the required superpowers dependency.
+Install the plugin. It also requires the [`superpowers`](#requirements) plugin — add the official `claude-plugins-official` marketplace and install `superpowers` alongside it.
 
 Recommended: add the milestone-suite marketplace, which catalogs all the milestone plugins, and install from it:
 
@@ -82,7 +82,7 @@ If you also want a read-only second opinion once an issue is built, [milestone-c
 
 ## Requirements
 
-- The superpowers plugin. The per-issue inner loop is built on it, and it is auto-installed as a dependency on install, provided you have the official marketplace added.
+- The `superpowers` plugin (install it from the official `claude-plugins-official` marketplace). The per-issue inner loop is built on it, so install it explicitly alongside milestone-driver — it is a required prerequisite.
 - GitHub CLI (`gh`), authenticated, for issue, PR, and milestone operations.
 - git, with the repo using a gitflow-style integration branch.
 - bash (preferred) or PowerShell 7+ for the hooks. `jq` is required for the bash path.
