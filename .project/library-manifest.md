@@ -22,7 +22,7 @@ One approved choice per purpose, so a redundant alternative is easy to spot.
 | Version control / branch flow | `git` (gitflow-style integration branch) | `README.md#requirements`. |
 | Hook + script shell (primary) | `bash` + `jq` | `jq` required for the bash path (`README.md#requirements`). |
 | Hook + script shell (fallback) | PowerShell 7+ (`pwsh`) | Behavior-identical twin of every `.sh` (`hooks/run-hook.cmd` polyglot launcher). |
-| Per-issue inner loop | the **superpowers** plugin | Required dependency, auto-installed on install (`.claude-plugin/plugin.json` dependencies; `README.md#requirements`). |
+| Per-issue inner loop | the **superpowers** plugin | Required prerequisite — install it explicitly from the `claude-plugins-official` marketplace (`README.md#requirements`). |
 | Render-daemon test stub (CI only) | `python3` http server | Used only by the render-daemon test fixtures in CI (`.github/workflows/ci.yml`). |
 
 ## Adding a dependency (the gate)
