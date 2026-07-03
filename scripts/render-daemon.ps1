@@ -4,8 +4,8 @@
 # Behavior-identical pwsh twin of scripts/render-daemon.sh. Boots the consumer's
 # seeded/persona app server ONCE per run and reuses it across the run; tears it
 # down at run end. Built for the SERIAL capture path only — a single per-run
-# daemon on the consumer's configured port (under --parallel, render capture is
-# deferred to the serial tail — skills/solve-issue/SKILL.md:321).
+# daemon on the consumer's configured port (since parallel is now the default,
+# render capture is deferred to the serial tail — skills/solve-issue/SKILL.md:323).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
 # (mirroring the native-JSON profile-read in scripts/ci-preflight-steps.ps1:52-57):
