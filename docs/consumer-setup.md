@@ -85,25 +85,25 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
 To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
-## Parallel mode and integration granularity (optional)
+## Parallel builds and integration granularity
 
-These two opt-ins (added in 1.5.0) trade speed and CI cost against failure isolation. Both default off, and they are orthogonal: `--parallel` controls **how** issues build, `integrationGranularity` controls **how** they integrate. You can use either, both, or neither.
+These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls **how** issues build, `integrationGranularity` controls **how** they integrate. They differ in default. Parallel is the **default** execution mode — the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
 
-### `--parallel`: build a Wave's independent issues concurrently
+### Parallel by default: a Wave's independent issues build concurrently
 
-Opt in per run, not in the profile. Add a `--parallel` token to the invocation, or just say "in parallel":
+The driver builds the mutually-independent issues within a single dependency Wave **concurrently, by default** — there is no flag to add and nothing to opt into per run. To force the old one-at-a-time behavior, set `parallel: false` in your profile. That profile key is the **only** force-sequential surface — there is **no `--sequential` flag**. Setting `parallel: false` also suppresses the one-time DB-isolation question described below.
 
-```
-/milestone-driver:solve-milestone "<name>" --parallel
-```
+**Back-compat.** There is no `--parallel` flag anymore; a habit-typed one is harmlessly stripped and ignored — parallel is already the default, the argument resolver strips any `--<token>` generically, and it never corrupts the milestone identifier.
 
-When active, the run builds the mutually-independent issues within a single dependency Wave at the same time, each in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), then integrates them one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-overlapping same-file edits; anything non-trivial or red parks `blocked` for you instead of guessing. Concurrency is capped at 4 workers per Wave.
+Each of those issues builds in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), and they integrate one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-overlapping same-file edits; anything non-trivial or red parks `blocked` for you instead of guessing.
 
-The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that the sequential path does not. The serial merge tail and the park-on-conflict policy bound that risk, but the sequential default is still the lowest-risk choice. Nothing about the blast radius changes: the workers and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
+**How wide it goes — `maxParallelWorkers`.** The concurrent worker fan-out is capped per Wave. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
 
-#### DB isolation under `--parallel` (consumer responsibility)
+The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the workers and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
-A git worktree isolates the **filesystem**, not external services. When `--parallel` builds N issues concurrently, each worker runs `unitTestCmd` in its own worktree directory — but all N workers share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). `--parallel` does **not** inject DB isolation automatically; the consumer's harness is responsible.
+#### DB isolation (consumer responsibility)
+
+A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each worker runs `unitTestCmd` in its own worktree directory — but all N workers share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk — it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
 
 **Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds — and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
 
@@ -116,7 +116,16 @@ A git worktree isolates the **filesystem**, not external services. When `--paral
 | .NET / xUnit | Spin up an isolated `TestContainers` DB per test class, or set `DATABASE_URL` per worker via a `GlobalSetup` that appends the worker index |
 | Any stack | Set `DATABASE_URL` (or equivalent) per worker to a dedicated per-worker DB name, and ensure `db:test:prepare` (or equivalent) runs for each DB before the suite |
 
-**What the orchestrator does.** When `unitTestCmd` is defined and `--parallel` mode is active, the orchestrator emits a one-time advisory that concurrent unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker, then **proceeds with parallel dispatch**. It does not serialize, and it does not auto-inject DB isolation. This mirrors the per-worktree `PORT` escape-hatch treatment: the notice is informational; the consumer opts in to the correct isolation.
+**The up-front DB-isolation question.** A shared test DB is the one real concurrency hazard, so the driver asks about it **once, at the start of the run**, instead of proceeding blind. When your profile sets `unitTestCmd` and has no `parallel` key yet, an **interactive** run asks whether your test harness is isolated per worker (or otherwise safe to run concurrently):
+
+- **Yes** → the run goes **parallel**, and `parallel: true` is written to `.milestone-config/driver.json`.
+- **No** → the run goes **sequential**, and `parallel: false` is written.
+
+Either way the run prints: *"Recorded `parallel: <value>` in `.milestone-config/driver.json` — change it there anytime."* The question is asked only once — the recorded value answers it on every later run (edit or delete the key to be asked again).
+
+A repo with **no `unitTestCmd`** raises no DB hazard, so the question never fires and `parallel` stays absent — the run is parallel by default. (Absent means "not yet decided," not "off.")
+
+In a **non-interactive / headless** run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron), the driver cannot ask a human, so it does **not** prompt. It degrades to **sequential** with a loud note and records **nothing** — no human actually decided: *"⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set `"parallel": true` in `.milestone-config/driver.json` to enable parallel builds."* This mirrors the degrade-with-a-logged-note pattern used elsewhere in this doc (for example, the version-free fallback above).
 
 ### `integrationGranularity`: integrate per issue or per wave
 
@@ -130,9 +139,9 @@ Default `"issue"` is today's model, unchanged: each built issue opens its own PR
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
-## Permission pre-flight gate (parallel mode)
+## Permission pre-flight gate
 
-When you run `/milestone-driver:solve-milestone --parallel`, a pre-flight gate fires once before the first background worker is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to synchronous dispatch automatically.
+Because the driver dispatches background workers on the **default** path, a pre-flight gate fires once at the start of every run, before the first background worker is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to **synchronous, sequential** dispatch automatically: parallel workers require background dispatch, so a permission gap forces the run one-at-a-time.
 
 **The fastest fix when you see a 🔴 gap table:** run `/fewer-permission-prompts` in the repo. That skill scans recent transcripts for tool calls you've already approved and builds a prioritized allowlist in `.claude/settings.json`, covering the pipeline surface in one pass. After running it, re-run the milestone command; the gate should clear.
 

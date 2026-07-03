@@ -1,7 +1,7 @@
 ---
 name: solve-milestone
-argument-hint: <milestone-name | milestone-number> [--parallel]
-description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Accepts an optional `--parallel` flag (or the phrase 'in parallel') to build mutually-independent issues within a Wave concurrently in git worktrees.
+argument-hint: <milestone-name | milestone-number>
+description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by **default** (no flag); a run-start barrier check drops to sequential only when a barrier is present — a `parallel: false` profile opt-out, a permission-allowlist gap, or an unconfirmed test-isolation answer.
 ---
 
 # solve-milestone — autonomous driver
@@ -12,7 +12,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
 
 **Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`), **closing the GitHub milestone object**, and deploy stay manual and human-only — the driver closes the milestone's **issues** and authors the CHANGELOG, but never closes the **milestone** itself. That boundary is what makes unattended operation safe.
 
-**`--parallel` activation (recognized, not parsed).** Claude Code does **no** argument parsing — `$ARGUMENTS` is string-substituted — so this skill is **not** a CLI parser. Parallel mode is **recognized** when the invocation contains **either** a `--parallel` token in `$ARGUMENTS` **OR** the natural-language equivalent ("in parallel"); both route to the same parallel-mode behavior (`### Parallel mode (--parallel) — Phase 1: concurrent worker dispatch` below). **Absent either signal, today's sequential path runs byte-unchanged** — the loop (steps 1–5), the buildability conditions (a)/(b)/(c), and the buildable / not-buildable branches are untouched. Parallel mode is an additive opt-in; the blast-radius boundary above is identical in both modes (workers and the merge tail merge only to `integrationBranch`, never `protectedBranch`).
+**Execution mode (parallel by default, barrier-checked).** Parallel is the **default** execution mode — there is **no** `--parallel` flag and no "in parallel" trigger to opt in. The run instead resolves its mode **once** at run start, as the last Before-starting step (**Resolve execution mode**), via a barrier cascade: it runs **parallel** unless a barrier drops it to **sequential** — a `parallel: false` profile opt-out, a permission-allowlist gap (a physical barrier), or an unconfirmed test-isolation answer (the DB-hazard interview). The resolved mode is held for the whole run and drives the Phase 1 / Phase 2 machinery below (`### Parallel mode — Phase 1: concurrent worker dispatch`). **Back-compat:** a habit-typed `--parallel` token (or the phrase "in parallel") in `$ARGUMENTS` is **harmlessly stripped and ignored** by the generic `--<token>` flag-strip in Before-starting step 3 — parallel is already the default, so it changes nothing and never corrupts the milestone identifier. When the resolved mode is **sequential**, the loop (steps 1–5), the buildability conditions (a)/(b)/(c), and the buildable / not-buildable branches run byte-unchanged. The blast-radius boundary above is identical in both modes (workers and the merge tail merge only to `integrationBranch`, never `protectedBranch`).
 
 ## Before starting
 
@@ -29,6 +29,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       preflight-notice
       trello-notice
       visualcapture-notice
+      parallel-default-notice
       triage-cache.json
       tests-stamp
       .runtime/
@@ -82,6 +83,22 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       |      | or add a `visualCapture` block to .milestone-config/driver.json
       |      | manually. Optional — skip and nothing changes.
       ```
+   1.4. **One-time parallel-by-default notice (solve-milestone only).** *(Positioned here alongside steps 2.1/1.2/1.3 — all run immediately after the profile read in step 2.)* After step 1.3: if the marker `.milestone-config/parallel-default-notice` is **absent**, print the notice below verbatim, then create the marker (`mkdir -p .milestone-config && touch .milestone-config/parallel-default-notice`). Stay **silent** if the marker already exists. Like the visual-capture notice, this marker is **born on the new `.milestone-config/` path**, so the gate checks **only** the new-path marker — there is **no** legacy-root fallback read and **no** stale-legacy-removal step. The marker is per-clone and gitignored, so the notice shows at most once per clone.
+
+      ```text
+      ▶ New in 1.14.0 — parallel builds are now the default (one-time notice)
+
+      | What | solve-milestone now builds mutually-independent issues in a Wave
+      |      | concurrently by default — the old `--parallel` flag is gone.
+      | Why  | Faster milestone runs, with no flag to remember. A run-start
+      |      | barrier check drops to sequential only when something makes
+      |      | parallel unsafe.
+      | Opt-out | Set "parallel": false in .milestone-config/driver.json to force
+      |      | sequential runs. Optional — leave it out to stay parallel.
+      | DB   | If your unit tests share a test database, the first run asks once
+      |      | whether your harness is isolated per worker, then records your
+      |      | answer as "parallel" so it never asks again.
+      ```
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
@@ -91,6 +108,41 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
    **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
+5. **Resolve execution mode (the LAST Before-starting step).** Runs **after** the clean-tree check (step 4) on purpose: the DB-hazard interview's single profile write (below) is then the one intentional uncommitted change, with no clean-tree conflict. Resolve the run's execution mode **once**, here, and hold the result for the whole run — every downstream reference reads this resolved decision; nothing re-decides mid-loop. Evaluate the barrier cascade **top-down; first match wins**:
+
+   | # | Condition | Resolved mode | Dispatch | Surfacing |
+   |---|---|---|---|---|
+   | 1 | profile `parallel: false` | **sequential** | background/async ok if the gate passes, else synchronous | quiet — standing opt-out |
+   | 2 | permission-allowlist gap (the `### Permission pre-flight gate`) | **sequential** | **synchronous** | 🔴 gap table + recommend `/fewer-permission-prompts` |
+   | 3 | profile `parallel: true` | **parallel** | background | quiet — asserted safe |
+   | 4 | `unitTestCmd` set AND `parallel` absent AND **interactive** | **interview → user's choice**, persisted to `parallel` | per choice | 🔴 up-front prompt (below) |
+   | 4′ | same as row 4 but `MILESTONE_DRIVER_NONINTERACTIVE=1` | **sequential** | background/async ok if the gate passes, else synchronous | loud `⚠` note + how to set `parallel: true`; **no persist** |
+   | 5 | otherwise | **parallel** | background | quiet — default |
+
+   The outcome is `(mode ∈ {parallel, sequential}) × (dispatch ∈ {background, synchronous})`. Row 2 forces `synchronous` dispatch and, because parallel workers **require** background dispatch, also forces `sequential` — this physical barrier overrides even `parallel: true` downward (no config can grant a tool the session has not allow-listed). All other sequential outcomes may still use the sequential background/async path when the gate passes.
+
+   **The permission pre-flight gate runs here, once** (per `### Permission pre-flight gate`) — it is the run's single background-dispatch permission decision (row 2). Union `permissions.allow` across the three settings layers; a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (the `### 4` loop's step 2 and Phase 1's dispatch step) **read this already-resolved decision** — the gate does **not** re-fire mid-loop.
+
+   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` is set AND `parallel` is absent from the profile. Fire it **once**, here at run start, before Phase 0. `unitTestCmd` presence is the **only** trigger — per-worker unit runs are the only gate run *concurrently*; `e2eTestCmd` and any server-starting preflight are deferred to the serial merge tail and run once, so they are not a concurrency hazard. Prompt:
+
+      ```text
+      ⚠ This repo runs unitTestCmd, and parallel workers share external services like your
+        test database — a git worktree isolates the filesystem, not the DB. Is your test
+        harness isolated per worker (or otherwise safe to run concurrently)?
+        [Yes — go parallel] · [No — run sequential]
+      ```
+
+      - **Yes** → run **parallel**; write `parallel: true` to `.milestone-config/driver.json`.
+      - **No** → run **sequential**; write `parallel: false`.
+      - Either way, print the visible note: _"Recorded `parallel: <value>` in `.milestone-config/driver.json` — change it there anytime."_
+
+      **Persistence** is a minimal in-place JSON edit of `.milestone-config/driver.json` that adds the `parallel` key, preserving every other key and the file's formatting. It is the orchestrator's own working-tree edit — **not** committed, rides no PR (a local `.milestone-config/` decision the operator commits if they want it shared). Because this step runs **after** the clean-tree check (step 4), this single `parallel`-key edit is the one intentional uncommitted change the driver made — no clean-tree conflict, no preflight special-casing. This is the deliberate write-rule deviation for `parallel` (see `docs/profile-schema.md`): an explicit boolean is written whenever the decision is made — both `true` and `false` — because omitting it would re-fire the interview on the next run while `unitTestCmd` is present.
+
+      **Non-interactive (`MILESTONE_DRIVER_NONINTERACTIVE=1`, row 4′):** do **not** prompt. Fall to **sequential** with a loud note — `⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set "parallel": true in .milestone-config/driver.json to enable parallel builds.` — and do **NOT** persist a value (no human decision was made). This mirrors the versioning `NONINTERACTIVE` degradation in `### 3. Determine the target version`.
+
+      **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview fires and no value is persisted** (no hazard, no decision, so the profile is left byte-unchanged, per the "omit only when no decision was made" rule).
+
+   **Surface the resolved mode.** State the resolved mode + reason in the run output; it drives Template 1's mode line (`## Output spec`) — one of `parallel` / `sequential (profile parallel:false)` / `sequential (permission gap — see 🔴)` / `sequential (test-isolation not confirmed)`.
 
 ## The procedure
 
@@ -169,7 +221,7 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 **If buildable:**
 
 1. Ensure `integrationBranch` is current (`git fetch`, fast-forward) so dependent issues build on already-merged work.
-2. **Before dispatching the first issue in the run** (once per run, not per issue): run the **permission pre-flight gate** per `### Permission pre-flight gate`. If a gap is found → fall back to synchronous dispatch for this run (today's behavior, steps 2–4 unchanged, no background concurrency). If no gap → dispatch each issue as a background agent (`Agent(run_in_background: true)`), embedding BOTH the target version AND the Phase 0 triage result as named fields in the agent's prompt brief (e.g. `targetVersion: <x.y.z>` and `step-0 result for #N: { ... }`). A background agent has a fresh context and does NOT inherit the orchestrator's in-memory state — both values must be literally present in the prompt string, not inherited from context.
+2. **Before dispatching the first issue in the run** (once per run, not per issue): use the **dispatch decision already resolved at run start** (the *Resolve execution mode* Before-starting step, row 2 — the permission pre-flight gate ran there; do NOT re-run it). If that resolution found a permission gap → synchronous dispatch for this run (today's behavior, steps 2–4 unchanged, no background concurrency). If no gap → dispatch each issue as a background agent (`Agent(run_in_background: true)`), embedding BOTH the target version AND the Phase 0 triage result as named fields in the agent's prompt brief (e.g. `targetVersion: <x.y.z>` and `step-0 result for #N: { ... }`). A background agent has a fresh context and does NOT inherit the orchestrator's in-memory state — both values must be literally present in the prompt string, not inherited from context.
 
    When dispatching as a background agent: invoke `solve-issue <n> --async`. The orchestrator MUST embed the Phase 0 triage result as before (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]") so that step 0's Branch A can reuse it. **Await the completion notification** from the background agent before proceeding to the next issue — the main line is live (interactive) between dispatches. When the notification arrives, re-derive terminal state from live `gh` queries — `gh issue view <n> --json labels,state` and `gh pr list --head issue/<n>-*` — to determine whether the issue was merged, held for visual review, or parked (there is no structured handback in `--async` mode). **Surface the wave-boundary status update using Template 2 from `## Output spec`**. Narrate any park (label + reason) sourced from the live issue labels. Apply park labels if needed. Re-sync `integrationBranch` (`git fetch`, fast-forward). Then dispatch the next issue.
 
@@ -207,7 +259,7 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 
 ### Parallelizable-set selection (parallel mode)
 
-This subsection applies **only** to `--parallel` mode (#72). The sequential loop above is **unchanged** — sequential processing builds issues one at a time in dependency-graph order, and nothing here alters that path. This subsection defines **only** which set a parallel orchestrator may dispatch concurrently; it consumes triage's existing outputs and adds no new behavior to the default run.
+This subsection applies **only** when the run resolved to **parallel** mode (#72; the default, per the *Resolve execution mode* Before-starting step). A run resolved to **sequential** is **unchanged** — sequential processing builds issues one at a time in dependency-graph order, and nothing here alters that path. This subsection defines **only** which set a parallel orchestrator may dispatch concurrently; it consumes triage's existing outputs and adds no new behavior to the sequential path.
 
 **The parallelizable set.** From the issues in the current Wave, an issue belongs to the parallelizable set **iff both** hold:
 
@@ -227,11 +279,11 @@ In short: the set is **buildable ∧ mutually-independent**. (Do not re-derive b
 
 ### Permission pre-flight gate
 
-**Runs once per run, before the first background dispatch. Zero cost on synchronous paths.**
+**Runs once per run, at run-start mode resolution (the *Resolve execution mode* Before-starting step, row 2), before any dispatch.**
 
-**Scope: this gate applies only when background dispatch is about to be used (`--parallel` mode or another background-dispatch path, #89). Sequential/synchronous runs never reach it — zero cost preserved.**
+**Scope: this gate applies whenever background dispatch is about to be used — now the default path** (parallel-by-default, plus the sequential background/async dispatch path, #89). It runs once at run-start mode resolution (row 2); the mode cascade and the loop then **read** its result. A run that resolves to purely synchronous dispatch incurs no further gate cost.
 
-Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. Before activating any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
+Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background chunk hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. At run-start mode resolution (row 2), before any background dispatch (the async dispatch points, #89), run this gate to verify the session's permission allowlist is complete.
 
 **Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
 
@@ -262,16 +314,16 @@ Absent or unreadable layers are skipped in the union (not treated as gaps). The 
   2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
   3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
 
-The gate fires **once per run**, not once per issue. After the first background-dispatch decision point, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+The gate fires **once per run**, not once per issue — at run-start mode resolution (row 2). After that single decision, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
 
 **Worker auto-deny handling.** If a background worker chunk receives an auto-deny on a tool call mid-execution, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and return the structured handback with `status: parked`, `parkLabel: "blocked"`, and `parkReason: "auto-deny on <tool>"`. This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure.
 
-### Parallel mode (`--parallel`) — Phase 1: concurrent worker dispatch
+### Parallel mode — Phase 1: concurrent worker dispatch
 
-This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). **Absent the `--parallel` token / NL trigger, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
+This subsection applies **only** when the run resolved to **parallel** mode (the default — see the *Resolve execution mode* Before-starting step). **When the run resolved to sequential, none of this runs and the sequential loop (steps 1–5) is byte-unchanged.** Parallel mode splits into two phases that share this skill's Phase 0 triage and dependency graph:
 
 - **Phase 1 (this issue, #72)** — concurrent build + barrier. Builds the parallelizable set in a worktree fleet, but **does not integrate**. The barriered green set is held (branches built + pushed) for Phase 2.
-- **Phase 2 (#73)** — the **serial verified merge tail**. Integrates the held green set to `integrationBranch` one branch at a time, running the deferred gates (E2E, any server-starting preflight) once against accumulated state. See `### Parallel mode (--parallel) — Phase 2: serial verified merge tail` below.
+- **Phase 2 (#73)** — the **serial verified merge tail**. Integrates the held green set to `integrationBranch` one branch at a time, running the deferred gates (E2E, any server-starting preflight) once against accumulated state. See `### Parallel mode — Phase 2: serial verified merge tail` below.
 
 The parallel path completes across both phases: Phase 1 builds-but-does-not-integrate and barriers the green set; Phase 2 integrates that green set through the serial verified merge tail.
 
@@ -294,9 +346,9 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
 
    The orchestrator owns `git worktree add` (consistent with the #70 worker contract, `solve-issue` Delta 1) — the worker runs **inside** the provided worktree and never cuts its own branch. Use explicit fleet management (`git worktree add -b … / remove / prune`); do **not** lean on generic worktree isolation, which can strand the shared checkout on a stray `issue/<n>` branch and leave worktrees needing prune.
 
-3. **Dispatch concurrently, capped at 4.** Before dispatching: if `unitTestCmd` is defined in the profile (checkable) **and** `--parallel` mode is active (checkable), emit a one-time advisory: _"⚠ Parallel unit runs share external services (notably the test DB) unless the consumer's harness isolates per worker — see docs/consumer-setup.md §DB isolation under --parallel."_ Then proceed with parallel dispatch regardless; do not serialize.
+3. **Dispatch concurrently, capped at `maxParallelWorkers` (default 4).** Resolve the concurrency cap from the `maxParallelWorkers` profile key (integer, optional): **absent → 4** (today's default, unchanged); **integer ≥ 1 → that value** (the max concurrent workers per Wave); **invalid (non-integer OR `< 1`) → 4** (fail-open, no error, per `.project/design-philosophy.md#Error & failure philosophy`). The cap is **orthogonal to the resolved parallel/sequential mode** — `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*; it only bounds concurrent worker dispatch and has **no effect on a sequential run** (which never reaches this step). The DB-hazard decision was already made once at run start (the *Resolve execution mode* Before-starting step, row 4) — there is **no** per-Wave DB advisory here.
 
-   The permission pre-flight gate (see `### Permission pre-flight gate`) runs **once per run, before the first background dispatch in step 3**. If a gap is found → fall back to synchronous dispatch for this run. If no gap → proceed with background dispatch as described here.
+   The background-dispatch permission decision was **resolved once at run start** (the *Resolve execution mode* Before-starting step, row 2 — the permission pre-flight gate ran there); this step **reads** it, it does not re-run the gate. If that resolution found a gap, the run already resolved to sequential/synchronous and this concurrent-dispatch path is not reached; if no gap, proceed with background dispatch as described here.
 
    Dispatch **one background agent per set issue** as `Agent(run_in_background: true)` running:
 
@@ -304,7 +356,7 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
    /milestone-driver:solve-issue <n> --worker
    ```
 
-   in worker mode (#70), passing the issue's worktree path. The brief MUST embed the per-issue triage result as explicit named fields with ACTUAL VALUES — e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]` (the concrete arrays/objects, not just the field names). A brief whose triage fields are absent, label-only, or partial causes the worker's step 0 to fall to Branch B (fresh single-issue triage) — this is the enforcement mechanism; Branch B is the safe default, never an error. Run the dispatches **concurrently, with no more than 4 workers running at once**. If the set is larger than 4, use a **rolling window / batches** so the in-flight count never exceeds 4 (as one worker returns, dispatch the next). Cap 4 is a safe, conservative default (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default).
+   in worker mode (#70), passing the issue's worktree path. The brief MUST embed the per-issue triage result as explicit named fields with ACTUAL VALUES — e.g. `issueStates["<n>"] = { blockers: false, label: null, advisories: [...], risk: "light" }` and `edges["<n>"] = [...]` (the concrete arrays/objects, not just the field names). A brief whose triage fields are absent, label-only, or partial causes the worker's step 0 to fall to Branch B (fresh single-issue triage) — this is the enforcement mechanism; Branch B is the safe default, never an error. Run the dispatches **concurrently, with no more than `maxParallelWorkers` (default 4) workers running at once** (the cap resolved above). If the set is larger than the cap, use a **rolling window / batches** so the in-flight count never exceeds the cap (as one worker returns, dispatch the next). The default cap 4 is a safe, conservative value (field-validated: 5 concurrent builds + 5 reviews ran with no contention; 4 is the chosen default); a repo that knows its setup (no shared DB, ample cores, generous rate limits) can raise or lower it via `maxParallelWorkers`.
 
    **Workers never call PushNotification** — confirmed absent from subagent tool registries (see issue #97 recorded decision); workers return park/completion facts in the structured handback; the main line emits at Wave boundaries. **SendMessage/mid-chunk redirect does not exist in Claude Code** — do not narrate it.
 
@@ -338,15 +390,15 @@ When active, after Phase 0 triage, process the milestone **Wave by Wave** (same 
    git worktree remove .milestone-config/worktrees/issue-<n>
    ```
 
-   A built-green worker has already **pushed its branch** (and, in issue granularity, opened a PR), so its **local worktree is safe to remove at Wave end / run end regardless of Phase 2** — the work is preserved on the remote branch / PR, not in the local worktree. Removing at Wave end / run end (rather than gating cleanup on Phase 2) prevents built-green worktrees from being orphaned, and — together with step 2's pre-clean guard — keeps the next `--parallel` run collision-free. Run `git worktree prune` **best-effort** at Wave end, at run end, and on systemic failure, to clear any stale fleet entries. The scratch dir `.milestone-config/worktrees/` is gitignored, so the fleet never pollutes the working tree or a commit. (The worktree fleet is ephemeral per-run scratch — created and pruned each run — so there is no persistent read to fall back to; the relocation is a pure path change. A leftover old-named `.milestone-driver-worktrees/` dir in an existing clone is harmless: it is gitignored and simply unused by the new path.)
+   A built-green worker has already **pushed its branch** (and, in issue granularity, opened a PR), so its **local worktree is safe to remove at Wave end / run end regardless of Phase 2** — the work is preserved on the remote branch / PR, not in the local worktree. Removing at Wave end / run end (rather than gating cleanup on Phase 2) prevents built-green worktrees from being orphaned, and — together with step 2's pre-clean guard — keeps the next parallel run collision-free. Run `git worktree prune` **best-effort** at Wave end, at run end, and on systemic failure, to clear any stale fleet entries. The scratch dir `.milestone-config/worktrees/` is gitignored, so the fleet never pollutes the working tree or a commit. (The worktree fleet is ephemeral per-run scratch — created and pruned each run — so there is no persistent read to fall back to; the relocation is a pure path change. A leftover old-named `.milestone-driver-worktrees/` dir in an existing clone is harmless: it is gitignored and simply unused by the new path.)
 
 7. **Hand the green set to Phase 2.** The barriered `built-green` set is held (branches built + pushed) and integrated by **Phase 2 — the serial verified merge tail (#73)**. The split is explicit: **Phase 1 = concurrent build + barrier; Phase 2 (#73) = the serial verified merge tail below.** Phase 1 performs **no merge to `integrationBranch`** — workers build-but-do-not-merge (#70 Delta 2), and the green set waits at the barrier for Phase 2.
 
-**Blast-radius boundary unchanged.** As in sequential mode, workers and the serial tail merge only to `integrationBranch`, **never** `protectedBranch`. Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. **Reaffirmed: absent the `--parallel` token / NL trigger, none of Phase 1 runs and the sequential loop (steps 1–5) is byte-unchanged.**
+**Blast-radius boundary unchanged.** As in sequential mode, workers and the serial tail merge only to `integrationBranch`, **never** `protectedBranch`. Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. **Reaffirmed: when the run resolved to sequential, none of Phase 1 runs and the sequential loop (steps 1–5) is byte-unchanged.**
 
-### Parallel mode (`--parallel`) — Phase 2: serial verified merge tail
+### Parallel mode — Phase 2: serial verified merge tail
 
-This subsection applies **only** when parallel mode is active (recognized per **`--parallel` activation** above). It runs **after** Phase 1's barrier, consuming the barriered `built-green` handbacks. **Phase 2 runs to completion at the end of each Wave** — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. A dependent Wave therefore always builds on the prior Wave's integrated result, exactly as the sequential loop guarantees. **Parked** workers are excluded — Phase 1 already omitted them, with branch + label + comment intact. **UI built-green issues are also NOT merged here** — they are held open with the `needs review` label (the Layer-2 visual gate, `solve-issue` step 7, unchanged). The tail integrates **only the non-UI built-green branches**.
+This subsection applies **only** when the run resolved to **parallel** mode (see the *Resolve execution mode* Before-starting step). It runs **after** Phase 1's barrier, consuming the barriered `built-green` handbacks. **Phase 2 runs to completion at the end of each Wave** — its squash-merges land on `integrationBranch` and the local `integrationBranch` is re-synced — **before** the next Wave's Phase 1 step 1 cuts its worktree fleet from `integrationBranch`. A dependent Wave therefore always builds on the prior Wave's integrated result, exactly as the sequential loop guarantees. **Parked** workers are excluded — Phase 1 already omitted them, with branch + label + comment intact. **UI built-green issues are also NOT merged here** — they are held open with the `needs review` label (the Layer-2 visual gate, `solve-issue` step 7, unchanged). The tail integrates **only the non-UI built-green branches**.
 
 **Run on the main working tree** (not in a worktree), over the built-green non-UI branches in **ascending-issue order**. **Force-free by default (merge-in — no history rewrite).** The **integration target advances after each merge**, so two same-Wave siblings that touch overlapping files are re-verified against each other — restoring the "every increment tested against accumulated state" guarantee that naive concurrent merging throws away. For each such branch:
 
@@ -367,9 +419,9 @@ Where N = the just-completed Wave number, X = issues merged this Wave (non-UI bu
 
 ### Integration granularity (issue vs wave)
 
-`integrationGranularity: "issue" | "wave"`, default `"issue"`. This controls **how built issues integrate**, and is **orthogonal to `--parallel`** (which controls *how* issues build). The two combine or apply independently: any of {sequential, `--parallel`} × {`"issue"`, `"wave"`} is valid.
+`integrationGranularity: "issue" | "wave"`, default `"issue"`. This controls **how built issues integrate**, and is **orthogonal to the parallel/sequential execution mode** (which controls *how* issues build). The two combine or apply independently: any of {sequential, parallel} × {`"issue"`, `"wave"`} is valid.
 
-**`"issue"` (default) — byte-unchanged.** Today's model, unchanged. Each built issue opens **its own PR** → its own CI run → merges individually: in sequential mode each issue's `solve-issue` opens and merges its own PR (steps 1–5 / Phase 2 unchanged); in `--parallel` mode the Phase 2 serial verified merge tail merges each built-green PR in turn. Nothing in this path changes — the sequential loop, the buildability conditions, and the Phase 1 / Phase 2 mechanics are exactly as documented above.
+**`"issue"` (default) — byte-unchanged.** Today's model, unchanged. Each built issue opens **its own PR** → its own CI run → merges individually: in sequential mode each issue's `solve-issue` opens and merges its own PR (steps 1–5 / Phase 2 unchanged); in parallel mode the Phase 2 serial verified merge tail merges each built-green PR in turn. Nothing in this path changes — the sequential loop, the buildability conditions, and the Phase 1 / Phase 2 mechanics are exactly as documented above.
 
 **`"wave"`.** The merge-tail **MECHANISM is unchanged** (merge-in + re-verify against accumulated state + bounded auto-resolve, #73); only the **target** and **PR-opening** differ:
 
@@ -408,7 +460,7 @@ If `integrations.trello` is present, apply `## Finish hooks` from `skills/solve-
 Show after Phase 0 triage completes.
 
 ```text
-🚀 Milestone v[version] — [N] issues · [W] waves · [--parallel | sequential] · ~[T]–[T2] min
+🚀 Milestone v[version] — [N] issues · [W] waves · [resolved mode: parallel | sequential (<reason>)] · ~[T]–[T2] min
    develop ← integration PRs · profile: <H> heavy / <L> light
 
 | Wave | Issue | Title                    | Risk  | UI | Status      |
@@ -419,6 +471,7 @@ Show after Phase 0 triage completes.
 ⏸️ Parked at triage: #202 — needs design (contradictory grouping spec)
 ▶ Wave 1 dispatched — the floor is yours.
 ```
+Mode cell: the mode resolved by the *Resolve execution mode* Before-starting step — `parallel`, or `sequential (<reason>)` where `<reason>` ∈ { `profile parallel:false`, `permission gap — see 🔴`, `test-isolation not confirmed` }.
 
 ### Template 2 — Status update at each wave boundary
 

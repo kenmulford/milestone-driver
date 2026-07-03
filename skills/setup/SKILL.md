@@ -118,6 +118,16 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 **Write rule:** omit `integrationGranularity` from the written profile when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `integrationGranularity: "wave"` only when wave is explicitly chosen.
 
+**Conditional question: `parallel`** (present **only when a `unitTestCmd` was supplied/detected** in Phase 1 — the unit-test detection signal. Otherwise skip it silently, exactly as the E2E tier and the Visual Capture tier are skipped when their Phase-1 signal is absent: no `unitTestCmd` means no shared-external-service hazard, so no question.)
+
+Only per-worker unit runs execute concurrently, so a shared test DB (or other shared external service) is the one parallel-safety hazard. Present the question after `integrationGranularity`, with its answer mapping on the same line:
+
+| Key | Plain-language label | Answer mapping |
+|---|---|---|
+| `parallel` | "Your unit tests may share external services (like a test DB) across parallel workers. Is your harness isolated per worker so parallel builds are safe?" | **Yes** → `parallel: true`. **No** → `parallel: false`. **Skip** → omit `parallel`; the run-start interview asks on the first `solve-milestone` run. |
+
+The three answers are mutually exclusive and cover every path. See the Phase 3 write rule for why a Yes/No answer records an explicit boolean (and does **not** follow the omit-the-default convention).
+
 **Tier: Release** (optional; default inferred from the `.claude-plugin/plugin.json` presence signal — present → versioned, absent → suggest `versioning: false`)
 
 | Key | Plain-language label | Skip-consequence |
@@ -172,7 +182,7 @@ The canonical profile location is `<repo-root>/.milestone-config/driver.json`. T
 - **New project** — neither file present (the preamble found nothing to migrate): create the `.milestone-config/` directory (`mkdir -p .milestone-config`) and write the assembled profile to `.milestone-config/driver.json`. Never write a fresh profile to the root.
 - **Existing profile** — `.milestone-config/driver.json` present (the preamble used or migrated it): write the assembled profile to `.milestone-config/driver.json` in place. If a leftover root `milestone-driver.json` is also present (the both-present case the preamble left untouched), `.milestone-config/driver.json` wins: do **not** overwrite the canonical file from the root, and do **not** delete the leftover root file (no destructive surprise — the operator removes it; no `.gitignore` change is made).
 
-Assemble the **full** profile object — every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 — into a valid JSON object, and write that complete object to `.milestone-config/driver.json`. **Drop no accepted key:** a key that was pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (do not write `null` or empty values for it). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write `integrationGranularity: "wave"` only when wave is explicitly chosen. Print the final file contents so the user can verify.
+Assemble the **full** profile object — every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 — into a valid JSON object, and write that complete object to `.milestone-config/driver.json`. **Drop no accepted key:** a key that was pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (do not write `null` or empty values for it). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write `integrationGranularity: "wave"` only when wave is explicitly chosen. For `parallel`, **deviate from the omit-the-default convention** used by `versioning` and `integrationGranularity`: write the explicit boolean the user chose — `parallel: true` on **Yes**, `parallel: false` on **No** — whenever the Integration-tier `parallel` question was answered. Omit `parallel` **only** when that question was not shown (no `unitTestCmd`) or was skipped. This deviation is deliberate — do **not** "correct" it back to omit-the-default: omitting a made decision would re-fire the run-start DB-hazard interview on every `solve-milestone` run whenever `unitTestCmd` is present, re-asking the operator a question they already answered. Print the final file contents so the user can verify.
 
 Writing the file is sufficient for the mechanical gates to read it immediately this session — no commit is required for the gates to function.
 

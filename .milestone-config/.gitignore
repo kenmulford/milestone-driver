@@ -5,6 +5,7 @@
 preflight-notice
 trello-notice
 visualcapture-notice
+parallel-default-notice
 triage-cache.json
 tests-stamp
 .runtime/

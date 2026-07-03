@@ -360,6 +360,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
    preflight-notice
    trello-notice
    visualcapture-notice
+   parallel-default-notice
    triage-cache.json
    tests-stamp
    .runtime/
