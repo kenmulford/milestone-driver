@@ -3,6 +3,33 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.14.0 — Parallel by default
+
+**Theme:** `solve-milestone` now builds a milestone's mutually-independent issues in parallel **by default** — no flag to remember. A run-start barrier check quietly drops the run back to sequential only when something makes parallel unsafe (you've opted out, the session is missing a permission the background workers need, or a test-database question hasn't been answered yet). A new key lets you tune how many issues build at once, and a one-time notice tells existing users the default changed.
+
+### ✨ Parallel is the default, with a safety check instead of a flag
+
+| Issue | PR | What |
+|---|---|---|
+| #250 Flip solve-milestone to parallel-by-default | #256 | Parallel is now the default execution mode — the `--parallel` flag (and the "in parallel" phrase) is gone. Instead, at the start of every run the driver resolves the mode once through a barrier cascade: it goes **parallel** unless a barrier is present — you set `parallel: false`, the session hasn't allow-listed a tool the background workers need (a permission gap forces sequential), or your repo runs unit tests and the one-time test-database question hasn't been answered. A habit-typed `--parallel` is harmlessly ignored. This PR also wires the worker cap to the new `maxParallelWorkers` key and adds a one-time notice announcing the change. |
+| #251 Add setup's conditional parallel question | #257 | The first-run setup now asks — **only if your project runs unit tests** — whether your test harness is isolated per worker so parallel builds are safe, and records your answer as the `parallel` key so you're not asked again. Projects with no unit tests are never asked and stay parallel by default. |
+| #252 Document the parallel and maxParallelWorkers keys | #258 | Documents the two new profile keys in the profile schema, including the deliberately-opposite write rules (`parallel` always records an explicit yes/no; `maxParallelWorkers` follows the usual omit-for-default). |
+| #253 Rewrite consumer-setup's parallel section | #259 | Rewrites the consumer-setup guide's parallel section to the default-with-opt-out model — the up-front test-database question, the `parallel: false` opt-out, the tunable worker cap — while keeping the existing DB-isolation guidance. |
+| #254 Reframe architecture.md's parallel-mode model | #260 | Reframes the architecture doc's parallel-mode section from opt-in to parallel-by-default with the barrier cascade. The underlying worktree-fleet and serial-merge-tail mechanics are unchanged — only how the mode is entered. |
+| #255 Retire leftover --parallel wording | #261 | Retires the remaining `--parallel` framing across the other skills, scripts, and docs so everything names the new default consistently. Wording only — no behavior change. |
+
+### Consumer notes (upgrading from v1.13.0)
+
+- **Parallel builds are now the default.** If you want to keep building one issue at a time, set `"parallel": false` in `.milestone-config/driver.json`. The old `--parallel` flag and the "in parallel" phrase are gone — if you still pass `--parallel`, it's harmlessly stripped and ignored (parallel is already the default).
+- **New key `parallel` (boolean, optional).** Absent means "not yet decided": the run goes parallel *unless* your repo defines `unitTestCmd`, in which case the first run asks once whether your test harness is isolated per worker (parallel workers share your test database — a git worktree isolates files, not the DB) and records your answer here. `true` = force parallel; `false` = force sequential. A missing session permission still overrides `true` down to sequential.
+- **New key `maxParallelWorkers` (integer, optional, default 4).** Tunes how many mutually-independent issues build at once within a Wave. Omit it to get 4; set it only to override. An absent or invalid value falls back to 4.
+- **Headless / CI runs** (`MILESTONE_DRIVER_NONINTERACTIVE=1`) never see the test-database prompt — they run sequentially with a loud note until you set `"parallel": true` in the profile.
+- **Schema change:** two new optional keys — `parallel` and `maxParallelWorkers` — are added to `.milestone-config/driver.json`. Both are optional; an existing profile keeps working unchanged, and the first run seeds `parallel` for you when a test-DB hazard is present.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.13.0 — An optional coherence check before the final review
 
 - **The driver now auto-runs an optional coherence pass before the final code review.** When the milestone-coherence-reviewer companion plugin is installed, `solve-issue` dispatches it read-only over the built change just before the final `/code-review`, as a never-gating post-build coherence pass. It's wired via a new default-filled `coherenceReviewAgent` profile key (`milestone-coherence-reviewer:coherence-reviewer`) and is silently skipped when the companion is absent (absent-means-skip). It heals via follow-ups and never blocks or changes a merge. (#231)
