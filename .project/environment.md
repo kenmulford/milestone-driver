@@ -25,7 +25,7 @@ Whether caching exists and, if so, the layer and technology (in-memory, Redis, C
 
 ## Async & messaging
 Background jobs, queues, streams, schedulers — or "none."
-> **None.** The engine is synchronous within a Claude Code session. The closest thing to concurrency is the optional `--parallel` mode, which builds mutually-independent issues within a Wave concurrently in git worktrees (capped at 4 workers) and then integrates them through one serial verified merge tail (`docs/architecture.md#parallel-mode-optional`) — orchestrated worktrees, not a message queue.
+> **None.** The engine is synchronous within a Claude Code session. The closest thing to concurrency is the parallel-by-default, barrier-checked execution mode (it drops to sequential only when a barrier is present), which builds mutually-independent issues within a Wave concurrently in git worktrees (capped by the tunable `maxParallelWorkers` profile key, default 4) and then integrates them through one serial verified merge tail (`docs/architecture.md#parallel-mode`) — orchestrated worktrees, not a message queue.
 
 ## External services & integrations
 Third-party services the app depends on: auth / identity, payments, email / SMS, object storage, analytics, other APIs.

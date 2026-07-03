@@ -160,7 +160,7 @@ When a card is resolved at run start, apply the following state transition:
 
 ---
 
-## Convention 9 — Thread safety / parallel mode
+## Convention 9 — Thread safety / parallel builds
 
 ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. `solve-issue` — including `--worker` mode in parallel runs — makes **zero** Trello calls. This is enforced by placement: every call site lives in solve-milestone's orchestration steps, not inside solve-issue or any worker agent.
 
@@ -277,7 +277,7 @@ Two call sites fire checklist ticks during the solve-milestone loop. Both are ma
 
 **What is NOT ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) are never ticked at this call site — they have not been merged and closed.
 
-**Parallel mode (`--parallel`):** ticks fire in the serial verified merge tail (main thread, Phase 2) as each issue's branch is squash-merged. The merge tail's per-branch squash-merge loop passes through the same on-success tick logic as the sequential step 4 path — no separate call site is needed.
+**Parallel builds (the default):** ticks fire in the serial verified merge tail (main thread, Phase 2) as each issue's branch is squash-merged. The merge tail's per-branch squash-merge loop passes through the same on-success tick logic as the sequential step 4 path — no separate call site is needed.
 
 **Best-effort per item:** any failure logs one line and the loop continues:
 

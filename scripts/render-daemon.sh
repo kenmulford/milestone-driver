@@ -3,9 +3,9 @@
 #
 # Boots the consumer's seeded/persona app server ONCE per run and reuses it
 # across the run; tears it down at run end. Built for the SERIAL capture path
-# only — a single per-run daemon on the consumer's configured port (under
-# --parallel, render capture is deferred to the serial tail, so this never
-# serves concurrent worktrees — skills/solve-issue/SKILL.md:321).
+# only — a single per-run daemon on the consumer's configured port (since
+# parallel is now the default, render capture is deferred to the serial tail,
+# so this never serves concurrent worktrees — skills/solve-issue/SKILL.md:323).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
 # (mirroring the jq profile-read in scripts/ci-preflight-steps.sh:64-68):

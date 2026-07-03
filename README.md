@@ -70,9 +70,9 @@ Discipline is enforced by local hooks, not by trust. Commits are blocked on red 
 
 The full architecture, the gating model, the label taxonomy, and the mechanical gates live in [docs/architecture.md](docs/architecture.md).
 
-## Parallel mode (optional)
+## Parallel mode
 
-By default the loop builds one issue at a time. Version 1.5.0 adds an opt-in `--parallel` mode that builds the mutually-independent issues within a Wave concurrently, each in its own git worktree, then integrates them through one serial verified merge tail. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each) or per wave (one branch, one PR, and one CI run for the whole Wave). The trade-off is speed and CI cost against failure isolation: parallel and wave granularity finish wider work faster, at the cost of a worktree fleet and coarser isolation when something goes wrong. Both stay off unless you opt in. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to turn them on.
+The loop builds the mutually-independent issues within a Wave in parallel by default, each in its own git worktree, then integrates them through one serial verified merge tail. Set `parallel: false` in your profile to opt out and build one issue at a time; and when your unit tests share something like a test database across workers, the driver asks a one-time DB-isolation question on the first run and records your answer. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each) or per wave (one branch, one PR, and one CI run for the whole Wave). The trade-off is speed and CI cost against failure isolation: parallel and wave granularity finish wider work faster, at the cost of a worktree fleet and coarser isolation when something goes wrong. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to configure them.
 
 ## Optional integrations
 
