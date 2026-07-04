@@ -1,4 +1,6 @@
-# milestone-driver
+<p align="center">
+  <img src="assets/milestone-driver.svg" alt="milestone-driver — a milestone suite plugin" width="590">
+</p>
 
 Systematize the development process in the context of git flow.
 
