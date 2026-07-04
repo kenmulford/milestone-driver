@@ -1,0 +1,21 @@
+# name	body	expected_stdout	expected_stderr	expected_exit
+happy_path	Some intro prose before the block.\nMore prose here.\n\n```md-epic-order\nnumber: 42\ntitle: Contacts sync engine\nnumber: 51\n```\n\nTrailing prose after the block.	number\t42\ntitle\tContacts sync engine\nnumber\t51		0
+blank_line_tolerance	```md-epic-order\n\nnumber: 42\n\n   \ntitle: Contacts sync engine\n\nnumber: 51\n\n```	number\t42\ntitle\tContacts sync engine\nnumber\t51		0
+empty_block	```md-epic-order\n```			0
+empty_block_blanks_only	```md-epic-order\n\n   \n\n```			0
+no_block_found	Just some prose.\nNo fence here at all.		parse-md-epic-order: no md-epic-order block found	1
+unterminated_fence	Intro line.\n\n```md-epic-order\nnumber: 1\ntitle: Something		parse-md-epic-order: unterminated md-epic-order fence opened at line 3	1
+malformed_number_alpha	```md-epic-order\nnumber: abc\n```		parse-md-epic-order: malformed line at position 1: 'number: abc'	1
+malformed_title_empty	```md-epic-order\ntitle:\n```		parse-md-epic-order: malformed line at position 1: 'title:'	1
+malformed_other_line	```md-epic-order\nfoo: bar\n```		parse-md-epic-order: malformed line at position 1: 'foo: bar'	1
+malformed_leading_zero	```md-epic-order\nnumber: 007\n```		parse-md-epic-order: malformed line at position 1: 'number: 007'	1
+malformed_plus_sign	```md-epic-order\nnumber: +5\n```		parse-md-epic-order: malformed line at position 1: 'number: +5'	1
+malformed_minus_sign	```md-epic-order\nnumber: -3\n```		parse-md-epic-order: malformed line at position 1: 'number: -3'	1
+malformed_stops_at_first	```md-epic-order\nnumber: 1\n\nfoo: bad\ntitle: never reached\n```		parse-md-epic-order: malformed line at position 3: 'foo: bad'	1
+duplicate_block_first_wins	```md-epic-order\nnumber: 1\n```\n\nSome text.\n\n```md-epic-order\nfoo: bad-if-parsed\n```	number\t1		0
+number_zero_valid	```md-epic-order\nnumber: 0\ntitle: Zero milestone\n```	number\t0\ntitle\tZero milestone		0
+case_sensitivity	```md-epic-order\nNumber: 5\n```		parse-md-epic-order: malformed line at position 1: 'Number: 5'	1
+near_miss_fence_ignored	```md-epic-order \nnumber: 1\n```		parse-md-epic-order: no md-epic-order block found	1
+close_fence_near_miss	```md-epic-order\nnumber: 1\n```x\n```\n		parse-md-epic-order: malformed line at position 2: '```x'	1
+title_embeds_lone_cr	```md-epic-order\ntitle: foo\rbar\n```	title\tfoo\rbar		0
+interior_nbsp_malformed	```md-epic-order\n \n```		parse-md-epic-order: malformed line at position 1: ' '	1

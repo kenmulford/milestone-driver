@@ -20,6 +20,8 @@ jobs:
         run: bash tests/extract-version.test.sh
       - name: ci-preflight-steps (bash)
         run: bash tests/ci-preflight-steps.test.sh
+      - name: parse-md-epic-order (bash)
+        run: bash tests/parse-md-epic-order.test.sh
       - name: render-daemon (bash)
         run: bash tests/render-daemon.test.sh
 
@@ -33,5 +35,7 @@ jobs:
         run: pwsh tests/extract-version.test.ps1
       - name: ci-preflight-steps (pwsh)
         run: pwsh tests/ci-preflight-steps.test.ps1
+      - name: parse-md-epic-order (pwsh)
+        run: pwsh tests/parse-md-epic-order.test.ps1
       - name: render-daemon (pwsh)
         run: pwsh tests/render-daemon.test.ps1
