@@ -165,6 +165,65 @@ One per-clone marker becomes per-worktree: the `.milestone-config/preflight-noti
 
 Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. As in sequential mode, the workers and the serial tail merge only to the integration branch, never to the protected branch. Release (integration branch to protected branch), closing the GitHub milestone object, and deploy stay manual and human-only — the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself.
 
+## Parent issues (md-epic fan-out)
+
+A feature can be too large for one milestone. GitHub has no "milestone of milestones," so the driver reads an ordinary GitHub issue as one instead: a **parent issue** carrying the `md-epic` label, whose body lists the milestones that make up the feature, in build order (full read-contract: `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). `md-epic` sits alongside the existing label taxonomy above, not inside it — it marks a parent issue as a feature group, not a park state, and no run ever applies it the way the apply-time helper applies `in progress` / `blocked` / `needs design` / `needs decision` / `needs review` / `judgment call`.
+
+**The driver only reads this arrangement.** It never creates the `md-epic` label, never writes the ordered milestone list, and never links a milestone's issues to the parent as GitHub sub-issues. Producing a well-formed parent issue is the feeder's and bootstrapper's job — specced separately, and not yet built. Until that lands, a parent issue has to be hand-authored to the contract below before the driver can drive it.
+
+### Detection and the ordered list
+
+`solve-issue <n>` checks `#n`'s labels before anything else — before the profile read, before triage. No `md-epic` → today's pipeline runs unchanged. `md-epic` present → `#n` is a parent issue: it authors no code and never enters triage or the implementer; it goes straight to the parent path instead.
+
+The parent path parses `#n`'s body for a fenced `md-epic-order` block with a deterministic, non-AI parser (`scripts/parse-md-epic-order.{sh,ps1}`, issue #266):
+
+```md-epic-order
+number: 42
+title: Contacts sync engine
+number: 51
+```
+
+- One entry per non-blank line; blank lines inside the block are ignored. Line order is build order — there is no separate ordinal column to keep in sync.
+- Each line matches exactly `number: <integer>` (the milestone's own number, not an issue number) or `title: <text>` (the milestone's exact title, case-sensitive).
+- Any other line shape invalidates the **whole block** — a half-parsed build order is unsafe to act on, so parsing stops at the first malformed line.
+
+Each entry then resolves to a real milestone the same way `solve-milestone` resolves a human-typed milestone argument (`skills/solve-milestone/SKILL.md`): a `number:` line via `gh api .../milestones/<n>`, a `title:` line via a title match over `gh api .../milestones?state=all`. An entry that doesn't resolve, or resolves to a milestone with zero issues, is skipped with a warning in the run's summary — not a park.
+
+### Failure path
+
+No `md-epic-order` block in the body (including an unterminated fence), or one malformed line, parks the **parent issue itself** `blocked` — not silently skipped, not built empty. A comment opening `🔴 Parked —` names the problem, the fan-out never starts, and no milestone in the list is driven that run. A well-formed block with zero interior entries parks the same way ("empty md-epic-order block — no milestones to drive"). Both cases clear by fixing the parent issue's body and re-running `solve-issue <n>`.
+
+### The fan-out loop
+
+Resolved milestones drive **sequentially, in listed order** — never concurrently, because a later milestone may depend on an earlier one's merged code. For each one: re-check its issue counts first (`open_issues == 0` and at least one closed issue means it's already done — skip silently, so re-running the parent is idempotent with no checkpoint file); otherwise invoke `/milestone-driver:solve-milestone <number> --driven` and wait, re-sync `integrationBranch`, then continue to the next entry regardless of outcome. A milestone whose resolved title is purely numeric is skipped with a warning instead of driven — driving it would trip `solve-milestone`'s own numeric-title halt, which `--driven` does not suppress, stalling the unattended loop on a human who isn't there. A systemic failure inside a driven `solve-milestone` run (auth, a broken `integrationBranch`, missing tooling) halts the whole fan-out loop, not just the current milestone. The parent issue itself is never built, and its label state changes only via the park path above; on completion the run reports one row per milestone (done already / built this run / held for visual review / parked with opens).
+
+### The `--driven` token
+
+`--driven` is an internal token, recognized the same way as `--worker` and `--async`: by string presence in the invocation text, never typed by a human and never a parsed CLI flag. The fan-out loop supplies it every time it invokes `/milestone-driver:solve-milestone <number> --driven` on its own behalf. `--driven` does two things to that invocation:
+
+- **Suppresses the DB-hazard interview** ([Parallel mode](#parallel-mode) above, row 4): a driven run degrades straight to row 4′'s non-interactive sequential path, the same as `MILESTONE_DRIVER_NONINTERACTIVE=1`, because a driven run has no human watching to answer a prompt.
+- **Skips the cherry-pick check below entirely**, not merely answers it silently — this is what stops a driven run from re-detecting its own dispatching parent and re-prompting.
+
+Every other Before-starting step that can prompt a human — notably the purely-numeric-title halt — still fires under `--driven`; the token only gates those two spots.
+
+### The cherry-pick prompt
+
+When a human types `solve-milestone <name>` directly (no `--driven`), the driver checks whether that milestone belongs to a parent group before building it: it finds the milestone's lowest-numbered issue, reads that issue's parent (`gh api .../issues/<n>/parent`), and checks the parent's labels for `md-epic`. No parent, or a parent without `md-epic` → build the milestone, unchanged, no prompt. A parent carrying `md-epic` → prompt with exactly three options:
+
+```text
+🔴 Milestone "<title>" belongs to parent issue #<parent-number>, which spans multiple
+   milestones in a defined build order. Building just this milestone builds only one
+   slice of that feature.
+   [Build just this milestone] · [Hand off to solve-issue #<parent-number> — drive the
+   whole parent in build order] · [Pause for clarification]
+```
+
+Building just this milestone falls through to today's build, unchanged. Handing off invokes `/milestone-driver:solve-issue <parent-number>` and stops this run's Before-starting sequence there. Pausing halts with no build and no state change. If a human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier milestone in the same group, that isn't caught proactively — it surfaces reactively through whatever build-time signal it naturally trips (the root-cause gate, a red suite, an implementer-declared conflict), with no new mechanism.
+
+### Opt-in, byte-unchanged when absent
+
+With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` both run exactly as they did before this feature existed — the label check is the only new step, and it never changes behavior when it finds nothing. No new profile key is introduced; `md-epic` is a fixed literal, but it is not one of the park labels in [Label taxonomy](#label-taxonomy) above and `setup` never provisions it — the feeder and bootstrapper own creating and applying it, as described above.
+
 ## Integration granularity (issue vs wave)
 
 `integrationGranularity` is a profile key, `"issue"` or `"wave"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential — which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue or wave granularity, is valid.

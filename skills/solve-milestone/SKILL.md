@@ -99,7 +99,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       |      | whether your harness is isolated per worker, then records your
       |      | answer as "parallel" so it never asks again.
       ```
-3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` is boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
+3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` and `--driven` are boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
    - **Ambiguity note:** a purely-numeric milestone *title* (e.g. a milestone literally titled `"2"`) is reachable via the numeric-input path (routing is determined by `$ARGUMENTS` form — digits only — not by title content). After resolution, check the resolved title: **if it is purely numeric, halt immediately and prompt the human.** Triage interprets a bare number as single-issue mode, so the milestone title must be renamed to a non-numeric value before this skill can drive it unattended — do not proceed to Phase 0.
@@ -107,8 +107,40 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
 
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
    **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
+   **3.6** **Cherry-pick check for a human-typed milestone under a parent group (fires only when `--driven` is absent).** A milestone can be one ordered slice of a larger feature spanning several milestones, grouped under a parent GitHub issue that carries the `md-epic` label (recorded in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). When a human types `solve-milestone <name>` directly, this step warns them before they build only that slice. The `--driven` token (defined in step 5 below; string-presence recognition for this token added in #267) is never typed by a human — an automated fan-out loop supplies it when it dispatches this skill on its own behalf. **When `--driven` is present, this step does not execute at all** — not the first-issue query, not the parent lookup — so a driven run can never re-detect its own dispatching parent and re-prompt. This is what keeps the *driven* path true to this skill's own frontmatter contract, "never waits on a human... only a systemic failure ends the run early" — like the purely-numeric-title halt in step 3 above, this new prompt is a human-typed-invocation-only exception to that contract and never fires under `--driven`.
+
+   When `--driven` is absent:
+
+      a. **Find the resolved milestone's first issue** — the numerically lowest issue number currently assigned to it, `--state all` so a fully-built milestone is still inspectable:
+         ```bash
+         gh issue list --milestone "<resolved-title>" --state all --json number --jq 'sort_by(.number) | .[0].number'
+         ```
+         A milestone with zero issues yields nothing here — this step is then a no-op; fall through to step 4 below.
+      b. **Read that issue's parent and check for `md-epic` in the same call:**
+         ```bash
+         gh api repos/{owner}/{repo}/issues/<first-issue>/parent
+         ```
+         A 404 response means no parent. Any other successful response already includes `.labels` — check it for an exact match against `md-epic` (mirroring the live-label check used in `### 4. Loop over issues in dependency-graph order`'s condition (b) below) without a second call.
+      c. **No parent, or a parent without `md-epic`** → today's behavior, unchanged: fall through to step 4 below, no prompt.
+      d. **A parent carrying `md-epic`** → prompt the human with exactly three options:
+
+         ```text
+         🔴 Milestone "<resolved-title>" belongs to parent issue #<parent-number>, which spans
+            multiple milestones in a defined build order. Building just this milestone builds
+            only one slice of that feature.
+            [Build just this milestone] · [Hand off to solve-issue #<parent-number> — drive the
+            whole parent in build order] · [Pause for clarification]
+         ```
+
+         - **Build just this milestone** → fall through to today's step 4 / step 5 / Phase 0 sequence exactly as the no-prompt branch above does — this milestone builds autonomously, same as today.
+         - **Hand off** → invoke `/milestone-driver:solve-issue <parent-number>` directly (the same skill-invokes-skill pattern this skill already uses to invoke `/milestone-driver:triage`, Phase 0 below) and **stop this run's Before-starting sequence here** — no clean-tree check, no execution-mode resolution, no Phase 0 triage for this milestone under this invocation.
+         - **Pause for clarification** → halt immediately. No build, no hand-off, no state change.
+      e. **Out-of-order safety is reactive only.** If the human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier, not-yet-built milestone in the same parent group, that dependency is not caught proactively — triage's `dependencyGraph` is scoped to this one milestone's own issues and has no edge into a different milestone. It surfaces reactively, through whatever build-time signal it naturally trips (the root-cause gate, a red suite, or an implementer-declared architecture conflict) — not through the same-milestone "held by unmerged upstream #N" proactive comment in `### 4. Loop over issues in dependency-graph order` below, which has no cross-milestone upstream to name. Expect a less specific park reason than that comment. No new mechanism.
+      f. **A non-404 failure of the `.../parent` call** (auth, 5xx, network) is a systemic condition, not "no parent" — surface it and halt per the existing Autonomy contract below, the same as any other systemic failure.
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 5. **Resolve execution mode (the LAST Before-starting step).** Runs **after** the clean-tree check (step 4) on purpose: the DB-hazard interview's single profile write (below) is then the one intentional uncommitted change, with no clean-tree conflict. Resolve the run's execution mode **once**, here, and hold the result for the whole run — every downstream reference reads this resolved decision; nothing re-decides mid-loop. Evaluate the barrier cascade **top-down; first match wins**:
+
+   **The `--driven` token.** Like `--worker` (`skills/solve-issue/SKILL.md:327`) and `--async` (`skills/solve-issue/SKILL.md:390`), `--driven` is an **interpreted token, not a parsed CLI flag** — recognized by **string presence** in the invocation text, never argument parsing. It is never typed by a human — an internal caller (a future driven-invocation loop) supplies it when dispatching this skill on its own behalf. Today it gates **only row 4 below (the DB-hazard interview):** a driven run degrades that interview to its non-interactive path (row 4′) instead of prompting. **Other Before-starting steps that can prompt a human are unaffected** — e.g. the purely-numeric-title halt in step 3 above still halts and prompts even on a driven run. **When `--driven` is absent, this cascade and every other Before-starting step run byte-unchanged.**
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|
@@ -116,7 +148,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
    | 2 | permission-allowlist gap (the `### Permission pre-flight gate`) | **sequential** | **synchronous** | 🔴 gap table + recommend `/fewer-permission-prompts` |
    | 3 | profile `parallel: true` | **parallel** | background | quiet — asserted safe |
    | 4 | `unitTestCmd` set AND `parallel` absent AND **interactive** | **interview → user's choice**, persisted to `parallel` | per choice | 🔴 up-front prompt (below) |
-   | 4′ | same as row 4 but `MILESTONE_DRIVER_NONINTERACTIVE=1` | **sequential** | background/async ok if the gate passes, else synchronous | loud `⚠` note + how to set `parallel: true`; **no persist** |
+   | 4′ | same as row 4 but (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven` present) | **sequential** | background/async ok if the gate passes, else synchronous | loud `⚠` note + how to set `parallel: true`; **no persist** |
    | 5 | otherwise | **parallel** | background | quiet — default |
 
    The outcome is `(mode ∈ {parallel, sequential}) × (dispatch ∈ {background, synchronous})`. Row 2 forces `synchronous` dispatch and, because parallel workers **require** background dispatch, also forces `sequential` — this physical barrier overrides even `parallel: true` downward (no config can grant a tool the session has not allow-listed). All other sequential outcomes may still use the sequential background/async path when the gate passes.
@@ -138,7 +170,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
 
       **Persistence** is a minimal in-place JSON edit of `.milestone-config/driver.json` that adds the `parallel` key, preserving every other key and the file's formatting. It is the orchestrator's own working-tree edit — **not** committed, rides no PR (a local `.milestone-config/` decision the operator commits if they want it shared). Because this step runs **after** the clean-tree check (step 4), this single `parallel`-key edit is the one intentional uncommitted change the driver made — no clean-tree conflict, no preflight special-casing. This is the deliberate write-rule deviation for `parallel` (see `docs/profile-schema.md`): an explicit boolean is written whenever the decision is made — both `true` and `false` — because omitting it would re-fire the interview on the next run while `unitTestCmd` is present.
 
-      **Non-interactive (`MILESTONE_DRIVER_NONINTERACTIVE=1`, row 4′):** do **not** prompt. Fall to **sequential** with a loud note — `⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set "parallel": true in .milestone-config/driver.json to enable parallel builds.` — and do **NOT** persist a value (no human decision was made). This mirrors the versioning `NONINTERACTIVE` degradation in `### 3. Determine the target version`.
+      **Non-interactive (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven` present — row 4′):** do **not** prompt. Fall to **sequential** with a loud note — `⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set "parallel": true in .milestone-config/driver.json to enable parallel builds.` — and do **NOT** persist a value (no human decision was made). This mirrors the versioning `NONINTERACTIVE` degradation in `### 3. Determine the target version`. **`--driven` forces this same degradation**: a driven run has no human watching, so `--driven` present makes row 4's "interactive" condition read false — exactly as `MILESTONE_DRIVER_NONINTERACTIVE=1` already does — without requiring the environment variable to be set.
 
       **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview fires and no value is persisted** (no hazard, no decision, so the profile is left byte-unchanged, per the "omit only when no decision was made" rule).
 
