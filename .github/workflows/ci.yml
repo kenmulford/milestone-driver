@@ -1,13 +1,14 @@
 name: CI
 
-# Run the repo's shell test suites on every PR into develop, so the driver's
-# own auto-merge gate has a real check to wait on. Two jobs cover the
-# cross-platform nonNegotiable: a bash leg and its PowerShell 7+ (pwsh) twin.
-# Both run on ubuntu-latest, which ships bash, jq, pwsh, and python3
-# preinstalled (the render-daemon stub-backed cases boot a python3 HTTP server).
+# Run the repo's shell test suites on every PR into develop or main, so both
+# the driver's own auto-merge gate and the develop->main release PR have a
+# real check to wait on. Two jobs cover the cross-platform nonNegotiable: a
+# bash leg and its PowerShell 7+ (pwsh) twin. Both run on ubuntu-latest, which
+# ships bash, jq, pwsh, and python3 preinstalled (the render-daemon
+# stub-backed cases boot a python3 HTTP server).
 on:
   pull_request:
-    branches: [develop]
+    branches: [main, develop]
 
 jobs:
   shell-tests-bash:
