@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 590 200" width="590" height="200" role="img" aria-label="milestone-driver — a milestone suite plugin">
+
+  <g transform="translate(6,28) scale(0.66)">
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.9,117 A126 126 0 0 1 241.3,120.9" stroke="#5AA6D4" stroke-width="2.4" opacity="0.95"></path>
+      <path d="M251.9,115.3 Q248,52 187,52" stroke="#5AA6D4" stroke-width="1.8" opacity="0.9" stroke-dasharray="3 4"></path>
+      <path d="M116.1,172 Q60,150 29.6,122" stroke="#3A82B4" stroke-width="2.8"></path>
+      <path d="M123,165.6 Q95,120 79.2,75.7" stroke="#3A82B4" stroke-width="2.8"></path>
+      <path d="M136.5,165.4 Q165,120 177.2,74" stroke="#3A82B4" stroke-width="2.8"></path>
+      <path d="M144.1,172.5 Q200,150 232.5,125.6" stroke="#3A82B4" stroke-width="2.8"></path>
+      <circle cx="20.9" cy="117" r="10" stroke="#3A82B4" stroke-width="2.8"></circle>
+      <circle cx="74.8" cy="66.7" r="10" stroke="#3A82B4" stroke-width="2.8"></circle>
+      <circle cx="181.3" cy="64.9" r="10" stroke="#3A82B4" stroke-width="2.8"></circle>
+      <circle cx="241.3" cy="120.9" r="10" stroke="#3A82B4" stroke-width="2.8"></circle>
+      <circle cx="130" cy="180" r="16" stroke="#3A82B4" stroke-width="3"></circle>
+      <g stroke="#5AA6D4" stroke-width="2.4">
+        <path d="M-4,-4 L1,0 L-4,4" transform="translate(44.1,87.9) rotate(-43)"></path>
+        <path d="M-4,-4 L1,0 L-4,4" transform="translate(127.8,54) rotate(-2)"></path>
+        <path d="M-4,-4 L1,0 L-4,4" transform="translate(215.9,87.9) rotate(43)"></path>
+        <path d="M-4,-4 L1,0 L-4,4" transform="translate(188,52) rotate(184)"></path>
+      </g>
+    </g>
+    <circle cx="130" cy="180" r="4" fill="#5AA6D4"></circle>
+  </g>
+  <text x="212" y="98" font-size="42" font-weight="600" letter-spacing="-0.5" fill="#3A82B4" font-family="Roboto, &#39;Helvetica Neue&#39;, Arial, sans-serif">milestone<tspan fill="#5AA6D4" font-weight="400">-driver</tspan></text>
+  <text x="213" y="126" font-size="13" letter-spacing="1.5" fill="#57697A" font-family="&#39;Roboto Mono&#39;, ui-monospace, &#39;SFMono-Regular&#39;, Menlo, monospace">A MILESTONE SUITE PLUGIN</text>
+</svg>
