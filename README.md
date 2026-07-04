@@ -1,4 +1,6 @@
-# milestone-driver
+<p align="center">
+  <img src="assets/milestone-driver.svg" alt="milestone-driver — a milestone suite plugin" width="590">
+</p>
 
 Systematize the development process in the context of git flow.
 
@@ -7,6 +9,46 @@ milestone-driver is a Claude Code plugin. A milestone is the largest body of wor
 The point is quality. The bigger the ask of AI, the worse the quality is. By keeping every issue small and running it through the same controlled procedure, milestone-driver keeps quality in the forefront while letting large bodies of work be automated.
 
 UI issues stop for your visual sign-off. Anything risky, like a design gap or a one-way-door decision, parks with a label instead of guessing. Your release branch is never touched. That stays your call, behind your manual deploy.
+
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 900}} }%%
+flowchart TD
+    cfg(["reads your .milestone-config/ profile &amp; .project/ docs — written by milestone-bootstrapper"])
+
+    input[/"a milestone — or a single issue #"/]
+
+    subgraph loop [each issue — the same gates every time · repeats in dependency order]
+        direction TB
+        subgraph sgU [understand]
+            direction LR
+            u1["triage the design<br/>for gaps"] --> u2["find the root cause<br/>(or park — never guess)"]
+        end
+        subgraph sgB [build — test-first]
+            direction LR
+            b1["failing test first"] --> b2["subagent implements<br/>to green"] --> b3["review the diff"]
+        end
+        subgraph sgL [land]
+            direction LR
+            l1["PR to your<br/>integration branch"] --> l2["auto-merge on green CI<br/>UI issues wait for your eyes"]
+        end
+
+        sgU -->|root cause in hand| sgB
+        sgB -->|diff approved| sgL
+    end
+
+    cfg ~~~ input
+    input --> sgU
+    cfg <-.-|grounds every step| loop
+
+    style cfg fill:#DEEBF5,stroke:#3A82B4,color:#15212B
+    style input fill:#FFFFFF,stroke:#94A9B8,color:#33506B
+    style loop fill:#F5F9FC,stroke:#B9CFDF,color:#33506B
+    style sgU fill:#FFFFFF,stroke:#5AA6D4,color:#3A82B4
+    style sgB fill:#FFFFFF,stroke:#3A82B4,stroke-width:2px,color:#3A82B4
+    style sgL fill:#FFFFFF,stroke:#5AA6D4,color:#3A82B4
+    classDef action fill:#EDF4FA,stroke:#7FAECE,color:#15212B
+    class u1,u2,b1,b2,b3,l1,l2 action
+```
 
 ## What makes it different
 
