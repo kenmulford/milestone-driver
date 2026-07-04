@@ -3,6 +3,31 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.15.0 — Parent-issue fan-out (md-epic)
+
+**Theme:** A GitHub issue labeled `md-epic` can now anchor a feature that's too big for one milestone. List the milestones in the parent issue's body, in build order, and running `solve-issue` on that parent drives them one at a time. Running `solve-milestone` directly on one of those milestones now asks first whether you meant to build just that slice. This is entirely opt-in — driver-side support only, gated on a label, and off by default.
+
+### ✨ A parent issue can now anchor and drive a group of milestones
+
+| Issue | PR | What |
+|---|---|---|
+| #266 Add the md-epic-order block parser | #271 | Adds a deterministic parser (`scripts/parse-md-epic-order.{sh,ps1}`) for the ordered milestone list in a parent issue's body: it locates the fenced `md-epic-order` block, validates each `number:`/`title:` line, and reports the first malformed line by position. No `gh` calls, no network. |
+| #267 Recognize `--driven` and suppress the DB-hazard interview | #272 | `solve-milestone` now recognizes an internal `--driven` token, read the same way as `--worker` and `--async`. When present, the DB-hazard interview degrades straight to its non-interactive sequential path instead of prompting, since a driven run has no human watching to answer it. |
+| #268 Detect md-epic parent issues and fan out over their milestones | #273 | `solve-issue` now checks an issue's labels for `md-epic` before anything else. A parent issue takes a new path instead of building: it parses the ordered milestone list from its body, resolves each entry to a real milestone, and drives them one at a time via `solve-milestone --driven`, resuming already-completed milestones and parking the parent issue itself — not silently skipping — when the list is missing or malformed. |
+| #269 Add the human cherry-pick prompt for a directly-targeted milestone | #274 | When you run `solve-milestone` directly on a milestone that turns out to belong to an `md-epic` parent, it now asks first: build just this milestone, hand off to `solve-issue` on the parent to drive the whole feature in order, or pause. A driven run (`--driven` present) skips this prompt entirely. |
+| #270 Document md-epic in README, architecture, and this changelog | #275 | This entry, plus a `## Parent issues (md-epic)` section in the README and a full mechanism writeup in `docs/architecture.md`. |
+
+### Consumer notes (upgrading from v1.14.0)
+
+- **Entirely opt-in.** Nothing changes unless you label a GitHub issue `md-epic`. No `md-epic` label anywhere in your repo means `solve-issue` and `solve-milestone` behave exactly as they did in v1.14.0.
+- **New internal token `--driven`.** Like `--worker` and `--async`, it's recognized by string presence and never typed by a human — the parent-issue fan-out loop supplies it when it drives a milestone on its own behalf.
+- **No schema changes** to `.milestone-config/driver.json` — this release adds no new profile key.
+- **The other half ships later.** Creating a parent issue — applying the `md-epic` label, writing the ordered milestone list, linking each milestone's issues as GitHub sub-issues — is the feeder's and bootstrapper's job, specced separately and not yet built. Until then, a parent issue must be hand-authored to the contract documented in `docs/architecture.md`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.14.0 — Parallel by default
 
 **Theme:** `solve-milestone` now builds a milestone's mutually-independent issues in parallel **by default** — no flag to remember. A run-start barrier check quietly drops the run back to sequential only when something makes parallel unsafe (you've opted out, the session is missing a permission the background workers need, or a test-database question hasn't been answered yet). A new key lets you tune how many issues build at once, and a one-time notice tells existing users the default changed.
