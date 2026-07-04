@@ -107,6 +107,36 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
 
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
    **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
+   **3.6** **Cherry-pick check for a human-typed milestone under a parent group (fires only when `--driven` is absent).** A milestone can be one ordered slice of a larger feature spanning several milestones, grouped under a parent GitHub issue that carries the `md-epic` label (recorded in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). When a human types `solve-milestone <name>` directly, this step warns them before they build only that slice. The `--driven` token (defined in step 5 below; string-presence recognition for this token added in #267) is never typed by a human — an automated fan-out loop supplies it when it dispatches this skill on its own behalf. **When `--driven` is present, this step does not execute at all** — not the first-issue query, not the parent lookup — so a driven run can never re-detect its own dispatching parent and re-prompt. This is what keeps the *driven* path true to this skill's own frontmatter contract, "never waits on a human... only a systemic failure ends the run early" — like the purely-numeric-title halt in step 3 above, this new prompt is a human-typed-invocation-only exception to that contract and never fires under `--driven`.
+
+   When `--driven` is absent:
+
+      a. **Find the resolved milestone's first issue** — the numerically lowest issue number currently assigned to it, `--state all` so a fully-built milestone is still inspectable:
+         ```bash
+         gh issue list --milestone "<resolved-title>" --state all --json number --jq 'sort_by(.number) | .[0].number'
+         ```
+         A milestone with zero issues yields nothing here — this step is then a no-op; fall through to step 4 below.
+      b. **Read that issue's parent and check for `md-epic` in the same call:**
+         ```bash
+         gh api repos/{owner}/{repo}/issues/<first-issue>/parent
+         ```
+         A 404 response means no parent. Any other successful response already includes `.labels` — check it for an exact match against `md-epic` (mirroring the live-label check used in `### 4. Loop over issues in dependency-graph order`'s condition (b) below) without a second call.
+      c. **No parent, or a parent without `md-epic`** → today's behavior, unchanged: fall through to step 4 below, no prompt.
+      d. **A parent carrying `md-epic`** → prompt the human with exactly three options:
+
+         ```text
+         🔴 Milestone "<resolved-title>" belongs to parent issue #<parent-number>, which spans
+            multiple milestones in a defined build order. Building just this milestone builds
+            only one slice of that feature.
+            [Build just this milestone] · [Hand off to solve-issue #<parent-number> — drive the
+            whole parent in build order] · [Pause for clarification]
+         ```
+
+         - **Build just this milestone** → fall through to today's step 4 / step 5 / Phase 0 sequence exactly as the no-prompt branch above does — this milestone builds autonomously, same as today.
+         - **Hand off** → invoke `/milestone-driver:solve-issue <parent-number>` directly (the same skill-invokes-skill pattern this skill already uses to invoke `/milestone-driver:triage`, Phase 0 below) and **stop this run's Before-starting sequence here** — no clean-tree check, no execution-mode resolution, no Phase 0 triage for this milestone under this invocation.
+         - **Pause for clarification** → halt immediately. No build, no hand-off, no state change.
+      e. **Out-of-order safety is reactive only.** If the human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier, not-yet-built milestone in the same parent group, that dependency is not caught proactively — triage's `dependencyGraph` is scoped to this one milestone's own issues and has no edge into a different milestone. It surfaces reactively, through whatever build-time signal it naturally trips (the root-cause gate, a red suite, or an implementer-declared architecture conflict) — not through the same-milestone "held by unmerged upstream #N" proactive comment in `### 4. Loop over issues in dependency-graph order` below, which has no cross-milestone upstream to name. Expect a less specific park reason than that comment. No new mechanism.
+      f. **A non-404 failure of the `.../parent` call** (auth, 5xx, network) is a systemic condition, not "no parent" — surface it and halt per the existing Autonomy contract below, the same as any other systemic failure.
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
 5. **Resolve execution mode (the LAST Before-starting step).** Runs **after** the clean-tree check (step 4) on purpose: the DB-hazard interview's single profile write (below) is then the one intentional uncommitted change, with no clean-tree conflict. Resolve the run's execution mode **once**, here, and hold the result for the whole run — every downstream reference reads this resolved decision; nothing re-decides mid-loop. Evaluate the barrier cascade **top-down; first match wins**:
 
