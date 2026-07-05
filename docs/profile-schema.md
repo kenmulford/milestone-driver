@@ -131,6 +131,8 @@ The implementer also uses any docs MCP available in the environment (e.g. Micros
 
 **Note on `visualCapture`.** `visualCapture` is the dedicated render-capability seam for the visual gate — the object-valued, optional render-capability declaration the gate note above points at. It is shaped on `e2eEnv` (an object-valued optional key) and mirrors the present/absent + sparse-optional-write conventions of `integrations.trello`; note that a *missing required* sub-key disables the whole block (unlike trello's optional-list override). With that one difference flagged:
 
+This block is a web/HTTP-server-boot + URL-polling shape (`serverCmd` boots a server, `readyUrl` polls it); native UI stacks (MAUI, WPF, and similar) have no server or URL to poll and should omit `visualCapture` entirely, relying on the documented behavior above — "the visual gate degrades to PR-open-for-human-test".
+
 - **Absent block → byte-unchanged.** When `visualCapture` is absent, behavior is identical to today's no-`visualCapture` profile — no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
 - **Present but missing a required sub-key → two layers, two behaviors.** A `visualCapture` node present but missing `serverCmd`, `readyUrl`, or `signInPath` is handled differently by the two layers that touch it, and it matters which:
   - **The visual-capture flow/gate (solve-issue step 7, built by #210)** treats the incomplete block as *not configured* and degrades to the PR-open-for-human-test note — the run never fails and a UI issue never auto-merges, mirroring the `integrations.trello`-without-`boardId` graceful-degrade rule.

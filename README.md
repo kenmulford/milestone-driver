@@ -116,7 +116,7 @@ The full architecture, the gating model, the label taxonomy, and the mechanical 
 
 The loop builds the mutually-independent issues within a Wave in parallel by default, each in its own git worktree, then integrates them through one serial verified merge tail. Set `parallel: false` in your profile to opt out and build one issue at a time; and when your unit tests share something like a test database across workers, the driver asks a one-time DB-isolation question on the first run and records your answer. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each) or per wave (one branch, one PR, and one CI run for the whole Wave). The trade-off is speed and CI cost against failure isolation: parallel and wave granularity finish wider work faster, at the cost of a worktree fleet and coarser isolation when something goes wrong. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to configure them.
 
-## Parent issues (md-epic)
+## Parent issues (md-epic — short for: this issue is really a multi-milestone feature)
 
 Some features are too big for one milestone. Label a GitHub issue `md-epic`, list its milestones in build order in the issue body, and it becomes a parent that anchors the whole feature: run `solve-issue` on the parent issue and the driver builds each of its milestones in that order, one at a time, picking up where a prior run left off. Point `solve-milestone` at one of those milestones directly instead, and it asks you first whether you want to build just that slice, hand off to the parent to drive the whole feature in order, or pause — so you never build one piece of an ordered feature without realizing it belongs to a bigger one. This is opt-in: with no `md-epic` label anywhere, milestones and issues build exactly as they always have. See [docs/architecture.md](docs/architecture.md) for the model.
 
@@ -135,7 +135,7 @@ If you also want a read-only second opinion once an issue is built, [milestone-c
 
 ## Status
 
-v1.9.0, self-hosted. milestone-driver drives its own releases through its committed `.milestone-config/driver.json` profile (with a transitional root `milestone-driver.json` fallback). First external-consumer wiring is in progress.
+Self-hosted — see [CHANGELOG.md](CHANGELOG.md) for the current version and per-release history. milestone-driver drives its own releases through its committed `.milestone-config/driver.json` profile (with a transitional root `milestone-driver.json` fallback). First external-consumer wiring is in progress.
 
 ## Docs
 
