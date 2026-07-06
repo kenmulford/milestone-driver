@@ -27,6 +27,8 @@ jobs:
         run: bash tests/render-daemon.test.sh
       - name: check-size-budgets (bash)
         run: bash tests/check-size-budgets.test.sh
+      - name: code-review-gate (bash)
+        run: bash tests/code-review-gate.test.sh
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -44,3 +46,64 @@ jobs:
         run: pwsh tests/render-daemon.test.ps1
       - name: check-size-budgets (pwsh)
         run: pwsh tests/check-size-budgets.test.ps1
+      - name: code-review-gate (pwsh)
+        run: pwsh tests/code-review-gate.test.ps1
+
+  hook-smoke-macos:
+    name: hook smoke (macOS /bin/bash 3.2)
+    # macOS runners still ship /bin/bash 3.2 (Apple never shipped bash 4+ over
+    # GPLv3) — the two jobs above run bash on ubuntu-latest's modern bash, so
+    # neither ever exercises the actual bash-3.2 execution venue every hook
+    # ships for. This job is that venue: it runs all six hooks directly (not
+    # through the tests/*.test.sh golden-matrix runners) under /bin/bash with
+    # representative stdin fixtures, so a `${var,,}`-class construct that
+    # crashes 3.2 — a hook that crashes is a hook that silently ALLOWS — is
+    # caught here, permanently, on every PR (issue #289 decision).
+    runs-on: macos-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+      - name: force-subagent — allow path (docs/ is always exempt)
+        run: |
+          set +e
+          out=$(printf '%s' '{"tool_input":{"file_path":"docs/smoke.md"}}' | /bin/bash hooks/force-subagent.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: no-bom — allow path (no BOM)
+        run: |
+          set +e
+          out=$(printf '%s' '{"tool_name":"Write","tool_input":{"content":"hello"}}' | /bin/bash hooks/no-bom.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: tests-green — allow path (no unitTestCmd configured in this repo)
+        run: |
+          set +e
+          out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"git commit -m x"}, cwd:$cwd}' | /bin/bash hooks/tests-green.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: no-push — allow path (non-protected branch)
+        run: |
+          set +e
+          out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"git push origin feature-x"}, cwd:$cwd}' | /bin/bash hooks/no-push.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: no-pr-to-protected — allow path (--base develop, not main)
+        run: |
+          set +e
+          out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"gh pr create --base develop --title x"}, cwd:$cwd}' | /bin/bash hooks/no-pr-to-protected.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: code-review-gate — happy path (heading present)
+        run: |
+          set +e
+          cmd='gh pr create --base develop --body "## Code Review
+
+          LGTM"'
+          out=$(jq -n --arg cmd "$cmd" --arg cwd "$PWD" '{tool_input:{command:$cmd}, cwd:$cwd}' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: code-review-gate — block path (heading missing)
+        run: |
+          set +e
+          cmd='gh pr create --base develop --body "no heading here"'
+          out=$(jq -n --arg cmd "$cmd" --arg cwd "$PWD" '{tool_input:{command:$cmd}, cwd:$cwd}' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
+          [ "$rc" -eq 2 ] || { echo "FAIL rc=$rc (want 2) out=$out"; exit 1; }
+      - name: code-review-gate — garbage stdin fails open
+        run: |
+          set +e
+          out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
