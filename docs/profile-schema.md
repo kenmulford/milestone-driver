@@ -279,6 +279,7 @@ These three keys satisfy the consumer-driven rule above with a real consumer, no
 | `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `sourceGlobs`; see stamp-skip note below |
 | `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
 | `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
+| `code-review-gate` (PreToolUse `Bash(gh pr create *)` / `Bash(gh pr merge *)`) | `protectedBranch` (exempts a command targeting it) |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the
 rare case a human operator must override it deliberately.
@@ -296,4 +297,4 @@ invalidates the skip because the branch is part of the key. The key is the stage
 (index) tree, so the skip means the content being committed is unchanged since it last
 passed; unstaged working-tree edits are not re-validated by the skip.
 
-> **Enforcement model for `/code-review`:** Review-before-commit is enforced by **audit trail, not a hook**. The plugin ships no PreToolUse hook for code review (see `hooks/hooks.json` — the shipped gates are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`; none reviews code). Enforcement is twofold: (1) `solve-issue` treats omission as a **park trigger** — it comments the reason on the issue, applies the `blocked` label, and returns (the milestone loop continues); the omission is never silently accepted — and (2) the PR body requires a mandatory `## Code Review` section whose absence is a visible defect on PR review. Consumers should inspect the Code Review section as part of their release checklist before approving the `integrationBranch` → `protectedBranch` merge.
+> **Enforcement model for `/code-review`:** Review-before-commit is enforced by **audit trail plus a mechanical gate**. `solve-issue` treats an omitted `/code-review` run as a **park trigger** — it comments the reason on the issue, applies the `blocked` label, and returns (the milestone loop continues); the omission is never silently accepted. The PR body requires a mandatory `## Code Review` section, and the `code-review-gate` hook (see `hooks/hooks.json` — the shipped gates are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`) mechanically blocks `gh pr create`/`gh pr merge` when that section is missing from the PR body — a command targeting `protectedBranch` is exempt, so Ken's manual release-PR flow is never gated. Consumers should still inspect the Code Review section as part of their release checklist before approving the `integrationBranch` → `protectedBranch` merge.

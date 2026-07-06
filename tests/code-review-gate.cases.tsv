@@ -1,0 +1,23 @@
+# name	verb	command	bodyfile_content	gh_mode	gh_view_body	gh_view_base	protected	disable_env	want_exit	want_stderr
+create_happy_inline	create	gh pr create --base develop --title "x" --body "## Code Review\n\nLGTM" --head foo					main		0	
+create_happy_bodyfile	create	gh pr create --base develop -F __BODYFILE_REL__	## Code Review\n\nlooks good				main		0	
+create_no_body_at_all	create	gh pr create --base develop --title "x"					main		2	milestone-driver: gh pr create has no --body/--body-file argument, so the required '## Code Review' section can't be verified. Add a PR body containing that section, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+create_missing_heading_inline	create	gh pr create --base develop --body "Just some notes, no heading here."					main		2	milestone-driver: the PR body is missing the required '## Code Review' section. Add one before opening the PR, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+create_missing_heading_bodyfile	create	gh pr create --base develop -F __BODYFILE_ABS__	no heading in this file				main		2	milestone-driver: the PR body is missing the required '## Code Review' section. Add one before opening the PR, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+create_disabled_override	create	gh pr create --base develop --title "x"					main	1	0	
+create_exempt_base_protected	create	gh pr create --base main --title "x"					main		0	
+create_heading_not_at_start	create	gh pr create --base develop --body "Summary of changes.\n\n## Code Review\n\nAll good, ship it."					main		0	
+create_bodyfile_unreadable	create	gh pr create --base develop -F /nonexistent/path/does-not-exist.md					main		0	
+create_other_passthrough	other	gh pr list --state open					main		0	
+create_escaped_quote_before_heading	create	gh pr create --base develop --body "Note: the error said \"file not found\" earlier.\n\n## Code Review\n\nLGTM"					main		0	
+create_heredoc_pattern	create	gh pr create --base develop --title "docs: release notes" --body "$(cat <<'EOF'\n## Summary\n\nSome notes with "an inline quoted phrase" here.\n\n## Code Review\n\n- ok\nEOF\n)"					main		0	
+create_heading_reviewer_suffix_blocks	create	gh pr create --base develop --body "## Code Reviewer says LGTM"					main		2	milestone-driver: the PR body is missing the required '## Code Review' section. Add one before opening the PR, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+merge_happy_bare	merge	gh pr merge --squash --delete-branch		OK	## Code Review\n\nAll good	develop	main		0	
+merge_happy_numbered	merge	gh pr merge 42 --squash --delete-branch		OK	## Code Review\n\ngreat	develop	main		0	
+merge_empty_fetched_body	merge	gh pr merge --squash --delete-branch		OK		develop	main		2	milestone-driver: the PR's body (fetched via gh pr view) is empty, so the required '## Code Review' section can't be verified. Add the section to the PR body, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+merge_missing_heading	merge	gh pr merge --squash --delete-branch		OK	no heading here at all	develop	main		2	milestone-driver: the PR body is missing the required '## Code Review' section. Add one before merging the PR, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+merge_heading_reviewer_suffix_blocks	merge	gh pr merge --squash --delete-branch		OK	## Code Reviewer says LGTM	develop	main		2	milestone-driver: the PR body is missing the required '## Code Review' section. Add one before merging the PR, or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override.
+merge_disabled_override	merge	gh pr merge --squash --delete-branch		OK	no heading (would otherwise block)	develop	main	1	0	
+merge_exempt_protected_base	merge	gh pr merge --squash --delete-branch		OK		main	main		0	
+merge_gh_view_error_failopen	merge	gh pr merge --squash --delete-branch		ERROR			main		0	
+merge_gh_unavailable_failopen	merge	gh pr merge --squash --delete-branch		NOGH			main		0	

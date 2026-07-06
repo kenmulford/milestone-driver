@@ -183,3 +183,17 @@ Examples:
 |      | whether your harness is isolated per worker, then records your
 |      | answer as "parallel" so it never asks again.
 ```
+
+## code-review-gate
+
+- **Marker:** `.milestone-config/code-review-gate-notice`, created via `mkdir -p .milestone-config && touch .milestone-config/code-review-gate-notice`.
+- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists; per-clone, gitignored, fires once). **Legacy fallback:** none — born on the new path, like visualcapture/parallel-default.
+
+**Text:**
+
+```text
+▶ New in 1.15.1 — mechanical code-review gate (one-time notice)
+
+| What | Blocks `gh pr create`/`gh pr merge` when the PR body lacks the required '## Code Review' section (protectedBranch is exempt).
+| Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1; missing jq/gh, or a failed `gh pr view`, fail open.
+```

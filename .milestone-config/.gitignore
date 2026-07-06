@@ -6,6 +6,7 @@ preflight-notice
 trello-notice
 visualcapture-notice
 parallel-default-notice
+code-review-gate-notice
 triage-cache.json
 tests-stamp
 .runtime/
