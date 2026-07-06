@@ -3,6 +3,15 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.15.1 — audit remediation: progressive disclosure, wave checkpoint, mechanical gates
+
+Patch release — the audit-remediation milestone (15 issues, all merged CI-green).
+
+- **Progressive disclosure**: solve-issue's worker-mode (#282), async-mode (#283), md-epic fan-out (#284) and solve-milestone's parallel-waves (#285) extracted into sibling reference docs loaded only when triggered; agent briefs trimmed (#286, #287, #288)
+- **Reliability**: unified act→verify→retry gate loop (#290); `wave-state.json` checkpoint with trust-but-verify freshness for resumed runs (#291); triage stale-edge dedup — M fetches, not N×M (#293)
+- **Mechanical enforcement**: `code-review-gate` hook — PRs must carry their `## Code Review` section (bash+pwsh twins, 22-case golden matrix) plus a macos-latest CI job running all six hooks under real /bin/bash 3.2 (#289); per-file ratcheted size budgets in CI, one-way tightening (#295)
+- **Truth-ups**: one-time notices consolidated into `skills/notices.md` (#292); honesty pass on stale claims (#294); SendMessage/mid-run-redirect claims corrected + background-wait pattern documented (#281)
+
 ## v1.15.0 — Parent-issue fan-out (md-epic)
 
 **Theme:** A GitHub issue labeled `md-epic` can now anchor a feature that's too big for one milestone. List the milestones in the parent issue's body, in build order, and running `solve-issue` on that parent drives them one at a time. Running `solve-milestone` directly on one of those milestones now asks first whether you meant to build just that slice. This is entirely opt-in — driver-side support only, gated on a label, and off by default.
