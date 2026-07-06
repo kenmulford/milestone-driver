@@ -7,11 +7,21 @@ description: This skill should be used when the user invokes "/milestone-driver:
 
 Run exactly one GitHub issue through a fixed, gated pipeline. The main thread acts only as an **orchestrator**: read, decide, dispatch, review, integrate. It **never authors application or test code itself** — the `force-subagent` hook enforces this mechanically, so honor it by design.
 
-Orchestrate the `superpowers:*` skills for the inner loop rather than reimplementing their discipline. **Before anything else, check `#n`'s labels for `md-epic`: a parent issue takes `### Parent path` (see `## Parent-issue detection` near the end of this file) instead of the pipeline below.**
+Orchestrate the `superpowers:*` skills for the inner loop rather than reimplementing their discipline. **Before anything else, check `#n`'s labels for `md-epic`: a parent issue takes `### Parent path` (see `skills/solve-issue/md-epic-fanout.md`) instead of the pipeline below.**
 
 ## Before starting
 
-1. Read the profile (see the plugin's `docs/profile-schema.md`). **Resolution (transitional):** read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json` — this transitional READ covers the gap before any migration move lands. **Migration is deferred to step 3.5** (after the clean-tree check and the feature-branch cut), so the actual `git mv` rides the feature branch's changes and does **not** trip the clean-tree precondition (step 2); do **not** perform the move here. (When both exist, `.milestone-config/driver.json` wins for the read.) If neither file exists, or any of `integrationBranch`, `protectedBranch`, or `sourceGlobs` is missing, invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. `implementerAgent` defaults to `milestone-driver:implementer` when omitted. The keys `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, and `projectDocs` (defaults to `.project/` when absent) are optional; their steps are skipped cleanly when absent.
+1. Read the profile (see the plugin's `docs/profile-schema.md`).
+
+   | Profile-resolution decision point | Behavior |
+   |---|---|
+   | Resolution order (transitional) | Read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json` — this transitional READ covers the gap before any migration move lands. |
+   | Both files exist | `.milestone-config/driver.json` wins for the read. |
+   | Migration (`git mv`) | Deferred to step 3.5 (after the clean-tree check and the feature-branch cut), so the actual `git mv` rides the feature branch's changes and does **not** trip the clean-tree precondition (step 2). Do **not** perform the move here. |
+   | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. |
+   | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
+   | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | Optional; `projectDocs` defaults to `.project/` when absent. Their steps are skipped cleanly when absent. |
+
    1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names while leaving the config tracked. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below). If it already exists, do nothing. This rides the feature branch and is committed with the issue work like any other repo change; it self-heals consumer repos that predate this seam. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / triage, feeder setup / plan. -->
@@ -24,47 +34,14 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       trello-notice
       visualcapture-notice
       parallel-default-notice
+      code-review-gate-notice
       triage-cache.json
       tests-stamp
       .runtime/
       worktrees/
       ```
 
-   1.1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** **neither** the new marker `.milestone-config/preflight-notice` **nor** the legacy root marker `.milestone-driver-preflight-notice` exists (transitional read — new path first, legacy root as fallback), print the notice below verbatim, then create the new marker (`mkdir -p .milestone-config && touch .milestone-config/preflight-notice`) and **remove the stale legacy root marker** `.milestone-driver-preflight-notice` if present. Stay **silent** if `preflightCmd` is set **or** either marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-config/tests-stamp`).
-
-      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-      ```text
-      ▶ New in 1.4.0 — optional preflight check (one-time notice)
-
-      | What | Tell milestone-driver the command your CI uses for FAST checks
-      |      | (lint, format, static analysis, security scan).
-      | Why  | It runs that locally before opening the PR, so those checks are
-      |      | caught and fixed up front instead of turning your PR red later.
-      | How  | Add "preflightCmd" to .milestone-config/driver.json. Optional — skip
-      |      | it and nothing changes.
-
-      Examples:
-      | Stack        | preflightCmd                                   |
-      | Ruby/Rails   | bundle exec standardrb && bundle exec brakeman -q |
-      | Node/TS      | npm run lint                                    |
-      | Any w/ pre-commit | pre-commit run --all-files                 |
-      | Makefile     | make lint                                       |
-      ```
-
-   1.1.2. **First-run visual-capture notice (one-time).** Immediately after the preflight notice (step 1.1.1): if `visualCapture` is **absent** from the profile **and** `uiSurfaceGlobs` is **present** in the profile **and** the marker `.milestone-config/visualcapture-notice` is **absent**, print the notice below verbatim, then create the marker (`mkdir -p .milestone-config && touch .milestone-config/visualcapture-notice`). Stay **silent** if any condition fails — `visualCapture` present (the feature is already configured), `uiSurfaceGlobs` absent (the repo has no UI surface to capture), or the marker already exists. Unlike the preflight/Trello notices, this marker is **born on the new `.milestone-config/` path**, so the gate checks **only** the new-path marker — there is **no** legacy-root fallback read and **no** stale-legacy-removal step. The marker is per-clone and gitignored, so the notice shows at most once per clone (same lifecycle as `.milestone-config/preflight-notice`).
-
-      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-      ```text
-      ▶ New in 1.12.0 — optional visual capture (one-time notice)
-
-      | What | Capture rendered screenshots of your UI surfaces during the
-      |      | visual-review gate.
-      | Why  | The gate can then show the real rendered screenshots of your
-      |      | change instead of degrading to PR-open-for-human-test.
-      | How  | Run `/milestone-driver:setup` and choose the Visual Capture tier,
-      |      | or add a `visualCapture` block to .milestone-config/driver.json
-      |      | manually. Optional — skip and nothing changes.
-      ```
+   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). One expected exception is not a clean-tree violation and must **not** be stashed or discarded: if the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected; skip the clean-tree enforcement and proceed to step 3 immediately. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):
@@ -103,7 +80,7 @@ On the "no PR, branch/uncommitted-changes" paths, commit **only if there are unc
 
 **Blocker check (both branches).** If the result indicates a Blocker for this issue → **park**: triage has already posted the `🔴 Triage` comment on the issue; VERIFY the comment exists (`gh issue view <n> --comments`) and post it if missing (idempotent); apply the recommended label from `issueStates["<n>"].label` — `needs design` for a design gap, `needs decision` for a non-design decision — via the apply-time helper (idempotent `gh label create --force` then `gh issue edit --add-label`); leave the issue open; do **not** proceed to step 1. Return to the caller — the milestone loop continues with independent, clean issues. All-clear or Advisory-only → proceed to step 1.
 
-The safety floor is unconditional: triage step 0 always runs (via Branch A explicit-supply or Branch B fresh invocation) regardless of build profile. Light profile relaxes ceremony only — it never skips triage. (A parent issue carrying `md-epic` never enters this pipeline — see `## Parent-issue detection`.)
+The safety floor is unconditional: triage step 0 always runs (via Branch A explicit-supply or Branch B fresh invocation) regardless of build profile. Light profile relaxes ceremony only — it never skips triage. (A parent issue carrying `md-epic` never enters this pipeline — see `skills/solve-issue/md-epic-fanout.md`.)
 
 ### 1. Read the issue
 Run `gh issue view <n>` with comments. Restate the acceptance criteria plainly before continuing.
@@ -121,12 +98,12 @@ When found, write an **architecture-aware plan** with full awareness of the code
 
 Read `issueStates["<n>"].risk` from the step-0 triage result (held Phase 0 result in a milestone run, or fresh single-issue return in a standalone run). That value is either `"light"` or `"heavy"` (default `"heavy"` when absent or inconclusive). This single read governs the entire build profile for this issue:
 
-| Profile | Implementer brief | E2E gate (step 5) | `/code-review` effort (step 6.1) |
+| Profile | Implementer brief | E2E gate (step 4, E2E row) | `/code-review` effort (step 6.1) |
 |---|---|---|---|
 | **Light** | Include a `risk:light` token in the brief | Skip when the issue touches no UI surface | `low` or `medium` |
-| **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 5 (UI surface + e2eTestCmd) | `high` or `xhigh` |
+| **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 4's E2E row (UI surface + e2eTestCmd) | `high` or `xhigh` |
 
-The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run regardless of profile. Light relaxes ceremony only — it never skips verification. (A parent issue carrying `md-epic` never enters this pipeline — see `## Parent-issue detection`.)
+The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run regardless of profile. Light relaxes ceremony only — it never skips verification. (A parent issue carrying `md-epic` never enters this pipeline — see `skills/solve-issue/md-epic-fanout.md`.)
 
 ### Resolve cited project-docs sections (once, before dispatch)
 
@@ -156,28 +133,30 @@ After verifying the report, apply the following declaration gates:
 
 **🔴 GATE — implementer STOPPED:** If the implementer returns `STATUS: STOPPED` (architecture conflict, scope overrun, out-of-scope edit, or missing/ambiguous brief), **park** the issue: post a comment opening with `🔴 Parked — ` and describing the conflict (`gh issue comment <n>`), apply the appropriate label (`needs design` for a design/spec conflict, `needs decision` for an architecture call, `blocked` for an otherwise-unresolvable gate) + `in progress` if the branch has commits, preserve the branch, and return. The milestone loop continues. (Architecture stays LOCKED — a plan proven wrong is a park, not a pivot.) `PAUSED-FOR-APPROVAL` from the implementer indicates a new-dependency case and routes to the new-dependency gate above.
 
-### 4. Unit suite → green
-If `unitTestCmd` is defined in the profile: run it and invoke `superpowers:verification-before-completion`. Report real output, never assertion.
+### 4. Verification gates
 
-If `unitTestCmd` is absent: skip this gate. The implementer is responsible for verifying behavior by the best available means and reporting it; the orchestrator accepts that report in lieu of a test run.
+Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) → park** — closing a drift where only the unit gate invoked `superpowers:verification-before-completion`. The table states each gate's applicability, `act`, cap, and park/escape policy; the shared loop below it is the one procedure the three invoke, each at its existing pipeline position. `/code-review` is listed for visibility (it is a gate too, always-on — hence no trailing `?` in its row, unlike the other three) but keeps its own distinct procedure in step 6.1: its in-scope-fix vs park-trigger classification doesn't fit the generic "re-run the same check" shape, so it is **not** iterated by this shared loop.
 
-**🔴 GATE — tests (when `unitTestCmd` is defined):** A red suite blocks progress. Re-dispatch the implementer with the failure, or **park** if the failure reveals the plan is wrong (see Autonomy).
+| Gate | Applicability | `act` | Cap | Park / escape policy |
+|---|---|---|---|---|
+| **Unit?** | `unitTestCmd` defined | Run `unitTestCmd`. | 2 re-dispatches | Park `blocked` (or `needs design` if the plan is wrong). |
+| **E2E?** | Issue touches a UI surface **and** `e2eTestCmd` defined | Bug: run a targeted subset that proves the fix. Feature: implementer authors new end-to-end (E2E) tests covering reasonable user stories, then runs them. Both against the profile's `e2eEnv`. | 2 fix attempts | **Distinct — not homogenized:** verified by other means (a DB assertion + an attached screenshot confirming the feature works) → quarantine the flaky test, proceed, log the quarantine in the PR's Code Review section, apply `judgment call`. Not otherwise verified → park `blocked`. |
+| **`/code-review`** | Unconditional — always runs, no applicability flag | See step 6.1 — its own in-scope-fix / park-trigger classification | 2 review→fix cycles (step 6.1's own cap) | Step 6.1's own park-trigger classification (architecture deviation, shared-contract change, new dependency, out-of-scope edit, unmetable gate, material ambiguity) |
+| **Preflight?** | `preflightCmd` defined (including the `"github-ci"` sentinel) | Run the literal `preflightCmd`; or, under `"github-ci"`, discover + run each CI-derived `STEP` (see below). | 2 re-dispatches | Park `blocked` (or `needs design` if the plan is wrong). |
 
-**Cap: at most 2 implementer re-dispatches on a red suite.** If the suite is still red after the 2nd re-dispatch, **park** the issue: comment on the issue opening with `🔴 Parked — ` and describing the failure and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A suite that won't go green usually means the plan is wrong (see Autonomy).
+**Preflight's `"github-ci"` sentinel mode.** When `preflightCmd` is the reserved sentinel `"github-ci"` (rather than a literal command), do not run it as a shell command. Instead invoke the discovery component `scripts/ci-preflight-steps.{sh,ps1}` (pwsh on Windows, bash elsewhere) in the repo root — pass the optional `ciWorkflow` profile value as its 2nd argument to narrow to one workflow. It reads the local `.github/workflows/*.yml` (never the network) and emits an ordered, TAB-separated record stream: `STEP <wf> <job> <coe> <wdir> <cmd>` (a runnable step; `coe=1` = `continue-on-error`; `wdir` = `working-directory`, `""` = repo root; `cmd` has newlines encoded as `\n`), `SKIP`/`CHECK`/`WARN` lines, and a final `SUMMARY mirrored=N skipped=M`. Run each `STEP` in declaration order, one at a time:
+- **Surface the coverage summary loudly** in the run output — the `SUMMARY`, the mirrored `CHECK` names, and the `SKIP` reasons ("mirrored N checks, skipped M"). Any `WARN` line — especially the **silent-under-run** warning (a PR-gating workflow that produced zero runnable steps because its real checks live behind a `uses:` reusable/composite workflow) — must be surfaced as a **visible warning, not treated as a clean pass**.
+- **For each `STEP`:** apply the **tool-presence guard** — first **decode the `cmd`'s `\n`-encoded newlines back to real newlines** (the record stores a multi-line `run:` with literal two-character `\n` separators), **then** take the leading tool as the first token of the first command in the decoded `run:` script (split on newline / `&&` / `;` / `|`; best-effort); if that tool is absent from `PATH`, **skip + log** "couldn't run locally (`<tool>` absent)". Otherwise run the command in `wdir` (repo root when empty). A non-zero exit is a **real failure** and feeds the shared loop below — **except** a `coe=1` (`continue-on-error`) step, whose failure is logged but **never** counts as a real failure (never triggers a park).
+- A parse error or no workflows → the component emits an empty `STEP` list with a `WARN` reason; the gate then **no-ops cleanly** (same as an absent `preflightCmd`), never a hard crash.
 
-### 5. E2E pre-merge gate
-Apply only when the change touches a UI surface and the profile defines `e2eTestCmd`:
-- **Bug:** run a targeted subset that proves the fix.
-- **Feature:** have the implementer author new end-to-end (E2E) tests covering reasonable user stories, then run them.
+**🔴 GATE — shared loop (unit, E2E, preflight only; `/code-review` keeps its own loop in step 6.1):**
 
-Use the profile's `e2eEnv` configuration. Skip this step only when the issue touches no UI.
+1. **Act.** Run the gate's `act` per the table row. Skip the gate cleanly, no error, when its applicability condition is not met (`unitTestCmd` absent; `e2eTestCmd` absent or no UI surface touched; `preflightCmd` absent) — the same absent-skip convention used across the profile.
+2. **Verify.** Invoke `superpowers:verification-before-completion` and report real output, never assertion — uniformly for all three gates (this is the drift this section closes: previously only the unit gate did this).
+3. **Retry.** A failing gate re-dispatches the implementer with the failure — or **parks directly** if the failure reveals the plan is wrong (see Autonomy). A source-changing preflight fix also re-runs `unitTestCmd` if defined and re-runs `/code-review` (honoring step 6.1's "fresh review is the last action before commit" rule). **Cap: at most 2 re-dispatches/fix attempts, tracked per gate — never a shared/global budget across gates.**
+4. **Park.** If the gate is still failing after its 2nd retry, apply that gate's park/escape policy from the table above: comment on the issue opening with `🔴 Parked — ` describing what failed and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. (E2E's escape policy is the one exception to this generic park shape — see its table row: "verified by other means" quarantines and proceeds instead of parking.) A gate that won't converge usually means the plan is wrong (see Autonomy).
 
-**Cap: at most 2 E2E fix attempts.** If the E2E suite still fails after the 2nd fix, apply the following escape policy:
-
-- **Verified by other means** (a DB assertion + an attached screenshot confirming the feature works): **quarantine** the flaky test, proceed, and log the quarantine in the PR's Code Review section + apply a `judgment call` label. Stack-specific E2E environment fixes stay consumer-side per the profile / `e2eEnv` — the engine adds only this policy.
-- **Not otherwise verified**: **park** with `blocked` — comment on the issue opening with `🔴 Parked — ` and documenting the flake and what is unverified, preserve the branch, apply the label (+ `in progress` if the branch has commits), and return. The milestone loop continues.
-
-A non-converging E2E gate usually means the plan is wrong (see Autonomy).
+**Call sites are unchanged.** Unit and E2E run back-to-back immediately after the implementer dispatch (step 3) — exactly where they ran before this merge; retiring the `### 5.` heading only folds its content up into this step, it does not reorder anything. Preflight's call site does not move either — it still fires as the concluding action of step 6.1, after the `/code-review` loop converges, before version bump/commit (see step 6.1) — that positioning, not a numbered sibling step, is what keeps the `6.1 … 6.9` ordinals (and their cross-references) fixed.
 
 ### 6. Review → integrate → close
 
@@ -202,14 +181,7 @@ A non-converging E2E gate usually means the plan is wrong (see Autonomy).
 
    **Cap: at most 2 review→fix cycles.** If `/code-review` still returns in-scope findings after the 2nd fix, **park** the issue: comment opening with `🔴 Parked — ` and the current diff state on the issue, apply `needs design` or `blocked` as appropriate (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. A review that won't converge usually means the plan is wrong.
 
-   **Preflight gate (after the `/code-review` resolve loop converges, before version bump/commit).** Once the `/code-review` loop above has converged, run the profile's `preflightCmd` in the repo root — the consumer-named fast pre-PR checks (lint / format / static analysis / security scan). Skip cleanly if `preflightCmd` is absent (exactly like `unitTestCmd`/`e2eTestCmd` absent). Capture real output, never assert. This mirrors the unit gate (step 4); it is positioned here as the concluding action of 6.1 rather than as a numbered sibling step so the `6.1 … 6.9` ordinals (and their internal + external cross-references) stay fixed.
-   - **CI-derived mode (`preflightCmd: "github-ci"`).** When `preflightCmd` is the reserved sentinel `"github-ci"` (rather than a literal command), do not run it as a shell command. Instead invoke the discovery component `scripts/ci-preflight-steps.{sh,ps1}` (pwsh on Windows, bash elsewhere) in the repo root — pass the optional `ciWorkflow` profile value as its 2nd argument to narrow to one workflow. It reads the local `.github/workflows/*.yml` (never the network) and emits an ordered, TAB-separated record stream: `STEP <wf> <job> <coe> <wdir> <cmd>` (a runnable step; `coe=1` = `continue-on-error`; `wdir` = `working-directory`, `""` = repo root; `cmd` has newlines encoded as `\n`), `SKIP`/`CHECK`/`WARN` lines, and a final `SUMMARY mirrored=N skipped=M`. Then **run each `STEP` in declaration order through the existing preflight machinery below**, one at a time:
-     - **Surface the coverage summary loudly** in the run output — the `SUMMARY`, the mirrored `CHECK` names, and the `SKIP` reasons ("mirrored N checks, skipped M"). Any `WARN` line — especially the **silent-under-run** warning (a PR-gating workflow that produced zero runnable steps because its real checks live behind a `uses:` reusable/composite workflow) — must be surfaced as a **visible warning, not treated as a clean pass**.
-     - **For each `STEP`:** apply the existing **tool-presence guard** — first **decode the `cmd`'s `\n`-encoded newlines back to real newlines** (the record stores a multi-line `run:` with literal two-character `\n` separators), **then** take the leading tool as the first token of the first command in the decoded `run:` script (split on newline / `&&` / `;` / `|`; best-effort); if that tool is absent from `PATH`, **skip + log** "couldn't run locally (`<tool>` absent)" exactly as today. Otherwise run the command in `wdir` (repo root when empty). A non-zero exit is a **real failure** and feeds the re-dispatch/cap/park machinery below — **except** a `coe=1` (`continue-on-error`) step, whose failure is logged but **never** counts as a real failure (never triggers a park).
-     - A parse error or no workflows → the component emits an empty `STEP` list with a `WARN` reason; the gate then **no-ops cleanly** (same as an absent `preflightCmd`), never a hard crash.
-   - **Non-zero exit → gate failure → re-dispatch the implementer** with the failing command + its captured output. A source-changing fix re-runs `unitTestCmd` if defined (skip if absent), re-runs `/code-review` (honoring the "fresh review is the last action before commit" rule above), and re-runs `preflightCmd`.
-   - **Cap: at most 2 implementer re-dispatches** on a failing preflight gate. If `preflightCmd` is still non-zero after the 2nd re-dispatch, **park `blocked`**: comment on the issue opening with `🔴 Parked — ` and describing what failed and what is needed, apply `blocked` (or `needs design` if the plan is wrong) (+ `in progress` if the branch has commits), preserve the branch, and return. The milestone loop continues. Park-don't-prompt, consistent with every other gate.
-   - A non-converging preflight gate usually means the plan is wrong (see Autonomy).
+   **Preflight gate (concluding action of 6.1).** Once the `/code-review` loop above has converged, before version bump/commit, run the preflight gate — its applicability, `act` (including the `"github-ci"` sentinel discovery mode), cap, verify step, and park/escape policy are the **Preflight** row of `### 4. Verification gates` and its shared loop; nothing is restated here. It fires here, as the concluding action of 6.1 rather than as a numbered sibling step, so the `6.1 … 6.9` ordinals (and their internal + external cross-references) stay fixed.
 2. Assemble the **Decision Log** from the implementer's report (each choice → rationale → citation → alternatives rejected) for the PR body, and post the citations on the issue for review (`gh issue comment <n>`).
 3. **Assemble the Code Review section** for the PR body — the evidence half of the audit trail (the Decision Log records *why* a choice was made; the Code Review section records *what review found* and how it was cleared). Record: whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered park). If a run returned zero findings, state that with the run's effort level. **Absence of this section on a PR is a visible defect on PR review.** Use this template in the PR body:
 
@@ -322,156 +294,17 @@ The gate fires **once per run**, not once per issue. After the first background-
 
 ## Worker mode (`--worker`)
 
-Worker mode is the per-issue half of `solve-milestone`'s parallel (default) flow (milestone 1.5.0): the orchestrator builds mutually-independent issues within a dependency Wave concurrently — each in its own git worktree — then integrates them through an orchestrator-owned **serial verified merge tail**. This section defines the contract the parallel orchestration (#72), the merge tail (#73), and branch-per-Wave granularity (#75) consume; those skills do not exist yet, so the terms used here (`--worker`, "worker mode", "merge tail", "handback", "wave branch", "parallel-safe gates", "deferred gates") are the authoritative source.
-
-**`--worker` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so worker mode is **recognized** when the dispatch text contains a `--worker` token (with the orchestrator-provided worktree path), exactly as the rest of the plugin treats flags. **When the `--worker` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Sequential (non-worker) `solve-issue` is the default and is unaffected.
-
-Worker mode **is today's `solve-issue` pipeline with EXACTLY THREE DELTAS.** Everything else is identical: triage (run as Branch A when the brief embeds the result as explicit named values, or Branch B fallback when absent — workers re-invoke triage ONLY as Branch B fallback if the caller supplied no result) and the root-cause gate, the implementer dispatch and its contract, the declaration gates, the unit gate, `/code-review` and its **Code Review** section, the citations, park-don't-prompt (a worker never prompts a human — it parks), the Decision Log, the version-bump rules (step 6.4), and the audit trail all carry over verbatim. **The permission pre-flight gate is not in this carry-over list** — it is orchestrator-level, pre-dispatch behavior (see the section above); a worker is already backgrounded past it and never runs it. The **at-most-2 re-dispatch cap on every gate** carries over too, but follows its gate: each cap applies to the gate it guards, so the caps on the **parallel-safe gates the worker actually runs** travel with the worker, while the caps on the **deferred gates (E2E, any server-starting preflight)** move to the serial tail with those gates (Delta 2). This gate-split is the **mechanism** of Delta 2 ("builds but does not merge") — it is not a hidden fourth behavioral change. Only the three deltas below differ. Both Branch A and Branch B return the identical Step 7 schema — an issueStates entry plus an edges array, per skills/triage/SKILL.md — so the Blocker check and build-profile read are shape-identical regardless of which branch ran.
-
-> **Permission pre-flight gate and worker mode.** The permission pre-flight gate (described in the section above) is **orchestrator-level, pre-dispatch behavior**. A worker is already backgrounded past it — the gate ran (or was skipped on a synchronous path) before the worker was dispatched. A worker **never runs the gate itself**.
-
-### Delta 1 — Runs in an orchestrator-provided worktree
-
-The **orchestrator owns worktree creation.** `git worktree add <path> -b issue/<n>-<slug> <integrationBranch>` is run by the orchestrator (solve-milestone, #72), which passes the worktree path to the worker. The worker **runs inside that provided worktree** — it does **not** create its own. This resolves ownership of `git worktree add`: the orchestrator, not the worker.
-
-The branch-state probe (step 3 of the procedure) operates **inside that worktree**, and worker mode **replaces step-3 path (d)**. Because the orchestrator already cut the branch with `-b`, the cold worker start is a branch that *exists*, is clean, and is 0 commits ahead — a state that matches none of resume paths (a)/(b)/(c) and would fail path (d)'s "no branch" guard. That pre-cut-branch cold case is a **defined state, not a fall-through**: on a cold worker start the worker **builds directly on the orchestrator-created branch — it does not cut a fresh branch**. The probe's resume paths (a)/(b)/(c) still apply **unchanged** if a worker is re-dispatched against a worktree that already carries prior work (an open PR, commits ahead, or uncommitted changes). All other "Before starting" preconditions apply within the worktree, including the **step-3.5 profile migration**: each worker re-runs the idempotent migration preamble inside its own worktree, and the `git mv` rides that worker's branch (reconciled by the serial merge tail). It is idempotent, so a worktree cut from a tip where `.milestone-config/driver.json` already exists is a clean no-op.
-
-**`force-subagent` compatibility (no change needed).** A worker's edits are already permitted: a dispatched subagent carries `agent_id` / `parent_session_id`, which the hook treats as allow (`hooks/force-subagent.sh:18-21` — the subagent-context allow loop). The profile (`.milestone-config/driver.json`, or a legacy root `milestone-driver.json`) is a committed, tracked file, so it is present in every worktree, and the hooks resolve it `cwd`-relative (`hooks/force-subagent.sh:34-40`) — they fire identically inside a worktree. No worktree-specific hook configuration is required.
-
-### Delta 2 — Stops before the step-8 auto-merge; builds but does not merge
-
-The worker builds, runs the **parallel-safe gates in the worktree**, does the version bump (step 6.4), commits, pushes, then **returns the branch instead of merging.** It does **not** run step 8 (auto-merge). Each worker applies the same idempotent bump to the shared milestone target in `plugin.json`; because the edits are identical same-line writes, the merge-in tail reconciles them in a 3-way merge without conflict — so the bump stays in the worker.
-
-**Parallel-safe gates** (run in the worktree, in the parallel phase):
-- the unit suite (step 4) if `unitTestCmd` is defined;
-- `/code-review` and its resolve loop (step 6.1);
-- the static `preflightCmd` — the lint / format / static-analysis / security-scan class only.
-
-**Deferred gates** (NOT run by the worker — handed to the serial merge tail, #73). Concurrent workers each starting a **port-binding** gate (dev server / E2E / render-smoke) contend for the same fixed port. So in parallel builds the worker runs **only** the parallel-safe gates above; **E2E (step 5) and any server-starting "preflight" are deferred to the serial tail**, where they run once against accumulated integrated state — also where they are more meaningful.
-- **Step 7 (visual-review gate) splits the same way.** Opening the PR and applying the `needs review` label are parallel-safe, so a UI-issue worker does those. But the **render capture is port-binding** (it boots the render daemon — `scripts/render-daemon.{sh,ps1}` — which spins up the `visualCapture.serverCmd` app server on the consumer's fixed port) — so it is a **deferred gate too**: the worker **must not** boot the render daemon or capture in the parallel phase (a single per-run, fixed-port daemon cannot safely serve concurrent worktrees). The screenshots are owed by the **serial tail / human**, not attached by the worker. (So a parallel worker leaves a UI PR open with the `needs review` label but **no** screenshots yet; the serial tail or the human runs the step-7 capture flow before merge — consistent with step 7's "capture is convenience evidence; the human-before-merge checkpoint holds either way".)
-- **Escape hatch:** a consumer can inject a per-worktree `PORT` (so each worktree binds a distinct port) to keep such a gate — including the render/screenshot capture — in the parallel phase instead of deferring it.
-
-**PR-opening is granularity-conditional:**
-
-| Granularity | Worker opens a PR? | Merge handling |
-|---|---|---|
-| **Issue (default)** | Yes — `--base <integrationBranch>`; for a UI issue the worker runs **only the parallel-safe part of step 7** (opens the PR, applies the `needs review` label) and **defers the render/screenshot capture to the serial tail / human** — see Delta 2 | The serial merge tail (#73) merges each PR individually; it (or the human) captures the deferred screenshots |
-| **Wave (#75)** | No per-issue PR — hands the branch back | The orchestrator folds the branch into the **wave branch** (`wave/<milestone>-w<N>`) and opens one wave PR |
-
-### Delta 3 — Returns a structured handback
-
-The worker returns a structured handback as an **optimization hint** — it lets the orchestrator skip redundant git/gh queries when driving the merge tail and the final summary. It is explicitly **not** the source of truth. The Phase 1 barrier (`solve-milestone` step 5) **re-derives terminal state from git/gh** via the step-3 branch-state probe and uses the handback only as a hint: when the handback is present and well-formed the barrier skips the queries the probe would otherwise run; when the handback is **absent or partial** — e.g. the worker's final assistant message drifted off-format under a long, tool-heavy run — the barrier **fills in every field from ground truth** and no work is stranded. Each field below is independently re-derivable from git/gh, so the handback degrades gracefully:
-
-```text
-{ issue, status: built-green | parked, branch, worktreePath, prUrl?, isUI, declarations, parkLabel?, parkReason? }
-```
-
-| Handback field | Ground-truth source the barrier re-derives from |
-|---|---|
-| `status: built-green` | open PR for `issue/<n>-*`, or branch pushed with commits ahead of `integrationBranch` (step-3 probe paths a/b) |
-| `status: parked` | park label (`needs design` / `needs decision` / `blocked`) + `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment (the same signal the sequential loop reads) |
-| `prUrl` | `gh pr list … select(.headRefName \| startswith("issue/<n>-"))` (verbatim step-3 path-a query) |
-| `isUI` | `git diff <integrationBranch>...HEAD --name-only` ∩ `uiSurfaceGlobs` (re-derived as below, not from a PR) |
-| `declarations` | the only field not in git/gh; reinforces `isUI`, which is independently computable — so a drop degrades gracefully |
-
-- `prUrl?` — optional: present in **issue** granularity (the worker opened a PR); absent in **Wave** granularity (no per-issue PR).
-- `isUI` — whether the issue touched a UI surface (drives the visual-review hold in the tail). The worker derives this from the **worktree diff against `integrationBranch`** — changed files matching `uiSurfaceGlobs` (`git diff <integrationBranch>...HEAD --name-only`), not from a PR's changed-file list — so `isUI` is computable whether or not a per-issue PR was opened (Wave granularity and parked workers have no per-issue PR). An implementer `NEW_UI_ELEMENTS: yes` declaration reinforces the signal, mirroring step 7.
-- `declarations` — the implementer's `USER-FACING CHANGES` block (e.g. `NEW_UI_ELEMENTS`), carried through so the orchestrator does not re-read it.
-- `parkLabel?` / `parkReason?` — present **only** when `status: parked`.
-
-**A worker that parks hands back `status: parked`** with its `parkLabel` and `parkReason` (the same label/reason it would otherwise post per park-don't-prompt). The orchestrator excludes a parked issue from the merge tail with its branch and labels intact — exactly as the sequential loop excludes a parked issue. The barrier **re-derives the park from git/gh** (live labels + the step-3 probe), using `parkLabel` / `parkReason` from the handback only as a corroborating hint; the park is never inferred from the handback alone, so a dropped final message cannot hide a parked issue any more than it can strand a built-green one.
-
-### Sequential behavior is byte-unchanged
-
-These three deltas are the **only** differences. With no `--worker` token, the pipeline above runs exactly as written — same gates, same caps, same merge, same close. Worker mode adds an opt-in path; it changes nothing about the default sequential run.
+**`--worker` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so worker mode is **recognized** when the dispatch text contains a `--worker` token (with the orchestrator-provided worktree path), exactly as the rest of the plugin treats flags. **When the `--worker` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Sequential (non-worker) `solve-issue` is the default and is unaffected. When the token is present, read `skills/solve-issue/worker-mode.md` and apply its three-delta contract.
 
 ## Async mode (`--async`)
 
-**`--async` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so async mode is **recognized** when the invocation text contains an `--async` token. **When the `--async` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Async mode is an opt-in signal to the caller (main line or user session) to dispatch this skill as `Agent(run_in_background: true)` — it does not alter the internal pipeline, except for Delta A1 below.
+**`--async` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so async mode is **recognized** when the invocation text contains an `--async` token. **When the `--async` token is absent, none of this section applies and the entire sequential pipeline above runs byte-unchanged.** Async mode is an opt-in signal to the caller (main line or user session) to dispatch this skill as `Agent(run_in_background: true)` — it does not alter the internal pipeline, except for Delta A1, in `skills/solve-issue/async-mode.md`.
 
-### How the caller dispatches
-
-When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes. There is no mid-run redirect — the background agent runs to completion; redirects are impossible once it is dispatched. **No PushNotification is sent by the background agent** — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main line (caller) emits the park or wave-boundary notification at this chunk boundary, after receiving the Agent tool completion notification and re-deriving terminal state from live `gh` queries.
-
-### Pre-dispatch: permission pre-flight gate
-
-Before the caller dispatches any background agent, run the **permission pre-flight gate** per `## Permission pre-flight gate` above.
-
-- **No gaps:** proceed — dispatch `solve-issue <n>` as `Agent(run_in_background: true)`.
-- **Gap detected:** do **not** dispatch as a background agent. Surface the 🔴 gap table and recommend `/fewer-permission-prompts`. **Fall back to synchronous dispatch** — invoke `solve-issue <n>` (no `--async`) as the normal sequential pipeline. The run completes; it just does not use background concurrency.
-
-### Inside the background agent: the pipeline runs byte-unchanged
-
-The full sequential pipeline (steps 0–9) runs **byte-unchanged** inside the background agent — all gates, park-don't-prompt, PR, auto-merge on green for non-UI issues, visual-review hold for UI issues, close — **except Delta A1**.
-
-### Delta A1 — Version-bump confirm suppressed
-
-The standalone-run patch-bump confirm (the interactive "ask whether it should be minor or major" in step 6.4 standalone runs) cannot prompt from a background context — background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior).
-
-Under `--async`, the bump **defaults to patch** (`x.y.Z` → `x.y.(Z+1)`). This default is **logged in the Decision Log** and the PR carries a `judgment call` label so the call is auditable post-run. Milestone runs are **unaffected** — the milestone-derived target version already replaces the confirm entirely (step 6.4 milestone-run path).
-
-Delta A1 is the **only** behavioral delta because it is the only step in the sequential pipeline that would interactively prompt in a standalone run. All other gates, caps, and park-don't-prompt behavior are unchanged.
-
-### Background agent constraints
-
-- **Auto-deny:** background subagents auto-deny any tool call that would otherwise prompt. The permission pre-flight gate (run before dispatch) guards against un-allowlisted tool calls; Delta A1 eliminates the only remaining interactive confirm. Any unexpected auto-deny mid-run is treated as a park — same park-don't-prompt contract as every other gate.
-- **No PushNotification:** the background agent does not send notifications — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main-line caller emits at chunk boundaries (parks + wave completions + run complete/halt).
-- **Caller obligation on completion** *(applies to the calling session, not the background agent)*. When the background chunk's completion notification arrives, the calling session re-derives terminal state from live `gh` queries and emits **one notification per dispatched issue**: `⏸️ #N parked — <reason>` if the issue was parked (park reason = the last comment on the issue opening with `🔴 Triage`, `🔴 Blocked`, or `🔴 Parked` — gh returns comments oldest-first, take the LAST match; if none, report "park reason not recorded"), or a `🏁`-style one-liner (e.g. `🏁 #N merged` or `🏁 #N open — awaiting visual review`) if the issue completed (PR merged or held for visual review). This mirrors the handback facts for `--worker` mode; one emit per run, always by the calling session, never by the background agent. (When `--async` is dispatched by `solve-milestone`, solve-milestone's own emit rules govern — per-issue completion notifications are suppressed in sequential mode in favor of the aggregate `🏁` run-complete signal; this per-issue obligation applies to standalone callers outside solve-milestone's orchestration.)
-- **No SendMessage/mid-chunk redirect:** the background agent runs to completion; mid-run redirect is not possible in Claude Code.
+Read `skills/solve-issue/async-mode.md` for the full `--async` dispatch contract — how the caller dispatches, the pre-dispatch permission pre-flight gate, the byte-unchanged in-agent pipeline, Delta A1 (the suppressed version-bump confirm), and the background-agent constraints.
 
 ## Parent-issue detection (`md-epic`)
 
-**Runs before anything else** — before `## Before starting` step 1 (profile read) and before `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. This is the same opt-in-fork shape already used for the `--worker` token (`## Worker mode`, above) and the `--async` token (`## Async mode`, above) — a label read here instead of a dispatch token.
-
-- **No `md-epic`** → today's entire pipeline runs byte-unchanged, starting at `## Before starting` step 1. Nothing in this section or `### Parent path` below applies.
-- **`md-epic` present** → `#n` is a **parent issue** — a pure orchestration node that carries no code. Do **not** proceed to `## Before starting` steps 2/3, `### 0. Triage`, root-cause, or the implementer for `#n`. Go directly to `### Parent path` below; it replaces the rest of this skill's pipeline for this invocation.
-
-### Parent path
-
-A parent issue's body carries an ordered list of milestones — the build order for a feature too large for one milestone (the read-contract in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). This path drives that list to completion; it never authors code for `#n` itself.
-
-1. **Profile read only.** Run `## Before starting` step 1 (profile read) — the fan-out loop needs `integrationBranch` to re-sync between milestones. **Skip steps 2 and 3** (the clean-tree check and the branch-state probe) — a parent issue authors no code, so it has no feature branch and no branch state to probe.
-
-2. **Parse the ordered milestone list** from `#n`'s raw body with the #266 parser (pwsh on Windows, bash elsewhere — same host selection as `scripts/ci-preflight-steps.{sh,ps1}` at step 6.1):
-
-   ```bash
-   gh issue view <n> --json body --jq .body | bash scripts/parse-md-epic-order.sh
-   # pwsh -NoProfile -File scripts/parse-md-epic-order.ps1 on pwsh-only hosts
-   ```
-
-   The parser emits one `<kind>\t<raw>` record per entry on stdout (`kind` = `number`|`title`), or exits nonzero with the failure named on stderr — it never calls `gh` and never resolves an entry itself (`scripts/parse-md-epic-order.sh`, issue #266).
-
-   **A nonzero exit parks the PARENT issue `#n` — the fan-out never starts.** No `md-epic-order` block, an unterminated fence, or one malformed line all invalidate the whole list (a half-parsed build order is unsafe to act on). Post a comment on `#n` opening `🔴 Parked — ` quoting the parser's stderr (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
-
-   **A zero exit with ZERO entries (empty stdout) also parks `#n` — this is not a silent success.** A well-formed `md-epic-order` block with no interior entries parses cleanly (exit 0) but has nothing to drive; treat it the same class as an authoring mistake, not a valid empty run. Post a comment on `#n` opening `🔴 Parked — ` naming "empty md-epic-order block — no milestones to drive" (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
-
-3. **Resolve each `{kind, raw}` entry to a live milestone**, mirroring `solve-milestone`'s own number/title resolution (`skills/solve-milestone/SKILL.md:102-106`):
-   - `number: <raw>` → `gh api repos/{owner}/{repo}/milestones/<raw> --jq '{number, title}'`. A non-2xx response means "does not resolve."
-   - `title: <raw>` → `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<raw>") | {number, title}'`. Zero or multiple matches both mean "does not resolve" — never guess between two same-titled milestones.
-   - **Does not resolve, OR resolves but has zero total issues** (`open_issues + closed_issues == 0`) → **skip only that entry** — not a park. Log a warning line in the aggregate summary (step 6) and continue with the next entry.
-
-4. **Drive each resolved milestone sequentially, in listed order** — never concurrently; a later milestone may depend on an earlier one's merged code:
-   - **Resume-skip, no local checkpoint** (mirrors the no-checkpoint-file philosophy already stated for the branch-state probe, `## Before starting` step 3). Before driving, re-read the milestone's counts: `gh api repos/{owner}/{repo}/milestones/<number> --jq '{open_issues, closed_issues}'`. `open_issues == 0` AND `closed_issues > 0` → already complete — skip **silently**, count it done in the summary. This makes re-running the parent idempotent with no state file to maintain.
-   - **Numeric-title guard (skip-with-warning).** Before driving a milestone that is not already complete, check its resolved title from step 3's `{number, title}`. If the title is **purely numeric** (digits only), do **not** drive it: `solve-milestone`'s own purely-numeric-title halt (`skills/solve-milestone/SKILL.md:105`) is a human-prompt halt that is **not** suppressed by `--driven` (`skills/solve-milestone/SKILL.md:143`), so driving it would stall the unattended fan-out forever waiting on a human. **Skip that milestone with a warning** in the aggregate summary (step 6) instead — the human must rename it to a non-numeric title before it can be driven unattended — and continue with the next entry.
-   - **Otherwise, drive it:** invoke `/milestone-driver:solve-milestone <number> --driven` — the skill-invokes-skill pattern `solve-milestone` already uses to invoke `/milestone-driver:triage` (`skills/solve-milestone/SKILL.md:218-224`) — and await completion. `--driven` suppresses the DB-hazard interview (`skills/solve-milestone/SKILL.md:143`, `:151`, `:173`) so the fan-out never blocks on a prompt nobody is watching for.
-   - **Re-sync `integrationBranch`** (`git fetch`, fast-forward) after each milestone, before advancing to the next, so the next milestone builds on the prior one's merged work.
-   - **A systemic failure inside a driven `solve-milestone`** (`gh auth`, a broken `integrationBranch`, missing tooling — `skills/solve-milestone/SKILL.md:478-481`) halts the **whole fan-out loop**, not just the current milestone — later milestones cannot be driven safely either.
-
-5. **`#n` itself is never built.** It carries no code, so it never goes through `### 0. Triage`, root-cause-or-park, or the implementer dispatch — it is a pure orchestration node. Its label state changes only via the park path in step 2 above.
-
-6. **Aggregate summary**, one row per milestone — mirroring `solve-milestone`'s own run-complete reporting shape (Template 3, `skills/solve-milestone/SKILL.md:527`; the Final summary content requirements, `:560`). Classify each driven milestone from ground truth after driving, not from the driven run's own narrative (the same re-derive-over-handback posture already used at the Wave barrier, `skills/solve-milestone/SKILL.md:399`, `:413-417`):
-
-   | Milestone | Outcome | Note |
-   |---|---|---|
-   | #<number> — <title> | done already \| built this run \| held for visual review \| parked with opens | warning text for a skipped entry, or — |
-
-   - **done already** — the resume-skip in step 4 fired before driving (`open_issues == 0`, `closed_issues > 0`, never dispatched this run).
-   - **built this run** — after driving, `open_issues == 0` and `closed_issues > 0`.
-   - **held for visual review** — after driving, `open_issues > 0` and every remaining open issue is a UI issue with an open PR carrying `needs review`.
-   - **parked with opens** — after driving, `open_issues > 0` and at least one remaining open issue carries a blocker label (`needs design` / `needs decision` / `blocked`).
-   - A milestone with both open `needs review` PRs and parked issues reports both facts in its Note column.
-   - Each **skipped entry** from step 3 gets its own row (raw reference + why it didn't resolve, or "0 issues") rather than being silently dropped from the summary.
-   - A milestone **skipped by the numeric-title guard** (step 4) also gets its own row — `#<number> — <title>` — with the Note column stating it cannot be driven unattended until the human renames it to a non-numeric title.
+**Runs before anything else** — before `## Before starting` step 1 (profile read) and before `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. **When `md-epic` is absent, none of this section applies and the entire pipeline runs byte-unchanged, starting at `## Before starting` step 1.** When present, read `skills/solve-issue/md-epic-fanout.md` and follow its `### Parent path` — it replaces the rest of this skill's pipeline for this invocation.
 
 ## Output spec
 
