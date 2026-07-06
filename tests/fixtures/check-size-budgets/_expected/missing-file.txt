@@ -1,0 +1,14 @@
+OK	skills/setup/SKILL.md	1/280
+OK	skills/solve-issue/SKILL.md	1/380
+OK	skills/solve-issue/worker-mode.md	1/70
+OK	skills/solve-issue/async-mode.md	40/40
+OK	skills/solve-issue/md-epic-fanout.md	1/60
+OK	skills/solve-milestone/SKILL.md	1/680
+OK	skills/solve-milestone/parallel-waves.md	1/200
+OK	skills/solve-milestone/trello-sync.md	1/400
+OK	skills/triage/SKILL.md	1/460
+OK	skills/notices.md	1/200
+OK	agents/design-reviewer.md	1/115
+OK	agents/implementer.md	1/130
+FAIL	agents/triage-reviewer.md	MISSING/120
+SUMMARY	ok=12	failed=1

@@ -25,6 +25,8 @@ jobs:
         run: bash tests/parse-md-epic-order.test.sh
       - name: render-daemon (bash)
         run: bash tests/render-daemon.test.sh
+      - name: check-size-budgets (bash)
+        run: bash tests/check-size-budgets.test.sh
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -40,3 +42,5 @@ jobs:
         run: pwsh tests/parse-md-epic-order.test.ps1
       - name: render-daemon (pwsh)
         run: pwsh tests/render-daemon.test.ps1
+      - name: check-size-budgets (pwsh)
+        run: pwsh tests/check-size-budgets.test.ps1
