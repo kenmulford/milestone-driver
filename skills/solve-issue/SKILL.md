@@ -40,41 +40,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       worktrees/
       ```
 
-   1.1.1. **First-run preflight notice (one-time).** Immediately after reading the profile: if `preflightCmd` is **absent** from the profile **and** **neither** the new marker `.milestone-config/preflight-notice` **nor** the legacy root marker `.milestone-driver-preflight-notice` exists (transitional read — new path first, legacy root as fallback), print the notice below verbatim, then create the new marker (`mkdir -p .milestone-config && touch .milestone-config/preflight-notice`) and **remove the stale legacy root marker** `.milestone-driver-preflight-notice` if present. Stay **silent** if `preflightCmd` is set **or** either marker already exists. The marker is per-clone and gitignored, so the notice shows at most once per clone (same pattern as `.milestone-config/tests-stamp`).
-
-      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-      ```text
-      ▶ New in 1.4.0 — optional preflight check (one-time notice)
-
-      | What | Tell milestone-driver the command your CI uses for FAST checks
-      |      | (lint, format, static analysis, security scan).
-      | Why  | It runs that locally before opening the PR, so those checks are
-      |      | caught and fixed up front instead of turning your PR red later.
-      | How  | Add "preflightCmd" to .milestone-config/driver.json. Optional — skip
-      |      | it and nothing changes.
-
-      Examples:
-      | Stack        | preflightCmd                                   |
-      | Ruby/Rails   | bundle exec standardrb && bundle exec brakeman -q |
-      | Node/TS      | npm run lint                                    |
-      | Any w/ pre-commit | pre-commit run --all-files                 |
-      | Makefile     | make lint                                       |
-      ```
-
-   1.1.2. **First-run visual-capture notice (one-time).** Immediately after the preflight notice (step 1.1.1): if `visualCapture` is **absent** from the profile **and** `uiSurfaceGlobs` is **present** in the profile **and** the marker `.milestone-config/visualcapture-notice` is **absent**, print the notice below verbatim, then create the marker (`mkdir -p .milestone-config && touch .milestone-config/visualcapture-notice`). Stay **silent** if any condition fails — `visualCapture` present (the feature is already configured), `uiSurfaceGlobs` absent (the repo has no UI surface to capture), or the marker already exists. Unlike the preflight/Trello notices, this marker is **born on the new `.milestone-config/` path**, so the gate checks **only** the new-path marker — there is **no** legacy-root fallback read and **no** stale-legacy-removal step. The marker is per-clone and gitignored, so the notice shows at most once per clone (same lifecycle as `.milestone-config/preflight-notice`).
-
-      <!-- KEEP THIS NOTICE BLOCK BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
-      ```text
-      ▶ New in 1.12.0 — optional visual capture (one-time notice)
-
-      | What | Capture rendered screenshots of your UI surfaces during the
-      |      | visual-review gate.
-      | Why  | The gate can then show the real rendered screenshots of your
-      |      | change instead of degrading to PR-open-for-human-test.
-      | How  | Run `/milestone-driver:setup` and choose the Visual Capture tier,
-      |      | or add a `visualCapture` block to .milestone-config/driver.json
-      |      | manually. Optional — skip and nothing changes.
-      ```
+   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). One expected exception is not a clean-tree violation and must **not** be stashed or discarded: if the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected; skip the clean-tree enforcement and proceed to step 3 immediately. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):
