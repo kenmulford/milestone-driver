@@ -8,7 +8,6 @@
   "metadata": {
     "description": "Autonomous, gated GitHub-milestone driver for Claude Code"
   },
-  "allowCrossMarketplaceDependenciesOn": ["claude-plugins-official"],
   "plugins": [
     {
       "name": "milestone-driver",
