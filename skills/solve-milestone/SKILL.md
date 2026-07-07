@@ -1,7 +1,8 @@
 ---
 name: solve-milestone
 argument-hint: <milestone-name | milestone-number>
-description: This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by **default** (no flag); a run-start barrier check drops to sequential only when a barrier is present — a `parallel: false` profile opt-out, a permission-allowlist gap, or an unconfirmed test-isolation answer.
+description: >-
+  This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Autonomously iterates every issue in a GitHub milestone in dependency order, running /milestone-driver:solve-issue on each and re-syncing the integration branch between issues. Runs unattended; parks blocked/gapped issues and continues with clean ones — never waits on a human; only a systemic failure ends the run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by **default** (no flag); a run-start barrier check drops to sequential only when a barrier is present — a `parallel: false` profile opt-out, a permission-allowlist gap, or an unconfirmed test-isolation answer.
 ---
 
 # solve-milestone — autonomous driver
