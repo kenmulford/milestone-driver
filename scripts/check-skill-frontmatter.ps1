@@ -30,8 +30,10 @@ $files = @(
 # Scan one file's frontmatter. Returns a reason string on the FIRST defect
 # ('' => clean, 'NO-FRONTMATTER' => no opening fence on line 1).
 function Scan-Frontmatter([string]$path) {
-  # Read as UTF-8 bytes and split on LF so a multibyte char and CRLF/LF both
-  # survive byte-exact; TrimEnd `r normalizes a CRLF checkout.
+  # Read as UTF-8 text and split on LF so a multibyte char and CRLF/LF both
+  # survive byte-exact; TrimEnd `r normalizes a CRLF checkout. ReadAllText
+  # detects and strips a leading UTF-8 BOM — byte-parity with the .sh sibling's
+  # explicit line-1 BOM strip — so a stray BOM never diverges the twins.
   $text = [System.IO.File]::ReadAllText($path, [System.Text.UTF8Encoding]::new($false))
   $lines = $text -split "`n"
   $inFm = $false

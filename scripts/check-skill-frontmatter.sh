@@ -70,6 +70,10 @@ scan_frontmatter() {
     line="${line%$'\r'}"   # strip a trailing CR so a CRLF checkout compares clean
     lineno=$((lineno + 1))
     if [ "$lineno" -eq 1 ]; then
+      line="${line#$'\xef\xbb\xbf'}"   # strip a leading UTF-8 BOM for byte-parity
+                                       # with pwsh's ReadAllText (which strips it);
+                                       # the no-bom hook forbids BOM, but keep the
+                                       # twins identical even on a stray one.
       if [ "$line" = "---" ]; then
         in_fm=1
         had_fm=1
