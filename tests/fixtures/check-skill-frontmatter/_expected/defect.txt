@@ -1,0 +1,5 @@
+OK	skills/setup/SKILL.md	clean
+OK	skills/solve-issue/SKILL.md	clean
+FAIL	skills/solve-milestone/SKILL.md	description: unquoted colon-space in plain scalar (breaks strict YAML)
+OK	skills/triage/SKILL.md	clean
+SUMMARY	ok=3	failed=1

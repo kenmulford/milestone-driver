@@ -1,0 +1,5 @@
+OK	skills/setup/SKILL.md	clean
+OK	skills/solve-issue/SKILL.md	clean
+OK	skills/solve-milestone/SKILL.md	clean
+OK	skills/triage/SKILL.md	clean
+SUMMARY	ok=4	failed=0

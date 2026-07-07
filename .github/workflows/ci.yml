@@ -27,6 +27,8 @@ jobs:
         run: bash tests/render-daemon.test.sh
       - name: check-size-budgets (bash)
         run: bash tests/check-size-budgets.test.sh
+      - name: check-skill-frontmatter (bash)
+        run: bash tests/check-skill-frontmatter.test.sh
       - name: code-review-gate (bash)
         run: bash tests/code-review-gate.test.sh
 
@@ -46,6 +48,8 @@ jobs:
         run: pwsh tests/render-daemon.test.ps1
       - name: check-size-budgets (pwsh)
         run: pwsh tests/check-size-budgets.test.ps1
+      - name: check-skill-frontmatter (pwsh)
+        run: pwsh tests/check-skill-frontmatter.test.ps1
       - name: code-review-gate (pwsh)
         run: pwsh tests/code-review-gate.test.ps1
 
