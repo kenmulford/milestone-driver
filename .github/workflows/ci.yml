@@ -33,6 +33,8 @@ jobs:
         run: bash tests/code-review-gate.test.sh
       - name: build-file-index (bash)
         run: bash tests/build-file-index.test.sh
+      - name: write-cost-record (bash)
+        run: bash tests/write-cost-record.test.sh
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -56,6 +58,8 @@ jobs:
         run: pwsh tests/code-review-gate.test.ps1
       - name: build-file-index (pwsh)
         run: pwsh tests/build-file-index.test.ps1
+      - name: write-cost-record (pwsh)
+        run: pwsh tests/write-cost-record.test.ps1
 
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)
