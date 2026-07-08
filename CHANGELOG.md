@@ -3,6 +3,32 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.16.0 — run-efficiency grounding
+
+**Theme:** Cut cache-aware dollar cost and sharpen grounding on every driver run — a diff-scoped repo file-map injected into subagent briefs, an optional AI pre-filter over captured screenshots, and a per-run cache-aware cost record — extending existing mechanisms only, with no new persistent stores, daemons, or browser stacks.
+
+### ✨ Run-efficiency grounding
+
+| Issue | PR | What |
+|---|---|---|
+| #318 file-index resolver | #324 | New `scripts/build-file-index.{sh,ps1}` twin: a diff-scoped `path → purpose (+ callers/symbols)` index, grep-based, no new tool dependency, golden-matrix tested both legs. |
+| #321 inject file index | #326 | The resolve-once dispatch block now injects that file index into the implementer brief alongside the `.project/` sections — additive grounding, no-op (no error) when the resolver is absent or fails. |
+| #319 screenshot pre-filter | #323 | Optional `visualCapture.aiPrefilter` pass reads the captured PNGs and posts a per-surface/viewport/appearance verdict beside the "👁️ Visual evidence" comment. Pre-filter only — never a merge gate, never auto-merges a UI issue. |
+| #320 cost-record writer | #325 | New `scripts/write-cost-record.{sh,ps1}` twin: writes one cache-aware dollar cost + token breakdown + wall-clock record to `.milestone-config/.runtime/`. Fail-open, non-gating; hardcoded rate snapshot, optional `provenanceNote`. |
+| #322 emit cost record | #328 | `solve-issue` and `solve-milestone` emit that record at run-end (every terminal exit). Never gates a run; silent no-op when the writer or usage figures are absent. |
+
+### Consumer notes (upgrading from v1.15.1)
+
+- New **optional** profile sub-key `visualCapture.aiPrefilter` (default absent/`false` → skipped); sparse-write, byte-unchanged when absent.
+- Two new **gitignored** per-run artifact kinds under `.milestone-config/.runtime/` (the file index is in-memory only; cost records are written there). No change to committed config.
+- Cost figures are a deliberate **lower-bound** approximation: the framework surfaces only a per-dispatch token total (recorded as `inputTokens`, marked `unsplit-total-as-input` in the record's `rateSnapshot`); cache-read/cache-write are recorded `0`, never fabricated.
+- New one-time notices (`aiPrefilter`, `cost-record`) surface once per clone.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.15.1 — audit remediation: progressive disclosure, wave checkpoint, mechanical gates
 
 Patch release — the audit-remediation milestone (15 issues, all merged CI-green).
