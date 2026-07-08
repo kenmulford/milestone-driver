@@ -93,10 +93,11 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 | `visualCapture.persona` | "Which seeded persona should capture sign in as? (Default: `super-admin`, so every surface is reachable.)" | Skip → default `"super-admin"` used at runtime. |
 | `visualCapture.viewports` | "Which named viewports should I capture? (Default: `{\"desktop\":{\"width\":1440,\"height\":900}}`. Detected an appearance/mobile signal? Add e.g. `\"mobile\":{\"width\":390,\"height\":844}`.)" | Skip → default desktop-only `{\"desktop\":{\"width\":1440,\"height\":900}}` used at runtime. |
 | `visualCapture.appearances` | "Which appearances should I capture? (Default: `[\"light\"]`. Detected `dark:` variants / a theme toggle / `prefers-color-scheme`? Suggest `[\"light\",\"dark\"]`.)" | Skip → default single-appearance `[\"light\"]` used at runtime. |
+| `visualCapture.aiPrefilter` | "Should an AI pass pre-screen the captured screenshots for obvious layout breakage before a human looks? (Default: off — opt-in AI verdict pass, never a merge gate.)" | Skip → default absent/`false` → pre-filter skipped at runtime. |
 
 **Required-key rule:** the three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied together. If the user accepts the tier but skips any one of the three, write **no** `visualCapture` block (a node missing a required key is treated as absent + logged at runtime — there is no point writing it).
 
-**Write rule:** accepting the tier writes only the keys the user supplied as a **sparse object** — omitted optional sub-keys (`persona`, `viewports`, `appearances`) are not written and resolve to their defaults at runtime, mirroring the `integrations.trello.lists` sparse-write rule. Skipping the tier writes **no** `visualCapture` block (no `null`, no empty object). Aborting mid-tier writes **no partial node** — consistent with setup's "do not write a partial profile."
+**Write rule:** accepting the tier writes only the keys the user supplied as a **sparse object** — omitted optional sub-keys (`persona`, `viewports`, `appearances`, `aiPrefilter`) are not written and resolve to their defaults at runtime, mirroring the `integrations.trello.lists` sparse-write rule. Skipping the tier writes **no** `visualCapture` block (no `null`, no empty object). Aborting mid-tier writes **no partial node** — consistent with setup's "do not write a partial profile."
 
 **Tier: Preflight** (optional; present the inferred candidate, or an example such as `pre-commit run --all-files` if none was detected)
 

@@ -362,6 +362,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
    visualcapture-notice
    parallel-default-notice
    code-review-gate-notice
+   aiprefilter-notice
    triage-cache.json
    tests-stamp
    .runtime/
