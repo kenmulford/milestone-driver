@@ -1,0 +1,9 @@
+# name	fixture	input	stdout_file	expected_stderr
+happy	happy	{"files":["skills/demo/SKILL.md","skills/folded/SKILL.md","agents/helper.md","hooks/alpha.sh"]}	happy.out	
+empty_array	empty	{"files":[]}		none
+absent_key	empty	{}		none
+malformed	empty	not json {{{		none
+nonexistent	happy	{"files":["skills/nope/SKILL.md"]}		none
+escape_root	escape/root	{"files":["../outside.sh"]}		none
+unclassified	unclassified	{"files":["notes/thing.txt"]}	unclassified.out	
+truncation	trunc	{"files":["hooks/beta.sh","skills/tr/SKILL.md"]}	truncation.out	
