@@ -197,3 +197,40 @@ Examples:
 | What | Blocks `gh pr create`/`gh pr merge` when the PR body lacks the required '## Code Review' section (protectedBranch is exempt).
 | Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1; missing jq/gh, or a failed `gh pr view`, fail open.
 ```
+
+## aiprefilter
+
+- **Marker:** `.milestone-config/aiprefilter-notice` — created via
+  `mkdir -p .milestone-config && touch .milestone-config/aiprefilter-notice`
+  when the notice fires.
+- **Skills:** solve-issue, solve-milestone
+- **Trigger:** `visualCapture` is **present** in the profile with all three
+  required keys (`serverCmd`, `readyUrl`, `signInPath`) **and**
+  `uiSurfaceGlobs` is **present** in the profile **and**
+  `visualCapture.aiPrefilter` is **absent** **and** the marker
+  `.milestone-config/aiprefilter-notice` is **absent**. Stay **silent** if any
+  condition fails — `aiPrefilter` already set (the pre-filter is configured
+  either way), `visualCapture` absent/incomplete (nothing to pre-filter),
+  `uiSurfaceGlobs` absent (the repo has no UI surface to capture — the
+  pre-filter could never fire), or the marker already exists. The marker is per-clone and gitignored, so the
+  notice shows at most once per clone (same lifecycle as
+  `.milestone-config/visualcapture-notice`).
+- **Legacy fallback:** none — like visualcapture/parallel-default/
+  code-review-gate, this marker is **born on the new `.milestone-config/`
+  path**, so the gate checks only the new-path marker; there is no legacy-root
+  fallback read and no stale-legacy-removal step.
+
+**Text:**
+
+```text
+▶ New in 1.16.0 — optional AI screenshot pre-filter (one-time notice)
+
+| What | An AI pass reads the screenshots visual capture already took and
+|      | posts a per-surface pass / suspected-issue verdict on the PR,
+|      | alongside the Visual evidence comment.
+| Why  | Obvious rendered-layout breakage — overflow, overlap, blank/broken
+|      | surfaces — gets flagged before a human looks; the human stays the
+|      | merge gate.
+| How  | Add "aiPrefilter": true inside the visualCapture block in
+|      | .milestone-config/driver.json. Optional — skip and nothing changes.
+```

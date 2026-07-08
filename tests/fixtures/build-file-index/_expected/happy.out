@@ -1,0 +1,4 @@
+skills/demo/SKILL.md → Demo skill that does things (callers: hooks/alpha.sh)
+skills/folded/SKILL.md → Folded — skill description here
+agents/helper.md → Helper agent purpose line
+hooks/alpha.sh → Alpha hook does something (callers: skills/demo/SKILL.md) (symbols: helper_fn, run_alpha)
