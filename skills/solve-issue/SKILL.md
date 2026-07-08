@@ -36,13 +36,14 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       parallel-default-notice
       code-review-gate-notice
       aiprefilter-notice
+      cost-record-notice
       triage-cache.json
       tests-stamp
       .runtime/
       worktrees/
       ```
 
-   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
+   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). One expected exception is not a clean-tree violation and must **not** be stashed or discarded: if the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected; skip the clean-tree enforcement and proceed to step 3 immediately. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):
@@ -226,6 +227,15 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
    - This makes auto-merge opt-in per issue class: logic-only / non-UI issues auto-merge on green (step 8); UI issues await human merge regardless of render capability.
 8. **Auto-merge on green (non-UI issues only):** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`. **UI issues are skipped here** — they remain open per the visual-review gate (step 7) until a human merges.
 9. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`). **For a UI issue held at the visual-review gate, the issue stays open** with its PR awaiting human visual sign-off — it closes when the human merges the PR.
+
+## Run-end cost record (additive, never-gating)
+
+As the **last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-7 visual-review hold, and the step-9 close — emit one per-run cost record. Additive and **never-gating**: it never blocks, parks, or changes any merge/park/close outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
+
+1. **Aggregate.** From the `<usage>` block each Agent-dispatch tool result carried this run (implementer, `/code-review`, coherence-reviewer, any direct triage dispatch — a background dispatch's completion notification carries the same block), sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
+2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (not surfaced per-dispatch — the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
+3. **Emit.** Pipe `{"runId":"<issue branch / run id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the same host selection as `scripts/ci-preflight-steps.{sh,ps1}` at step 6.1). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's responsibility.
+4. **Skip cleanly.** Zero dispatches this run (e.g. a triage-blocker park before any dispatch) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced at all → silent no-op, one log line. Never fails the run.
 
 ## Autonomy model (Balanced)
 

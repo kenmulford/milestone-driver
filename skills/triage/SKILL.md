@@ -363,6 +363,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
    parallel-default-notice
    code-review-gate-notice
    aiprefilter-notice
+   cost-record-notice
    triage-cache.json
    tests-stamp
    .runtime/
