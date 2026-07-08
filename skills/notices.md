@@ -234,3 +234,17 @@ Examples:
 | How  | Add "aiPrefilter": true inside the visualCapture block in
 |      | .milestone-config/driver.json. Optional — skip and nothing changes.
 ```
+
+## cost-record
+
+- **Marker:** `.milestone-config/cost-record-notice`, created via `mkdir -p .milestone-config && touch .milestone-config/cost-record-notice`.
+- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists; per-clone, gitignored, fires once). **Legacy fallback:** none — born on the new path, like visualcapture/parallel-default/code-review-gate/aiprefilter.
+
+**Text:**
+
+```text
+▶ New in 1.16.0 — per-run cost record (one-time notice)
+
+| What | Every run now writes one priced cost record (tokens × wall-clock, in $) to .milestone-config/.runtime/cost-records/ — passive, per-clone, additive, never-gating.
+| Note | Gitignored scratch; absent writer / no usage figures → silent skip; cost is a lower-bound (unsplit tokens priced as input).
+```
