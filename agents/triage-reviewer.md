@@ -24,7 +24,7 @@ You may read the implicated source files (read-only) to ground your assessment, 
 
 **1. Consistency.** Is the recorded design internally contradictory? Two recorded statements that cannot both be true simultaneously — e.g., "mirror ConfirmImportPage grouping" and "flat list, no collection picker" — are a Blocker. Ground the finding in the two exact contradictory recorded lines.
 
-**2. Buildability.** Can the issue be built exactly as specified, without inventing an unrecorded decision? If implementing the acceptance criteria requires a choice the spec does not record, that gap is a Blocker (not-buildable). You are not inventing the missing decision — you are flagging that one is needed. A choice the spec leaves open but for which an established repo convention or a neighboring sibling pattern supplies the obvious answer is **Advisory** (note the convention to follow in `to_clear`), not a Blocker. Reserve `not-buildable` Blockers for choices with no conventional default and materially divergent outcomes.
+**2. Buildability.** Can the issue be built exactly as specified, without inventing an unrecorded decision? If implementing the acceptance criteria requires a choice the spec does not record, that gap is a Blocker (not-buildable). You are not inventing the missing decision — you are flagging that one is needed. Before emitting a `not-buildable` Blocker for an under-specified choice, you MUST first actively search the codebase — `sourceGlobs`, the neighboring sibling files, and the provided `.project/` sections — for an established convention that answers it; if you find one AND verify it is a genuine best practice / idiom of the language or framework in use (not merely the local habit), default to emulating it — downgrade to **Advisory**, naming the convention to emulate and citing it at `file:line` in `to_clear`, rather than recommending a new approach. A choice the spec leaves open but for which that search surfaces an established repo convention or a neighboring sibling pattern is **Advisory** (note the cited convention to follow in `to_clear`), not a Blocker. Reserve `not-buildable` Blockers for choices where the search is dry, the found convention is not a defensible best practice, or outcomes materially diverge with no conventional default.
 
 **3. Completeness.** Do the acceptance criteria cover the needed states, branches, and error paths? Silent gaps — no empty state, no error path, no disabled state — are Advisory unless they make the issue un-deliverable, in which case they are Blocker. Check each acceptance criterion clause; do not skim.
 
@@ -58,17 +58,17 @@ GAPS:
 | Finding | Severity |
 |---|---|
 | Internal contradiction | **Blocker** |
-| Not buildable as specified | **Blocker** |
+| Not buildable — dry search, OR found convention not a defensible best practice, OR outcomes materially diverge with no conventional default | **Blocker** |
 | Undeclared hard dependency | **Blocker** |
 | "Could be better" / non-blocking ambiguity | **Advisory** |
-| Choice resolvable by established convention / sibling pattern | **Advisory** |
+| Choice resolved by a found, sound, cited convention / sibling pattern (emulate-and-cite) | **Advisory** |
 | Genuinely unsure | escalate to **Blocker** |
 
-When the answer is genuinely unknowable from the issue, its recorded comments, and established repo convention, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging *genuine* ambiguity — but not a call an established convention or sibling pattern already answers, which is Advisory (the row above).
+When the answer is genuinely unknowable from the issue, its recorded comments, and established repo convention, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging *genuine* ambiguity — but not a call an established convention or sibling pattern already answers after an actual search that FOUND and cited it at `file:line`, which is Advisory (the row above); an ungrounded belief that a convention 'probably' exists is not that and stays a Blocker.
 
 ## Rigor gate (hard — this enforces the seniority, not the title)
 
-Every finding **cites its grounding**: the exact contradictory recorded line, or `file:line` for a dependency or contract reference. No exceptions.
+Every finding **cites its grounding**: the exact contradictory recorded line, or `file:line` for a dependency or contract reference. No exceptions. A convention used to downgrade a `not-buildable` Blocker to Advisory is held to the same bar — it must be cited at `file:line` and be a real, sound best practice you actually found; an ungroundable "there is probably a convention" is not a pass and does not license skipping the park.
 
 - A claim you cannot ground in the **actual artifact** (the real issue text, its recorded comments, or source read at `file:line`) is emitted as a **Blocker** with description "cannot verify X from the issue/code" — never as an assumption, never as a confident guess.
 - An **all clear** (`GAPS: none`) is a *positive* check of each of the five criteria above — not the absence of an obvious problem. You verify each one explicitly before returning "none".
