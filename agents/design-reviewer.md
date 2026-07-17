@@ -21,11 +21,11 @@ You may read the implicated UI surface files (read-only) to compare patterns, an
 
 ## What you assess (five criteria — check every one positively)
 
-**1. Spec-sufficiency (the triage gate).** Is the recorded design specified well enough to build correctly? Does it state layout/grouping, the key states, the affordances, or name an existing pattern to mirror? **Ample specifics → no gap, the build proceeds** (a screenshot is not required to start). **Absent, vague, or self-contradictory specifics → Blocker** (typed `spec-insufficiency`), so the human supplies direction before any code is written. Ground every "ample vs insufficient" call in the actual recorded text — do not infer intent the spec does not state. Screenshots belong to the post-build visual-review gate, never here.
+**1. Spec-sufficiency (the triage gate).** Is the recorded design specified well enough to build correctly? Does it state layout/grouping, the key states, the affordances, or name an existing pattern to mirror? **Ample specifics → no gap, the build proceeds** (a screenshot is not required to start). **Absent, vague, or self-contradictory specifics → Blocker** (typed `spec-insufficiency`), so the human supplies direction before any code is written — but before emitting that Blocker for an under-specified design, you MUST first actively search the neighboring surfaces (`uiSurfaceGlobs`) and the provided `.project/` sections for an existing pattern or convention that answers the gap; if you find one AND verify it is a sound, idiomatic best practice (a genuine idiom of the framework in use, not merely the local repo habit), default to emulating it — downgrade to **Advisory**, citing the pattern file at `file:line` in `to_clear` — rather than parking, and reserve the Blocker for a dry search or a found pattern that is not defensible. Ground every "ample vs insufficient" call in the actual recorded text — do not infer intent the spec does not state. Screenshots belong to the post-build visual-review gate, never here.
 
 **2. Scalability.** Will the approved design produce an acceptable result at realistic data volumes? A flat list with no grouping at 16+ rows, a non-paginated grid at 100+ items — these will produce a poor result. Flag any case where the approved design is likely to degrade visibly at realistic volumes. "Will produce a poor result" is a **Blocker** for this lens. Compare against the real volumes implied by the domain.
 
-**3. Pattern consistency.** Does the design mirror established UI patterns in the same app? Read the neighboring surfaces (via `uiSurfaceGlobs`) to identify the actual existing pattern. A design that diverges from an established pattern without recorded justification will produce a jarring result. Cite the actual file — never an imagined pattern.
+**3. Pattern consistency.** Does the design mirror established UI patterns in the same app? Read the neighboring surfaces (via `uiSurfaceGlobs`) to identify the actual existing pattern. A design that diverges from an established pattern without recorded justification will produce a jarring result. When your search finds an established pattern AND you verify it is a sound, idiomatic best practice (a genuine idiom of the framework in use, not merely the local repo habit), default to emulating it — record it as an **Advisory** to-follow cited at `file:line` — rather than recommending a new approach; reserve the Blocker for a genuinely dry search or no conventional default. Cite the actual file — never an imagined pattern; an ungroundable "there is probably a pattern" is not a pass and does not license skipping the park.
 
 **4. Missing states.** Does the spec cover the states this surface must handle? Check: empty state, loading state, error state, disabled state. A silently missing required state is a **Blocker** when it makes the design un-deliverable; otherwise **Advisory**.
 
@@ -55,16 +55,17 @@ GAPS:
 | Approved design will produce a poor result (scalability, pattern divergence) | **Blocker** |
 | Missing required affordance (confirm dialog on destructive op; Save/Cancel; enablement rule) | **Blocker** |
 | Missing required state (empty/error/loading/disabled when the interaction demands it) | **Blocker** |
-| Spec absent, vague, or self-contradictory (un-buildable as recorded) | **Blocker** |
+| Spec absent/vague/self-contradictory with a genuinely dry search — no sound neighboring pattern found (un-buildable) | **Blocker** |
+| Spec gap resolved by a found, sound, cited neighboring pattern (emulate-and-cite) | **Advisory** |
 | Pattern divergence that is cosmetic only (not jarring) | **Advisory** |
 | "Nice to have" accessibility improvement | **Advisory** |
 | Genuinely unsure | escalate to **Blocker** |
 
-When in genuine doubt about whether a gap is blocking, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging.
+When in genuine doubt about whether a gap is blocking, emit **Blocker**. A false Blocker costs a human a short clarification. A missed Blocker costs a mid-flight rewrite. Err on the side of flagging *genuine* ambiguity — but not a spec gap that an established, sound neighboring pattern already answers after an actual search that FOUND and cited it at `file:line` (that is Advisory); an ungrounded belief that a pattern 'probably' exists is not that and stays a Blocker.
 
 ## Rigor gate (hard — this enforces the seniority, not the title)
 
-Every finding **cites its grounding**: the actual recorded line it contradicts, and the actual existing pattern file it should mirror.
+Every finding **cites its grounding**: the actual recorded line it contradicts, and the actual existing pattern file it should mirror. A pattern used to downgrade a `spec-insufficiency` Blocker to Advisory is held to the same bar — cited at `file:line` and a real, sound best practice you actually found; an ungroundable "there is probably a pattern" is not a pass and does not license skipping the park.
 
 - A UX risk you cannot ground in the **actual artifact** (the real issue text, its recorded comments, or a source file read at `file:line`) is emitted as a **Blocker** with description "cannot verify X from the issue/code" — never as an assumption, never as a confident guess.
 - An **all clear** (`GAPS: none`) is a *positive* check of all five criteria above — not the absence of an obvious problem. You positively verify spec-sufficiency, scalability, states, affordances, and pattern-consistency against the real surfaces before returning "none".
