@@ -44,7 +44,7 @@ A park applies a comment plus a label, so you can triage a finished run by label
 |---|---|
 | `in progress` | Branch open with partial / parked work |
 | `blocked` | Held by an unmerged dependency, or an E2E-unverified park |
-| `needs design` | Design direction required before building (insufficient / contradictory design; silent-criteria new UI) |
+| `needs design` | Design direction required before building (insufficient / contradictory design; silent-criteria new UI). Applied only after an active codebase-convention search comes up dry — a found, sound, cited convention is emulated (Advisory) instead of parked. |
 | `needs decision` | Non-design human decision required (new dependency; destructive-op confirm UX; architecture call) |
 | `needs review` | Built; UI PR open awaiting your visual sign-off (incl. the no-render path) |
 | `judgment call` | A borderline autonomous call worth a post-run audit |
