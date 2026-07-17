@@ -3,6 +3,26 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.16.1 — convention-search before parking as `needs design`
+
+**Theme:** Before triage parks an issue as `needs design`, both reviewer agents must now actively search the existing codebase for a convention that answers the gap — and when they find a sound, idiomatic one, default to emulating it (cited) rather than recommending a new approach. A passive "note the convention if you happen to see it" check becomes a required search → verify-best-practice → emulate-or-park gate.
+
+### ✨ Triage convention-search
+
+| Issue | PR | What |
+|---|---|---|
+| #334 require a convention search before `needs design` | #335 | `triage-reviewer` criterion 2 (Buildability) and `design-reviewer` criteria 1 (Spec-sufficiency) & 3 (Pattern consistency) now require an active search of `sourceGlobs` / `uiSurfaceGlobs` plus the resolved `.project/` sections before emitting a `needs design` Blocker; a found, verified best-practice convention downgrades to an emulate-and-cite Advisory (cited at `file:line`), reserving the Blocker for a genuinely dry search or no conventional default. Severity tables and rigor gates updated in both agents; `skills/triage/SKILL.md` label routing unchanged. |
+
+### Consumer notes (upgrading from v1.16.0)
+
+- **Behavior refinement, no config change.** Triage now parks fewer issues as `needs design`: when an established, sound convention already answers an under-specified choice, it is recorded as an emulate-and-cite Advisory (cited at `file:line`) and the build proceeds, instead of parking. A genuinely dry search — no sound convention found — still parks exactly as before.
+- Prose-only change to `agents/triage-reviewer.md` and `agents/design-reviewer.md`; the ungroundable "there is probably a convention" case is explicitly still a Blocker (not a pass).
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.16.0 — run-efficiency grounding
 
 **Theme:** Cut cache-aware dollar cost and sharpen grounding on every driver run — a diff-scoped repo file-map injected into subagent briefs, an optional AI pre-filter over captured screenshots, and a per-run cache-aware cost record — extending existing mechanisms only, with no new persistent stores, daemons, or browser stacks.
