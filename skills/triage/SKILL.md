@@ -35,6 +35,7 @@ Extract:
 | `uiSurfaceGlobs` | *(absent → no design-lens review)* |
 | `sourceGlobs` | *(pass through to the agent brief in Step 3)* |
 | `nonNegotiables` | *(pass through to the agent brief in Step 3)* |
+| `domainSkills` | *(pass through to the agent brief in Step 3)* |
 | `projectDocs` | `.project/` |
 
 ### Step 2 — Gather issues
@@ -153,7 +154,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - The issue: number, title, body, acceptance criteria, labels.
 - Its recorded design decisions: all comments and any `design-cleared` notes fetched in Step 2.
 - The milestone description (the declared Wave/dependency order) — batch mode only; pass an empty string in single mode.
-- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`.
+- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found convention is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue (from "Resolve cited project-docs sections (once per issue, before dispatch)" above — omit this input when that block was a no-op for this issue).
 
 **Each agent returns:**
@@ -178,6 +179,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - The issue: number, title, body, acceptance criteria.
 - Its recorded design decisions: all comments and any `design-cleared` notes.
 - Pointers to existing UI surfaces the issue neighbors — via `uiSurfaceGlobs` from the profile.
+- The profile: `uiSurfaceGlobs`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found pattern is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue — the **same** sections resolved once and passed to the `triageAgent` above (from "Resolve cited project-docs sections (once per issue, before dispatch)"; omit when that block was a no-op for this issue).
 
 **The design agent returns:**
