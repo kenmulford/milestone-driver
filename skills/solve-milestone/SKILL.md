@@ -53,7 +53,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       worktrees/
       ```
 
-   2.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record, uisurfaceglobs) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. File order is print order — today's order is preflight → trello → visualcapture → parallel-default → code-review-gate → aiprefilter → cost-record → uisurfaceglobs, appended in the order each notice was added to `skills/notices.md`.
+   2.1. **One-time notices.** Immediately after reading the profile: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record, uisurfaceglobs) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. File order is print order — today's order is preflight → trello → visualcapture → parallel-default → code-review-gate → aiprefilter → cost-record → uisurfaceglobs, appended in the order each notice was added to `skills/notices.md`.
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` and `--driven` are boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
@@ -61,7 +61,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
    - **Available-milestones table format** (for the error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` formatted as a Markdown table with columns `#` and `Title`.
 
    All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
-   **3.5** If `integrations.trello` is present in the profile, read `skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
+   **3.5** If `integrations.trello` is present in the profile, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
    **3.6** **Cherry-pick check for a human-typed milestone under a parent group (fires only when `--driven` is absent).** A milestone can be one ordered slice of a larger feature spanning several milestones, grouped under a parent GitHub issue that carries the `md-epic` label (recorded in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). When a human types `solve-milestone <name>` directly, this step warns them before they build only that slice. The `--driven` token (defined in step 5 below; string-presence recognition for this token added in #267) is never typed by a human — an automated fan-out loop supplies it when it dispatches this skill on its own behalf. **When `--driven` is present, this step does not execute at all** — not the first-issue query, not the parent lookup — so a driven run can never re-detect its own dispatching parent and re-prompt. This is what keeps the *driven* path true to this skill's own frontmatter contract, "never waits on a human... only a systemic failure ends the run early" — like the purely-numeric-title halt in step 3 above, this new prompt is a human-typed-invocation-only exception to that contract and never fires under `--driven`.
 
    When `--driven` is absent:
@@ -145,11 +145,11 @@ The **milestone description is the ordering source of truth**. Read it (e.g. `gh
 
 Read `versioning` from the profile. **Version-free mode** (`versioning: false`): skip this step entirely — no extraction, no prompt, no target version. Record "version-free run — no version determined or bumped" and proceed to Phase 0.
 
-**Otherwise** (`versioning: true` or absent): determine the target version with the deterministic extractor `scripts/extract-version.{sh,ps1}` (issue #158) — do **not** parse by judgment. Pipe the milestone's title + description as JSON to the extractor (bash where available, else pwsh):
+**Otherwise** (`versioning: true` or absent): determine the target version with the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (issue #158) — do **not** parse by judgment. Pipe the milestone's title + description as JSON to the extractor (bash where available, else pwsh):
 
 ```bash
 gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '{title, description}' \
-  | bash scripts/extract-version.sh        # pwsh -NoProfile -File scripts/extract-version.ps1 on pwsh-only hosts
+  | bash "${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.sh"        # pwsh -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.ps1" on pwsh-only hosts
 ```
 
 The extractor prints the normalized version on **stdout**, or nothing — with a reason (`none` or `ambiguous:<candidates>`) on **stderr**. Branch on the result × `versioning`:
@@ -189,7 +189,7 @@ Before the build loop begins, invoke the triage phase across the entire mileston
    gh issue edit <n> --add-label "<name>"
    ```
 
-   Use the hex color and description from the taxonomy table in `skills/setup/SKILL.md` Phase 4.
+   Use the hex color and description from the taxonomy table in `${CLAUDE_PLUGIN_ROOT}/skills/setup/SKILL.md` Phase 4.
 
 2.5. If `integrations.trello` is configured, run trello-sync.md `## Phase 0 hooks` (best-effort).
 
@@ -197,7 +197,7 @@ Before the build loop begins, invoke the triage phase across the entire mileston
 
 ### 4. Loop over issues in dependency-graph order
 
-**Mode branch point.** If the run resolved to **parallel** mode (the *Resolve execution mode* Before-starting step): read `skills/solve-milestone/parallel-waves.md` and run its Wave loop (Parallelizable-set selection → Phase 1 → Phase 2 → Integration granularity) instead of this section's per-issue loop below — do not run steps 1–5 below. If `parallel-waves.md` is missing or unreadable at this point, that is a **systemic failure**: surface it and halt the run per `## Autonomy` → "Systemic failures that halt the run" (do **not** silently degrade to sequential, which would silently skip real dispatched work). If the run resolved to **sequential** mode: `parallel-waves.md` is **never read** — this section (steps 1–5, the buildable / not-buildable branches) runs byte-unchanged below.
+**Mode branch point.** If the run resolved to **parallel** mode (the *Resolve execution mode* Before-starting step): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md` and run its Wave loop (Parallelizable-set selection → Phase 1 → Phase 2 → Integration granularity) instead of this section's per-issue loop below — do not run steps 1–5 below. If `parallel-waves.md` is missing or unreadable at this point, that is a **systemic failure**: surface it and halt the run per `## Autonomy` → "Systemic failures that halt the run" (do **not** silently degrade to sequential, which would silently skip real dispatched work). If the run resolved to **sequential** mode: `parallel-waves.md` is **never read** — this section (steps 1–5, the buildable / not-buildable branches) runs byte-unchanged below.
 
 Create one TodoWrite item per issue. Drive the loop from the **validated dependency graph** produced by Phase 0. Process issues Wave by Wave; within a Wave, issues that are independent of each other may be treated as buildable in any order.
 
@@ -248,7 +248,7 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 
 ### Parallelizable-set selection (parallel mode)
 
-Relocated to `skills/solve-milestone/parallel-waves.md § Parallelizable-set selection (parallel mode)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallelizable-set selection (parallel mode)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
 
 ### Permission pre-flight gate
 
@@ -293,19 +293,19 @@ The gate fires **once per run**, not once per issue — at run-start mode resolu
 
 ### Parallel mode — Phase 1: concurrent worker dispatch
 
-Relocated to `skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent worker dispatch` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent worker dispatch` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
 
 ### Parallel mode — Phase 2: serial verified merge tail
 
-Relocated to `skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
 
 ### Integration granularity (issue vs wave)
 
-Relocated to `skills/solve-milestone/parallel-waves.md § Integration granularity (issue vs wave)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Integration granularity (issue vs wave)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
 
 ### 5. Finish
 Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
-If `integrations.trello` is present, apply `## Finish hooks` from `skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
+If `integrations.trello` is present, apply `## Finish hooks` from `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
 
 ## Autonomy
 
@@ -385,7 +385,7 @@ PR cell: show the PR number if the issue has one, else —.
 
 ## Output style
 
-Read `skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule, which applies to this skill); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR body, and CHANGELOG entry this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule, which applies to this skill); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR body, and CHANGELOG entry this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
 
 ## Final summary
 
@@ -654,5 +654,5 @@ After presenting the final summary (Template 3), emit a `PushNotification`:
 
 1. **Aggregate its own dispatches.** From the `<usage>` block each Agent-dispatch tool result carried this run — the Phase 0 triage dispatch and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch (whose completion notification carries the same block) — sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`, plus the orchestrator's own run clock → `wallClockSeconds`. This record is independent of any background `solve-issue`'s own record — no cross-orchestrator de-dup.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (not surfaced per-dispatch — the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
-3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the same host selection as `scripts/ci-preflight-steps.{sh,ps1}`). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's responsibility.
+3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}`). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's responsibility.
 4. **Skip cleanly.** Zero dispatches this run (e.g. a halt before Phase 0 completes any dispatch) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced at all → silent no-op, one log line. Never fails the run.

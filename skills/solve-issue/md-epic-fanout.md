@@ -11,14 +11,14 @@ A parent issue's body carries an ordered list of milestones — the build order 
 
 1. **Profile read only.** Run SKILL.md's `## Before starting` step 1 (profile read) — the fan-out loop needs `integrationBranch` to re-sync between milestones. **Skip SKILL.md steps 2 and 3** (the clean-tree check and the branch-state probe) — a parent issue authors no code, so it has no feature branch and no branch state to probe.
 
-2. **Parse the ordered milestone list** from `#n`'s raw body with the #266 parser (pwsh on Windows, bash elsewhere — same host selection as `scripts/ci-preflight-steps.{sh,ps1}` at SKILL.md step 6.1):
+2. **Parse the ordered milestone list** from `#n`'s raw body with the #266 parser (pwsh on Windows, bash elsewhere — same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}` at SKILL.md step 6.1):
 
    ```bash
-   gh issue view <n> --json body --jq .body | bash scripts/parse-md-epic-order.sh
-   # pwsh -NoProfile -File scripts/parse-md-epic-order.ps1 on pwsh-only hosts
+   gh issue view <n> --json body --jq .body | bash "${CLAUDE_PLUGIN_ROOT}/scripts/parse-md-epic-order.sh"
+   # pwsh -NoProfile -File "${CLAUDE_PLUGIN_ROOT}/scripts/parse-md-epic-order.ps1" on pwsh-only hosts
    ```
 
-   The parser emits one `<kind>\t<raw>` record per entry on stdout (`kind` = `number`|`title`), or exits nonzero with the failure named on stderr — it never calls `gh` and never resolves an entry itself (`scripts/parse-md-epic-order.sh`, issue #266).
+   The parser emits one `<kind>\t<raw>` record per entry on stdout (`kind` = `number`|`title`), or exits nonzero with the failure named on stderr — it never calls `gh` and never resolves an entry itself (`${CLAUDE_PLUGIN_ROOT}/scripts/parse-md-epic-order.sh`, issue #266).
 
    **A nonzero exit parks the PARENT issue `#n` — the fan-out never starts.** No `md-epic-order` block, an unterminated fence, or one malformed line all invalidate the whole list (a half-parsed build order is unsafe to act on). Post a comment on `#n` in the park-comment shape (`skills/output-style.md`) opening `🔴 Parked — ` quoting the parser's stderr (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
 
