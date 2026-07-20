@@ -309,7 +309,7 @@ If `integrations.trello` is present, apply `## Finish hooks` from `skills/solve-
 ## Autonomy
 
 - **Unattended between systemic failures.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues — it does **not** halt the loop. Only a systemic failure ends the run early.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), a missing or unreadable `skills/solve-milestone/parallel-waves.md` when the run has resolved to parallel mode (core default-on machinery, not a best-effort integration — unlike `trello-sync.md` / `coherenceReviewAgent`, which degrade silently). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, then present the final summary and stop — the **Run-complete notification** block (below `## Final summary`) emits the `🚨 Run halted — <reason>` notification, after which the run-end cost record fires as that block's final step (see the block's **Run-end cost record**).
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), a missing or unreadable `skills/solve-milestone/parallel-waves.md` when the run has resolved to parallel mode (core default-on machinery, not a best-effort integration — unlike `trello-sync.md` / `coherenceReviewAgent`, which degrade silently). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, then present the final summary and stop — the `## Run-complete notification` section (below `## Final summary`) emits the `🚨 Run halted — <reason>` notification, after which the run-end cost record fires as that section's final step (see the section's **Run-end cost record**).
 - **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
@@ -406,7 +406,7 @@ On completion or systemic-failure halt, report:
 
 ### 6. Author the CHANGELOG entry
 
-**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the Run-complete notification. The systemic-halt path is identified by the fact that the run ended with a 🚨 reason (not a 🏁 reason).
+**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the `## Run-complete notification` section. The systemic-halt path is identified by the fact that the run ended with a 🚨 reason (not a 🏁 reason).
 
 **Guard — skip this step entirely if any condition holds:**
 
@@ -415,7 +415,7 @@ On completion or systemic-failure halt, report:
 
 The parked count is derived from this run's **in-context tracking** — it counts ALL issues that did not reach "merged" or "held at visual-review gate" status in this run: issues parked at build time, issues skipped due to triage blockers, AND issues excluded by the buildability check due to a live blocker label (e.g., `blocked` from a prior run). This is the `⏸️ P` count in Template 3's summary line. Do NOT re-derive via a live `gh issue list` query — a live query may find labels unrelated to this run's completion status.
 
-If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the Run-complete notification.
+If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the `## Run-complete notification` section.
 
 Only proceed through steps 6.1–6.9 when **every issue in the milestone is either merged (non-UI) or held at the visual-review gate (UI)** — i.e. no parks. Visual-review holds (open `needs review` PRs for UI issues) are expected clean-completion state and do NOT block CHANGELOG authoring.
 
@@ -426,7 +426,7 @@ Determine the heading prefix based on the versioning mode:
 - **Versioned mode** (`versioning: true` or absent): prefix is `## v<target-version> ` (with a trailing space)
 - **Version-free mode** (`versioning: false`): full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. Strip leading and trailing whitespace (including `\r` on Windows) from each line before comparing — the trimmed line content must equal the heading with no additional characters. This prevents false-positive matches against entries like `## Q3 Hardening` when the current milestone is titled `Q3`.
 
-If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync). Scan each line for the prefix starting at the beginning of the line. For versioned mode use a line-start prefix match on the trimmed line; for version-free mode use a full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the Run-complete notification. If no match → continue.
+If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync). Scan each line for the prefix starting at the beginning of the line. For versioned mode use a line-start prefix match on the trimmed line; for version-free mode use a full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the `## Run-complete notification` section. If no match → continue.
 
 If `CHANGELOG.md` is absent, treat it as "no existing entry" and continue.
 
@@ -643,11 +643,13 @@ Add one line to the `🔴 Your move:` list in Template 3 (the final summary):
 
 **Label collision note:** A CHANGELOG PR carrying the `needs review` label must be surfaced in the `🔴 Your move:` list only — it must NOT appear in the `👁️ open` rows of Template 3. The Final summary's "Open UI PRs awaiting human merge" bullet is scoped to PRs opened for issues in this run's issue set (cross-referenced against the run's in-context issue→PR tracking table), not all `needs review` PRs in the repo.
 
-**Run-complete notification.** After presenting the final summary (Template 3), emit a `PushNotification`:
+## Run-complete notification
+
+After presenting the final summary (Template 3), emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
 - **Systemic halt** (invoked from the Autonomy section's halt path): `🚨 Run halted — <reason>` (where `<reason>` is the systemic-failure description, e.g. "gh auth failure").
 
-**Run-end cost record (additive, never-gating).** As the **last step of this Run-complete notification point** — the single point common to both the clean-completion and systemic-halt paths — emit one per-run cost record, then finish. Additive and **never-gating**: it never blocks, parks, or changes the run's outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
+**Run-end cost record (additive, never-gating).** As the **last step of this `## Run-complete notification` section** — the single point common to both the clean-completion and systemic-halt paths — emit one per-run cost record, then finish. Additive and **never-gating**: it never blocks, parks, or changes the run's outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
 
 1. **Aggregate its own dispatches.** From the `<usage>` block each Agent-dispatch tool result carried this run — the Phase 0 triage dispatch and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch (whose completion notification carries the same block) — sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`, plus the orchestrator's own run clock → `wallClockSeconds`. This record is independent of any background `solve-issue`'s own record — no cross-orchestrator de-dup.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (not surfaced per-dispatch — the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
