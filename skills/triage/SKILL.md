@@ -370,6 +370,7 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
    code-review-gate-notice
    aiprefilter-notice
    cost-record-notice
+   uisurfaceglobs-notice
    triage-cache.json
    tests-stamp
    .runtime/
