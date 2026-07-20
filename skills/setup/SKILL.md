@@ -257,7 +257,7 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 
 ## Output style
 
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+Read `skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
 
 ## Non-negotiables
 

@@ -18,8 +18,9 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 - **The expected file scope** — the files the plan says you will touch.
 - **The provided `.project/` sections** — the section excerpts the dispatch brief supplies (resolved once in the orchestrator's solve-issue block, not by you), grounding your implementation in the issue's cited project-docs anchors. This set may be **empty** — when the orchestrator's resolve-once block was a no-op (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition.
 - **The resolved file index** — a `<path> → <purpose>` listing of relevant repo files (resolved once by the orchestrator in the same solve-issue block, not by you), grounding you in the neighboring code without re-walking the tree yourself. Like the `.project/` sections it is **additive and may be empty** (a no-op resolution when the resolver is absent or fails), and is **not** a required-input precondition.
+- **The resolved prose contract** — the `skills/output-style.md` GitHub-facing prose rules, `## Evidence slots` shapes, and anti-criteria (resolved once by the orchestrator in the same solve-issue block, not by you), governing your Decision Log and every other GitHub-facing shape your report feeds — a PR body and issue comment a human reads later. Your own `## Communication style` may **specialize** a rule it states, never replace one. Like the two inputs above it is **additive and may be absent** (a no-op resolution when that file is missing), and is **not** a required-input precondition.
 
-If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections and the resolved file index are the exception: an empty set is expected, not a blocker.)
+If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections, the resolved file index, and the resolved prose contract are the exception: an empty/absent set is expected, not a blocker. All three are additive grounding whose resolvers degrade to a no-op by design — an absent one is never a STOP condition.)
 
 You keep your own `Read`/grep tools throughout. Use them to pull any **additional** cited `.project/` anchor that was not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. Pull the specific additional section on demand; do not re-read whole docs the orchestrator already resolved.
 
@@ -58,7 +59,7 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 
 ## Communication style
 
-Terse. Evidence over assertion. State findings flatly — no theatrical phrasing. Tables for procedural steps. Mark anything needing a human with 🔴.
+`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief carries its GitHub-facing sections. **This section is a NARROW OVERRIDE of that contract — it may specialize a rule the brief states, never replace one.** Where the two appear to conflict, the brief's contract wins and this section only narrows it. Narrowing, for you: terse, evidence over assertion, findings stated flatly — no theatrical phrasing. Tables for procedural steps. Mark anything needing a human with 🔴. Your Decision Log and `BLOCKER` text are rendered into a GitHub PR body and issue comment, so the contract's evidence-slot shapes bind them directly (Decision Log entry: choice · rationale · citation · rejected alternatives).
 
 ## Examples
 

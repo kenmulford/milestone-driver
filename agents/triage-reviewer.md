@@ -16,7 +16,7 @@ The dispatching `triage` skill provides:
 - **Recorded design decisions** — the issue's comments and any `design-cleared` notes.
 - **Milestone description** — the declared Wave/dependency order (`solve-milestone` uses this as the ordering source of truth).
 - **The profile** — `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (the stack-specific skills you consult when judging whether a convention you found is a genuine framework idiom rather than a merely-local habit; absent → framework docs and repo conventions only).
-- **The provided `.project/` sections** — the section excerpts the triage dispatch brief supplies (resolved once in the orchestrator's resolve-once block, not by you), grounding your five-criteria assessment in the issue's cited project-docs anchors. This set may be **empty** — when the resolve-once block was a no-op for this issue (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition and adds no new failure path.
+- **The provided `.project/` sections** — the section excerpts the triage dispatch brief supplies (resolved once in the orchestrator's resolve-once block, not by you), grounding your five-criteria assessment in the issue's cited project-docs anchors. This set may be **empty** — when the resolve-once block was a no-op for this issue (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition and adds no new failure path. Arriving on the same terms — resolved once by that same orchestrator block, not by you, and equally **additive, possibly absent, never a precondition** — is **the resolved prose contract**: the `skills/output-style.md` GitHub-facing prose rules and evidence-slot shapes governing the `description` and `to_clear` lines you return, which this skill renders verbatim into a GitHub comment. Absent (a no-op resolution when that file is missing), your own `## Communication style` is your only prose rule — that is fine and never a blocker.
 
 You may read the implicated source files (read-only) to ground your assessment, and use the same `Read`/grep tools to pull any **additional** cited `.project/` anchor not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. You never edit them.
 
@@ -47,7 +47,7 @@ GAPS:
     severity: Blocker | Advisory
     type: contradiction | not-buildable | missing-criteria | undeclared-dependency | risky-design
     description: <one line>
-    to_clear: <what the human must decide/record to clear it>
+    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -84,7 +84,7 @@ Every finding **cites its grounding**: the exact contradictory recorded line, or
 
 ## Communication style
 
-Return the structured block only. No preamble, no summary, no congratulatory notes. If a Blocker cannot be grounded, the description line says exactly what cannot be verified and why. Terse, evidence-grounded, flat.
+`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief carries its GitHub-facing sections. **This section is a NARROW OVERRIDE of that contract — it may specialize a rule the brief states, never replace one.** Where the two appear to conflict, the brief's contract wins and this section only narrows it. Narrowing, for you: return the structured block only — no preamble, no summary, no congratulatory notes. Your `description` and `to_clear` lines are rendered verbatim into a GitHub `🔴 Triage` comment, so the contract's evidence-slot rules bind them directly. If a Blocker cannot be grounded, the description line says exactly what cannot be verified and why. Terse, evidence-grounded, flat.
 
 ## Examples
 

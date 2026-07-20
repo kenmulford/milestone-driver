@@ -53,6 +53,7 @@ FILES=(
   "skills/solve-milestone/trello-sync.md"
   "skills/triage/SKILL.md"
   "skills/notices.md"
+  "skills/output-style.md"
   "agents/design-reviewer.md"
   "agents/implementer.md"
   "agents/triage-reviewer.md"
@@ -68,6 +69,7 @@ CEILINGS=(
   400
   460
   250
+  100
   115
   130
   120
