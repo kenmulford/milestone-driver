@@ -139,11 +139,13 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 2. **Parse the cited anchors.** From each MISS issue's body + its acceptance criteria (gathered in Step 2), collect the `.project/<doc>#<section>` anchors the issue cites — `<doc>` is the path under the docs root, `<section>` is the heading text (an anchor like `design-system.md#data-tables`).
 3. **Pull a superset via the primitive.** For each cited anchor — plus its plausibly-relevant **sibling** sections — invoke the retrieval primitive `scripts/read-doc-section.{sh,ps1}` (pwsh on Windows, bash elsewhere — same host selection as `scripts/ci-preflight-steps.{sh,ps1}`) once per section: `read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, where `<doc-path>` is the doc under the docs root and `<anchor-text>` is the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion**: pull the cited sections and their siblings as a superset rather than the minimum, because **under-retrieval is the real risk** (`docs/efficiency-grounding-plan.md` Risks). The reviewers keep their own `Read`/grep tools for any **additional** on-demand anchor, so over-inclusion here never under-grounds a brief — but it also must never degrade into whole-file inlining (the do-NOT-do ceiling). Resolve **once per issue**; do **not** have the reviewers re-read whole files.
 4. **Feed the result into both dispatch briefs.** Collect the printed sections for each MISS issue and pass the **same** resolved sections into BOTH the `triageAgent` brief and the `designReviewAgent` brief composed in Step 3 (below) as **the resolved `.project/` sections**. Resolve once per issue, not once per reviewer.
+5. **Resolve the prose contract (once per run).** Read `skills/output-style.md` **once per run** — not once per issue and not once per reviewer, mirroring the resolve-once posture above — and pass its `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, and `## The two anti-criteria` sections into **BOTH** the `triageAgent` brief and the `designReviewAgent` brief composed in Step 3 as **the resolved prose contract**. It governs each reviewer's returned `description` and `to_clear` lines — the text this skill renders verbatim into the `🔴 Triage` comment it posts in Step 6 — and each agent's own `## Communication style` may specialize it but never replace it.
 
 **Degradation (no error, ever):**
 - **Absent `projectDocs`** → defaults to `.project/` (resolved at Step 1).
 - **Absent `.project/` directory** (or no cited anchors on an issue) → this block is a **no-op** for that issue: dispatch proceeds with no project grounding and **no error** (skipped cleanly when absent, exactly like the cache degradation in Step 2.5).
 - **Missing/renamed cited anchor** → the primitive **fails loud** (non-zero exit, naming the anchor + file on stderr) so a drifted heading surfaces rather than returning silent empty grounding. Treat the loud failure as a signal that a cited anchor drifted — do not swallow it.
+- **Absent `skills/output-style.md`** (the file is missing, or unreadable) → **no-op**: both dispatches proceed with **no prose contract** in their briefs and **no error**, leaving each reviewer's own `## Communication style` as its only prose rule. This mirrors the absent-`.project/` no-op branch above, **not** the fail-loud missing-anchor branch — the contract is additive grounding that no issue cites by name, so it never fails loud.
 
 ### Step 3 — Dispatch `triageAgent` per issue
 
@@ -156,6 +158,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - The milestone description (the declared Wave/dependency order) — batch mode only; pass an empty string in single mode.
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found convention is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue (from "Resolve cited project-docs sections (once per issue, before dispatch)" above — omit this input when that block was a no-op for this issue).
+- The resolved prose contract (the `skills/output-style.md` sections resolved once per run in that same block) — the GitHub-facing prose rules and evidence-slot shapes governing the agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
 
 **Each agent returns:**
 
@@ -168,7 +171,7 @@ GAPS:
     severity: Blocker | Advisory
     type: contradiction | not-buildable | missing-criteria | undeclared-dependency | risky-design
     description: <one line>
-    to_clear: <what the human must decide/record to clear it>
+    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -181,6 +184,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - Pointers to existing UI surfaces the issue neighbors — via `uiSurfaceGlobs` from the profile.
 - The profile: `uiSurfaceGlobs`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found pattern is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue — the **same** sections resolved once and passed to the `triageAgent` above (from "Resolve cited project-docs sections (once per issue, before dispatch)"; omit when that block was a no-op for this issue).
+- The resolved prose contract — the **same** `skills/output-style.md` sections resolved once per run and passed to the `triageAgent` above, governing this agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
 
 **The design agent returns:**
 
@@ -191,7 +195,7 @@ GAPS:
     severity: Blocker | Advisory
     type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
-    to_clear: <suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage")>
+    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -291,20 +295,20 @@ For every **freshly-triaged** (MISS) issue that has **Blocker** gaps:
 
 For each qualifying MISS issue:
 
-1. **Post a triage comment** (`gh issue comment <n> --body "..."`). The comment body must:
-   - Open with `🔴 Triage`
-   - List each Blocker gap (one line per gap: lens, description, what's needed to clear it)
-   - Close with what must be recorded on this issue before it can build
+1. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`). The comment body must:
+   - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md:396` and probed at `skills/solve-milestone/parallel-waves.md:80`. Only what FOLLOWS the opener is structured here.
+   - Render the Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. The evidence column is what makes a claim checkable; a row with an empty evidence cell is an unfilled slot, not a shorter row.
+   - Close with the durable-async instruction. That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`) — it is the one closing line the table cannot carry, and it still states what must be recorded before this issue can build.
 
    Example:
 
    ```
    🔴 Triage
 
-   This issue has design gaps that block building:
-
-   - **[architect / contradiction]** Recorded design is internally contradictory: "mirror ConfirmImportPage grouping" (comment #1) vs "flat list, no collection picker" (comment #3). Record the authoritative grouping decision before building.
-   - **[design / scalability]** Flat 16-row list at realistic volume will produce a poor result vs the established grouped-card pattern in `Views/ConfirmImportPage.xaml`. Group under collection headers like ConfirmImportPage, or record a justified divergence.
+   | Lens / type | Blocker | Evidence | What clears it |
+   |---|---|---|---|
+   | architect / contradiction | Recorded design is internally contradictory. | "mirror ConfirmImportPage grouping" (comment #1) vs "flat list, no collection picker" (comment #3) | Record the authoritative grouping decision before building. |
+   | design / scalability | Flat 16-row list at realistic volume will produce a poor result. | Established grouped-card pattern at `Views/ConfirmImportPage.xaml` | Group under collection headers like ConfirmImportPage, or record a justified divergence. |
 
    This is a durable async note — no reply needed now. Record the decision on this issue and re-run triage or solve-issue when ready.
    ```
@@ -424,7 +428,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 
 ## Output style
 
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+Read `skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern the `🔴 Triage` comment this skill posts (Step 6). The two surfaces are distinct — the terminal rules never reach GitHub.
 
 ## Non-negotiables
 

@@ -226,7 +226,7 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 3. **Park-and-continue on STOP/PAUSE:** *(Under async dispatch: the background agent already ran park-don't-prompt — skip step (3c) below (the comment was already posted by the agent); the live label read in step 4.2 is the park confirmation. Under synchronous dispatch: proceed as follows.)* If `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), **park the issue and continue** — do **not** halt the loop. Parking steps:
    a. Apply the appropriate label using the apply-time label helper (`needs decision` for a new dependency or architecture call; `needs design` for a design/spec gap; `blocked` for an unresolvable unmet gate).
    b. Apply `in progress` if a branch exists with commits.
-   c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there; if not, post it via `gh issue comment <n>`.
+   c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there **and that it fills all three slots of the park-comment shape** (`skills/output-style.md`) — reason · evidence · what unblocks it; if it is missing, or is present but carries no evidence slot, post it (or the missing slot) via `gh issue comment <n>`.
    d. Leave the issue open; note it in the run output.
    e. Continue to the next issue in the dependency graph whose dependencies are merged.
 4. **On success**, `/milestone-driver:solve-issue` has reached one of two terminal states: for a **non-UI issue** it has squash-merged to `integrationBranch` and closed the issue; for a **UI issue** held at the visual-review gate (`solve-issue` steps 7–9) it has left the PR **open** with the `needs review` label — not merged, issue not closed — for human visual sign-off (the final summary reports these open PRs). For non-UI merged issues, if `integrations.trello` is present and a card handle was resolved, tick the checklist item for issue `#<n>` per `trello-sync.md § Issue granularity` (under `## Loop hooks`; best-effort; failure logged, loop continues). Re-sync the local `integrationBranch` (`git fetch`, fast-forward) before the next issue either way — for a UI issue nothing was merged, so the re-sync is a no-op.
@@ -237,8 +237,8 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 
   > **One blocker label per issue.** A parked issue carries exactly ONE blocker label. Do not apply `blocked` to an issue that already carries `needs design` or `needs decision` — the triage/design label is the root block and takes precedence; `blocked` would be redundant. (`in progress` is orthogonal and may still be applied.)
 
-- **Dependency not yet merged** (condition (a) fails but conditions (b) and (c) pass — the issue is NOT itself triage- or live-label-parked): apply the `blocked` label (and `in progress` if a branch with commits exists) via the apply-time helper, and post a comment naming this issue's own unmerged upstream(s):
-  `gh issue comment <n> --body "🔴 Blocked — held by unmerged upstream dependency: #<each unmerged issue in edges[\"<n>\"]>. This is a dependency-ordering hold (no design/decision work is needed for this issue itself). Once the upstream(s) are merged (and any upstream parks cleared), remove this \`blocked\` label and re-run solve-milestone to build this issue."`
+- **Dependency not yet merged** (condition (a) fails but conditions (b) and (c) pass — the issue is NOT itself triage- or live-label-parked): apply the `blocked` label (and `in progress` if a branch with commits exists) via the apply-time helper, and post a comment in the blocked-comment shape (`skills/output-style.md` — reason · evidence · what unblocks it, where the evidence slot is this issue's OWN unmerged upstream numbers) with the opener byte-unchanged:
+  `gh issue comment <n> --body "🔴 Blocked — dependency-ordering hold; no design or decision work is needed for this issue itself. Evidence: unmerged upstream(s) #<each unmerged issue in edges[\"<n>\"]>. Unblocks: merge the upstream(s) and clear any upstream parks, then remove this \`blocked\` label and re-run solve-milestone to build this issue."`
   Then hold every transitive dependent (any issue whose `dependencyGraph.edges` include this issue or another held issue): for EACH such issue m, **before applying `blocked`**, check m's live labels (`gh issue view <m> --json labels --jq '[.labels[].name]'`). If m already carries `needs design`, `needs decision`, or `blocked`, do NOT add another blocker label — the existing label stands (one blocker label per issue). Otherwise apply `blocked` (+ `in progress` if it has a branch). In all cases post the same KIND of comment naming m's OWN unmerged upstream(s) from `edges["<m>"]` — not this issue's (same wording: dependency-ordering hold, clear `blocked` label and re-run). Note all held issues in the run output and continue with independent buildable issues.
 
 The loop **never waits on a human**. It runs to completion — every issue is either done (merged), **held at the visual-review gate** (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked (labeled, branch open if applicable, comment posted). Comment provenance by park type: triage-parked issues carry the `🔴 Triage` comment posted by Phase 0; build-time STOP/PAUSE parks carry the reason confirmed or posted at the park step (step 3c above); dependency-held issues carry the `🔴 Blocked` comment posted in the dependency-not-yet-merged branch above. The run ends when no more buildable issues remain.
@@ -384,9 +384,7 @@ PR cell: show the PR number if the issue has one, else —.
 
 ## Output style
 
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
-
-Use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs.
+Read `skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule, which applies to this skill); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR body, and CHANGELOG entry this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
 
 ## Final summary
 
@@ -535,6 +533,7 @@ Judgment-call PRs for this release: <comma-separated list of PRs with `judgment 
 
 Rules for authoring the entry:
 
+- **Shape.** This entry becomes the GitHub release body, so it is GitHub-facing prose: author it to the CHANGELOG-entry shape in `skills/output-style.md` — one line per issue per bucket, its **evidence slot** carrying the issue number and its merged PR, plus Consumer notes and the ⚖️ judgment-call PR list. A bucket line with no issue/PR reference is an unfilled slot, not a tighter entry.
 - Omit the `### 🔧 Fixes` section entirely if there are no fix-bucket issues.
 - Omit the `### ✨` section entirely if there are no feature-bucket issues (unusual, but possible).
 - Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".

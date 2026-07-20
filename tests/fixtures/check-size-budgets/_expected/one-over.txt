@@ -8,7 +8,8 @@ OK	skills/solve-milestone/parallel-waves.md	1/200
 OK	skills/solve-milestone/trello-sync.md	1/400
 OK	skills/triage/SKILL.md	1/460
 OK	skills/notices.md	1/250
+OK	skills/output-style.md	1/100
 OK	agents/design-reviewer.md	1/115
 OK	agents/implementer.md	1/130
 OK	agents/triage-reviewer.md	1/120
-SUMMARY	ok=12	failed=1
+SUMMARY	ok=13	failed=1
