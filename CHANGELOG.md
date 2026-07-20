@@ -3,6 +3,34 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.17.0 — reviewer grounding & output style
+
+**Theme:** Reviewer claims now have a defined research path and a scope-honesty rule, and every GitHub-facing shape this plugin writes has one governing prose contract with an evidence slot.
+
+### ✨ Reviewer grounding & output style
+
+| Issue | PR | What |
+|---|---|---|
+| #336 wire `domainSkills` into the triage/design reviewer input contract | #344 | v1.16.1's "verify it is a genuine best practice" sub-step shipped with no defined research mechanism. Wires the existing `domainSkills` key through `skills/triage/SKILL.md` Step 1 + both Step 3 brief lists and both reviewer agents' "What you receive", as **one ordered step** — framework docs first, then `domainSkills`, then repo patterns — matching `agents/implementer.md:41-44`. No new profile key. |
+| #341 consolidate the 4× output-style block; add a GitHub prose contract | #345 | New `skills/output-style.md` (91 lines) is the single source: the terminal-vs-GitHub surface split, the prose contract, when prose is the correct form, and evidence slots for 10 shapes. Four skill blocks become pointers; three agents' `## Communication style` reconcile and declare themselves narrow overrides. Injected at **two** resolve-once blocks — `solve-issue` → implementer, `triage` → both reviewers. |
+| #342 require reviewer claims to state their verification scope | #346 | Both Rigor gates enforced only that a citation *exists*. A correct `file:line` attached to an un-enumerated quantifier ("all three controllers", "14 of 15") passed every bullet. Two bullets per reviewer agent add the scope rule and "identical code is not identical exposure". No new GAPS `type`, no new schema field. |
+
+### Consumer notes (upgrading from v1.16.1)
+
+- **New shipped file:** `skills/output-style.md`, governed in `scripts/check-size-budgets.{sh,ps1}` at ceiling 100 (currently 91). The four `## Output style` blocks in `setup` / `triage` / `solve-issue` / `solve-milestone` are now pointers to it.
+- **Behavior change, no config change.** Reviewers verify a convention is a genuine framework idiom against an ordered path (docs → `domainSkills` → repo patterns) rather than their own assumption, and may no longer assert a count or universal quantifier they did not enumerate. Expect scope qualifications like "confirmed at `x.rb:201`; 2 other call sites not individually checked" in triage comments and `to_clear` fields.
+- **`domainSkills` is optional and degrades cleanly** — absent, the step is skipped; it never makes the docs check optional. All three injected inputs (`.project/` sections, file index, prose contract) are additive grounding whose absence is never a STOP condition.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
+Two process defects surfaced during this run and are **not** fixed here — both warrant follow-up issues:
+
+- **Workers strand when they background-dispatch `/code-review`.** Two of three workers ended their turn waiting on a background sub-agent that never re-invoked them; their completed work sat uncommitted until the orchestrator probed the worktree and recovered it. `skills/solve-issue/SKILL.md` step 6.1 does not forbid background dispatch. Nothing was lost, but each incident cost a recovery cycle.
+- **A ceiling-table edit can break the golden-matrix fixtures with no review lens catching it.** #341 added `skills/output-style.md` to `scripts/check-size-budgets.*` and broke `tests/check-size-budgets.test.sh` (0/3). Five `/code-review` lenses cleared it; the coherence pass caught it.
+
 ## v1.16.1 — convention-search before parking as `needs design`
 
 **Theme:** Before triage parks an issue as `needs design`, both reviewer agents must now actively search the existing codebase for a convention that answers the gap — and when they find a sound, idiomatic one, default to emulating it (cited) rather than recommending a new approach. A passive "note the convention if you happen to see it" check becomes a required search → verify-best-practice → emulate-or-park gate.
