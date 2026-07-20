@@ -46,13 +46,14 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       code-review-gate-notice
       aiprefilter-notice
       cost-record-notice
+      uisurfaceglobs-notice
       triage-cache.json
       tests-stamp
       .runtime/
       worktrees/
       ```
 
-   2.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. File order is print order — today's order is preflight → trello → visualcapture → parallel-default → code-review-gate → aiprefilter → cost-record, appended in the order each notice was added to `skills/notices.md`.
+   2.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record, uisurfaceglobs) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. File order is print order — today's order is preflight → trello → visualcapture → parallel-default → code-review-gate → aiprefilter → cost-record → uisurfaceglobs, appended in the order each notice was added to `skills/notices.md`.
 3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` and `--driven` are boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.

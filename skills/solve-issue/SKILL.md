@@ -37,13 +37,14 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
       code-review-gate-notice
       aiprefilter-notice
       cost-record-notice
+      uisurfaceglobs-notice
       triage-cache.json
       tests-stamp
       .runtime/
       worktrees/
       ```
 
-   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
+   1.1.1. **One-time notices.** Immediately after reading the profile: read `skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record, uisurfaceglobs) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. `solve-issue` never evaluates a section scoped only to `solve-milestone` (today: trello, parallel-default).
 2. **Confirm the working tree is clean** (cold-start precondition) **and the local `integrationBranch` is current** (`git fetch`, fast-forward). One expected exception is not a clean-tree violation and must **not** be stashed or discarded: if the probe in step 3 detects an existing `issue/<n>-*` branch — whether the branch carries committed or uncommitted prior work — prior in-progress changes are expected; skip the clean-tree enforcement and proceed to step 3 immediately. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** Run `git fetch` first, then determine prior progress from git + gh before cutting anything. Evaluate in this order:
    - **(a) A PR exists for `issue/<n>-*`** (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`):

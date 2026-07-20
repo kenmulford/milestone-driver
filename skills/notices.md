@@ -200,25 +200,8 @@ Examples:
 
 ## aiprefilter
 
-- **Marker:** `.milestone-config/aiprefilter-notice` — created via
-  `mkdir -p .milestone-config && touch .milestone-config/aiprefilter-notice`
-  when the notice fires.
-- **Skills:** solve-issue, solve-milestone
-- **Trigger:** `visualCapture` is **present** in the profile with all three
-  required keys (`serverCmd`, `readyUrl`, `signInPath`) **and**
-  `uiSurfaceGlobs` is **present** in the profile **and**
-  `visualCapture.aiPrefilter` is **absent** **and** the marker
-  `.milestone-config/aiprefilter-notice` is **absent**. Stay **silent** if any
-  condition fails — `aiPrefilter` already set (the pre-filter is configured
-  either way), `visualCapture` absent/incomplete (nothing to pre-filter),
-  `uiSurfaceGlobs` absent (the repo has no UI surface to capture — the
-  pre-filter could never fire), or the marker already exists. The marker is per-clone and gitignored, so the
-  notice shows at most once per clone (same lifecycle as
-  `.milestone-config/visualcapture-notice`).
-- **Legacy fallback:** none — like visualcapture/parallel-default/
-  code-review-gate, this marker is **born on the new `.milestone-config/`
-  path**, so the gate checks only the new-path marker; there is no legacy-root
-  fallback read and no stale-legacy-removal step.
+- **Marker:** `.milestone-config/aiprefilter-notice`, created via `mkdir -p .milestone-config && touch .milestone-config/aiprefilter-notice`.
+- **Skills:** solve-issue, solve-milestone. **Trigger:** `visualCapture` present with all three required keys (`serverCmd`, `readyUrl`, `signInPath`) AND `uiSurfaceGlobs` present AND `visualCapture.aiPrefilter` absent AND marker absent — silent if any fails (per-clone, gitignored, fires once). **Legacy fallback:** none — born on the new path, like visualcapture/parallel-default/code-review-gate.
 
 **Text:**
 
@@ -247,4 +230,21 @@ Examples:
 
 | What | Every run now writes one priced cost record (tokens × wall-clock, in $) to .milestone-config/.runtime/cost-records/ — passive, per-clone, additive, never-gating.
 | Note | Gitignored scratch; absent writer / no usage figures → silent skip; cost is a lower-bound (unsplit tokens priced as input).
+```
+
+## uisurfaceglobs
+
+- **Marker:** `.milestone-config/uisurfaceglobs-notice`, created via `mkdir -p .milestone-config && touch .milestone-config/uisurfaceglobs-notice`.
+- **Skills:** solve-issue, solve-milestone. **Trigger:** `uiSurfaceGlobs` **absent** from the profile AND marker absent — silent if either fails (per-clone, gitignored, fires once); mirrors the preflight notice's absent-key trigger. **Legacy fallback:** none — born on the new path, like visualcapture/parallel-default/code-review-gate/aiprefilter/cost-record.
+
+**Text:**
+
+```text
+▶ New in 1.17.0 — tell milestone-driver where your UI lives (one-time notice)
+
+| What | "uiSurfaceGlobs" marks which path patterns are UI surfaces.
+| Why  | Without it three layers stay silently off: design-lens review in
+|      | triage, the visual-review gate (UI PRs auto-merge), visual capture.
+| How  | Run `/milestone-driver:setup` or add "uiSurfaceGlobs" to
+|      | .milestone-config/driver.json. Optional — a repo with no UI skips it.
 ```
