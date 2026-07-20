@@ -631,7 +631,7 @@ gh pr merge <pr-number> --squash --delete-branch
   # do NOT delete the local docs/changelog-<slug> branch — remote PR is still open
   ```
 
-  Do NOT re-attempt the merge. Proceed to the Run-complete notification.
+  Do NOT re-attempt the merge. Proceed to step 6.9 (the CI-red branch falls through to 6.9 exactly as the merged branch does).
 
 #### 6.9 Surface in the final summary "Your move" section
 
