@@ -9,6 +9,11 @@ desktop.ini
 *.swp
 *~
 
+# Per-developer Claude Code settings. A project-level .claude/settings.json (shared,
+# repo-relative permissions) stays trackable; settings.local.json is per-clone and
+# routinely holds machine-absolute paths — never commit it.
+.claude/settings.local.json
+
 # Logs and scratch
 *.log
 /tmp/
