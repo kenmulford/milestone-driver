@@ -42,7 +42,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Detected file | Inferred domainSkills candidate |
 |---|---|
 | `*.csproj` / `*.sln` with `Maui` | `["maui-skills:*", "maui-current-apis"]` |
-| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill; implementer falls back to general docs + repo conventions) |
+| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill; implementer and reviewers fall back to general docs + repo conventions) |
 | `package.json` with Angular | `["angular-skills:angular-developer"]` |
 | `skills/**` + `agents/**` + `hooks/**` | `["plugin-dev:*", "superpowers:writing-skills"]` |
 | `package.json` (generic Node) | omit |
@@ -50,7 +50,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 — Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Visual Capture → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
+Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → Visual Capture → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key:
 
 - State the plain-language label.
 - Show the detected default (or an illustrative example if none was detected).
@@ -81,7 +81,13 @@ Present keys in these tiers: **Core → Testing → E2E → Visual Capture → P
 | `e2eTestCmd` | "What command runs your end-to-end / UI tests?" | Skip → "No E2E gate." |
 | `e2eEnv` | "What device/endpoint should the E2E runner target? (e.g. `{\"endpoint\":\"127.0.0.1:4723\",\"device\":\"Android emulator (AVD)\"}` for Appium)" | Skip → "No E2E environment recorded." |
 
-**Tier: Visual Capture** (optional; skip the whole tier if no visual-capture signals were detected in Phase 1 — present it only when a signal is detected, otherwise skip it silently, exactly as the E2E tier is skipped when no E2E signals are detected. The signals are listed in the Phase-1 detection row.)
+**Tier: Triage / Visual** (optional; pure preference — **no Phase-1 inference signal**, because a repo's UI surfaces are not reliably detectable from layout, and gating the question on a detector would reintroduce the very bug of never asking. So this tier is **always presented**. Show the illustrative example below as the default.)
+
+| Key | Plain-language label | Skip-consequence |
+|---|---|---|
+| `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces — the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → three layers stay off: **no design-lens review** in triage (UI issues are never sent to `design-reviewer`), **no visual-review gate** (UI PRs auto-merge exactly like logic-only PRs — nobody is asked to look), and **no visual capture** (nothing is ever identified as a UI surface to capture — the Visual Capture tier below is skipped). |
+
+**Tier: Visual Capture** (optional; presented only when **both** gates pass — (a) a visual-capture signal was detected in Phase 1 (the signals are listed in the Phase-1 detection row), **and** (b) `uiSurfaceGlobs` was captured in the Triage / Visual tier above. The two gates are **independent and AND'd**: a native UI stack (MAUI, WPF) has UI surfaces — so `uiSurfaceGlobs` is captured — but has no server or URL to poll and should omit `visualCapture` entirely (`docs/profile-schema.md:135`). If either gate fails, skip the whole tier silently, exactly as the E2E tier is skipped when no E2E signals are detected.)
 
 The `visualCapture` block declares how an automated visual-capture flow boots a seeded/persona app server — a local app instance preloaded with test data and signed in as a test persona, so the capture flow can reach real authed screens — and what it captures. The three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied for a usable block; the optional keys resolve to their defaults when skipped. Present the keys one at a time, with the detected default and the skip-consequence on the same line:
 
@@ -119,7 +125,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 **Write rule:** omit `integrationGranularity` from the written profile when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `integrationGranularity: "wave"` only when wave is explicitly chosen.
 
-**Conditional question: `parallel`** (present **only when a `unitTestCmd` was supplied/detected** in Phase 1 — the unit-test detection signal. Otherwise skip it silently, exactly as the E2E tier and the Visual Capture tier are skipped when their Phase-1 signal is absent: no `unitTestCmd` means no shared-external-service hazard, so no question.)
+**Conditional question: `parallel`** (present **only when a `unitTestCmd` was supplied/detected** in Phase 1 — the unit-test detection signal. Otherwise skip it silently, exactly as the E2E tier and the Visual Capture tier are skipped when their presentation gate is not met: no `unitTestCmd` means no shared-external-service hazard, so no question.)
 
 Only per-worker unit runs execute concurrently, so a shared test DB (or other shared external service) is the one parallel-safety hazard. Present the question after `integrationGranularity`, with its answer mapping on the same line:
 
@@ -139,7 +145,7 @@ The three answers are mutually exclusive and cover every path. See the Phase 3 w
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `domainSkills` | "Any stack-specific skills the implementer should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer relies on general docs + repo conventions only." |
+| `domainSkills` | "Any stack-specific skills the implementer and reviewers should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
 
 **Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations** — suppressed when setup runs as an auto-bootstrap sub-step invoked by solve-issue/solve-milestone)
@@ -257,7 +263,7 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 
 ## Output style
 
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. (Mirrors the agents' communication-style contract.)
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
 
 ## Non-negotiables
 
