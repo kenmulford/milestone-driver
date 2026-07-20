@@ -42,7 +42,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Detected file | Inferred domainSkills candidate |
 |---|---|
 | `*.csproj` / `*.sln` with `Maui` | `["maui-skills:*", "maui-current-apis"]` |
-| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill; implementer falls back to general docs + repo conventions) |
+| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill; implementer and reviewers fall back to general docs + repo conventions) |
 | `package.json` with Angular | `["angular-skills:angular-developer"]` |
 | `skills/**` + `agents/**` + `hooks/**` | `["plugin-dev:*", "superpowers:writing-skills"]` |
 | `package.json` (generic Node) | omit |
@@ -139,7 +139,7 @@ The three answers are mutually exclusive and cover every path. See the Phase 3 w
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `domainSkills` | "Any stack-specific skills the implementer should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer relies on general docs + repo conventions only." |
+| `domainSkills` | "Any stack-specific skills the implementer and reviewers should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
 
 **Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations** — suppressed when setup runs as an auto-bootstrap sub-step invoked by solve-issue/solve-milestone)
