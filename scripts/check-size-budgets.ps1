@@ -3,6 +3,8 @@
 # Behavior-identical pwsh sibling of scripts/check-size-budgets.sh — see its
 # header for the full ceiling-ratchet discipline and design rationale
 # (ceilings only go down; a missing/renamed governed file is a FAILURE).
+# Raising a ceiling requires a recorded decision in the Decision Log of the PR
+# body that grows the file.
 #
 # Usage:   check-size-budgets.ps1 [REPO_ROOT]
 # Output:  the same TAB-separated OK/FAIL/SUMMARY record stream as the .sh
