@@ -139,6 +139,57 @@ Default `"issue"` is today's model, unchanged: each built issue opens its own PR
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
+### `integrationGranularity: "milestone"`: one branch, one PR, one CI run for the whole milestone
+
+Set `"milestone"` for a repo whose CI fires on a push to **every** branch, where a milestone's worth of issue branches exhausts your GitHub runners or your container capacity:
+
+```json
+{ "integrationGranularity": "milestone" }
+```
+
+`"wave"` does not fix that. Wave workers still push one branch per issue, so your pushes stay at one per issue even though the PRs and CI runs drop to one per Wave. `"milestone"` is the value that keeps the intermediate branches off your remote, so a whole milestone costs one push.
+
+**Before you switch, filter your own `on: push` workflows.** A milestone run still pushes once, at the end. If one of your workflows triggers on a push to any branch, that single push starts it on the milestone branch and the pull-request run then builds the same commit again, so you pay for the assembled milestone twice and lose part of what you switched for. Add a branch filter to each of your own push-triggered workflows, in either form:
+
+```yaml
+# Form 1: ignore the milestone branches.
+on:
+  push:
+    branches-ignore: ['milestone-*']
+
+# Form 2: list what you do build, and negate the milestone branches last.
+on:
+  push:
+    branches: ['**', '!milestone-*']
+```
+
+Pick one form per event, never both: a workflow that sets `branches` and `branches-ignore` on the same event does not run. In form 2 the pattern order is significant, because a later pattern overrides an earlier one: `'**'` matches every branch and the following `'!milestone-*'` takes the milestone branches back out, so the negation only bites when it comes after the pattern it narrows.
+
+**What a run does under `"milestone"`:**
+
+- It cuts one branch, `milestone-<number>-<slug>`, from your `integrationBranch` at the start of the run.
+- It builds each issue on an `issue/<n>-<slug>` branch as before, but cut from the milestone branch, and it never pushes those branches.
+- It folds each finished issue into the milestone branch as one local squash commit carrying an `Issue: #<n>` trailer. That trailer is also how a resumed run reads which issues it already integrated, so a re-run picks up where it stopped without a checkpoint file.
+- At the end it pushes the milestone branch once, opens one PR to your `integrationBranch`, and runs CI once. Your CHANGELOG entry rides that same PR instead of getting a second one. After the merge it closes the issues explicitly.
+- It behaves the same whether the run builds issues sequentially or in parallel. `integrationGranularity` decides how issues integrate; the `parallel` key decides how they build.
+
+**The `milestone-` branch prefix is a stable contract, so filter on it with confidence.** Your CI filters are written against that prefix, which makes it part of what the plugin owes you rather than an internal name it is free to change. It will not be renamed out from under your filters.
+
+The trade-off: nothing reaches your remote until the milestone-end push, so remote CI first sees the whole assembled milestone, and your local gates (unit tests, `preflightCmd`, `/code-review`) are the earlier signal. That is the bargain wave granularity already makes, one scope wider.
+
+**If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
+
+**`visualHold`: whether the milestone PR waits for your visual sign-off.** A milestone arrives as one PR, so the per-issue visual gate becomes one decision. When the milestone branch's diff against your `integrationBranch` touches a `uiSurfaceGlobs` path, the PR is labeled `needs review` and held for you instead of auto-merging on green CI. The key has two states and no third:
+
+| `visualHold` in `.milestone-config/driver.json` | What the milestone PR does |
+|---|---|
+| Absent (the default) | Holds for your sign-off when the branch touched a UI surface. |
+| `false` | Auto-merges on green CI even when the branch touched a UI surface. |
+
+That profile key is the sole override. There is no `--no-visual-hold` token to type, for the same reason there is no `--sequential` flag: skipping a visual review is your call, and the profile is the only surface that records it durably where you can review it later. `visualHold` is read only under `"milestone"` granularity, so under `"issue"` and `"wave"` today's per-issue visual gate is untouched. **If the diff against `integrationBranch` cannot be determined, the gate holds anyway,** because merging UI nobody looked at is a one-way door while an over-strict hold costs you one action.
+
+**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` and `visualHold` key rows.
+
 ## Permission pre-flight gate
 
 Because the driver dispatches background workers on the **default** path, a pre-flight gate fires once at the start of every run, before the first background worker is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to **synchronous, sequential** dispatch automatically: parallel workers require background dispatch, so a permission gap forces the run one-at-a-time.
