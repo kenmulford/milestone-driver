@@ -3,6 +3,45 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.18.0 — milestone-scoped branching
+
+**Theme:** A whole milestone can now build on one local branch and reach the integration branch through a single push, a single PR, and a single CI run, for repos whose CI fires on a push to every branch and where one branch per issue exhausts the runners.
+
+### ✨ Milestone-scoped branching
+
+| Issue | PR | What |
+|---|---|---|
+| #368 add `milestone-granularity.md` with the branch model and local integration mechanics | #386 | New `skills/solve-milestone/milestone-granularity.md` (157 lines, governed at ceiling 165 in `scripts/check-size-budgets.{sh,ps1}`) holds the mechanism: the branch model, the local `git merge --squash` fold that both the sequential loop and the parallel merge tail run, and the integration commit whose `Issue: #<n>` trailer carries that issue's Decision Log and Code Review block. Issue branches keep their `issue/<n>-<slug>` name but are cut from the milestone branch and never pushed. Read only when granularity resolves to `"milestone"`; missing under that granularity it halts the run rather than degrading to `"issue"`, which would restore the per-issue push the key was set to remove. |
+| #371 add the milestone-end sequence and the red-CI handler | #388 | The milestone-end sequence replaces `solve-milestone` steps 6.6 to 6.8: commit the CHANGELOG onto the milestone branch (no second PR), push once, open one PR into `integrationBranch`, merge on green, then close each issue with its own `gh issue close` call, because `Closes #n` fires only on a merge into the repository's default branch. Red CI on that PR is run-scoped, neither a per-issue park nor a systemic halt: label the PR `needs review`, name every issue on the branch in one 🔴 line, preserve the branch, close nothing. |
+| #376 add the `visualHold` milestone-PR gate and carve out architecture invariant 3 | #394 | `visualHold` decides whether the single milestone PR waits for human UI sign-off, resolved through a first-match-wins table whose indeterminate-diff row holds. `docs/architecture.md` invariant 3, "never auto-merge a UI issue", gets an explicit carve-out instead of a silent weakening: under `"milestone"` the hold moves up from the per-issue PR to the milestone PR, and the only thing that merges it is an operator writing `visualHold: false` by hand. |
+| #374 make milestone-branch creation resume-safe against a leftover branch | #392 | Until the milestone-end push, the milestone branch is the only copy of every issue folded in so far, so a resumed run must never re-cut it. Four legs, first match wins: cold cuts fresh; provably safe (0 commits ahead, or a merged PR for the branch) clears and re-cuts; carries-work attaches instead of deleting; ambiguous or a failed probe preserves the branch and halts. Already-pushed is deliberately absent from the discard-safe set the worker-branch guard uses. |
+| #379 make `solve-issue` granularity-aware: branch base, commit trailer, suppressed push/PR/merge, resume probe | #390 | Under `"milestone"`, `solve-issue` cuts its issue branch from the milestone branch, writes the extended commit trailer, suppresses its own push, PR, and merge, and answers "is this issue already integrated?" from `git log <milestone-branch> --grep='^Issue: #<n>$'` rather than `gh pr list` and `git ls-remote`, which read remote state that does not yet exist on this path. `worker-mode.md` and `async-mode.md` follow. |
+| #372 add the milestone branch as `parallel-waves`' third merge target | #389 | `parallel-waves.md` already parameterized its merge target, so the milestone branch becomes that parameter's third value. The worktree base becomes `<base>` in place of a hardcoded `integrationBranch`, so parallel workers cut from the milestone branch under `"milestone"` and behave exactly as before under the other two values. |
+| #375 wire milestone granularity into `solve-milestone` SKILL.md | #393 | `integrationGranularity` and `visualHold` both resolve once at run start and are held for the whole run, alongside the pre-clean guard call site, the fold step in the loop, and the milestone-end handoff. Resolution is fail-open: an out-of-enum granularity degrades to `"issue"` with a logged line, a non-boolean `visualHold` degrades toward holding. Nothing re-resolves mid-run. |
+| #377 add `integrationGranularity: "milestone"` and `visualHold` to the profile schema | #381 | `docs/profile-schema.md` gains the third enum value and the `visualHold` row, both optional and both omit-the-default, plus two notes: why `"wave"` does not solve the push-per-issue problem, and what each `visualHold` state does. |
+| #370 offer milestone granularity in the setup skill's Integration tier | #387 | The setup interview now offers the third value. Choosing `"milestone"` fires its own non-blocking precondition prompt carrying both CI branch-filter forms, and suppresses the wave prompt. Write rule unchanged: omit the key for `"issue"`, write the value only when the user picks it. |
+| #369 document milestone granularity for consumers | #385 | `docs/architecture.md` gains a milestone-granularity section, `docs/consumer-setup.md` gains the walkthrough (both branch-filter forms, why one event may not set `branches` and `branches-ignore` together, the red-CI behavior, the `visualHold` table), and the README's granularity sentence names all three values. |
+| #366 record the milestone-granularity design spec | #383 | Committed at `docs/superpowers/specs/2026-07-30-milestone-branch-granularity-design.md`, so the branch model, the trailer contract, and the rejected alternatives are readable without walking the PR trail. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #378 record a size-budget ceiling raise in the PR Decision Log | #382 | The ceiling-ratchet header in `scripts/check-size-budgets.{sh,ps1}` said a raise needs a recorded decision "on the issue that grows the file". Every PR body already carries a Decision Log (`.project/conventions.md:38`), which is where the record belongs and where a reviewer looks for it. Both script twins now say so; enforcement behavior is unchanged. |
+
+### Consumer notes (upgrading from v1.17.0)
+
+- **Nothing to do on upgrade.** The default is still `"issue"`, and the `"issue"` and `"wave"` paths are byte-unchanged. A profile that does not set `integrationGranularity` behaves exactly as it did in v1.17.0.
+- **Schema change, both parts optional.** `.milestone-config/driver.json` gained one new enum value and one new key: `integrationGranularity` now accepts `"milestone"` alongside `"issue"` and `"wave"`, and `visualHold` is new. Both default to today's behavior when absent, so an existing profile stays valid untouched.
+- **Opting in, and its one prereq.** Set `{ "integrationGranularity": "milestone" }`, then filter your own push-triggered workflows to ignore the `milestone-*` prefix: `branches-ignore: ['milestone-*']`, or `branches: ['**', '!milestone-*']` with the negation last. Set one form per event, never both. Skip the filter and the single milestone-end push starts your push workflow while the PR run rebuilds the same commit, so the assembled milestone is paid for twice.
+- **The `milestone-` branch prefix is a stable, externally-consumed contract.** Consumer CI filters are written against it, so it will not be renamed out from under them.
+- **`visualHold` is the one UI sign-off.** Absent (the default) holds the milestone PR for a human whenever the branch's diff against `integrationBranch` touched a `uiSurfaceGlobs` path, and holds when that diff cannot be read. `visualHold: false` is the sole override and auto-merges on green CI. A non-boolean value holds, with a logged note. There is no `--no-visual-hold` invocation token, and the key is read only under `"milestone"` granularity.
+- **One convention change reaches every granularity.** Raising a governed file's size-budget ceiling is now recorded in the Decision Log of the PR that grows the file, not on the issue (#378). Contributors to this repo will notice; consumers of the plugin are unaffected.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.17.0 — reviewer grounding & output style
 
 **Theme:** Reviewer claims now have a defined research path and a scope-honesty rule, and every GitHub-facing shape this plugin writes has one governing prose contract with an evidence slot.
