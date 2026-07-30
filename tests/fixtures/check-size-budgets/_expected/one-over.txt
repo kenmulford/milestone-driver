@@ -6,7 +6,7 @@ OK	skills/solve-issue/md-epic-fanout.md	1/60
 OK	skills/solve-milestone/SKILL.md	1/680
 OK	skills/solve-milestone/parallel-waves.md	1/200
 OK	skills/solve-milestone/trello-sync.md	1/400
-OK	skills/solve-milestone/milestone-granularity.md	1/150
+OK	skills/solve-milestone/milestone-granularity.md	1/165
 OK	skills/triage/SKILL.md	1/460
 OK	skills/notices.md	1/250
 OK	skills/output-style.md	1/100

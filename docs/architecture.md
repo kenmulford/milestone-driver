@@ -100,11 +100,11 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 
 ### The three invariants
 
-`visualCapture` is engineered so that adding it can only *add* evidence — never change a run's outcome or weaken a gate:
+`visualCapture` is engineered so that adding it can only *add* evidence — never change a run's outcome or weaken a gate. That guarantee covers `visualCapture` itself. The one carve-out named in invariant 3 is not a capture behavior: it is reached only by an operator setting `visualHold: false` in the profile by hand, and only under `integrationGranularity: "milestone"`. The invariants:
 
 1. **Opt-in / byte-unchanged when absent.** With no `visualCapture` block configured, run output is byte-for-byte identical to today's no-render behavior — no daemon boots, no render is attempted, no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
 2. **Never fail the run.** Any capture failure — a daemon that never becomes ready, a probe timeout, a capture command error, an absent or incomplete capability — degrades to the PR-open-for-human-test note. It never fails the build.
-3. **Never auto-merge a UI issue.** Screenshots are convenience evidence only. The human-before-merge hold is the real gate, and it holds regardless of whether evidence was captured: a UI issue is always left open with `needs review` for a human to test-render and merge.
+3. **Never auto-merge a UI issue.** Screenshots are convenience evidence only. The human-before-merge hold is the real gate, and it holds regardless of whether evidence was captured: a UI issue is always left open with `needs review` for a human to test-render and merge. Under `integrationGranularity: "milestone"` that hold moves up one level, from the per-issue PR to the single milestone PR: a milestone branch whose diff touches a `uiSurfaceGlobs` path is left open with `needs review`, and the only thing that auto-merges it is an operator's affirmative `visualHold: false` in the profile. Under `integrationGranularity: "issue"` and `"wave"` the prohibition above stands unqualified, and `visualHold` has no effect.
 
 When `visualCapture` is absent or incomplete, the gate simply posts the human-visual-test note and holds the PR open — logic-only issues still auto-merge on green, and a repo with no `uiSurfaceGlobs` has no UI issues and auto-merges normally.
 
