@@ -100,7 +100,7 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md:412-421`) i
    - The **wave-PR-body shape** (`skills/solve-milestone/parallel-waves.md:176`): one line per issue on the branch, its evidence slot naming that issue's branch and the gates it passed during the fold.
    - A **Decision Log** and **exactly one** anchored `## Code Review` heading, each carrying one `### #<n>` sub-entry per issue: that issue's Decision Log lines and its `Code-Review:` block, lifted from its integration commit and de-indented back to column 0. The block's slots are defined in `## The integration commit` above; do not restate them here. Both sections are required by `.project/conventions.md#Commits & PRs`, and the `## Code Review` heading is checked at **both** `gh pr create` and `gh pr merge` (`hooks/hooks.json:23-24`, `hooks/code-review-gate.sh:72`, `:79-83`).
    - The **milestone branch is the only source** for those sub-entries. A resumed run holding no in-context handback rebuilds the whole section by reading each issue's commit with `git log <milestone-branch> --grep='^Issue: #<n>$'`. The `gh pr view` fallback issue and wave granularity rely on (`skills/solve-milestone/SKILL.md:436-442`) is unreachable here, because milestone granularity opens no per-issue PR; step 6.2's own summary lookup takes its documented issue-title fallback (`:442`) for that same reason.
-4. **CI green, then merge.** `gh pr merge --squash --delete-branch` (`.project/conventions.md#Commits & PRs`). Red CI takes the handler below instead of this step and step 5.
+4. **CI green, then merge, unless `### The visualHold gate` below holds the PR.** `gh pr merge --squash --delete-branch` (`.project/conventions.md#Commits & PRs`). A hold suppresses this step and step 5. Red CI takes the red-CI handler below instead of this step and step 5.
 5. **Close every issue on the branch, one `gh issue close` call each.**
 
    ```bash
@@ -111,6 +111,20 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md:412-421`) i
 6. **Delete the local milestone branch and re-sync.** `git checkout <integrationBranch>`, `git fetch`, fast-forward, then `git branch -d milestone-<number>-<slug>`, exactly as step 6.8's cleanup does for its docs branch (`skills/solve-milestone/SKILL.md:616-620`).
 
 **Nothing merged.** Every issue parked or triage-blocked leaves the milestone branch with no commits over `integrationBranch`: no push, no PR, no close, no branch to delete. This is the all-UI-Wave precedent, which opens no wave branch and no wave PR because nothing was built green to integrate (`skills/solve-milestone/parallel-waves.md:182`).
+
+### The visualHold gate
+
+Step 4's precondition, green CI only, this granularity only (`docs/profile-schema.md:117`). Under `"issue"` and `"wave"` the per-issue Layer-2 visual gate is the visual gate and this one is never reached; here that per-issue gate is bypassed whole (`skills/solve-issue/SKILL.md:217`), so this is the milestone's one UI sign-off. First match wins:
+
+| Condition | Step 4 |
+|---|---|
+| `visualHold: false` in the profile | **Merge.** The operator's one affirmative act disables the gate outright, so no diff is read. A non-boolean value is not `false`: it holds, with a logged note. |
+| `uiSurfaceGlobs` absent | **Merge.** The repo declares no UI surface, so there is nothing to hold for, exactly as with the per-issue gate. |
+| The milestone branch's diff against `integrationBranch` cannot be determined | **Hold.** Never merge on an unread diff: an unreviewed UI merge is a one-way door, while an over-strict hold costs one human action (`.project/design-philosophy.md#One-way doors`). |
+| That diff touches a `uiSurfaceGlobs` path | **Hold.** Match `git diff --name-only <integrationBranch>...milestone-<number>-<slug>` against the globs, the same derivation the per-issue gate uses (`skills/solve-milestone/parallel-waves.md:89`). |
+| It touches none | **Merge.** |
+
+**A hold is the red-CI handler's shape with a green build and a different reason:** apply `needs review` to the milestone PR, do **not** merge, run **no** step-5 closes, preserve the local milestone branch, and emit one 🔴 line into the Template 3 final summary naming every issue on the branch, exactly as `### Red CI on the milestone PR` below does. What that line says is the one difference: the build is green and the work is waiting on one human look, never a failure to fix. A re-invocation over a held PR re-enters at step 2, and step 3's guard reuses the open PR.
 
 ### Red CI on the milestone PR
 
