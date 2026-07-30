@@ -15,9 +15,9 @@
 #     plus ~5% headroom, rounded to a clean number.
 #   - When a governed file SHRINKS (a future split/trim), lower its ceiling to
 #     the new actual + headroom in the SAME change that shrinks it.
-#   - Raising a ceiling requires a recorded decision on the issue that grows
-#     the file. This script enforces whatever ceiling it is given — it has no
-#     opinion on when raising one is warranted.
+#   - Raising a ceiling requires a recorded decision in the Decision Log of
+#     the PR body that grows the file. This script enforces whatever ceiling
+#     it is given — it has no opinion on when raising one is warranted.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
