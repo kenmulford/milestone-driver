@@ -51,6 +51,7 @@ FILES=(
   "skills/solve-milestone/SKILL.md"
   "skills/solve-milestone/parallel-waves.md"
   "skills/solve-milestone/trello-sync.md"
+  "skills/solve-milestone/milestone-granularity.md"
   "skills/triage/SKILL.md"
   "skills/notices.md"
   "skills/output-style.md"
@@ -67,6 +68,7 @@ CEILINGS=(
   680
   200
   400
+  90
   460
   250
   100
