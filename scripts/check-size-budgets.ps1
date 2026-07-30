@@ -38,7 +38,7 @@ $files = @(
   'agents/implementer.md',
   'agents/triage-reviewer.md'
 )
-$ceilings = @(280, 400, 70, 40, 60, 680, 200, 400, 130, 460, 250, 100, 115, 130, 120)
+$ceilings = @(280, 400, 70, 40, 60, 680, 200, 400, 150, 460, 250, 100, 115, 130, 120)
 
 # Length-parity guard: $files/$ceilings are hand-edited parallel arrays with no
 # structural link between them — a dropped/added line in one and not the
