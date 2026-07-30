@@ -1,5 +1,5 @@
 OK	skills/setup/SKILL.md	1/280
-OK	skills/solve-issue/SKILL.md	1/380
+OK	skills/solve-issue/SKILL.md	1/400
 OK	skills/solve-issue/worker-mode.md	1/70
 OK	skills/solve-issue/async-mode.md	40/40
 OK	skills/solve-issue/md-epic-fanout.md	1/60
