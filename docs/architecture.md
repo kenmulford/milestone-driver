@@ -224,9 +224,9 @@ Building just this milestone falls through to today's build, unchanged. Handing 
 
 With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` both run exactly as they did before this feature existed — the label check is the only new step, and it never changes behavior when it finds nothing. No new profile key is introduced; `md-epic` is a fixed literal, but it is not one of the park labels in [Label taxonomy](#label-taxonomy) above and `setup` never provisions it — the feeder and bootstrapper own creating and applying it, as described above.
 
-## Integration granularity (issue vs wave)
+## Integration granularity (issue vs wave vs milestone)
 
-`integrationGranularity` is a profile key, `"issue"` or `"wave"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential — which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue or wave granularity, is valid.
+`integrationGranularity` is a profile key, `"issue"`, `"wave"`, or `"milestone"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential — which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue, wave, or milestone granularity, is valid.
 
 `"issue"` (the default) is today's model, unchanged. Each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
 
@@ -240,6 +240,26 @@ With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` 
 The logic-only carve-out: the visual-review gate is per-UI-issue, so a single wave PR cannot both auto-merge (logic) and hold open (UI). A Wave containing UI issues keeps those per-issue and held, each opening its own `needs review` PR for human visual sign-off, and only the logic issues join the wave branch.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave, catching integration-level issues an isolated per-issue build misses. But one red wave-PR CI blocks the whole Wave. That is acceptable because the strong local gates (unit plus static preflight plus `/code-review` plus the tail's re-verify) catch most failures before CI, so CI is the backstop. It is not for repos with weak local gates. As with parallel mode, the wave PR targets the integration branch, never the protected branch.
+
+### `"milestone"`: one branch, one push, one PR, one CI run
+
+`"milestone"` exists for one problem: a repo whose CI fires on a push to **every** branch, where a milestone's worth of issue branches exhausts the available GitHub runners or container capacity. `"wave"` does not fix that problem, because a wave's workers still push one branch per issue and the wave branch is assembled from those already-pushed branches. Wave granularity cuts the PR and CI count to O(waves) but leaves the push count at O(issues). `"milestone"` is the value that keeps every intermediate branch local, so a whole milestone costs one push.
+
+The branch model:
+
+- The run cuts one branch, `milestone-<number>-<slug>`, from the integration branch at run start. The number leads the name because the slug comes from the milestone title and a title can be renamed mid-run, leaving the slug stale, while the number never changes.
+- Issue branches keep their `issue/<n>-<slug>` naming, but they are cut from the milestone branch instead of the integration branch, and they are never pushed.
+- Each finished issue folds into the milestone branch as **one local squash commit** carrying an `Issue: #<n>` trailer. The trailer is how a resumed run reads which issues are already integrated (`git log <milestone-branch> --grep='^Issue: #<n>$'`), so resume state still comes from git rather than from a checkpoint file the run has to maintain.
+- A dependency chain builds straight through locally: issue B cuts from the milestone branch with issue A's commit already on it, so there is no round trip to origin per link in the chain.
+- At milestone end the run pushes the milestone branch once, opens **one** PR to the integration branch, and gets **one** CI run. The CHANGELOG entry rides that PR instead of opening a second one. As with wave granularity, the PR targets the integration branch, never the protected branch.
+
+Milestone granularity works under both execution modes, sequential and parallel, exactly as wave granularity does. Nothing in it depends on which mode a run resolves to: `integrationGranularity` is how issues integrate, the `parallel` key is how they build.
+
+**The `milestone-` branch prefix is a stable, externally-consumed contract.** Consumers filter their own CI workflows against it (`branches-ignore: ['milestone-*']`), the same way the CI workflow emitted by milestone-bootstrapper treats its two job names as a contract that branch protection requires by exact string. Renaming the prefix later would silently un-exclude every consumer's filter and put the suppressed pushes back on their runners.
+
+The visual gate collapses with the PRs: a milestone branch whose diff against the integration branch touches a `uiSurfaceGlobs` path is labeled `needs review` and held for human sign-off instead of auto-merging, and it is held anyway when that diff cannot be determined. The one override is the `visualHold: false` profile key, scoped to milestone granularity only; under `"issue"` and `"wave"` the per-issue visual gate is untouched. See [`profile-schema.md`](profile-schema.md) for both keys.
+
+The default is unaffected. A profile with no `integrationGranularity` key, or with `"issue"`, behaves byte-for-byte as it does today, so an existing consumer sees no change from this value existing.
 
 ## Output style
 
