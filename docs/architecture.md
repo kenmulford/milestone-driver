@@ -157,7 +157,7 @@ UI issues are not merged by the tail. They are held open with the `needs review`
 
 ### Bounded auto-resolve conflict policy
 
-When a merge-in conflicts, the tail applies bounded auto-resolve. Git's `ort` merge strategy already auto-resolves non-overlapping edits to the same file (for example, two siblings each appending a distinct route to the same routes file), and the tail re-verifies the result. A resolvable and green merge proceeds. A non-trivial or ambiguous conflict, or a red re-verify, is not auto-accepted: the tail runs `git merge --abort`, parks the issue `blocked` (comment plus label plus preserved branch), and continues with the next branch. A clean merge that re-verifies red is parked the same way, because the combination is broken and a human decides. The final summary lists every auto-resolved-conflict issue so a human can sanity-check the reconciliation.
+When a merge-in conflicts, the tail applies bounded auto-resolve. Git's `ort` merge strategy already auto-resolves non-adjacent edits to the same file (for example, two siblings editing separate regions of the same file), though two edits on directly adjacent lines conflict, and the tail re-verifies the result. A resolvable and green merge proceeds. A non-trivial or ambiguous conflict, or a red re-verify, is not auto-accepted: the tail runs `git merge --abort`, parks the issue `blocked` (comment plus label plus preserved branch), and continues with the next branch. A clean merge that re-verifies red is parked the same way, because the combination is broken and a human decides. The final summary lists every auto-resolved-conflict issue so a human can sanity-check the reconciliation.
 
 ### Hooks inside a worktree
 
