@@ -50,8 +50,14 @@ $byteCeilings = @(33500, 78000, 5000, 9500, 80500, 68000, 21500, 25500, 42000, 1
 # structural link between them — a dropped/added line in one and not the
 # others must fail loud (same shape as the .sh sibling), not silently emit a
 # malformed record or misattribute a ceiling to the wrong file.
+# Write, not WriteLine: WriteLine terminates with [Environment]::NewLine, which
+# is CRLF on Windows, and the .sh sibling's printf emits a bare LF there too.
+# An explicit "`n" keeps the two stderr streams byte-identical on every host,
+# the same reason stdout below is assembled with explicit "`n" and written with
+# [Console]::Out.Write. tests/check-size-budgets.test.{sh,ps1} assert this exact
+# line against one shared golden.
 if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count) {
-  [Console]::Error.WriteLine("ERROR check-size-budgets: FILES($($files.Count)), CEILINGS($($ceilings.Count)) and BYTE_CEILINGS($($byteCeilings.Count)) length mismatch, fix the table")
+  [Console]::Error.Write("ERROR check-size-budgets: FILES($($files.Count)), CEILINGS($($ceilings.Count)) and BYTE_CEILINGS($($byteCeilings.Count)) length mismatch, fix the table`n")
   exit 1
 }
 

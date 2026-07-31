@@ -17,9 +17,9 @@
 #     AN EXISTING LINE IS governed here: it moves the byte count while the
 #     line count does not move at all. PR #398 appended 1052 bytes to
 #     skills/solve-milestone/SKILL.md at a flat 664 lines and this ratchet
-#     reported no change; three later merges in the same milestone added
-#     another 3818 bytes the same way (#363 +1200, #365 +2439, #397 +179, all
-#     at zero line delta). The byte ceiling is what sees that growth.
+#     reported no change; three later merges added another 3818 bytes ACROSS
+#     THE GOVERNED SET the same way (#363 +1200, #365 +2439, #397 +179, all
+#     at zero line delta, none of them in that file). The byte ceiling sees it.
 #   - LINES is kept as a second, independent ceiling, not replaced: this repo's
 #     cross-file `file:line` citations anchor to line numbers, so line growth
 #     carries a cost of its own that a byte count cannot express (issue #397
