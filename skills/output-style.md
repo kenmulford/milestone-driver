@@ -68,7 +68,7 @@ Every GitHub-facing shape carries an explicit **evidence/citation slot, not just
 
 Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots.
 
-**Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md:396` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md:80`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
+**Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md:396` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md:107`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
 
 | Shape | Opener | Required slots |
 |---|---|---|

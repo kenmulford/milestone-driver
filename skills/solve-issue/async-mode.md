@@ -1,35 +1,37 @@
-# Async mode (`--async`) — solve-issue reference
+# Async mode (`--async`): retired
 
-This file is loaded by `solve-issue` when the invocation text contains an `--async` token (see `skills/solve-issue/SKILL.md`'s `## Async mode (`--async`)` stub, which carries only the token-recognition rule and this pointer). It carries the full `--async` background-dispatch contract: how the caller dispatches, the pre-dispatch permission pre-flight gate, the byte-unchanged in-agent pipeline, Delta A1 (the suppressed version-bump confirm), and the background-agent constraints.
+This file is loaded by `solve-issue` when the invocation text contains an `--async` token (see `skills/solve-issue/SKILL.md`'s `## Async mode (`--async`): retired` stub, which carries the token-recognition rule and this pointer). It records why the token is now inert, what replaced it, and where the behavior it used to carry now lives.
 
 ---
 
-## How the caller dispatches
+## What `--async` meant, and why it is retired
 
-When the caller invokes `solve-issue <n> --async`, it dispatches the full pipeline as `Agent(run_in_background: true)`. The main line (or user session) **awaits the completion notification** from the Agent tool when the background agent finishes — it should **end its turn** while waiting rather than poll; the harness automatically re-invokes the caller when the background agent completes, and a long-interval background `until`-loop is acceptable only as a safety net against a hung worker, never as the primary wait mechanism. The caller CAN still send the background agent a mid-run redirect message before it completes, delivered at the agent's next tool-use round — see **Background agent constraints** below for the addressing rule. **No PushNotification is sent by the background agent** — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main line (caller) emits the park or wave-boundary notification at this chunk boundary, after receiving the Agent tool completion notification and re-deriving terminal state from live `gh` queries.
+`--async` told the caller to dispatch the whole `solve-issue` pipeline as `Agent(run_in_background: true)`, with the pipeline running byte-unchanged inside that background agent.
 
-## Pre-dispatch: permission pre-flight gate
+That is exactly the shape the dispatch topology forbids (`docs/architecture.md` → `## Dispatch topology`): **no dispatched agent may dispatch a child whose result it needs.** The pipeline dispatches an implementer (step 3) and a `/code-review` fan-out (step 6.1), so inside a background agent both sit at depth 2, where a completion notification never arrives (anthropics/claude-code#75043). The agent's turn ends at the dispatch and nothing re-invokes it, so the run stops mid-pipeline with work uncommitted, no PR, and no park label. There is no flag that repairs this: nested children run async regardless of `run_in_background`.
 
-Before the caller dispatches any background agent, run the **permission pre-flight gate** per `## Permission pre-flight gate` above.
+## What replaces it
 
-- **No gaps:** proceed — dispatch `solve-issue <n>` as `Agent(run_in_background: true)`.
-- **Gap detected:** do **not** dispatch as a background agent. Surface the 🔴 gap table and recommend `/fewer-permission-prompts`. **Fall back to synchronous dispatch** — invoke `solve-issue <n>` (no `--async`) as the normal sequential pipeline. The run completes; it just does not use background concurrency.
+The pipeline runs on the **caller's own main line**, and that session fans out:
 
-## Inside the background agent: the pipeline runs byte-unchanged
+| Caller | What now happens |
+|---|---|
+| `solve-milestone`, sequential mode | Runs `solve-issue <n>` in-thread, one issue at a time (`skills/solve-milestone/SKILL.md`'s `### 4. Loop over issues in dependency-graph order`, step 2). It dispatches the implementer and the reviewers itself, as leaves. |
+| `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, a barrier, then concurrent reviewer leaves (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`). |
+| A user session | Invokes `solve-issue <n>` directly. The token, if typed, is ignored. |
 
-The full sequential pipeline (steps 0–9) runs **byte-unchanged** inside the background agent — every gate, park-don't-prompt, and terminal step exactly as `SKILL.md` states them, carried over rather than re-enumerated here, so each one inherits its `integrationGranularity` conditional (`SKILL.md`'s `## Milestone granularity`) — **except Delta A1**.
+Nothing about the pipeline's gates, caps, or park-don't-prompt behavior changes. Only the depth at which each agent runs changes.
 
-## Delta A1 — Version-bump confirm suppressed
+The token is recognized and inert rather than rejected, so a stale invocation from an operator's notes, a saved command, or a pre-1.18.0 brief still runs the issue correctly instead of erroring. This mirrors `solve-milestone`'s habit-typed `--parallel`, stripped and ignored because parallel is already the default.
 
-The standalone-run patch-bump confirm (the interactive "ask whether it should be minor or major" in step 6.4 standalone runs) cannot prompt from a background context — background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior).
+## Delta A1 retired with it
 
-Under `--async`, the bump **defaults to patch** (`x.y.Z` → `x.y.(Z+1)`). This default is **logged in the Decision Log** and the PR carries a `judgment call` label so the call is auditable post-run (under `integrationGranularity: "milestone"` there is no per-issue PR, so that label goes on the **issue** instead, per `SKILL.md` step 6.6). Milestone runs are **unaffected** — the milestone-derived target version already replaces the confirm entirely (step 6.4 milestone-run path).
+Delta A1 suppressed the standalone patch-bump confirm (step 6.4), because a background agent auto-denies any tool call that would prompt. The pipeline is no longer dispatched into a background agent, so the **mechanism** that suppressed the confirm is gone. What that mechanism was protecting is not: a milestone run must never wait on a human, and removing the background agent removed the only thing physically preventing the prompt. That guard is **re-homed onto the caller** in `SKILL.md` step 6.4's standalone bullet, which now never fires inside a milestone run (it re-derives the target version instead, and failing that bumps non-interactively with a `judgment call` label). A genuinely standalone run still asks, and no `judgment call` label is owed for a bump the operator was actually asked about.
 
-Delta A1 is the **only** behavioral delta because it is the only step in the sequential pipeline that would interactively prompt in a standalone run. All other gates, caps, and park-don't-prompt behavior are unchanged.
+## Background-leaf constraints (unchanged, moved up one level)
 
-## Background agent constraints
+These now bind the **orchestrator's own leaf dispatches**, not this skill:
 
-- **Auto-deny:** background subagents auto-deny any tool call that would otherwise prompt. The permission pre-flight gate (run before dispatch) guards against un-allowlisted tool calls; Delta A1 eliminates the only remaining interactive confirm. Any unexpected auto-deny mid-run is treated as a park — same park-don't-prompt contract as every other gate.
-- **No PushNotification:** the background agent does not send notifications — PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The main-line caller emits at chunk boundaries (parks + wave completions + run complete/halt).
-- **Caller obligation on completion** *(applies to the calling session, not the background agent)*. When the background chunk's completion notification arrives, the calling session re-derives terminal state from live `gh` queries and emits **one notification per dispatched issue**: `⏸️ #N parked — <reason>` if the issue was parked (park reason = the last comment on the issue opening with `🔴 Triage`, `🔴 Blocked`, or `🔴 Parked` — gh returns comments oldest-first, take the LAST match; if none, report "park reason not recorded"), or a `🏁`-style one-liner (e.g. `🏁 #N merged` or `🏁 #N open — awaiting visual review`) if the issue completed (PR merged or held for visual review; under `"milestone"` granularity there is no PR and the completed one-liner reports the terminal state that exists, `🏁 #N committed on its branch`). This mirrors the handback facts for `--worker` mode; one emit per run, always by the calling session, never by the background agent. (When `--async` is dispatched by `solve-milestone`, solve-milestone's own emit rules govern — per-issue completion notifications are suppressed in sequential mode in favor of the aggregate `🏁` run-complete signal; this per-issue obligation applies to standalone callers outside solve-milestone's orchestration.)
-- **SendMessage addressing:** a dispatched background agent CAN receive a mid-run message from the session that spawned it — delivered at the agent's next tool-use round, not instantaneously mid-tool-call. An agent-TYPE name (e.g. `milestone-driver:implementer`) is **not** a reachable address — only the specific dispatched instance, addressed by the agent ID/name its own dispatch returned, can receive one, and only from the session that spawned it. Cross-agent traffic (e.g. a reviewer subagent handing a finding to an implementer subagent) is not peer-to-peer: it routes back through the dispatching orchestrator, which relays it to the correct child by that agent's actual ID — or, more simply, folds the finding into that child's own dispatch brief.
+- **Auto-deny.** A background leaf auto-denies any tool call that would otherwise prompt. The permission pre-flight gate guards the tool surface before dispatch, and an auto-deny a leaf could not work around parks (`SKILL.md`'s `## Permission pre-flight gate` → **Auto-deny handling**).
+- **No PushNotification.** Dispatched leaves do not send notifications: PushNotification is confirmed absent from subagent tool registries (see issue #97 recorded decision). The orchestrator emits at its own chunk boundaries (parks, wave completions, run complete/halt), which it can do because it ran the gates itself.
+- **SendMessage addressing.** A dispatched leaf CAN receive a mid-run message from the session that spawned it, delivered at the leaf's next tool-use round. An agent-TYPE name (e.g. `milestone-driver:implementer`) is **not** a reachable address; only the specific dispatched instance, by the agent ID/name its own dispatch returned, and only from the spawning session. Cross-agent traffic routes back through the orchestrator, which relays it or folds the finding into that leaf's next dispatch brief.

@@ -135,7 +135,7 @@ Only per-worker unit runs execute concurrently, so a shared test DB (or other sh
 
 | Key | Plain-language label | Answer mapping |
 |---|---|---|
-| `parallel` | "Your unit tests may share external services (like a test DB) across parallel workers. Is your harness isolated per worker so parallel builds are safe?" | **Yes** → `parallel: true`. **No** → `parallel: false`. **Skip** → omit `parallel`; the run-start interview asks on the first `solve-milestone` run. |
+| `parallel` | "Your unit tests may share external services (like a test DB) across concurrent builds. Is your harness isolated per worker so parallel builds are safe?" | **Yes** → `parallel: true`. **No** → `parallel: false`. **Skip** → omit `parallel`; the run-start interview asks on the first `solve-milestone` run. |
 
 The three answers are mutually exclusive and cover every path. See the Phase 3 write rule for why a Yes/No answer records an explicit boolean (and does **not** follow the omit-the-default convention).
 

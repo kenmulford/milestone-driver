@@ -1,6 +1,6 @@
 ## Parent-issue detection (`md-epic`)
 
-**Runs before anything else** — before SKILL.md's `## Before starting` step 1 (profile read) and before SKILL.md's `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. This is the same opt-in-fork shape already used for the `--worker` token (`skills/solve-issue/worker-mode.md`) and the `--async` token (`skills/solve-issue/async-mode.md`) — a label read here instead of a dispatch token.
+**Runs before anything else** — before SKILL.md's `## Before starting` step 1 (profile read) and before SKILL.md's `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. This is the plugin's standard opt-in-fork shape: one signal read before anything else, whose absence leaves the rest of the pipeline byte-unchanged. Here the signal is a label rather than an invocation token.
 
 - **No `md-epic`** → today's entire pipeline runs byte-unchanged, starting at SKILL.md's `## Before starting` step 1. Nothing in this section or `### Parent path` below applies.
 - **`md-epic` present** → `#n` is a **parent issue** — a pure orchestration node that carries no code. Do **not** proceed to SKILL.md's `## Before starting` steps 2/3, SKILL.md's `### 0. Triage`, SKILL.md's root-cause, or SKILL.md's implementer for `#n`. Go directly to `### Parent path` below; it replaces the rest of this skill's pipeline for this invocation.
@@ -38,7 +38,7 @@ A parent issue's body carries an ordered list of milestones — the build order 
 
 5. **`#n` itself is never built.** It carries no code, so it never goes through SKILL.md's `### 0. Triage`, SKILL.md's root-cause-or-park, or SKILL.md's implementer dispatch — it is a pure orchestration node. Its label state changes only via the park path in step 2 above.
 
-6. **Aggregate summary**, one row per milestone — mirroring `solve-milestone`'s own run-complete reporting shape (Template 3, `skills/solve-milestone/SKILL.md:527`; the Final summary content requirements, `:560`). Classify each driven milestone from ground truth after driving, not from the driven run's own narrative (the same re-derive-over-handback posture already used at the Wave barrier, `skills/solve-milestone/SKILL.md:399`, `:413-417`):
+6. **Aggregate summary**, one row per milestone — mirroring `solve-milestone`'s own run-complete reporting shape (Template 3, `skills/solve-milestone/SKILL.md:527`; the Final summary content requirements, `:560`). Classify each driven milestone from ground truth after driving, not from the driven run's own narrative (the same derive-from-artifacts posture the Wave barrier uses, `skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`, and the Final summary's park-reason read, `skills/solve-milestone/SKILL.md:399`):
 
    | Milestone | Outcome | Note |
    |---|---|---|
