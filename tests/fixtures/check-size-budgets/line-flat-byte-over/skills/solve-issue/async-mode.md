@@ -25,7 +25,7 @@ twins read the same bytes off disk, so both report 5000 here and neither needs a
 ## The line the sibling appends to
 
 Prose appended to the tail of an existing line is the exact growth shape the ratchet could not see before the byte
-ceiling landed, so the sibling fixture appends to the end of this very line to reproduce it.
+ceiling landed, so the sibling fixture appends to the end of this very line to reproduce it. Appending here adds bytes and no line at all, so the line-only ratchet stays silent while the file grows.
 
 ## Padding
 
