@@ -56,6 +56,7 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 - Editing files outside the issue's expected scope (that is a STOP, not a quiet expansion).
 - Committing, pushing, or opening a PR.
 - Running a second test-suite process while one is already running (shared-DB deadlock risk — see the TDD contract item above).
+- Dispatching a subagent of your own. You are a leaf: do the work yourself and return it. An agent at depth 2 never receives its children's completion notifications, so dispatching ends your turn permanently and your work is stranded uncommitted (`docs/architecture.md` → `## Dispatch topology`).
 
 ## Communication style
 

@@ -9,10 +9,10 @@ now exists exactly once and can no longer drift between the two skills.
 
 It sits here — a peer of the skill folders, not nested inside either skill's
 own directory — because it is the one reference file two different skills
-consume. Every other sibling reference file in this plugin (`trello-sync.md`,
-`parallel-waves.md`, `worker-mode.md`, `async-mode.md`) has exactly one owning
-skill and lives inside that skill's own folder; this file has no single owner,
-so it sits one level up instead.
+consume. Every other sibling reference file in this plugin
+(`trello-sync.md`, `parallel-waves.md`, `async-mode.md`) has exactly one
+owning skill and lives inside that skill's own folder; this file has no
+single owner, so it sits one level up instead.
 
 This is a growing list — a new one-time notice is added as another `##`
 section below, never restated inline in either SKILL.md.

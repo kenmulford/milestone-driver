@@ -45,7 +45,6 @@ ROOT="${ROOT%/}"
 FILES=(
   "skills/setup/SKILL.md"
   "skills/solve-issue/SKILL.md"
-  "skills/solve-issue/worker-mode.md"
   "skills/solve-issue/async-mode.md"
   "skills/solve-issue/md-epic-fanout.md"
   "skills/solve-milestone/SKILL.md"
@@ -62,7 +61,6 @@ FILES=(
 CEILINGS=(
   280
   400
-  70
   40
   60
   680

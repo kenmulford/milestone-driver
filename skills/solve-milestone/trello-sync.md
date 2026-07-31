@@ -1,6 +1,6 @@
 # Trello sync — solve-milestone reference
 
-This file is loaded by solve-milestone when `integrations.trello` is present in the profile. All Trello operations described here are best-effort: a failure never blocks a run, never parks an issue, and never halts the loop. The orchestrator main thread owns every call; solve-issue (including `--worker` mode) makes zero Trello calls.
+This file is loaded by solve-milestone when `integrations.trello` is present in the profile. All Trello operations described here are best-effort: a failure never blocks a run, never parks an issue, and never halts the loop. The orchestrator main thread owns every call; no dispatched agent makes a Trello call.
 
 ---
 
@@ -162,7 +162,7 @@ When a card is resolved at run start, apply the following state transition:
 
 ## Convention 9 — Thread safety / parallel builds
 
-ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. `solve-issue` — including `--worker` mode in parallel runs — makes **zero** Trello calls. This is enforced by placement: every call site lives in solve-milestone's orchestration steps, not inside solve-issue or any worker agent.
+ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes **any** Trello call, in sequential or parallel runs. This is enforced by placement: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
 
 ---
 
