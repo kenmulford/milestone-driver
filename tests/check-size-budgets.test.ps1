@@ -15,6 +15,7 @@ if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 $cases = @(
   'at-ceiling|0',
   'one-over|1',
+  'line-flat-byte-over|1',
   'missing-file|1'
 )
 
