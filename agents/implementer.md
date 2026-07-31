@@ -22,7 +22,7 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 
 If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections, the resolved file index, and the resolved prose contract are the exception: an empty/absent set is expected, not a blocker. All three are additive grounding whose resolvers degrade to a no-op by design — an absent one is never a STOP condition.)
 
-You keep your own `Read`/grep tools throughout. Use them to pull any **additional** cited `.project/` anchor that was not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. Pull the specific additional section on demand; do not re-read whole docs the orchestrator already resolved.
+You keep your own `Read`/grep tools throughout. Use them to pull any **additional** cited `.project/` anchor that was not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. Pull the specific additional section on demand; do not re-read whole docs the orchestrator already resolved. **Scratch hygiene.** If you write any scratch file, put it under a path named for this issue or this agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
 
 ## File encoding (UTF-8, no BOM)
 
@@ -56,6 +56,7 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 - Editing files outside the issue's expected scope (that is a STOP, not a quiet expansion).
 - Committing, pushing, or opening a PR.
 - Running a second test-suite process while one is already running (shared-DB deadlock risk — see the TDD contract item above).
+- Dispatching a subagent of your own. You are a leaf: do the work yourself and return it. An agent at depth 2 never receives its children's completion notifications, so dispatching ends your turn permanently and your work is stranded uncommitted (`docs/architecture.md` → `## Dispatch topology`).
 
 ## Communication style
 

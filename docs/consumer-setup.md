@@ -95,15 +95,19 @@ The driver builds the mutually-independent issues within a single dependency Wav
 
 **Back-compat.** There is no `--parallel` flag anymore; a habit-typed one is harmlessly stripped and ignored — parallel is already the default, the argument resolver strips any `--<token>` generically, and it never corrupts the milestone identifier.
 
-Each of those issues builds in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), and they integrate one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-overlapping same-file edits; anything non-trivial or red parks `blocked` for you instead of guessing.
+Each of those issues builds in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), and they integrate one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-adjacent same-file edits (two edits on directly adjacent lines conflict); anything non-trivial or red parks `blocked` for you instead of guessing.
 
-**How wide it goes — `maxParallelWorkers`.** The concurrent worker fan-out is capped per Wave. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
+**A file with one shared append point will conflict, and that is expected.** A changelog table, a barrel export, a dependency-injection registration list: any file where every issue adds its line at the same spot conflicts during the merge tail by construction, as soon as two issues in a Wave both touch it. Nothing has gone wrong when that happens. The tail resolves it and re-verifies it, on the same terms as any other conflict above. The rule that keeps you out of it: **one shared append point gets one dedicated writer, run on its own after the wave.** The driver already works this way for its own changelog, where step 6 of `solve-milestone` authors one entry, once, after the issue loop, instead of a row per issue. Write your issues' acceptance criteria the same way and no issue in a Wave has to touch the shared file at all. (Secondary note: pre-seeding one slot per issue with a blank line between the slots also merges clean, but you have to know the slot set before the wave starts and it leaves those separators in a shipped file, so it is worth doing only where a separator is already natural.)
 
-The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the workers and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
+**Do not reach for `merge=union` in `.gitattributes` to make this go away.** Union never reports a conflict, so it removes the only signal you would get. It also interleaves multi-line changes into structurally broken output: a table row can land below the trailing bullets, orphaned from its table. A single-line-per-worker append does merge clean and correct under union, which is exactly what makes it tempting; the corruption shows up once a contribution is a multi-line block whose lines belong in different parts of the file, which is where union's interleaving drops one of them in the wrong place.
+
+**How wide it goes — `maxParallelWorkers`.** The concurrent build fan-out is capped per Wave. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
+
+The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the build stages and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
 #### DB isolation (consumer responsibility)
 
-A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each worker runs `unitTestCmd` in its own worktree directory — but all N workers share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk — it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
+A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each build runs `unitTestCmd` in its own worktree directory — but all N share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk — it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
 
 **Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds — and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
 
@@ -139,9 +143,60 @@ Default `"issue"` is today's model, unchanged: each built issue opens its own PR
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
+### `integrationGranularity: "milestone"`: one branch, one PR, one CI run for the whole milestone
+
+Set `"milestone"` for a repo whose CI fires on a push to **every** branch, where a milestone's worth of issue branches exhausts your GitHub runners or your container capacity:
+
+```json
+{ "integrationGranularity": "milestone" }
+```
+
+`"wave"` does not fix that. Wave granularity still pushes one branch per issue, so your pushes stay at one per issue even though the PRs and CI runs drop to one per Wave. `"milestone"` is the value that keeps the intermediate branches off your remote, so a whole milestone costs one push.
+
+**Before you switch, filter your own `on: push` workflows.** A milestone run still pushes once, at the end. If one of your workflows triggers on a push to any branch, that single push starts it on the milestone branch and the pull-request run then builds the same commit again, so you pay for the assembled milestone twice and lose part of what you switched for. Add a branch filter to each of your own push-triggered workflows, in either form:
+
+```yaml
+# Form 1: ignore the milestone branches.
+on:
+  push:
+    branches-ignore: ['milestone-*']
+
+# Form 2: list what you do build, and negate the milestone branches last.
+on:
+  push:
+    branches: ['**', '!milestone-*']
+```
+
+Pick one form per event, never both: a workflow that sets `branches` and `branches-ignore` on the same event does not run. In form 2 the pattern order is significant, because a later pattern overrides an earlier one: `'**'` matches every branch and the following `'!milestone-*'` takes the milestone branches back out, so the negation only bites when it comes after the pattern it narrows.
+
+**What a run does under `"milestone"`:**
+
+- It cuts one branch, `milestone-<number>-<slug>`, from your `integrationBranch` at the start of the run.
+- It builds each issue on an `issue/<n>-<slug>` branch as before, but cut from the milestone branch, and it never pushes those branches.
+- It folds each finished issue into the milestone branch as one local squash commit carrying an `Issue: #<n>` trailer. That trailer is also how a resumed run reads which issues it already integrated, so a re-run picks up where it stopped without a checkpoint file.
+- At the end it pushes the milestone branch once, opens one PR to your `integrationBranch`, and runs CI once. Your CHANGELOG entry rides that same PR instead of getting a second one. After the merge it closes the issues explicitly.
+- It behaves the same whether the run builds issues sequentially or in parallel. `integrationGranularity` decides how issues integrate; the `parallel` key decides how they build.
+
+**The `milestone-` branch prefix is a stable contract, so filter on it with confidence.** Your CI filters are written against that prefix, which makes it part of what the plugin owes you rather than an internal name it is free to change. It will not be renamed out from under your filters.
+
+The trade-off: nothing reaches your remote until the milestone-end push, so remote CI first sees the whole assembled milestone, and your local gates (unit tests, `preflightCmd`, `/code-review`) are the earlier signal. That is the bargain wave granularity already makes, one scope wider.
+
+**If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
+
+**`visualHold`: whether the milestone PR waits for your visual sign-off.** A milestone arrives as one PR, so the per-issue visual gate becomes one decision. When the milestone branch's diff against your `integrationBranch` touches a `uiSurfaceGlobs` path, the PR is labeled `needs review` and held for you instead of auto-merging on green CI. The key has two states and no third:
+
+| `visualHold` in `.milestone-config/driver.json` | What the milestone PR does |
+|---|---|
+| Absent (the default) | Holds for your sign-off when the branch touched a UI surface. |
+| `false` | Auto-merges on green CI even when the branch touched a UI surface. |
+
+That profile key is the sole override. There is no `--no-visual-hold` token to type, for the same reason there is no `--sequential` flag: skipping a visual review is your call, and the profile is the only surface that records it durably where you can review it later. `visualHold` is read only under `"milestone"` granularity, so under `"issue"` and `"wave"` today's per-issue visual gate is untouched. **If the diff against `integrationBranch` cannot be determined, the gate holds anyway,** because merging UI nobody looked at is a one-way door while an over-strict hold costs you one action.
+
+**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` and `visualHold` key rows.
+
 ## Permission pre-flight gate
 
-Because the driver dispatches background workers on the **default** path, a pre-flight gate fires once at the start of every run, before the first background worker is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to **synchronous, sequential** dispatch automatically: parallel workers require background dispatch, so a permission gap forces the run one-at-a-time.
+Because the driver dispatches background agents on the **default** path, a pre-flight gate fires once at the start of every run, before the first one is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to **synchronous, sequential** dispatch automatically: concurrent builds require background dispatch, so a permission gap forces the run one-at-a-time.
 
 **The fastest fix when you see a 🔴 gap table:** run `/fewer-permission-prompts` in the repo. That skill scans recent transcripts for tool calls you've already approved and builds a prioritized allowlist in `.claude/settings.json`, covering the pipeline surface in one pass. After running it, re-run the milestone command; the gate should clear.
 

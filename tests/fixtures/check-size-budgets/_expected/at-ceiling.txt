@@ -1,15 +1,15 @@
-OK	skills/setup/SKILL.md	1/280
-OK	skills/solve-issue/SKILL.md	1/380
-OK	skills/solve-issue/worker-mode.md	1/70
-OK	skills/solve-issue/async-mode.md	40/40
-OK	skills/solve-issue/md-epic-fanout.md	1/60
-OK	skills/solve-milestone/SKILL.md	1/680
-OK	skills/solve-milestone/parallel-waves.md	1/200
-OK	skills/solve-milestone/trello-sync.md	1/400
-OK	skills/triage/SKILL.md	1/460
-OK	skills/notices.md	1/250
-OK	skills/output-style.md	1/100
-OK	agents/design-reviewer.md	1/115
-OK	agents/implementer.md	1/130
-OK	agents/triage-reviewer.md	1/120
+OK	skills/setup/SKILL.md	1/280	7/33500
+OK	skills/solve-issue/SKILL.md	1/400	7/78000
+OK	skills/solve-issue/async-mode.md	40/40	5000/5000
+OK	skills/solve-issue/md-epic-fanout.md	1/60	7/9500
+OK	skills/solve-milestone/SKILL.md	1/680	7/80500
+OK	skills/solve-milestone/parallel-waves.md	1/215	7/68000
+OK	skills/solve-milestone/trello-sync.md	1/400	7/21500
+OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25500
+OK	skills/triage/SKILL.md	1/460	7/42000
+OK	skills/notices.md	1/250	7/13500
+OK	skills/output-style.md	1/100	7/10500
+OK	agents/design-reviewer.md	1/115	7/16500
+OK	agents/implementer.md	1/130	7/15000
+OK	agents/triage-reviewer.md	1/120	7/16500
 SUMMARY	ok=14	failed=0

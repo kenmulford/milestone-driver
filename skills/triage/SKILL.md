@@ -149,7 +149,7 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 
 ### Step 3 — Dispatch `triageAgent` per issue
 
-Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only** (HIT issues are not re-dispatched). Dispatches are **parallelizable** — run them concurrently when the tool environment supports it.
+Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only** (HIT issues are not re-dispatched). Dispatches are **parallelizable** — run them concurrently when the tool environment supports it. **The brief MUST also carry this scratch-hygiene rule:** write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
 
 **Brief each agent with:**
 
@@ -175,7 +175,7 @@ GAPS:
   - … (or "none")
 ```
 
-For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW: yes`, dispatch `designReviewAgent` (default `milestone-driver:design-reviewer`). HIT issues are excluded — their `designReviewAgent` dispatch was already done on the prior run; see Step 2.5 HIT table.
+For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW: yes`, dispatch `designReviewAgent` (default `milestone-driver:design-reviewer`). HIT issues are excluded — their `designReviewAgent` dispatch was already done on the prior run; see Step 2.5 HIT table. **The brief MUST also carry this scratch-hygiene rule:** write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
 
 **Brief the design agent with:**
 
@@ -296,7 +296,7 @@ For every **freshly-triaged** (MISS) issue that has **Blocker** gaps:
 For each qualifying MISS issue:
 
 1. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`). The comment body must:
-   - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md:396` and probed at `skills/solve-milestone/parallel-waves.md:80`. Only what FOLLOWS the opener is structured here.
+   - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md:402` and probed at `skills/solve-milestone/parallel-waves.md:109`. Only what FOLLOWS the opener is structured here.
    - Render the Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. The evidence column is what makes a claim checkable; a row with an empty evidence cell is an unfilled slot, not a shorter row.
    - Close with the durable-async instruction. That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`) — it is the one closing line the table cannot carry, and it still states what must be recorded before this issue can build.
 
