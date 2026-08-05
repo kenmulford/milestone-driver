@@ -146,6 +146,15 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 - **Absent `.project/` directory** (or no cited anchors on an issue) → this block is a **no-op** for that issue: dispatch proceeds with no project grounding and **no error** (skipped cleanly when absent, exactly like the cache degradation in Step 2.5).
 - **Missing/renamed cited anchor** → the primitive **fails loud** (non-zero exit, naming the anchor + file on stderr) so a drifted heading surfaces rather than returning silent empty grounding. Treat the loud failure as a signal that a cited anchor drifted — do not swallow it.
 - **Absent `skills/output-style.md`** (the file is missing, or unreadable) → **no-op**: both dispatches proceed with **no prose contract** in their briefs and **no error**, leaving each reviewer's own `## Communication style` as its only prose rule. This mirrors the absent-`.project/` no-op branch above, **not** the fail-loud missing-anchor branch — the contract is additive grounding that no issue cites by name, so it never fails loud.
+- **No `path (anchor)` citation on an issue** → the block below is a **no-op** for it: no resolver call, no error.
+- **A cited anchor not found**, or an unreadable file → `resolve-citation` **fails loud** (nonzero; anchor + file on stderr, stdout empty). Surface it; never swallow it.
+
+### Resolve cited `path (anchor)` citations (once per issue, before dispatch)
+
+Resolve each MISS issue's `path (anchor)` citations (`skills/citation-format.md`) **once here** — a HIT issue skips dispatch and makes **no** resolver call. Paths are repo-root-relative; no multi-base fallback.
+
+1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply its span and position tests to the issue body + acceptance criteria: a parenthetical after a path is **not** automatically a citation. Both regex failure modes, measured on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` (`docs/superpowers/plans/2026-06-01-proactive-triage.md:71`) exits 1 — a **false drift report**; `` `skills/setup/SKILL.md` (Phase 2) `` (`docs/profile-schema.md:207`) returns `PRIMARY 51` + `MATCH 196` — a **confident wrong answer**.
+2. **Resolve, then feed BOTH briefs.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` (pwsh on Windows, bash elsewhere, as above) once per citation, with `<file-path> <anchor-text>` as arguments. Exit 0 prints a `PRIMARY` row then zero or more `MATCH` rows, TAB-delimited, file order. Pass those rows into **BOTH** Step 3 briefs (`triageAgent`, `designReviewAgent`) as **the resolved citations** — once per issue, not once per reviewer — in the printed-output shape `read-doc-section`'s result uses above; no new format.
 
 ### Step 3 — Dispatch `triageAgent` per issue
 
@@ -159,6 +168,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found convention is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue (from "Resolve cited project-docs sections (once per issue, before dispatch)" above — omit this input when that block was a no-op for this issue).
 - The resolved prose contract (the `skills/output-style.md` sections resolved once per run in that same block) — the GitHub-facing prose rules and evidence-slot shapes governing the agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
+- The resolved citations for this issue (from the `path (anchor)` block above; omit when it was a no-op).
 
 **Each agent returns:**
 
@@ -171,7 +181,7 @@ GAPS:
     severity: Blocker | Advisory
     type: contradiction | not-buildable | missing-criteria | undeclared-dependency | risky-design
     description: <one line>
-    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its evidence reference (per skills/citation-format.md) when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -185,6 +195,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - The profile: `uiSurfaceGlobs`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found pattern is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue — the **same** sections resolved once and passed to the `triageAgent` above (from "Resolve cited project-docs sections (once per issue, before dispatch)"; omit when that block was a no-op for this issue).
 - The resolved prose contract — the **same** `skills/output-style.md` sections resolved once per run and passed to the `triageAgent` above, governing this agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
+- The resolved citations — the **same** rows passed to the `triageAgent` above; omit when it was a no-op.
 
 **The design agent returns:**
 
@@ -195,7 +206,7 @@ GAPS:
     severity: Blocker | Advisory
     type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
-    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per skills/citation-format.md) when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
