@@ -68,20 +68,22 @@ Every GitHub-facing shape carries an explicit **evidence/citation slot, not just
 
 Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots.
 
+Citations inside those slots follow one format, defined once in `skills/citation-format.md`.
+
 **Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md:402` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md:109`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
 
 | Shape | Opener | Required slots |
 |---|---|---|
-| **Park comment** (`solve-issue`, `md-epic-fanout`) | `🔴 Parked — ` | **reason** (what blocked it, one line) · **evidence** (the `file:line`, command output, gate name, or parser stderr that shows it) · **what unblocks it** (the decision or artifact a human must supply) |
+| **Park comment** (`solve-issue`, `md-epic-fanout`) | `🔴 Parked — ` | **reason** (what blocked it, one line) · **evidence** (the citation per `skills/citation-format.md`, command output, gate name, or parser stderr that shows it) · **what unblocks it** (the decision or artifact a human must supply) |
 | **Blocked comment** (dependency hold, `solve-milestone`) | `🔴 Blocked — ` | the same three: **reason** · **evidence** (the unmerged upstream issue numbers) · **what unblocks it** (merge the upstream, remove the `blocked` label, re-run) |
 | **STOP/PAUSE reason** (`solve-milestone` park step) | `🔴 Parked — ` | the same three, sourced from the implementer's or `solve-issue`'s own return — confirm all three are present before accepting the existing comment |
-| **Decision Log entry** (PR body) | — | **choice** · **rationale** · **citation** (doc URL, `file:line`, or skill — never fabricated) · **rejected alternatives** |
-| **`## Code Review` section** (PR body) | — | run + effort · finding count · per-finding resolution · **evidence** (the `file:line` each finding named, or the effort level when the count is 0) · park-trigger list |
+| **Decision Log entry** (PR body) | — | **choice** · **rationale** · **citation** (doc URL, repo ref per `skills/citation-format.md`, or skill — never fabricated) · **rejected alternatives** |
+| **`## Code Review` section** (PR body) | — | run + effort · finding count · per-finding resolution · **evidence** (each finding's ref per `skills/citation-format.md`, or the effort level when the count is 0) · park-trigger list |
 | **Triage comment** (`triage`) | `🔴 Triage` | a **structured gap list** — one row per Blocker: lens/type · description · **evidence** · `to_clear`. The closing line stays prose ONLY when it carries something the structure does not (the durable-async-note instruction); otherwise it is cut. |
 | **Wave PR body** (`parallel-waves`) | — | the Wave's logic issues · **evidence** (per issue: its branch and the gates it passed on the wave branch) |
 | **CHANGELOG entry** (becomes the release body) | — | per bucket, one line per issue · **evidence** (the issue number and its merged PR) · Consumer notes · the ⚖️ judgment-call PR list |
 | **👁️ Visual evidence / 🤖 AI pre-filter comments** (PR) | `👁️` / `🤖` | per shot: surface × viewport × appearance · **evidence** (the embedded image and its blob link; for a verdict, the named rendered-layout defect — never a subjective judgment) |
-| **`to_clear` field** (both reviewer agents; both `triage` return blocks) | — | the decision or artifact a human must record, plus its **evidence** anchor (`file:line`) when one exists. **Structural constraint, not a word count:** one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
+| **`to_clear` field** (both reviewer agents; both `triage` return blocks) | — | the decision or artifact a human must record, plus its **evidence** reference (per `skills/citation-format.md`) when one exists. **Structural constraint, not a word count:** one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
 
 ## The two anti-criteria
 
