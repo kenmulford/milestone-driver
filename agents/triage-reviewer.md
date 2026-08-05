@@ -49,7 +49,7 @@ GAPS:
     severity: Blocker | Advisory
     type: contradiction | not-buildable | missing-criteria | undeclared-dependency | risky-design
     description: <one line>
-    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its evidence reference (per skills/citation-format.md) when one exists — structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 

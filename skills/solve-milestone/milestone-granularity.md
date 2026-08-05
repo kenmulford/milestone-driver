@@ -54,14 +54,14 @@ Subject line, a blank line, the Decision Log summary, a blank line, the Code Rev
 Code-Review:
   - /code-review run: yes (omission is a park trigger — a submitted PR always carries a real review; a parked run opens no PR)
   - Findings: <count> in-scope finding(s) at <effort> effort
-    - <finding> — <file:line it named> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
+    - <finding> — <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
     - … (one line per finding, or "none" when count is 0)
   - No park-triggering findings. | Park-triggering findings: <list>
 
 Issue: #<n>
 ```
 
-**The Code Review block is copied, not re-derived.** Its five lines are the PR-body Code Review template (`skills/solve-issue/SKILL.md:202-206`) with their relative nesting intact and each indented two further spaces, under a `Code-Review:` opener. The block ends at the blank line before `Issue: #<n>`. Those five lines carry every slot of the `## Code Review` shape (`skills/output-style.md:79`): run + effort, finding count, per-finding resolution, evidence (the `file:line` each finding named), park-trigger list. A **zero-finding run keeps the same shape**: its per-finding line reads `none`, and the run's effort level stands as the evidence slot. Dropping a slot to shorten the commit message is incomplete, not concise (`skills/output-style.md:90`).
+**The Code Review block is copied, not re-derived.** Its five lines are the PR-body Code Review template (`skills/solve-issue/SKILL.md:215-219`) with their relative nesting intact and each indented two further spaces, under a `Code-Review:` opener. The block ends at the blank line before `Issue: #<n>`. Those five lines carry every slot of the `## Code Review` shape (`skills/output-style.md:79`): run + effort, finding count, per-finding resolution, evidence (the ref each finding named, per `skills/citation-format.md`), park-trigger list. A **zero-finding run keeps the same shape**: its per-finding line reads `none`, and the run's effort level stands as the evidence slot. Dropping a slot to shorten the commit message is incomplete, not concise (`skills/output-style.md:90`).
 
 Two rules make the block safe to carry in a commit message:
 
@@ -114,7 +114,7 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md:417-426`) i
 
 ### The visualHold gate
 
-Step 4's precondition, green CI only, this granularity only (`docs/profile-schema.md:117`). Under `"issue"` and `"wave"` the per-issue Layer-2 visual gate is the visual gate and this one is never reached; here that per-issue gate is bypassed whole (`skills/solve-issue/SKILL.md:221`), so this is the milestone's one UI sign-off. First match wins:
+Step 4's precondition, green CI only, this granularity only (`docs/profile-schema.md:117`). Under `"issue"` and `"wave"` the per-issue Layer-2 visual gate is the visual gate and this one is never reached; here that per-issue gate is bypassed whole (`skills/solve-issue/SKILL.md:233`), so this is the milestone's one UI sign-off. First match wins:
 
 | Condition | Step 4 |
 |---|---|
@@ -128,7 +128,7 @@ Step 4's precondition, green CI only, this granularity only (`docs/profile-schem
 
 ### Red CI on the milestone PR
 
-**Run-scoped, not issue-scoped.** A park is per-issue and the loop continues past it (`skills/solve-issue/SKILL.md:252`); a systemic halt ends the run (`skills/solve-milestone/SKILL.md:318`). This is neither: the loop is already over, and no single issue owns a failure that N issues share. It therefore takes the CHANGELOG-PR-red shape (`skills/solve-milestone/SKILL.md:629-640`), which labels the **PR** rather than parking anything.
+**Run-scoped, not issue-scoped.** A park is per-issue and the loop continues past it (`skills/solve-issue/SKILL.md:264`); a systemic halt ends the run (`skills/solve-milestone/SKILL.md:318`). This is neither: the loop is already over, and no single issue owns a failure that N issues share. It therefore takes the CHANGELOG-PR-red shape (`skills/solve-milestone/SKILL.md:629-640`), which labels the **PR** rather than parking anything.
 
 - Apply `needs review` to the milestone PR: `gh pr edit <pr-number> --add-label "needs review"`.
 - Emit one 🔴 line into the Template 3 final summary's `🔴 Your move:` section (`skills/solve-milestone/SKILL.md:642-650`) naming **every issue on the branch**, not just the PR. A red milestone PR is the one failure mode that hands a human N issues' worth of work at once; a line naming only the PR leaves them to reconstruct its contents from the diff.

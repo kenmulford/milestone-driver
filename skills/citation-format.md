@@ -22,7 +22,7 @@ still looks well-formed, and it sends its reader to the wrong place.
 |---|---|---|---|
 | `path#Heading` | a markdown heading section | `scripts/read-doc-section.{sh,ps1}` — shipped and wired | a tool must fetch the section — the `.project/` anchors an issue cites |
 | `path § Heading` | a markdown heading section | nothing; the reader opens the file | prose in a skill or agent body sends a reader to a section |
-| `path (anchor)` | any region of any file, keyed to a literal string | issue #417 | the target is not a heading — a function, a comment block, a table row, a line of prose, or anything in a non-markdown file |
+| `path (anchor)` | any region of any file, keyed to a literal string | `scripts/resolve-citation.{sh,ps1}` — shipped and wired | the target is not a heading — a function, a comment block, a table row, a line of prose, or anything in a non-markdown file |
 | `path:line`, `path:start-end` | one line, or a line range, as written | nothing; the reader opens the file | you mean those exact lines, or no form above fits |
 
 **Both heading forms are untouched by this file.** `path#Heading` is live and
@@ -141,7 +141,7 @@ heading, `scripts/read-doc-section.sh (Duplicate anchors)`, and extends it with
 the report of the extras.
 
 **`path:line` and `path:start-end` are forms you may write today — not a legacy
-tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:237`,
+tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:249`,
 or a range like `skills/notices.md:10-16` — resolves exactly as it does now:
 the bare line or lines, no resolution attempted, no error, and no warning. Both
 satisfy **every** evidence and citation slot in

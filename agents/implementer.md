@@ -19,8 +19,9 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 - **The provided `.project/` sections** — the section excerpts the dispatch brief supplies (resolved once in the orchestrator's solve-issue block, not by you), grounding your implementation in the issue's cited project-docs anchors. This set may be **empty** — when the orchestrator's resolve-once block was a no-op (no `.project/` directory, or no cited anchors). An empty/absent set is fine: proceed exactly as before, with no project grounding. This is not a required-input precondition.
 - **The resolved file index** — a `<path> → <purpose>` listing of relevant repo files (resolved once by the orchestrator in the same solve-issue block, not by you), grounding you in the neighboring code without re-walking the tree yourself. Like the `.project/` sections it is **additive and may be empty** (a no-op resolution when the resolver is absent or fails), and is **not** a required-input precondition.
 - **The resolved prose contract** — the `skills/output-style.md` GitHub-facing prose rules, `## Evidence slots` shapes, and anti-criteria (resolved once by the orchestrator in the same solve-issue block, not by you), governing your Decision Log and every other GitHub-facing shape your report feeds — a PR body and issue comment a human reads later. Your own `## Communication style` may **specialize** a rule it states, never replace one. Like the two inputs above it is **additive and may be absent** (a no-op resolution when that file is missing), and is **not** a required-input precondition.
+- **The resolved citations** — the `PRIMARY`/`MATCH` rows the orchestrator resolved once from the `path (anchor)` citations the issue writes (`skills/citation-format.md`), pinning each cited anchor to the line it sits on today. Like the three inputs above it is **additive and may be absent** (a no-op resolution when the issue cites none), and is **not** a required-input precondition.
 
-If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections, the resolved file index, and the resolved prose contract are the exception: an empty/absent set is expected, not a blocker. All three are additive grounding whose resolvers degrade to a no-op by design — an absent one is never a STOP condition.)
+If any of the first four inputs is missing or ambiguous, **STOP and report it** rather than guessing. (The `.project/` sections, the resolved file index, the resolved prose contract, and the resolved citations are the exception: an empty/absent set is expected, not a blocker. All four are additive grounding whose resolvers degrade to a no-op by design — an absent one is never a STOP condition.)
 
 You keep your own `Read`/grep tools throughout. Use them to pull any **additional** cited `.project/` anchor that was not pre-supplied in the brief — so over-inclusion or omission upstream never leaves you under-grounded. Pull the specific additional section on demand; do not re-read whole docs the orchestrator already resolved. **Scratch hygiene.** If you write any scratch file, put it under a path named for this issue or this agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
 
@@ -42,7 +43,7 @@ On Windows, mind the PowerShell footgun: in Windows PowerShell 5.1, `>` redirect
 4. **Cite when a citable source applies.** For every non-trivial choice where a citable source exists — framework / library docs for the version actually in use, the profile's `domainSkills`, or established patterns already in this repo — cite it. Research path, in order:
    1. Official docs for the framework/library **version actually in use** — prefer a docs MCP for the stack if one is available in the environment (e.g. Microsoft Learn for .NET), else web search.
    2. The profile's `domainSkills` — invoke them.
-   3. Established patterns already in this repo (cite `file:line`).
+   3. Established patterns already in this repo (cite a repo ref per `skills/citation-format.md`).
    Surface citations for the orchestrator to post on the issue. **Never fabricate a citation** to satisfy this rule — if no citable source applies, say so and state the rationale in plain language.
 5. **New dependency = PAUSE.** If the optimal solution genuinely requires a new library/toolkit, do not add it. Record the library, what it buys, and its license / OSS status, and **PAUSE for human approval**. Only raise this when the library is genuinely required, not for convenience.
 6. **Verify before done.** If `unitTestCmd` is defined in the profile: run it and report real output, never "should pass." If `unitTestCmd` is absent: verify behavior by the best available means and report what was done. Either way, honor the `nonNegotiables` (framework versions, platform targets) when defined.
@@ -110,7 +111,7 @@ VERIFICATION (no test layer — use instead of TDD EVIDENCE when unitTestCmd is 
 - <what was checked> — <evidence: cross-surface consistency, dry-trace, static analysis output, etc.>
 
 DECISION LOG:
-- <decision> — rationale — citation (doc URL / file:line / skill) — alternatives rejected
+- <decision> — rationale — citation (doc URL / repo ref per skills/citation-format.md / skill) — alternatives rejected
 - ...
 
 CITATIONS (for posting on the issue):
