@@ -1,0 +1,3 @@
+PRIMARY	11	Call resolve_citation from the skill.
+MATCH	12	A later line calls resolve_citation again.
+MATCH	17	resolve_citation appears a third time here.

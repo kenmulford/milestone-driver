@@ -35,6 +35,8 @@ jobs:
         run: bash tests/build-file-index.test.sh
       - name: write-cost-record (bash)
         run: bash tests/write-cost-record.test.sh
+      - name: resolve-citation (bash)
+        run: bash tests/resolve-citation.test.sh
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -60,6 +62,8 @@ jobs:
         run: pwsh tests/build-file-index.test.ps1
       - name: write-cost-record (pwsh)
         run: pwsh tests/write-cost-record.test.ps1
+      - name: resolve-citation (pwsh)
+        run: pwsh tests/resolve-citation.test.ps1
 
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)
