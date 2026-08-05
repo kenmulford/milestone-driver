@@ -3,6 +3,34 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.19.0 — citation anchors
+
+**Theme:** Citations in this repo pointed at source by line number, so any edit above a cited line silently invalidated them — nothing warned, the citation still looked well-formed, and it sent its reader to the wrong place. This release gives a citation a content anchor that survives line drift, ships a resolver that fails loud when an anchor is gone, and wires that resolution into triage and solve-issue so a subagent never reasons from a citation that has moved. Existing `path:line` and `path:start-end` citations stay fully valid to write; no evidence slot requires an anchor, and none was changed to require one.
+
+### ✨ Citation anchors
+
+| Issue | PR | What |
+|---|---|---|
+| #416 Define the citation format in `skills/citation-format.md` | #420 | New shared reference naming all four citation forms in live use, defining `path (anchor)` in full — the parse rule, literal-string resolution, what marks text as a citation at all, and the fail-closed rule for an anchor that is present but not found. |
+| #417 Ship the resolve-citation twin pair with its test twin | #421 | Dependency-free bash + PowerShell 7 resolver reporting every literal-substring occurrence of an anchor as TAB records, fail-closed on every error path, with a 21-case golden-matrix runner per leg wired into CI. |
+| #418 Resolve source citations before dispatch | #422 | Resolve-once blocks in `solve-issue` and `triage` that resolve an issue's citations via the resolver and thread the resolved table into the subagent briefs they compose, so no subagent re-derives a citation and a drifted anchor fails loud. |
+| #380 triage-reviewer's Completeness criterion covers edit-site coverage | #419 | The triage reviewer now sweeps for restated edit sites instead of confirming only the ones it was handed, returning every unenumerated site as one `missing-criteria` gap. |
+
+### Consumer notes (upgrading from v1.18.0)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- **Nothing breaks.** `path:line` and `path:start-end` citations remain valid to write and resolve exactly as before. The anchor form is additive.
+- **New artifacts:** `scripts/resolve-citation.{sh,ps1}` (a runtime primitive, not a CI gate — it returns records at exit 0 and never fails a build), `tests/resolve-citation.test.{sh,ps1}` with its cases table and fixtures, and `skills/citation-format.md`.
+- **CI grows one step per leg.** `shell-tests-bash` and `shell-tests-pwsh` each run the new runner.
+- **Citation anchors are literal strings, never parsed symbols.** Resolution is a case-sensitive, line-scoped substring search — not a regex, and not language-aware. Write the shortest string that uniquely names the region you mean.
+- **Extraction is model judgment, not pattern matching.** A parenthetical following a path is not automatically a citation; two measured examples in this repo's own prose show what a regex gets wrong in both directions.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
+Two calls worth recording. `skills/triage/SKILL.md` finished at **41934/42000 bytes — 66 bytes of headroom**; the next change touching it needs a ceiling decision. And `tests/resolve-citation.test.ps1` asserts with `[string]::Equals(…, Ordinal)`, deliberately diverging from all eight sibling pwsh runners' bare `-eq`, because that operator is case-insensitive and culture-sensitive and the issue required exact assertion; migrating the house idiom is a separate sweep.
+
 ## v1.18.0 — milestone-scoped branching and dispatch topology
 
 **Theme:** Two largely separate bodies of work. A whole milestone can now build on one local branch and reach the integration branch through a single push, a single PR, and a single CI run, for repos whose CI fires on a push to every branch and where one branch per issue exhausts the runners. And the worker layer is deleted: the orchestrator is the only session that fans out, every dispatched agent is a leaf at depth 1 where its completion notification actually arrives, and an issue that falls outside the barrier partition is now named and recovered rather than disappearing with no label, no comment, and no notification. The two halves meet in one place: both govern `scripts/check-size-budgets.{sh,ps1}`, and the one line-ceiling raise the second half needed was recorded under the Decision-Log convention the first half set.
