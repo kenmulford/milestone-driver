@@ -1,0 +1,22 @@
+# name	file	nargs	anchor	stdout_file	want_exit	want_stderr
+primary_only	sample.md	2	integrationBranch is required	primary-only.out	0	
+primary_plus_matches	sample.md	2	resolve_citation	primary-plus-matches.out	0	
+case_sensitive_hit	sample.md	2	INTEGRATIONBRANCH	case-sensitive-hit.out	0	
+case_sensitive_miss	sample.md	2	Integrationbranch		1	resolve-citation: anchor not found: 'Integrationbranch' in sample.md
+regex_metachars	sample.md	2	a.b	regex-metachars.out	0	
+line_scoped_no_match	sample.md	2	here.\nA regex		1	resolve-citation: anchor not found: 'here.\nA regex' in sample.md
+last_line_match	sample.md	2	axb	last-line-match.out	0	
+embedded_tab	tabbed.md	2	col2	embedded-tab.out	0	
+non_ascii_anchor	unicode.md	2	→	unicode-arrow.out	0	
+lone_cr_line_number	lone-cr.md	2	target	lone-cr-line-number.out	0	
+lone_cr_in_text	lone-cr.md	2	alpha	lone-cr-in-text.out	0	
+bom_stripped	bom.md	2	first line	bom-stripped.out	0	
+no_trailing_newline	no-trailing-newline.md	2	without newline	no-trailing-newline.out	0	
+empty_file	empty.md	2	anything		1	resolve-citation: anchor not found: 'anything' in empty.md
+anchor_not_found	sample.md	2	no such anchor		1	resolve-citation: anchor not found: 'no such anchor' in sample.md
+missing_file	nope.md	2	Keys		1	resolve-citation: file not found or not readable: nope.md
+dir_not_file	_expected	2	Keys		1	resolve-citation: file not found or not readable: _expected
+usage_zero_args	sample.md	0			2	usage: __SCRIPT__ <file-path> <anchor-text>
+usage_one_arg	sample.md	1			2	usage: __SCRIPT__ <file-path> <anchor-text>
+usage_three_args	sample.md	3	Keys		2	usage: __SCRIPT__ <file-path> <anchor-text>
+empty_anchor	sample.md	2			2	resolve-citation: empty anchor-text: an empty anchor matches every line

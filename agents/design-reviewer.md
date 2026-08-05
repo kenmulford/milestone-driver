@@ -43,7 +43,7 @@ GAPS:
     severity: Blocker | Advisory
     type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
-    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its file:line evidence anchor when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per skills/citation-format.md) when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
