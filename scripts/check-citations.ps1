@@ -6,8 +6,9 @@
 # contract — what a green run does and does not verify, the four discriminator
 # rules and the measurements behind them, the edge cases and the choice made for
 # each, why an anchor is resolved only against the walked file set, and why
-# docs/superpowers/**, docs/briefs/**, CHANGELOG.md and tests/fixtures/** are
-# excluded from the walk. This header records only what is specific to THIS leg.
+# docs/superpowers/**, docs/briefs/**, CHANGELOG.md, tests/fixtures/**,
+# .milestone-config/worktrees/** and .milestone-feeder/** are excluded from the
+# walk. This header records only what is specific to THIS leg.
 #
 # Usage:   check-citations.ps1 [REPO_ROOT]
 #   REPO_ROOT   path to a checked-out repo root (default: CWD).
@@ -146,6 +147,8 @@ $Ex1 = 'docs/superpowers/'; $ExN1 = 0
 $Ex2 = 'docs/briefs/';      $ExN2 = 0
 $Ex3 = 'CHANGELOG.md';      $ExN3 = 0
 $Ex4 = 'tests/fixtures/';   $ExN4 = 0
+$Ex5 = '.milestone-config/worktrees/'; $ExN5 = 0
+$Ex6 = '.milestone-feeder/';           $ExN6 = 0
 
 $ok = 0
 $failed = 0
@@ -301,6 +304,8 @@ for ($i = 0; $i -lt $keys.Length; $i++) {
   if ($rel.StartsWith($Ex2, [System.StringComparison]::Ordinal)) { $ExN2++; continue }
   if ($rel -ceq $Ex3) { $ExN3++; continue }
   if ($rel.StartsWith($Ex4, [System.StringComparison]::Ordinal)) { $ExN4++; continue }
+  if ($rel.StartsWith($Ex5, [System.StringComparison]::Ordinal)) { $ExN5++; continue }
+  if ($rel.StartsWith($Ex6, [System.StringComparison]::Ordinal)) { $ExN6++; continue }
   $keptRel.Add($rel)
   $keptFull.Add($vals[$i])
 }
@@ -309,6 +314,8 @@ $out.Add("EXCLUDED`t$Ex1`tskipped=$ExN1")
 $out.Add("EXCLUDED`t$Ex2`tskipped=$ExN2")
 $out.Add("EXCLUDED`t$Ex3`tskipped=$ExN3")
 $out.Add("EXCLUDED`t$Ex4`tskipped=$ExN4")
+$out.Add("EXCLUDED`t$Ex5`tskipped=$ExN5")
+$out.Add("EXCLUDED`t$Ex6`tskipped=$ExN6")
 
 # ---------------------------------------------------------------------------
 # Scan. One pass per line, left to right: take the next path-class run, test it
@@ -384,7 +391,7 @@ for ($f = 0; $f -lt $keptRel.Count; $f++) {
   }
 }
 
-$out.Add("TOTALS`tunverified=$unverified`texcluded-files=$($ExN1 + $ExN2 + $ExN3 + $ExN4)")
+$out.Add("TOTALS`tunverified=$unverified`texcluded-files=$($ExN1 + $ExN2 + $ExN3 + $ExN4 + $ExN5 + $ExN6)")
 $out.Add("SUMMARY`tok=$ok`tfailed=$failed")
 
 # Join with LF and append a single trailing newline — byte-parity with the .sh

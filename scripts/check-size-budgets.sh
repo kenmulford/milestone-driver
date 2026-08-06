@@ -36,17 +36,34 @@
 #     files are dense with such path/flag/backtick tokens, which is the content
 #     shape word count undercounts worst.
 #   - Byte counts read the file ON DISK. A CRLF working tree (Windows
-#     core.autocrlf) therefore reads one extra byte per line, at most ~2% of
-#     any file governed here, which the headroom below absorbs. The LINE count
-#     stays CRLF-proof (the pwsh twin counts 0x0A bytes).
+#     core.autocrlf) therefore reads one extra byte per line: 0.29% to 2.27%
+#     across the governed set. THE HEADROOM DOES NOT ABSORB THAT, and an earlier
+#     version of this comment claiming it did was wrong. Measured on a simulated
+#     autocrlf tree: agents/triage-reviewer.md carries 0.12% headroom against a
+#     0.70% CRLF cost and agents/design-reviewer.md 0.43% against 0.67%, so both
+#     FAIL (16595/16500 and 16540/16500) on a Windows contributor's first clone,
+#     on files they never touched. What guarantees the byte ceilings mean the
+#     same number on every platform is the `*.md text eol=lf` PIN in
+#     .gitattributes, alongside the pins already held by *.sh, *.ps1, *.tsv,
+#     *.txt, *.yml and tests/fixtures/**. Do not remove it, and do not size a
+#     ceiling to tolerate CRLF instead. The LINE count stays CRLF-proof either
+#     way (the pwsh twin counts 0x0A bytes).
 #
 # Ceiling discipline (documented, not machine-enforced):
 #   - CEILINGS ONLY GO DOWN, NEVER UP. Each ceiling starts at the governed
 #     file's actual count (when the ratchet was introduced, or last tightened)
-#     plus ~5% headroom. A LINE ceiling rounds to a clean number; a BYTE
-#     ceiling ROUNDS UP TO THE NEXT 500 BYTES, a fixed granularity so that at
-#     byte scale the 15 derivations stay arithmetic instead of 15 judgment
-#     calls.
+#     plus ~5% headroom, ROUNDED UP TO A FIXED GRANULARITY so the 15 derivations
+#     stay arithmetic instead of 15 judgment calls: the next 500 BYTES on the
+#     byte axis, the next 5 LINES on the line axis.
+#   - BOTH AXES CARRY A MINIMUM-HEADROOM FLOOR, and the line axis needs its own
+#     because 5% of a small line count is not a usable allowance. A LINE CEILING
+#     IS NEVER LOWERED BELOW `actual + 5` ROUNDED UP TO THE NEXT 5. Without it,
+#     5% of a 33-line file granted 2 lines: skills/solve-issue/async-mode.md
+#     derived a 35-line ceiling that an ordinary 3-line bullet would break while
+#     the file still sat 473 bytes under its byte ceiling, and
+#     md-epic-fanout.md at 52 lines was the same shape. The 500-byte granularity
+#     already does this job on the byte axis, which is why only the line axis
+#     had to be told. APPLY BOTH AXES' FLOORS on every re-derivation.
 #   - When a governed file SHRINKS (a future split/trim), lower BOTH its
 #     ceilings to the new actuals + headroom in the SAME change that shrinks it.
 #   - Raising a ceiling requires a recorded decision in the Decision Log of
@@ -118,17 +135,17 @@ while read -r f line_ceiling byte_ceiling; do
   case "$line_ceiling" in ''|*[!0-9]*) ;; *) CEILINGS[$nceilings]="$line_ceiling"; nceilings=$((nceilings + 1)) ;; esac
   case "$byte_ceiling" in ''|*[!0-9]*) ;; *) BYTE_CEILINGS[$nbytes]="$byte_ceiling"; nbytes=$((nbytes + 1)) ;; esac
 done <<'GOVERNED_TABLE'
-skills/setup/SKILL.md                             280    33500
-skills/solve-issue/SKILL.md                       400    78000
-skills/solve-issue/async-mode.md                   40     5000
-skills/solve-issue/md-epic-fanout.md               60     9500
-skills/solve-milestone/SKILL.md                   680    80500
-skills/solve-milestone/parallel-waves.md          215    68000
-skills/solve-milestone/trello-sync.md             400    21500
-skills/solve-milestone/milestone-granularity.md   165    25500
-skills/triage/SKILL.md                            460    42000
-skills/notices.md                                 250    13500
-skills/output-style.md                            100    10500
+skills/setup/SKILL.md                             280    30000
+skills/solve-issue/SKILL.md                       375    69500
+skills/solve-issue/async-mode.md                   40     4500
+skills/solve-issue/md-epic-fanout.md               60     9000
+skills/solve-milestone/SKILL.md                   635    69000
+skills/solve-milestone/parallel-waves.md          205    68000
+skills/solve-milestone/trello-sync.md             400    20500
+skills/solve-milestone/milestone-granularity.md   165    25000
+skills/triage/SKILL.md                            390    37000
+skills/notices.md                                 250    11500
+skills/output-style.md                             90     9500
 skills/citation-format.md                         230    13000
 agents/design-reviewer.md                         115    16500
 agents/implementer.md                             130    15000

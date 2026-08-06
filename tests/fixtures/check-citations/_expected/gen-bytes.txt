@@ -2,6 +2,8 @@ EXCLUDED	docs/superpowers/	skipped=0
 EXCLUDED	docs/briefs/	skipped=0
 EXCLUDED	CHANGELOG.md	skipped=0
 EXCLUDED	tests/fixtures/	skipped=0
+EXCLUDED	.milestone-config/worktrees/	skipped=0
+EXCLUDED	.milestone-feeder/	skipped=0
 OK	docs/citing.md:3	src/crlf.md (crlf anchor here)
 OK	docs/citing.md:4	src/bom.md (bom anchor)
 OK	docs/citing.md:5	src/nonewline.md (tail anchor)

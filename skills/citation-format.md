@@ -189,7 +189,7 @@ heading, `scripts/read-doc-section.sh (Duplicate anchors)`, and extends it with
 the report of the extras.
 
 **`path:line` and `path:start-end` are forms you may write today — not a legacy
-tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:249`,
+tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:254`,
 or a range like `skills/notices.md:9-13` — resolves exactly as it does now:
 the bare line or lines, no resolution attempted, no error, and no warning. Both
 satisfy **every** evidence and citation slot in
