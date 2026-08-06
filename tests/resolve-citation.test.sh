@@ -62,7 +62,7 @@ EXPECT_COLS=7
 # split_tab <row> — bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
 # read" collapses adjacent tabs, silently dropping the empty anchor / stdout_file
 # / stderr columns). NO mapfile/readarray (bash-4+ builtins; macOS ships 3.2).
-# Sets the GLOBAL `cols` array directly. Copied from code-review-gate.test.sh:37.
+# Sets the GLOBAL `cols` array directly. Copied from tests/code-review-gate.test.sh (split_tab() {).
 split_tab() {
   local rest="$1$TAB"
   cols=()
@@ -70,7 +70,7 @@ split_tab() {
 }
 
 # unescape <str> — turns the TSV's literal \n / \t 2-char sequences into real
-# characters (mirrors code-review-gate.test.sh:44).
+# characters, mirroring tests/code-review-gate.test.sh (unescape() {).
 unescape() { printf '%b' "$1"; }
 
 # slurp_x <path> — a file's contents with a literal 'X' sentinel appended.

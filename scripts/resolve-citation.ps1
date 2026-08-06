@@ -11,14 +11,14 @@
 # convention as scripts/parse-md-epic-order.ps1 and
 # scripts/check-skill-frontmatter.ps1.
 # Match rule: LITERAL SUBSTRING, CASE-SENSITIVE, ORDINAL. NOT a regex — a '.' or
-# '*' in the anchor matches only itself. Matching is LINE-SCOPED (the per-line
-# scan loop mirrors scripts/read-doc-section.ps1:56), so an anchor containing a
-# real newline can never match: no single line holds one.
+# '*' in the anchor matches only itself. Matching is LINE-SCOPED — the per-line
+# scan loop mirrors scripts/read-doc-section.ps1 (foreach ($line in $lines))
+# — so an anchor containing a real newline can never match: no line holds one.
 # PRIMARY is a LABEL, NOT A FILTER. A bare method-name anchor legitimately hits
 # its declaration and its call sites, and every hit is reported, so a
 # poorly-chosen anchor costs a scan rather than a wrong answer. The fix for a
 # multi-match anchor is a better anchor at authoring time, not machinery here.
-# First-occurrence-wins mirrors read-doc-section.ps1:11; there is no hint-line
+# First-occurrence-wins mirrors scripts/read-doc-section.ps1 (Duplicate anchors); there is no hint-line
 # argument and no nearest-match logic.
 # One citation per invocation: no stdin, no batch mode — the caller loops.
 #
@@ -43,7 +43,7 @@
 #   (exit 0) and not here (exit 1). Binary files are not citation targets; this
 #   divergence is documented, not aligned.
 #
-# Fail-loud (fail-CLOSED, mirrors read-doc-section.ps1:12-16): a missing anchor,
+# Fail-loud (fail-CLOSED), mirroring scripts/read-doc-section.ps1 (Fail-loud (fail-CLOSED)): a missing anchor,
 #   a missing/unreadable file, or bad usage writes a clear message to stderr
 #   (naming the anchor and/or the file) and exits NONZERO with NO stdout —
 #   never silent empty output, and never a partial record set.
@@ -56,7 +56,7 @@
 # Exit codes: 0 at least one match · 1 missing/unreadable file, or anchor not
 #   found · 2 bad usage — an argument count other than 2, or a present-but-EMPTY
 #   anchor (an empty substring matches every line, so it is a usage error rather
-#   than a whole-file answer; same exit code read-doc-section.ps1:25 uses).
+#   than a whole-file answer; same exit code scripts/read-doc-section.ps1 (if ($args.Count -ne 2) {) uses).
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 

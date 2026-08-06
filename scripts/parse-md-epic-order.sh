@@ -19,10 +19,10 @@
 # "```"; EOF before that is an unterminated-fence failure.
 # Grammar (interior, blank/whitespace-only lines ignored, never counted as
 # entries): each non-blank line matches EXACTLY "number: <integer>" or
-# "title: <text>", case-sensitive. <integer> = ^(0|[1-9][0-9]*)$ (mirrors
-# scripts/extract-version.sh:28). Any other non-blank line invalidates the
+# "title: <text>", case-sensitive. <integer> = ^(0|[1-9][0-9]*)$, mirroring
+# scripts/extract-version.sh ([[ "$c" =~ ^(0|[1-9][0-9]*)$ ]]). Any other non-blank line invalidates the
 # WHOLE block — parsing stops at the first malformed line.
-# Fail-loud/fail-closed exit convention (mirrors scripts/read-doc-section.sh:11-19).
+# Fail-loud/fail-closed exit convention, mirroring scripts/read-doc-section.sh (Duplicate anchors).
 set -u
 # Byte-deterministic string model (mirrors extract-version.sh / read-doc-section.sh):
 # exact-match comparisons and prefix stripping stay byte-indexed so a multibyte
@@ -66,7 +66,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
 
   # blank/whitespace-only interior line: ignored (never malformed, never counted
-  # as an entry). Trim idiom mirrors scripts/read-doc-section.sh:66-67.
+  # as an entry). Trim idiom mirrors scripts/read-doc-section.sh (text="${rest#"${rest%%[![:space:]]*}"}").
   trimmed="${line#"${line%%[![:space:]]*}"}"
   trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
   [ -z "$trimmed" ] && continue

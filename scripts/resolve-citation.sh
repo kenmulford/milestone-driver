@@ -8,17 +8,17 @@
 # <line> is 1-based. <text> is the ENTIRE matched line, VERBATIM — leading
 # whitespace and any embedded literal TAB included — so a consumer splits on the
 # FIRST TWO tabs only and takes the whole remainder as the text. Same TAB-record
-# convention as scripts/parse-md-epic-order.sh:106 and
-# scripts/check-skill-frontmatter.sh:128.
+# convention as scripts/parse-md-epic-order.sh (printf '%s\t%s\n' "${kinds[$i]}") and
+# scripts/check-skill-frontmatter.sh (printf 'FAIL\t%s\tMISSING\n' "$f").
 # Match rule: LITERAL SUBSTRING, CASE-SENSITIVE, exact bytes. NOT a regex — a
-# '.' or '*' in the anchor matches only itself. Matching is LINE-SCOPED (the
-# per-line scan loop mirrors scripts/read-doc-section.sh:46), so an anchor
-# containing a real newline can never match: no single line holds one.
+# '.' or '*' in the anchor matches only itself. Matching is LINE-SCOPED — the
+# per-line scan loop mirrors scripts/read-doc-section.sh (while IFS= read -r line)
+# — so an anchor containing a real newline can never match: no line holds one.
 # PRIMARY is a LABEL, NOT A FILTER. A bare method-name anchor legitimately hits
 # its declaration and its call sites, and every hit is reported, so a
 # poorly-chosen anchor costs a scan rather than a wrong answer. The fix for a
 # multi-match anchor is a better anchor at authoring time, not machinery here.
-# First-occurrence-wins mirrors read-doc-section.sh:11; there is no hint-line
+# First-occurrence-wins mirrors scripts/read-doc-section.sh (Duplicate anchors); there is no hint-line
 # argument and no nearest-match logic.
 # One citation per invocation: no stdin, no batch mode — the caller loops.
 #
@@ -31,7 +31,7 @@
 #     different line number than this leg for the same bytes.)
 #   - A single trailing CR per line is stripped, so a CRLF working tree
 #     (Windows core.autocrlf) yields the same <text> as an LF one. Mirrors
-#     scripts/parse-md-epic-order.sh:47.
+#     scripts/parse-md-epic-order.sh (tolerate CRLF bodies).
 #   - A leading UTF-8 BOM on line 1 is stripped, so line-1 <text> matches the
 #     pwsh twin's (whose reader consumes the BOM). Issue #418 points this at
 #     arbitrary repo files, where a BOM is a real possibility.
@@ -42,7 +42,7 @@
 #   (exit 0) and not on the twin (exit 1). Binary files are not citation
 #   targets; this divergence is documented, not aligned.
 #
-# Fail-loud (fail-CLOSED, mirrors read-doc-section.sh:12-16): a missing anchor,
+# Fail-loud (fail-CLOSED), mirroring scripts/read-doc-section.sh (Fail-loud (fail-CLOSED)): a missing anchor,
 #   a missing/unreadable file, or bad usage writes a clear message to stderr
 #   (naming the anchor and/or the file) and exits NONZERO with NO stdout —
 #   never silent empty output, and never a partial record set.
@@ -55,9 +55,9 @@
 # Exit codes: 0 at least one match · 1 missing/unreadable file, or anchor not
 #   found · 2 bad usage — an argument count other than 2, or a present-but-EMPTY
 #   anchor (an empty substring matches every line, so it is a usage error rather
-#   than a whole-file answer; same exit code read-doc-section.sh:27 uses).
+#   than a whole-file answer; same exit code scripts/read-doc-section.sh (usage: read-doc-section.sh <doc-path>) uses).
 set -euo pipefail
-# Byte-deterministic string model (mirrors read-doc-section.sh:21-23): keep the
+# Byte-deterministic string model, mirroring scripts/read-doc-section.sh (Byte-deterministic string model): keep the
 # substring comparison byte-indexed so a multibyte anchor can't desync this leg
 # from the pwsh UTF-16 twin.
 export LC_ALL=C

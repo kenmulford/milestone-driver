@@ -169,7 +169,7 @@ foreach ($b in [System.Text.Encoding]::UTF8.GetBytes($runId)) {
 }
 $sanitized = $sb.ToString()
 # Filename: <sanitized>-<UTC-unix-seconds>-<nonce>.json. Nonce mirrors the
-# existing per-run pattern (render-daemon.ps1:269): $PID-<unixseconds>-<random>.
+# existing per-run pattern at scripts/render-daemon.ps1 ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()): $PID-<unixseconds>-<random>.
 # Single source of truth for the relative dir segment (parity with the .sh $dir),
 # so $rel / $dir / $abs cannot drift.
 $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
@@ -180,7 +180,9 @@ $base = (Get-Location).Path
 $dir = Join-Path $base $reldir
 $abs = Join-Path $base $rel
 
-# Create the scratch dir (mirrors render-daemon.ps1:202,275). Uncreatable /
+# Create the scratch dir. Mirrors the New-Item -Force idiom in
+# scripts/render-daemon.ps1 (function Write-State), repeated there at the
+# detached serverCmd spawn. Uncreatable /
 # unwritable -> fail-open.
 try { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null } catch {
   Fail "cannot create $dir — no record written"

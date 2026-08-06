@@ -187,7 +187,9 @@ if [ "$HAVE_PY" -eq 1 ]; then
   if [ "$stop_reaped" -eq 0 ]; then
     # Orphan hygiene only — does NOT count as a pass. Guard the negative-group
     # signal with the same valid_pgid contract the production teardown applies at
-    # its kill site (scripts/render-daemon.sh:145,192): a pgid must be a non-empty
+    # its kill site — scripts/render-daemon.sh (if valid_pgid "$g" && group_alive)
+    # — where the guard itself is the valid_pgid() helper defined above it: a pgid
+    # must be a non-empty
     # run of digits AND > 1, else `kill -- -0` signals the caller's whole group
     # and `kill -- -1` every process the user owns. pid1 is a verified real pgid
     # in normal flow, so this never fires on the happy path — it just ensures the
