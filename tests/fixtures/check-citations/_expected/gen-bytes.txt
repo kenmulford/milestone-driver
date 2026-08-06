@@ -1,0 +1,12 @@
+EXCLUDED	docs/superpowers/	skipped=0
+EXCLUDED	docs/briefs/	skipped=0
+EXCLUDED	CHANGELOG.md	skipped=0
+EXCLUDED	tests/fixtures/	skipped=0
+OK	docs/citing.md:3	src/crlf.md (crlf anchor here)
+OK	docs/citing.md:4	src/bom.md (bom anchor)
+OK	docs/citing.md:5	src/nonewline.md (tail anchor)
+OK	docs/citing.md:6	src/highbyte.md (café anchor)
+FAIL	docs/citing.md:7	src/utf16.md (utf16 anchor)	0 matches
+FAIL	docs/citing.md:8	../outside.md (secret string)	0 matches
+TOTALS	unverified=0	excluded-files=0
+SUMMARY	ok=4	failed=2

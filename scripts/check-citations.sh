@@ -43,6 +43,11 @@
 #     backtick-delimited token cannot bound. A gate that fails on correct input
 #     is worse than no gate, so the heading forms are reported and left
 #     unresolved until a slug matcher exists.
+#     A THIRD shape a future slug matcher must handle, not in that count: a
+#     heading holding DOUBLE QUOTES
+#     (`#### 6.9 Surface in the final summary "Your move" section`). It is the
+#     heading text this script now prints correctly, and it is named here so the
+#     matcher's author does not rediscover it.
 # So `failed=0` means "every anchor still points at its string", NOT "every
 # citation in this repo is good".
 #
@@ -102,9 +107,16 @@
 #   Cross-repo citations  Not distinguishable from a local path by shape. Every
 #     live one is a LINE form — `skills/output-style.md` cites milestone-feeder's
 #     `agents/issue-author.md` by line range — so every live one lands in
-#     UNVERIFIED and cannot fail the build. A cross-repo ANCHOR citation WOULD
-#     fail as `0 matches`; none exists, and citation-format.md's repo-root base
-#     rule is why one should not be written.
+#     UNVERIFIED and cannot fail the build. A cross-repo ANCHOR citation fails as
+#     `0 matches`, and CONTAINMENT is what makes that true rather than
+#     accidental: see in_tree() below. Without it, an anchor citation of a
+#     dot-dot path READ A FILE NEXT TO THE CHECKOUT and reported OK, so the same
+#     citation answered differently depending on where the tree sat on disk.
+#   Anchor paths that escape the checkout  Resolved ONLY against the walked file
+#     set, so `..`, an absolute path, a symlink out of the tree and a
+#     non-regular file are all `0 matches` rather than a read of whatever
+#     happens to sit there. citation-format.md's repo-root base rule is the
+#     contract this enforces.
 #   Bare `:NNN` continuations  A token with no path before the colon has no
 #     path-class run, so it is never picked up — skipped by construction. It
 #     carries no path to check.
@@ -209,21 +221,45 @@ balanced_end() {
   printf '%s' '-1'
 }
 
-# heading_end <text> — where a heading citation's text stops: the first
-# backtick, comma, semicolon, double quote, or UNMATCHED `)`, else end of line.
-# The paren-depth guard keeps a heading holding a BALANCED parenthetical whole
-# (`… § Check if a PR already exists for this branch (re-run safety)`) while
-# still cutting a markdown link target at its closing `)`
-# (`](../README.md#the-layered-gating-model)`).
+# heading_end <text> <mode> — where a heading citation's text stops. <mode> is
+# `span` when the path was immediately preceded by a backtick and `bare`
+# otherwise, and the two are bounded differently ON PURPOSE:
+#
+#   span   ONLY the closing backtick ends the heading. This is
+#          skills/citation-format.md (What marks it as a citation) read
+#          literally: a citation is one whole backtick-wrapped token, so inside
+#          a span the delimiter IS the bound and it is EXACT. Nothing else may
+#          cut it — a real heading legitimately holds quotes
+#          (`… § 6.9 Surface in the final summary "Your move" section`), commas
+#          and parentheses, and every one of those was truncating a correct
+#          citation before.
+#   bare   No span exists, so no exact bound exists either and the rule is a
+#          conservative stop: backtick, UNMATCHED `)`, comma, semicolon, double
+#          quote, or ` — ` (space, em-dash, space). The paren-depth guard keeps
+#          a heading holding a BALANCED parenthetical whole while still cutting
+#          a markdown link target at its closing `)`
+#          (`](../README.md#the-layered-gating-model)`). ` — ` is this repo's
+#          prose connector and is what ends a bare citation embedded in a
+#          sentence: check-skill-frontmatter.sh's header names the
+#          library-manifest "Adding a dependency (the gate)" heading and then
+#          continues ` — "no YAML library …` on the same line. ` — ` is NOT a
+#          terminator in span mode, where headings such as `§ Phase 0 — Triage`
+#          contain it.
 heading_end() {
-  _t="$1"; _d=0; _i=0; _n="${#_t}"
+  _t="$1"; _m="$2"; _d=0; _i=0; _n="${#_t}"
   while [ "$_i" -lt "$_n" ]; do
     _c="${_t:$_i:1}"
-    case "$_c" in
-      '(') _d=$((_d + 1)) ;;
-      ')') if [ "$_d" -eq 0 ]; then break; fi; _d=$((_d - 1)) ;;
-      '`'|','|';'|'"') break ;;
-    esac
+    [ "$_c" = '`' ] && break
+    if [ "$_m" = bare ]; then
+      case "$_c" in
+        '(') _d=$((_d + 1)) ;;
+        ')') if [ "$_d" -eq 0 ]; then break; fi; _d=$((_d - 1)) ;;
+        ','|';'|'"') break ;;
+      esac
+      # 5 bytes: space + the 3-byte UTF-8 em-dash + space. Byte-sliced under
+      # LC_ALL=C, and the pwsh twin slices the same 5 byte-chars.
+      [ "${_t:$_i:5}" = ' — ' ] && break
+    fi
     _i=$((_i + 1))
   done
   printf '%s' "$_i"
@@ -238,6 +274,9 @@ rtrim() { _s="$1"; printf '%s' "${_s%"${_s##*[!$WS]}"}"; }
 # `*` in it matches only itself); `-e` protects an anchor starting with `-`.
 # grep exits 1 on zero matches, so `|| true` keeps 0 a normal answer.
 match_count() {
+  # Size guard, the READ half of the walk's LIST/READ split: a 0-byte target has
+  # nothing to match, and refusing to open one is what keeps `grep` off a FIFO.
+  [ -s "$1" ] || { printf '0'; return 0; }
   _c="$(grep -a -c -F -e "$2" -- "$1" 2>/dev/null || true)"
   case "$_c" in
     ''|*[!0-9]*) printf '0' ;;
@@ -245,11 +284,61 @@ match_count() {
   esac
 }
 
+# in_tree <repo-relative-path> — CONTAINMENT. True only when the path is a
+# MEMBER OF THE WALKED FILE SET, which is the set `find -type f` produced under
+# ROOT. Membership is the containment test, and it is stronger than a lexical
+# `..` check: the walked set holds no path outside ROOT, no symlink (find
+# without -L lists none), no directory, and no FIFO/socket/device node, so an
+# anchor can only ever be resolved against a regular file inside this checkout.
+# WHY IT IS REQUIRED: without it, an anchor citation naming a dot-dot path
+# opened a file NEXT TO the checkout and reported OK. That is not hypothetical —
+# driver runs from `.milestone-config/worktrees/issue-N`, where `..` points
+# somewhere entirely different than it does in a plain clone, so the same
+# citation would answer differently depending on where the tree sits on disk.
+# Measured before adding it: no live anchor citation uses `..`, so containment
+# costs zero coverage; the 4 live `../README.md` records are heading forms,
+# which are never resolved.
+# `-x` anchors the match to the WHOLE line and `-F` keeps it literal, so a path
+# is never a prefix-match of a longer sibling; `-e` protects a leading dash.
+in_tree() { grep -qxF -e "$1" -- "$FILELIST" 2>/dev/null; }
+
 # ---------------------------------------------------------------------------
-# The walk. `find` enumerates every regular file under ROOT and prunes `.git`
-# (a directory in a normal clone, a FILE in a linked worktree — the prune
-# handles both). Paths are byte-sorted so the record stream is identical to the
-# pwsh twin's, whose enumeration order is otherwise filesystem-defined.
+# The walk. `find` LISTS every entry under ROOT that is NOT A DIRECTORY and NOT
+# A SYMLINK, and prunes `.git` (a directory in a normal clone, a FILE in a
+# linked worktree — the prune handles both). Paths are byte-sorted so the record
+# stream is identical to the pwsh twin's, whose enumeration order is otherwise
+# filesystem-defined.
+#
+# LIST and READ are two different tests, and that split is what keeps the twins
+# byte-identical:
+#   LIST   not a directory, not a symlink. `-type f` would have been the tighter
+#          rule, but .NET on Unix EXPOSES NO REGULAR-FILE BIT — probed on pwsh
+#          7.6.3, a FIFO reports FileAttributes.Normal and UnixMode `-rw-r--r--`,
+#          both identical to a regular file — so `-type f` is a test the pwsh
+#          twin cannot reproduce, and the two legs' EXCLUDED counts would drift
+#          apart on any tree holding a non-regular entry. "Not a directory, not
+#          a symlink" is computable on both legs, exactly.
+#   READ   size greater than zero, tested just before the scan loop and again
+#          before a target is searched. This is what makes the looser LIST rule
+#          safe: a FIFO, a socket and a device node all stat as 0 bytes, so
+#          neither leg ever OPENS one, and a FIFO blocks forever on open (the
+#          pwsh leg used to hang a CI job to timeout on exactly that). A 0-byte
+#          REGULAR file is skipped by the same test and loses nothing: it has no
+#          lines to scan and no bytes to match.
+# The three 0-byte files in this repo's fixtures are why the split is not
+# theoretical — `find -type f` counted them and the pwsh walk did not, a 3-file
+# gap in the EXCLUDED record.
+#
+# find's OWN stderr is discarded, deliberately. An unreadable subdirectory makes
+# find warn and keep going, and that warning's TEXT IS NOT PORTABLE: BSD find
+# writes `find: ./locked: Permission denied` while GNU find quotes the path,
+# `find: ‘./locked’: Permission denied`. Keeping it would make this leg's stderr
+# differ between macOS and the ubuntu CI runner, and no pwsh twin can reproduce
+# either spelling. Both legs therefore say NOTHING on stderr for an unreadable
+# directory and simply skip what they cannot read, which keeps stdout, stderr
+# and the exit code identical across legs and across hosts. An unreadable
+# directory is an environment fault, not a citation defect, and this gate has no
+# opinion on it.
 # ---------------------------------------------------------------------------
 TMPD="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/cc.$$")"; mkdir -p "$TMPD"
 trap 'rm -rf "$TMPD"' EXIT
@@ -257,7 +346,7 @@ FILELIST="$TMPD/files"
 KEPT="$TMPD/kept"
 : > "$KEPT"
 
-( cd "$ROOT" && find . -name .git -prune -o -type f -print ) \
+( cd "$ROOT" && find . -name .git -prune -o ! -type d ! -type l -print 2>/dev/null ) \
   | sed 's|^\./||' | LC_ALL=C sort > "$FILELIST"
 
 while IFS= read -r rel; do
@@ -283,6 +372,8 @@ printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX4" "$EXN4"
 while IFS= read -r rel; do
   src="$ROOT/$rel"
   [ -r "$src" ] || continue
+  # READ half of the LIST/READ split — see the walk comment above.
+  [ -s "$src" ] || continue
   lno=0
   while IFS= read -r line || [ -n "$line" ]; do
     lno=$((lno + 1))
@@ -295,6 +386,15 @@ while IFS= read -r rel; do
       run="${rest%%[!$PC]*}"
       rest="${rest#"$run"}"
       is_citable_path "$run" || continue
+      # Byte offset of the run's first byte, hence of the byte BEFORE it. A
+      # backtick there means the citation opens a code span, which is the only
+      # exact bound a heading citation ever has (see heading_end).
+      runpos=$(( ${#line} - ${#rest} - ${#run} ))
+      if [ "$runpos" -gt 0 ] && [ "${line:$((runpos - 1)):1}" = '`' ]; then
+        hmode=span
+      else
+        hmode=bare
+      fi
       case "$rest" in
         ' ('*)
           after="${rest#' ('}"
@@ -302,9 +402,8 @@ while IFS= read -r rel; do
           [ "$end" -gt 0 ] || continue
           anchor="${after:0:$end}"
           rest="${after:$((end + 1))}"
-          tgt="$ROOT/$run"
-          if [ -f "$tgt" ] && [ -r "$tgt" ]; then
-            n="$(match_count "$tgt" "$anchor")"
+          if in_tree "$run"; then
+            n="$(match_count "$ROOT/$run" "$anchor")"
           else
             n=0
           fi
@@ -318,7 +417,7 @@ while IFS= read -r rel; do
           ;;
         '#'*)
           h="${rest#\#}"
-          end="$(heading_end "$h")"
+          end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
           printf 'UNVERIFIED\t%s:%s\t%s#%s\tpath#Heading — not verified\n' "$rel" "$lno" "$run" "$head"
@@ -326,7 +425,7 @@ while IFS= read -r rel; do
           ;;
         ' § '*)
           h="${rest#' § '}"
-          end="$(heading_end "$h")"
+          end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
           printf 'UNVERIFIED\t%s:%s\t%s § %s\tpath § Heading — not verified\n' "$rel" "$lno" "$run" "$head"
