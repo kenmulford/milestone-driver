@@ -190,7 +190,7 @@ the report of the extras.
 
 **`path:line` and `path:start-end` are forms you may write today — not a legacy
 tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:249`,
-or a range like `skills/notices.md:10-15` — resolves exactly as it does now:
+or a range like `skills/notices.md:9-13` — resolves exactly as it does now:
 the bare line or lines, no resolution attempted, no error, and no warning. Both
 satisfy **every** evidence and citation slot in
 `skills/output-style.md (Each shape is defined)`; **no slot requires an anchor,

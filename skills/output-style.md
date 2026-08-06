@@ -3,24 +3,15 @@
 This file is the single source of truth for milestone-driver's output
 contract. Every skill's `## Output style` section and every agent's
 `## Communication style` section points here rather than carrying its own
-copy, so that text now exists exactly once and can no longer drift between
-the seven files that consume it: `skills/setup/SKILL.md`,
-`skills/triage/SKILL.md`, `skills/solve-issue/SKILL.md`,
-`skills/solve-milestone/SKILL.md`, `agents/triage-reviewer.md`,
-`agents/design-reviewer.md`, and `agents/implementer.md`.
+copy, so that text exists exactly once.
 
-It sits here — a peer of the skill folders, not nested inside any one skill's
-own directory — because multiple skills and every agent consume it. That is
-the same placement, for the same recorded reason, that `skills/notices.md`
-already occupies (`skills/notices.md (It sits here — a peer of the skill)`): a reference file with no single
-owning skill sits one level up instead.
-
-This is a growing list — a new GitHub-facing shape is added as another row in
-`## Evidence slots` below, never restated inline at its call site.
+It sits one level up from the skill folders, for the same recorded reason as
+`skills/notices.md (It sits here — a peer of the skill)`: a reference file
+with no single owning skill is not nested inside any one skill's directory.
 
 ## The surface split — read this first
 
-Two surfaces, two rule sets. Conflating them is the defect this file exists to fix.
+Two surfaces, two rule sets.
 
 | Surface | What it is | Governed by |
 |---|---|---|
@@ -29,20 +20,20 @@ Two surfaces, two rule sets. Conflating them is the defect this file exists to f
 
 `## Terminal output` governs terminal output **only**. It is a display rule, not a prose contract: citing it as license to compress a Decision Log, or applying "tables, not inline prose" to a PR body whose content is a rationale, is exactly the conflation this split forbids.
 
-**This plugin authors no issue bodies.** Its GitHub write surfaces are issue comments and PR bodies only — issue authoring belongs to the sibling `milestone-feeder`. Every shape in `## Evidence slots` is one of those two.
+**This plugin authors no issue bodies.** Its GitHub write surfaces are issue comments and PR bodies only — issue authoring belongs to the sibling `milestone-feeder`, and every shape in `## Evidence slots` is one of those two.
 
 ## Terminal output
 
 Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴.
 
-**Skills that carry an `## Output spec`** (`solve-issue`, `solve-milestone`): use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs. (`setup` and `triage` carry no `## Output spec`; this paragraph does not apply to them.)
+**Skills that carry an `## Output spec`** (`solve-issue`, `solve-milestone`): use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs. (`setup` and `triage` carry none, so this paragraph does not apply to them.)
 
 ## GitHub-facing prose
 
-These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` governs WHAT each one must contain. Adapted from `milestone-feeder`'s `## Prose style` contract (`agents/issue-author.md:120-131`, v0.12.2) to this plugin's surfaces — comments and PR bodies rather than issue bodies. Padding a comment to sound more confident is the failure mode this section exists to kill: in this pipeline confidence has one currency — the grounding citation — not the word count.
+These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` governs WHAT each one must contain. Adapted from `milestone-feeder`'s `## Prose style` contract (`agents/issue-author.md:120-131`, v0.12.2) to this plugin's surfaces — comments and PR bodies rather than issue bodies.
 
 1. **Confidence lives in the citation, not the word count.** A grounded decision is one line plus its ref. Adding prose to make a decision *sound* more certain is a contract violation, the same tier as an ungrounded citation.
-2. **Fill the shape's slots — and nothing else.** Each shape in `## Evidence slots` names the slots it must carry. A line that fills no slot is scaffolding; cut it. This is the structural replacement for a length rule: the shape bounds the text, a sentence count never does (see `## The two anti-criteria`).
+2. **Fill the shape's slots — and nothing else.** Each shape in `## Evidence slots` names the slots it must carry. A line that fills no slot is scaffolding; cut it (see `## The two anti-criteria`).
 3. **One decision, one line.** Each Decision Log entry, each recorded gap, and each finding resolution is a single declarative sentence; its citation is the rationale — do not append a second sentence restating it.
 4. **No filler vocabulary, no hedges.** Delete on sight: "comprehensive", "robust", "seamless", "leverage", "ensure that", "in order to", "it is important to note". Hedges ("should ideally", "as appropriate") bury the decision — record the decision instead.
 5. **Never narrate the template.** Section headers and slot names carry the structure; the text under them carries only facts. Do not explain what a section is for or announce what is about to be listed.
@@ -52,7 +43,7 @@ These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` gove
 
 ## When prose is the correct form
 
-Structure is the default, not the only legal shape. What the rules above ban is a failure mode — padding, narrating the template, hedge stacks, restating the heading — not paragraphs as such.
+Structure is the default, not the only legal shape. What the rules above ban is a failure mode, not paragraphs as such.
 
 Prose is the **correct** form when the content carries dependent clauses a table would fragment:
 
@@ -64,7 +55,7 @@ When in doubt, ask whether the structure preserves the dependency. If it does no
 
 ## Evidence slots
 
-Every GitHub-facing shape carries an explicit **evidence/citation slot, not just a claim slot**. The rationale is the failure mode compression alone creates: a table cell reading `14 of 15` with nowhere to record what was checked is *more* authoritative-looking than the hedged sentence it replaced, not less. The evidence slot is what makes a bad quantifier visible — a `Scope | all 3 controllers | providers_controller.rb:201` row can be checked; a bare `14 of 15` cannot.
+Every GitHub-facing shape carries an explicit **evidence/citation slot, not just a claim slot**. The evidence slot is what makes a bad quantifier visible — a `Scope | all 3 controllers | providers_controller.rb:201` row can be checked; a bare `14 of 15` cannot.
 
 Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots.
 
