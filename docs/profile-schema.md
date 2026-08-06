@@ -5,7 +5,7 @@ engine to that repo's stack, branch model, and test commands. The plugin's
 skills and hooks read this file; nothing in the engine is hard-coded to a
 particular stack.
 
-> **See also:** [the layered gating model](../README.md#the-layered-gating-model) — how `uiSurfaceGlobs` drives the design-lens triage and the visual-review gate — and [consumer setup](consumer-setup.md) for the run flow these keys feed.
+> **See also:** [the layered gating model](architecture.md#the-layered-gating-model) — how `uiSurfaceGlobs` drives the design-lens triage and the visual-review gate — and [consumer setup](consumer-setup.md) for the run flow these keys feed.
 
 ## Location
 
@@ -129,7 +129,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 
 The implementer also uses any docs MCP available in the environment (e.g. Microsoft Learn for .NET) — these are environment-provided, **not required or installed by this plugin**.
 
-**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability, which is the `visualCapture` seam (documented below). When `visualCapture` is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](../README.md#the-layered-gating-model) for the three-layer model these keys participate in.
+**Note on `uiSurfaceGlobs` and the visual-review gate.** `uiSurfaceGlobs` drives two procedural (skill-level) phases — design-lens triage (`design-reviewer`) and the post-build visual-review gate (#18) — not a mechanical hook. Triage reviews the *recorded design + source*, so it needs **no render capability**. Screenshot capture for the visual gate does: it requires a render capability, which is the `visualCapture` seam (documented below). When `visualCapture` is **absent, the visual gate degrades to PR-open-for-human-test** — it never fails the build and never auto-merges a UI issue. When `uiSurfaceGlobs` itself is absent, the repo has no UI surfaces: no design-lens review, no visual gate, and logic-only PRs auto-merge normally. See [the layered gating model](architecture.md#the-layered-gating-model) for the three-layer model these keys participate in.
 
 **Note on `visualCapture`.** `visualCapture` is the dedicated render-capability seam for the visual gate — the object-valued, optional render-capability declaration the gate note above points at. It is shaped on `e2eEnv` (an object-valued optional key) and mirrors the present/absent + sparse-optional-write conventions of `integrations.trello`; note that a *missing required* sub-key disables the whole block (unlike trello's optional-list override). With that one difference flagged:
 
