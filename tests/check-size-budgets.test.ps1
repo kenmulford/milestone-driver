@@ -77,7 +77,7 @@ try {
   # --- parity-guard: the length-parity refusal (issue #399) ----------------
   # Same case the .sh runner runs, against the same golden: garble ONE column
   # in a COPY of the checker (blank the first governed row's LINE ceiling to
-  # "-", leaving 14/13/14) and assert all three halves of the refusal, EMPTY
+  # "-", leaving 15/14/15) and assert all three halves of the refusal, EMPTY
   # stdout, exit 1, and the exact stderr line. No fixture tree can reach this
   # path, because a fixture is input and the table is the script's own source.
   # If a table rewrite ever makes the edit a no-op the case still fails loud:
@@ -166,18 +166,18 @@ try {
 
   # --- malformed-row parity: the other three single-row edits (#428) --------
   # Same three cases the .sh runner runs, against the same two goldens.
-  # parity-guard above garbles a LINE ceiling and leaves 14/13/14. Three
+  # parity-guard above garbles a LINE ceiling and leaves 15/14/15. Three
   # further single-row edits are the ones where the two twins' PARSES can
   # disagree:
-  #   short   byte column deleted           -> refusal, counts 14/14/13
-  #   long    surplus fourth column         -> refusal, counts 14/14/13
+  #   short   byte column deleted           -> refusal, counts 15/15/14
+  #   long    surplus fourth column         -> refusal, counts 15/15/14
   #   wide    byte ceiling past int32 max   -> clean OK record, exit 0
   # The .sh twin's `read -r f line_ceiling byte_ceiling` fills column 2
   # whatever the row's width and folds every surplus column into column 3, so
   # short and long both KEEP their line ceiling and lose only the byte one. The
   # checker's $c1/$c2 fold exists to match that; gating both ceiling adds on an
   # exact 3-column row instead dropped the line ceiling too and printed
-  # 14/13/13 for these same two tables, so the two twins' refusals were not
+  # 15/14/14 for these same two tables, so the two twins' refusals were not
   # byte-identical. `wide` is the other half: the digit check accepts any
   # number of digits and the .sh twin's arithmetic is 64-bit, so 99999999999 is
   # simply a very loose ceiling there, while casting to [int] here threw under
@@ -190,7 +190,7 @@ try {
   # copy's stream matches neither expectation.
   $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    'CEILINGS(13) and BYTE_CEILINGS(14)', 'CEILINGS(14) and BYTE_CEILINGS(13)')
+    'CEILINGS(14) and BYTE_CEILINGS(15)', 'CEILINGS(15) and BYTE_CEILINGS(14)')
   $wideStream = (([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
     '/33500', '/99999999999')
   $malCases = @(
