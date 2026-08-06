@@ -167,16 +167,22 @@ function Get-Json([string]$path) {
 # the regression guard for a JSON round-trip that reformats values it does not
 # own: ConvertFrom-Json turns "2026-08-01T01:00:00Z" into a [datetime], and
 # writing that back rewrites the field in .NET's date format.
+# Entry 7's expected key is the LIVE key resp/ts-two.json yields, not the stale
+# one entries-two.json supplies: `write` stamps the key itself (issue #462).
+# Entry 11 is absent from that response, so it keeps its supplied key — the
+# per-issue no-live-key degradation, which writes what it was given rather than
+# inventing a key.
 $W = New-Workspace
 Copy-Item -Path (Join-Path $Fix 'roots' 'hit' '.milestone-config') -Destination $W -Recurse
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 $cachePath = Join-Path $W '.milestone-config' 'triage-cache.json'
 $okMerge = $false
 if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json`n") -and (Eq-Exact $r.err '')) {
   $c = Get-Json $cachePath
   $names = @($c.EnumerateObject() | ForEach-Object { $_.Name } | Sort-Object)
   $okMerge = ((($names -join ',') -ceq '11,7,9') -and
-    ($c.GetProperty('7').GetProperty('key').GetString() -ceq '7:2026-08-02T00:00:00Z:4:alpha,zeta') -and
+    ($c.GetProperty('7').GetProperty('key').GetString() -ceq '7:2026-08-01T00:00:00Z:3:alpha,zeta') -and
+    ($c.GetProperty('11').GetProperty('key').GetString() -ceq '11:2026-08-02T00:00:00Z:0:') -and
     ($c.GetProperty('9').GetProperty('key').GetString() -ceq '9:STALE-KEY') -and
     ($c.GetProperty('9').GetProperty('triaged_at').GetString() -ceq '2026-08-01T01:00:00Z') -and
     ($c.GetProperty('9').GetProperty('result').GetProperty('edges').GetRawText() -replace '\s', '') -ceq '[100]' -and
@@ -200,7 +206,7 @@ else {
 $W = New-Workspace
 New-Item -ItemType Directory -Path (Join-Path $W '.milestone-config') | Out-Null
 [System.IO.File]::WriteAllBytes((Join-Path $W '.milestone-config' '.gitignore'), $utf8.GetBytes("sentinel`n"))
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 $kept = [System.IO.File]::ReadAllText((Join-Path $W '.milestone-config' '.gitignore'), $utf8)
 if ($r.rc -eq 0 -and (Eq-Exact $kept "sentinel`n")) { Ok }
 else { No "write-gitignore-preserved: rc=$($r.rc) content=[$(Show-Escaped $kept)]" }
@@ -208,7 +214,7 @@ else { No "write-gitignore-preserved: rc=$($r.rc) content=[$(Show-Escaped $kept)
 # ---- write: legacy root cache is READ, then REMOVED --------------------------
 $W = New-Workspace
 Copy-Item -Path (Join-Path $Fix 'roots' 'legacy-only' '.milestone-driver-triage-cache.json') -Destination $W
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 $legacyGone = -not (Test-Path -LiteralPath (Join-Path $W '.milestone-driver-triage-cache.json'))
 $merged = @()
 if ($r.rc -eq 0 -and (Test-Path -LiteralPath (Join-Path $W '.milestone-config' 'triage-cache.json'))) {
@@ -220,13 +226,13 @@ else { No "write-legacy-cleanup: rc=$($r.rc) legacyGone=$legacyGone keys=$($merg
 
 # ---- write: every failure path is exit 0 + one SKIP record -------------------
 $W = New-Workspace
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-bad.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-bad.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 if ($r.rc -eq 0 -and (Eq-Exact $r.out "SKIP${TAB}bad-entries`n") -and (Eq-Exact $r.err '') -and
     -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config' 'triage-cache.json'))) { Ok }
 else { No "write-bad-entries: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
 
 $W = New-Workspace
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'does-not-exist.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'does-not-exist.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 if ($r.rc -eq 0 -and (Eq-Exact $r.out "SKIP${TAB}bad-entries`n") -and (Eq-Exact $r.err '')) { Ok }
 else { No "write-missing-entries: rc=$($r.rc) out=[$(Show-Escaped $r.out)]" }
 
@@ -235,7 +241,7 @@ else { No "write-missing-entries: rc=$($r.rc) out=[$(Show-Escaped $r.out)]" }
 # two legs to the same mkdir-failed record.
 $W = New-Workspace
 [System.IO.File]::WriteAllBytes((Join-Path $W '.milestone-config'), $utf8.GetBytes(''))
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 if ($r.rc -eq 0 -and (Eq-Exact $r.out "SKIP${TAB}mkdir-failed`n") -and (Eq-Exact $r.err '')) { Ok }
 else { No "write-mkdir-failed: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
 
@@ -246,11 +252,86 @@ $W = New-Workspace
 $ro = Join-Path $W '.milestone-config'
 New-Item -ItemType Directory -Path $ro | Out-Null
 if ($IsWindows) { $chmodOk = $false } else { chmod 555 $ro; $chmodOk = $true }
-$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
 if (-not $chmodOk -or (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json`n")) { Ok }
 elseif ($r.rc -eq 0 -and (Eq-Exact $r.out "SKIP${TAB}write-failed`n") -and (Eq-Exact $r.err '')) { Ok }
 else { No "write-failed: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
 if ($chmodOk) { chmod 755 $ro }
+
+# ---- write -> lookup round trip: what write stores is what lookup compares ---
+# entries-two.json supplies a deliberately STALE key for issue 7, so a HIT here
+# is only reachable because `write` recomputed the key from the same response
+# Step 2.5 hands `lookup` — the "one definition, not two" guard (issue #462).
+# The other three records are the rest of the observed stream: issue 9 is in the
+# response but not in the entries, so it keeps the root's `9:STALE-KEY` and
+# misses; and EDGES carries 100 alone because entry 7 was fully overwritten from
+# entries-two.json's `result.edges: [100]`, not merged with the root's [100,101].
+$W = New-Workspace
+Copy-Item -Path (Join-Path $Fix 'roots' 'hit' '.milestone-config') -Destination $W -Recurse
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
+$rt = Invoke-Tc @('lookup', $W, (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
+$rtWant = "HIT${TAB}7`nMISS${TAB}9${TAB}key-mismatch`nEDGES${TAB}100`nSUMMARY${TAB}hits=1${TAB}misses=1`n"
+if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json`n") -and
+    $rt.rc -eq 0 -and (Eq-Exact $rt.out $rtWant) -and (Eq-Exact $rt.err '')) { Ok }
+else { No "write-lookup-roundtrip: rc=$($r.rc) out=[$(Show-Escaped $r.out)] lookup_rc=$($rt.rc) lookup=[$(Show-Escaped $rt.out)] err=[$(Show-Escaped $rt.err)]" }
+
+# ---- write: the KEY-LESS entries object Step 6.5 actually builds -------------
+# skills/triage/SKILL.md Step 6.5 forbids the caller from computing a key, so
+# the shape production hands `write` carries NONE. Every other fixture here
+# supplies one, which exercises only the REPLACE half of the stamp; this case is
+# the only cover for the APPEND half (`if (-not $wroteKey)`). Issue 7 is in the
+# response and gets a key appended (and then HITs); issue 11 is not, and stays
+# key-less rather than being handed an invented one.
+$W = New-Workspace
+Copy-Item -Path (Join-Path $Fix 'roots' 'hit' '.milestone-config') -Destination $W -Recurse
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-keyless.json'), (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
+$kl = Invoke-Tc @('lookup', $W, (Join-Path $Fix 'resp' 'ts-two.json')) $Tmp
+$okKeyless = $false
+if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json`n") -and (Eq-Exact $r.err '')) {
+  $c = Get-Json (Join-Path $W '.milestone-config' 'triage-cache.json')
+  # Property-presence FIRST, then read: entry 7 carrying no `key` is the exact
+  # regression this case exists to catch, and GetProperty THROWS on an absent
+  # one — under $ErrorActionPreference='Stop' that aborts the whole runner
+  # instead of reporting one FAIL, hiding every case below it.
+  $has11Key = @($c.GetProperty('11').EnumerateObject() | ForEach-Object { $_.Name }) -ccontains 'key'
+  $key7 = ''
+  if (@($c.GetProperty('7').EnumerateObject() | ForEach-Object { $_.Name }) -ccontains 'key') {
+    $key7 = $c.GetProperty('7').GetProperty('key').GetString()
+  }
+  $okKeyless = (($key7 -ceq '7:2026-08-01T00:00:00Z:3:alpha,zeta') -and
+    (-not $has11Key) -and
+    ($c.GetProperty('11').GetProperty('result').GetProperty('risk').GetString() -ceq 'heavy') -and
+    ($c.GetProperty('9').GetProperty('triaged_at').GetString() -ceq '2026-08-01T01:00:00Z') -and
+    $kl.out.StartsWith("HIT${TAB}7`n"))
+}
+if ($okKeyless) { Ok }
+else { No "write-keyless-entries: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)] lookup=[$(Show-Escaped $kl.out)]" }
+
+# ---- write with THREE arguments is usage/exit 2, never a 3-arg write ---------
+# NOT a TSV row, even though it is a pure usage case: every row runs against a
+# COMMITTED fixture root, and this one MUTATED roots/hit while it was being
+# written — the pre-fix script accepted the 3-arg form and wrote the cache. A
+# temp root is the only safe home for a `write` case, and it also asserts the
+# thing the table cannot: that nothing was written.
+$W = New-Workspace
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json')) $Tmp
+$wantErr = (Read-Golden (Join-Path $Gold 'usage.err')) -replace '__SCRIPT__', $ScriptName
+if ($r.rc -eq 2 -and (Eq-Exact $r.out '') -and (Eq-Exact $r.err $wantErr) -and
+    -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config'))) { Ok }
+else { No "write-wrong-argc: rc=$($r.rc) (want 2) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
+
+# ---- write: an ABSENT response is the fail-open degradation, not a failure ----
+# No live key for any issue, so every entry is stored exactly as supplied — no
+# new SKIP reason, still exit 0, and no key invented from thin air.
+$W = New-Workspace
+$r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'absent.json')) $Tmp
+$keptKey = ''
+if ($r.rc -eq 0 -and (Test-Path -LiteralPath (Join-Path $W '.milestone-config' 'triage-cache.json'))) {
+  $keptKey = (Get-Json (Join-Path $W '.milestone-config' 'triage-cache.json')).GetProperty('7').GetProperty('key').GetString()
+}
+if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json`n") -and (Eq-Exact $r.err '') -and
+    ($keptKey -ceq '7:2026-08-02T00:00:00Z:4:alpha,zeta')) { Ok }
+else { No "write-absent-response: rc=$($r.rc) out=[$(Show-Escaped $r.out)] key=[$keptKey]" }
 
 # ---- pwsh-only: no external tool is consulted --------------------------------
 # The bash twin's mirror case asserts SKIP no-jq with PATH emptied. This leg has
