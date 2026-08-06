@@ -78,8 +78,8 @@ Both modes end with the same inputs for Step 3: each issue's number, title, body
 Read the cache into memory as the **cache store**. **Resolution (transitional read):** read the new canonical path `.milestone-config/triage-cache.json` first; if it is absent, fall back to the legacy root `.milestone-driver-triage-cache.json` (mirrors the profile two-step read — `.milestone-config/driver.json || milestone-driver.json`). The write in Step 6.5 always targets the new path and cleans up the legacy root cache.
 
 **Degradation rules (never error — always degrade gracefully):**
-- Bash path: `jq . .milestone-config/triage-cache.json 2>/dev/null` (then the legacy `jq . .milestone-driver-triage-cache.json 2>/dev/null` only if the new path is absent) — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh:6-7`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
-- PowerShell path: `try { Get-Content .milestone-config/triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (falling back to the legacy root `.milestone-driver-triage-cache.json` only if the new path is absent) (pattern from `hooks/tests-green.ps1:6`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
+- Bash path: `jq . .milestone-config/triage-cache.json 2>/dev/null` (then the legacy `jq . .milestone-driver-triage-cache.json 2>/dev/null` only if the new path is absent) — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh (input="$(cat)"; [ -z "$input" ] &&)`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
+- PowerShell path: `try { Get-Content .milestone-config/triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (falling back to the legacy root `.milestone-driver-triage-cache.json` only if the new path is absent) (pattern from `hooks/tests-green.ps1 (try { $hook = $raw)`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
 - File absent (neither path present), unreadable, or invalid JSON → empty cache in all cases
 
 For **each issue** gathered in Step 2, fetch all issue timestamps in a **single batched/aliased GraphQL query** — one round-trip for all issues. Fall back to per-issue calls only if the batch call fails (graceful degradation):
@@ -153,7 +153,7 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 
 Resolve each MISS issue's `path (anchor)` citations (`skills/citation-format.md`) **once here** — a HIT issue skips dispatch and makes **no** resolver call. Paths are repo-root-relative; no multi-base fallback.
 
-1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply its span and position tests to the issue body + acceptance criteria: a parenthetical after a path is **not** automatically a citation. Both regex failure modes, measured on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` (`docs/superpowers/plans/2026-06-01-proactive-triage.md:71`) exits 1 — a **false drift report**; `` `skills/setup/SKILL.md` (Phase 2) `` (`docs/profile-schema.md:207`) returns `PRIMARY 51` + `MATCH 196` — a **confident wrong answer**.
+1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply its span and position tests to the issue body + acceptance criteria: a parenthetical after a path is **not** automatically a citation. Both regex failure modes, measured on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` (`docs/superpowers/plans/2026-06-01-proactive-triage.md § New agent contract — `agents/triage-reviewer.md` (architect lens)`) exits 1 — a **false drift report**; `` `skills/setup/SKILL.md` (Phase 2) `` (`docs/profile-schema.md (each built issue opens its own PR)`) returns `PRIMARY 51` + `MATCH 196` — a **confident wrong answer**.
 2. **Resolve, then feed BOTH briefs.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` (pwsh on Windows, bash elsewhere, as above) once per citation, with `<file-path> <anchor-text>` as arguments. Exit 0 prints a `PRIMARY` row then zero or more `MATCH` rows, TAB-delimited, file order. Pass those rows into **BOTH** Step 3 briefs (`triageAgent`, `designReviewAgent`) as **the resolved citations** — once per issue, not once per reviewer — in the printed-output shape `read-doc-section`'s result uses above; no new format.
 
 ### Step 3 — Dispatch `triageAgent` per issue
@@ -307,7 +307,7 @@ For every **freshly-triaged** (MISS) issue that has **Blocker** gaps:
 For each qualifying MISS issue:
 
 1. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`). The comment body must:
-   - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md:402` and probed at `skills/solve-milestone/parallel-waves.md:109`. Only what FOLLOWS the opener is structured here.
+   - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md (Issues parked)` and probed at `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Only what FOLLOWS the opener is structured here.
    - Render the Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. The evidence column is what makes a claim checkable; a row with an empty evidence cell is an unfilled slot, not a shorter row.
    - Close with the durable-async instruction. That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`) — it is the one closing line the table cannot carry, and it still states what must be recorded before this issue can build.
 
@@ -390,11 +390,11 @@ After posting Blocker comments in Step 6, write/update entries for every **fresh
 
 **Write paths (both are best-effort — failure skips write, does not abort the run):**
 
-- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. This stays fail-open (same pattern as `hooks/tests-green.sh:7`), but the skip/failure is now **visible** — emit one stderr line and continue (never abort the run):
+- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. This stays fail-open (same pattern as `hooks/tests-green.sh (command -v jq >/dev/null 2>&1)`), but the skip/failure is now **visible** — emit one stderr line and continue (never abort the run):
   - If `jq` is absent, emit `milestone-driver: triage cache write skipped (jq not found)` to stderr, then continue (effectively `exit 0` for the write — the run proceeds). Do **not** silently `exit 0`.
   - If the write itself fails, emit `milestone-driver: triage cache write failed: <err>` to stderr (with the captured error), then continue.
   - Both branches set the "cache write skipped this run" condition consumed by the Step 5 output line.
-- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. These are built-in cmdlets with **no external-tool dependency** (no `jq`), so there is no tool-absent case here — the only realistic visible case is a thrown write error. The failure is **visible** (mirroring the Bash path's intent — visible, fail-open), still fail-open (pattern from `hooks/tests-green.ps1:6`):
+- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. These are built-in cmdlets with **no external-tool dependency** (no `jq`), so there is no tool-absent case here — the only realistic visible case is a thrown write error. The failure is **visible** (mirroring the Bash path's intent — visible, fail-open), still fail-open (pattern from `hooks/tests-green.ps1 (try { $hook = $raw)`):
   - Failure branch: wrap the write in `try { … } catch { Write-Warning "triage cache write failed: $_" }` and continue — do **not** fail the run.
   - The failure (`catch`) branch sets the "cache write skipped this run" condition consumed by the Step 5 output line.
 

@@ -2,14 +2,14 @@
 # milestone-driver — diff-scoped repo file-index resolver (issue #318).
 # stdin: JSON {"files":["<repo-relative-path>", ...]}. stdout: one line per input
 # file, IN INPUT ORDER — "<path> → <purpose>[ (callers: a, b)][ (symbols: x, y)]".
-# Fail-open (mirrors scripts/extract-version.sh:11 emit_none): malformed/empty
+# Fail-open, mirroring scripts/extract-version.sh (emit_none() {): malformed/empty
 # stdin, missing jq, or zero emitted lines => empty stdout, stderr "none", exit 0.
 # Never a non-zero exit, never a crash. Named paths that don't exist on disk or
 # resolve outside the repo root (cwd) are skipped, not fatal.
 set -u
 # Force a deterministic byte model: LC_ALL=C makes every string op and `sort`
 # byte-indexed, keeping this leg in lockstep with the pwsh twin's ordinal model
-# (same rationale as scripts/extract-version.sh:6-10).
+# — same rationale as scripts/extract-version.sh (a deterministic).
 export LC_ALL=C
 
 emit_none() { printf 'none' >&2; exit 0; }
@@ -98,7 +98,8 @@ purpose_frontmatter() {
 }
 
 # purpose_header <file>: the file's line-2 header comment, stripping leading '#'
-# markers and whitespace (exemplars scripts/extract-version.sh:2, hooks/force-subagent.sh:2).
+# markers and whitespace. Exemplars: scripts/extract-version.sh (milestone-driver)
+# and hooks/force-subagent.sh (— force-subagent).
 purpose_header() {
   local file="$1" line2
   line2="$(sed -n '2p' "$file" 2>/dev/null)"

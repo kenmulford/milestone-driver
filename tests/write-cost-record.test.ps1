@@ -61,8 +61,8 @@ try {
   $j = Rec-Json $r.ws
   # writtenAt: assert the RAW on-disk string — ConvertFrom-Json auto-coerces an
   # ISO-8601 string into a [DateTime] that stringifies to a culture format, so
-  # $j.writtenAt can't see the bytes the helper wrote (parity with the .sh jq read
-  # and render-daemon.test.ps1:117).
+  # $j.writtenAt can't see the bytes the helper wrote — parity with the .sh jq read
+  # and tests/render-daemon.test.ps1 ($raw = Get-Content).
   $rf = Rec-File $r.ws
   $rawJson = if ($rf) { Get-Content -LiteralPath $rf -Raw } else { '' }
   if ($r.rc -eq 0 -and $r.err -eq '' -and $j -and

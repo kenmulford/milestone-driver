@@ -5,10 +5,11 @@
 # seeded/persona app server ONCE per run and reuses it across the run; tears it
 # down at run end. Built for the SERIAL capture path only — a single per-run
 # daemon on the consumer's configured port. Parallel is now the default, so
-# render capture is deferred to the serial tail (skills/solve-milestone/parallel-waves.md:83).
+# render capture is deferred to the serial tail —
+# skills/solve-milestone/parallel-waves.md (orchestrator-run).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
-# (mirroring the native-JSON profile-read in scripts/ci-preflight-steps.ps1:52-57):
+# — mirroring the native-JSON profile-read in scripts/ci-preflight-steps.ps1 ($script:integrationBranch = ''):
 #   visualCapture.serverCmd  — the command that boots the app server.
 #   visualCapture.readyUrl   — the full /health-style ready-probe URL. The port
 #                              is the consumer's; parsed from readyUrl for the
@@ -77,7 +78,7 @@ if ($env:RENDER_DAEMON_TIMEOUT) {
   }
 }
 
-# --- profile read (mirrors ci-preflight-steps.ps1:52-57) --------------------
+# --- profile read, mirroring scripts/ci-preflight-steps.ps1 ($script:integrationBranch = '') ---
 function Read-Profile {
   # Avoid the automatic $profile variable name (PowerShell profile path).
   $profilePath = Join-Path $root '.milestone-config/driver.json'

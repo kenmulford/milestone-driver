@@ -3,7 +3,7 @@
 # Each row's body/expected_stdout/expected_stderr carry real newlines/tabs
 # encoded as literal "\n"/"\t" (backslashes as "\\"), decoded here with a single
 # printf '%b' pass before piping to the script under test (mirrors the "\n"/"\\"
-# TSV field-escaping convention in scripts/ci-preflight-steps.sh:17-23, extended
+# TSV field-escaping convention in scripts/ci-preflight-steps.sh (Output (stdout): a deterministic), extended
 # with "\t" since this script's own success output is TAB-separated).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"

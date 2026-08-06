@@ -86,7 +86,7 @@ heading_match() {
 # ---- gh pr create -----------------------------------------------------------
 if [ "$is_create" = "1" ]; then
   # Exemption: --base/-B <protectedBranch> — single-token regex is fine here
-  # (branch names never contain spaces), mirrors no-pr-to-protected.sh:36-38.
+  # (branch names never contain spaces), mirrors hooks/no-pr-to-protected.sh (--base[=[:space:]]+).
   if [ -n "$protected" ] && [[ "$cmd" =~ (--base[=[:space:]]+|-B[[:space:]]+)\"?\'?([^[:space:]\"\']+) ]]; then
     [ "${BASH_REMATCH[2]}" = "$protected" ] && exit 0
   fi

@@ -76,7 +76,7 @@ try {
   # Malformed-pid footgun guard (parity with the .sh valid_pgid regression): a
   # state file recording pid 0 / 1 must read as DOWN — stop/status exit 0, the
   # state file is removed, and NOTHING external is killed. The pwsh twin already
-  # rejects processId <= 1 in Test-PidAlive (render-daemon.ps1:174) so Remove-
+  # rejects processId <= 1 in Test-PidAlive — scripts/render-daemon.ps1 (if ($n -le 1) { return $false }) — so Remove-
   # DaemonState never walks/kills a tree; this case CONFIRMS that parity (it would
   # regress if the guard were dropped). We prove "nothing killed" with a sentinel
   # process we own: it must still be alive after stop/status. (The .sh twin's

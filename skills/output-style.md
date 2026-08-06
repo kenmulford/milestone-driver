@@ -12,7 +12,7 @@ the seven files that consume it: `skills/setup/SKILL.md`,
 It sits here — a peer of the skill folders, not nested inside any one skill's
 own directory — because multiple skills and every agent consume it. That is
 the same placement, for the same recorded reason, that `skills/notices.md`
-already occupies (`skills/notices.md:10-15`): a reference file with no single
+already occupies (`skills/notices.md (It sits here — a peer of the skill)`): a reference file with no single
 owning skill sits one level up instead.
 
 This is a growing list — a new GitHub-facing shape is added as another row in
@@ -70,7 +70,7 @@ Each shape is defined **once, here**. Its call sites point at this section; they
 
 Citations inside those slots follow one format, defined once in `skills/citation-format.md`.
 
-**Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md:402` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md:109`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
+**Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md (Issues parked)` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
 
 | Shape | Opener | Required slots |
 |---|---|---|

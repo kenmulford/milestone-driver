@@ -7,7 +7,7 @@
 # legs on ubuntu-latest (.github/workflows/ci.yml), which is what this proves
 # — a native-Windows run of this file would need bash/WSL on PATH for the
 # merge-verb stub cases, the same cross-platform-helper posture already used
-# by tests/render-daemon.test.sh (python3 stub server).
+# by tests/render-daemon.test.sh (a trivial python3 HTTP server).
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script = Join-Path $Here '../hooks/code-review-gate.ps1'
