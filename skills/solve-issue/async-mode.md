@@ -1,12 +1,12 @@
 # Async mode (`--async`): retired
 
-This file is loaded by `solve-issue` when the invocation text contains an `--async` token (see `skills/solve-issue/SKILL.md`'s `## Async mode (`--async`): retired` stub, which carries the token-recognition rule and this pointer). It records why the token is now inert, what replaced it, and where the behavior it used to carry now lives.
+The retirement record for the `--async` token: why it is inert, what replaced it, and where the behavior it carried now lives. Token recognition and the inert-not-rejected rule are the caller's (`skills/solve-issue/SKILL.md (an interpreted token, not a parsed CLI flag)`).
 
 ---
 
 ## What `--async` meant, and why it is retired
 
-`--async` told the caller to dispatch the whole `solve-issue` pipeline as `Agent(run_in_background: true)`, with the pipeline running byte-unchanged inside that background agent.
+`--async` told the caller to dispatch the whole `solve-issue` pipeline as `Agent(run_in_background: true)`.
 
 That is exactly the shape the dispatch topology forbids (`docs/architecture.md` → `## Dispatch topology`): **no dispatched agent may dispatch a child whose result it needs.** The pipeline dispatches an implementer (step 3) and a `/code-review` fan-out (step 6.1), so inside a background agent both sit at depth 2, where a completion notification never arrives (anthropics/claude-code#75043). The agent's turn ends at the dispatch and nothing re-invokes it, so the run stops mid-pipeline with work uncommitted, no PR, and no park label. There is no flag that repairs this: nested children run async regardless of `run_in_background`.
 
@@ -17,18 +17,14 @@ The pipeline runs on the **caller's own main line**, and that session fans out:
 | Caller | What now happens |
 |---|---|
 | `solve-milestone`, sequential mode | Runs `solve-issue <n>` in-thread, one issue at a time (`skills/solve-milestone/SKILL.md`'s `### 4. Loop over issues in dependency-graph order`, step 2). It dispatches the implementer and the reviewers itself, as leaves. |
-| `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, a barrier, then concurrent reviewer leaves (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`). |
+| `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, then each issue's reviewer the moment its implementer returns (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`). |
 | A user session | Invokes `solve-issue <n>` directly. The token, if typed, is ignored. |
-
-Nothing about the pipeline's gates, caps, or park-don't-prompt behavior changes. Only the depth at which each agent runs changes.
-
-The token is recognized and inert rather than rejected, so a stale invocation from an operator's notes, a saved command, or a pre-1.18.0 brief still runs the issue correctly instead of erroring. This mirrors `solve-milestone`'s habit-typed `--parallel`, stripped and ignored because parallel is already the default.
 
 ## Delta A1 retired with it
 
 Delta A1 suppressed the standalone patch-bump confirm (step 6.4), because a background agent auto-denies any tool call that would prompt. The pipeline is no longer dispatched into a background agent, so the **mechanism** that suppressed the confirm is gone. What that mechanism was protecting is not: a milestone run must never wait on a human, and removing the background agent removed the only thing physically preventing the prompt. That guard is **re-homed onto the caller** in `SKILL.md` step 6.4's standalone bullet, which now never fires inside a milestone run (it re-derives the target version instead, and failing that bumps non-interactively with a `judgment call` label). A genuinely standalone run still asks, and no `judgment call` label is owed for a bump the operator was actually asked about.
 
-## Background-leaf constraints (unchanged, moved up one level)
+## Background-leaf constraints
 
 These now bind the **orchestrator's own leaf dispatches**, not this skill:
 

@@ -15,7 +15,7 @@
 #   from extract-version.ps1, which fails OPEN on a version miss; silent empty
 #   grounding is the drift this seam exists to surface.)
 # Dependency-free: PowerShell 7+ built-ins only — no yq/python/jq.
-# (docs/profile-schema.md:123 forbids new tool deps.)
+# (.project/library-manifest.md (**STOP-and-ask**,) forbids new tool deps.)
 # Exit codes: 0 ok · 1 missing file / missing anchor · 2 bad usage.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

@@ -3,12 +3,13 @@
 #
 # Boots the consumer's seeded/persona app server ONCE per run and reuses it
 # across the run; tears it down at run end. Built for the SERIAL capture path
-# only — a single per-run daemon on the consumer's configured port (since
-# parallel is now the default, render capture is deferred to the serial tail,
-# so this never serves concurrent worktrees — skills/solve-issue/SKILL.md:323).
+# only — a single per-run daemon on the consumer's configured port. Parallel is
+# now the default, so render capture is deferred to the serial tail and this
+# never serves concurrent worktrees —
+# skills/solve-milestone/parallel-waves.md (Per-issue tail, orchestrator-run).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
-# (mirroring the jq profile-read in scripts/ci-preflight-steps.sh:64-68):
+# — mirroring the jq profile-read in scripts/ci-preflight-steps.sh (PROFILE="$ROOT/.milestone-config/driver.json"):
 #   visualCapture.serverCmd  — the command that boots the app server.
 #   visualCapture.readyUrl   — the full /health-style ready-probe URL
 #                              (e.g. http://127.0.0.1:3000/health). The port is
@@ -38,7 +39,8 @@
 #            NOT killed) rather than trusted.
 #
 # State file: .milestone-config/.runtime/render-daemon.json (the .runtime/ dir is
-#   already reserved + gitignored — .milestone-config/.gitignore, hooks/tests-green.sh:79).
+#   already reserved + gitignored — .milestone-config/.gitignore and
+#   hooks/tests-green.sh ('.runtime/' 'worktrees/').
 #   Single per-run daemon -> single state file. Shape (jq-readable):
 #     port (int) · token (string) · pid (int) · readyUrl (string) ·
 #     startedAt (string, ISO-8601 UTC).
@@ -50,15 +52,15 @@
 #   readyUrl probe, never by the token.
 #
 # Fail-loud / fail-closed on a not-ready server (clear stderr message + nonzero
-#   exit, never silent) mirrors scripts/read-doc-section.sh:12-14. The
+#   exit, never silent) mirrors scripts/read-doc-section.sh (Fail-loud (fail-CLOSED)). The
 #   complementary "nothing to tear down" case (status/stop with no state) is a
 #   clean no-op success — these are not in tension.
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 # Exit codes: 0 ok · 1 boot failure / not ready · 2 bad usage / missing config.
 set -u
-# Byte-deterministic string handling (mirrors ci-preflight-steps.sh:32 /
-# read-doc-section.sh:23) so parsing stays aligned with the pwsh UTF-16 twin.
+# Byte-deterministic string handling, mirroring scripts/ci-preflight-steps.sh (export LC_ALL=C)
+# and scripts/read-doc-section.sh (export LC_ALL=C), so parsing stays aligned with the pwsh UTF-16 twin.
 export LC_ALL=C
 
 err() { printf '%s\n' "$*" >&2; }
@@ -84,7 +86,7 @@ case "$TIMEOUT" in
   ''|*[!0-9]*|0) err "render-daemon: ignoring invalid RENDER_DAEMON_TIMEOUT='$TIMEOUT' (want positive integer); using 30"; TIMEOUT=30 ;;
 esac
 
-# --- profile read (mirrors ci-preflight-steps.sh:64-68) ---------------------
+# --- profile read, mirroring scripts/ci-preflight-steps.sh (PROFILE="$ROOT/.milestone-config/driver.json") ---
 read_profile() {
   local profile="$ROOT/.milestone-config/driver.json"
   [ -f "$profile" ] || profile="$ROOT/milestone-driver.json"
@@ -141,7 +143,7 @@ probe() {
 # children) and `kill -- -1` targets EVERY process the user owns. A corrupted /
 # zero / one / negative / non-numeric recorded pid must therefore read as "no
 # usable group" so nothing is ever signaled. (Parity with the pwsh twin, which
-# rejects processId <= 0 in Test-PidAlive — render-daemon.ps1:165.)
+# rejects processId <= 1 in Test-PidAlive — scripts/render-daemon.ps1 (if ($n -le 1) { return $false }).)
 valid_pgid() { local g="$1"; case "$g" in ''|*[!0-9]*) return 1 ;; esac; [ "$g" -gt 1 ]; }
 
 # group_alive <pgid> -> 0 if any process in that process group exists. This is

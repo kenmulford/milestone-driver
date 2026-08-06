@@ -5,18 +5,23 @@ description: This skill should be used when "milestone-driver:setup" is invoked 
 
 # setup — first-run profile bootstrap
 
-Generate or repair the driver profile through a guided, inference-first flow. Every key is presented with a plain-language description and a detected default. Optional keys state their skip-consequence. No blank prompts — if a default cannot be inferred, an example is shown.
+Generate or repair the driver profile through a guided, inference-first flow.
 
-The canonical profile location is `<repo>/.milestone-config/driver.json`. New profiles are always written there. An existing legacy root `<repo>/milestone-driver.json` is **migrated** (moved) to the canonical location by the migration preamble that runs before Phase 1 (see below), so Phase 3 only writes the assembled profile to the canonical path.
+The canonical profile location is `<repo>/.milestone-config/driver.json`. New profiles are always written there; an existing legacy root `<repo>/milestone-driver.json` is **migrated** (moved) there by the migration preamble that runs before Phase 1.
 
-**After writing the file, return control to the caller** (solve-issue or solve-milestone) so the original task continues immediately. The user does not need to re-run the command.
+## Table of Contents
+
+- [When this runs](#when-this-runs)
+- [Procedure](#procedure)
+- [Output style](#output-style)
+- [Non-negotiables](#non-negotiables)
 
 ## When this runs
 
-- **Auto-invoked** by `solve-issue`/`solve-milestone` when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`).
+- **Auto-invoked** by `solve-issue`/`solve-milestone` when the driver profile is absent or missing a required Core key.
 - **Direct invocation** (`/milestone-driver:setup`) when onboarding a new repo or repairing an existing profile.
 
-**Migration preamble (run first, before Phase 1).** Run the idempotent migration preamble so Phase 1 pre-fills from the already-migrated canonical file: **Profile resolution & migration.** Resolve the profile: if `<repo>/.milestone-config/driver.json` exists, use it. Else if a legacy root `<repo>/milestone-driver.json` exists, migrate it first — `mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` (when git-tracked, else plain `mv`) — then continue. Else (neither) it is a new project (this skill creates the canonical file in Phase 3). Idempotent: once `.milestone-config/driver.json` exists this is a no-op. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. The transitional READ (canonical first, legacy root fallback) covers the gap before the move lands. Because this preamble runs first, by Phase 1 any existing profile is already at the canonical path `.milestone-config/driver.json`.
+**Migration preamble (run first, before Phase 1),** so Phase 1 pre-fills from the already-migrated canonical file. Resolve the profile: if `<repo>/.milestone-config/driver.json` exists, use it. Else if a legacy root `<repo>/milestone-driver.json` exists, migrate it first — `mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` (when git-tracked, else plain `mv`) — then continue. Else (neither) it is a new project (this skill creates the canonical file in Phase 3). Idempotent: once `.milestone-config/driver.json` exists this is a no-op. When both files exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. The transitional READ (canonical first, legacy root fallback) covers the gap before the move lands.
 
 ## Procedure
 
@@ -37,12 +42,10 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` (version-free) |
 | Existing profile | Read `.milestone-config/driver.json` if present, else the legacy root `milestone-driver.json` — pre-fill any already-set keys |
 
-**Stack → domainSkills inference table:**
-
 | Detected file | Inferred domainSkills candidate |
 |---|---|
 | `*.csproj` / `*.sln` with `Maui` | `["maui-skills:*", "maui-current-apis"]` |
-| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill; implementer and reviewers fall back to general docs + repo conventions) |
+| `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill) |
 | `package.json` with Angular | `["angular-skills:angular-developer"]` |
 | `skills/**` + `agents/**` + `hooks/**` | `["plugin-dev:*", "superpowers:writing-skills"]` |
 | `package.json` (generic Node) | omit |
@@ -66,7 +69,7 @@ Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → 
 | `sourceGlobs` | "Which path patterns are 'source' that only the implementer subagent may edit?" | Infer from repo layout (e.g. `["src/**","tests/**"]` for Node; `["YourApp/**","YourApp.Tests/**"]` for .NET; `["skills/**","agents/**","hooks/**"]` for a Claude Code plugin) |
 | `implementerAgent` | "Which agent authors the code? (Rarely changed — the bundled default is fine for most repos.)" | Auto-fill `"milestone-driver:implementer"` — show it, confirm, move on |
 
-**Hard-stop condition:** If `protectedBranch`, `integrationBranch`, or `sourceGlobs` genuinely cannot be inferred and the user cannot supply a value, stop with a clear message and do not write a partial profile.
+**Hard-stop condition:** If any of the three required Core keys genuinely cannot be inferred and the user cannot supply a value, stop with a clear message and do not write a partial profile.
 
 **Tier: Testing** (optional)
 
@@ -81,35 +84,35 @@ Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → 
 | `e2eTestCmd` | "What command runs your end-to-end / UI tests?" | Skip → "No E2E gate." |
 | `e2eEnv` | "What device/endpoint should the E2E runner target? (e.g. `{\"endpoint\":\"127.0.0.1:4723\",\"device\":\"Android emulator (AVD)\"}` for Appium)" | Skip → "No E2E environment recorded." |
 
-**Tier: Triage / Visual** (optional; pure preference — **no Phase-1 inference signal**, because a repo's UI surfaces are not reliably detectable from layout, and gating the question on a detector would reintroduce the very bug of never asking. So this tier is **always presented**. Show the illustrative example below as the default.)
+**Tier: Triage / Visual** (optional; pure preference — **no Phase-1 inference signal**, because a repo's UI surfaces are not reliably detectable from layout and gating the question on a detector would reintroduce the bug of never asking. So this tier is **always presented**. Show the illustrative example below as the default.)
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
 | `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces — the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → three layers stay off: **no design-lens review** in triage (UI issues are never sent to `design-reviewer`), **no visual-review gate** (UI PRs auto-merge exactly like logic-only PRs — nobody is asked to look), and **no visual capture** (nothing is ever identified as a UI surface to capture — the Visual Capture tier below is skipped). |
 
-**Tier: Visual Capture** (optional; presented only when **both** gates pass — (a) a visual-capture signal was detected in Phase 1 (the signals are listed in the Phase-1 detection row), **and** (b) `uiSurfaceGlobs` was captured in the Triage / Visual tier above. The two gates are **independent and AND'd**: a native UI stack (MAUI, WPF) has UI surfaces — so `uiSurfaceGlobs` is captured — but has no server or URL to poll and should omit `visualCapture` entirely (`docs/profile-schema.md:135`). If either gate fails, skip the whole tier silently, exactly as the E2E tier is skipped when no E2E signals are detected.)
+**Tier: Visual Capture** (optional; presented only when **both** gates pass — (a) a visual-capture signal was detected in Phase 1 (the signals are listed in the Phase-1 detection row), **and** (b) `uiSurfaceGlobs` was captured in the Triage / Visual tier above. The two are AND'd: a native UI stack (MAUI, WPF) has UI surfaces — so `uiSurfaceGlobs` is captured — but has no server or URL to poll and should omit `visualCapture` entirely (`docs/profile-schema.md (This block is a)`). If either gate fails, skip the whole tier silently.)
 
-The `visualCapture` block declares how an automated visual-capture flow boots a seeded/persona app server — a local app instance preloaded with test data and signed in as a test persona, so the capture flow can reach real authed screens — and what it captures. The three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied for a usable block; the optional keys resolve to their defaults when skipped. Present the keys one at a time, with the detected default and the skip-consequence on the same line:
+The `visualCapture` block declares how an automated visual-capture flow boots a seeded/persona app server — a local app instance preloaded with test data and signed in as a test persona, so the capture flow can reach real authed screens — and what it captures. Present the keys one at a time, with the detected default and the skip-consequence on the same line:
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `visualCapture.serverCmd` | "What command boots your seeded/test app server? (e.g. `bin/rails server -e test -p 3000`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
-| `visualCapture.readyUrl` | "What `/health`-style URL should the ready probe poll to know the server is up? (e.g. `http://127.0.0.1:3000/health`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
-| `visualCapture.signInPath` | "What is your passwordless test sign-in path, persona-templated? (e.g. `/dev/sign_in/{persona}`)" | Skip → required: skipping any of the three writes **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test. See the Required-key rule below. |
+| `visualCapture.serverCmd` | "What command boots your seeded/test app server? (e.g. `bin/rails server -e test -p 3000`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
+| `visualCapture.readyUrl` | "What `/health`-style URL should the ready probe poll to know the server is up? (e.g. `http://127.0.0.1:3000/health`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
+| `visualCapture.signInPath` | "What is your passwordless test sign-in path, persona-templated? (e.g. `/dev/sign_in/{persona}`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
 | `visualCapture.persona` | "Which seeded persona should capture sign in as? (Default: `super-admin`, so every surface is reachable.)" | Skip → default `"super-admin"` used at runtime. |
-| `visualCapture.viewports` | "Which named viewports should I capture? (Default: `{\"desktop\":{\"width\":1440,\"height\":900}}`. Detected an appearance/mobile signal? Add e.g. `\"mobile\":{\"width\":390,\"height\":844}`.)" | Skip → default desktop-only `{\"desktop\":{\"width\":1440,\"height\":900}}` used at runtime. |
+| `visualCapture.viewports` | "Which named viewports should I capture? (Default: `{\"desktop\":{\"width\":1440,\"height\":900}}`. Detected an appearance/mobile signal? Add e.g. `\"mobile\":{\"width\":390,\"height\":844}`.)" | Skip → default desktop-only viewport used at runtime. |
 | `visualCapture.appearances` | "Which appearances should I capture? (Default: `[\"light\"]`. Detected `dark:` variants / a theme toggle / `prefers-color-scheme`? Suggest `[\"light\",\"dark\"]`.)" | Skip → default single-appearance `[\"light\"]` used at runtime. |
 | `visualCapture.aiPrefilter` | "Should an AI pass pre-screen the captured screenshots for obvious layout breakage before a human looks? (Default: off — opt-in AI verdict pass, never a merge gate.)" | Skip → default absent/`false` → pre-filter skipped at runtime. |
 
-**Required-key rule:** the three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied together. If the user accepts the tier but skips any one of the three, write **no** `visualCapture` block (a node missing a required key is treated as absent + logged at runtime — there is no point writing it).
+**Required-key rule:** the three required keys (`serverCmd`, `readyUrl`, `signInPath`) must all be supplied together; the optional keys resolve to their defaults when skipped. If the user accepts the tier but skips any one of the three, write **no `visualCapture` block at all** — the visual gate stays at PR-open-for-human-test (a node missing a required key is treated as absent + logged at runtime — there is no point writing it).
 
-**Write rule:** accepting the tier writes only the keys the user supplied as a **sparse object** — omitted optional sub-keys (`persona`, `viewports`, `appearances`, `aiPrefilter`) are not written and resolve to their defaults at runtime, mirroring the `integrations.trello.lists` sparse-write rule. Skipping the tier writes **no** `visualCapture` block (no `null`, no empty object). Aborting mid-tier writes **no partial node** — consistent with setup's "do not write a partial profile."
+**Write rule:** accepting the tier writes only the keys the user supplied as a **sparse object** — omitted optional sub-keys (`persona`, `viewports`, `appearances`, `aiPrefilter`) are not written and resolve to their defaults at runtime. Skipping the tier writes **no** `visualCapture` block (no `null`, no empty object). Aborting mid-tier writes **no partial node** — consistent with setup's "do not write a partial profile."
 
 **Tier: Preflight** (optional; present the inferred candidate, or an example such as `pre-commit run --all-files` if none was detected)
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to auto-derive the gate from your GitHub Actions CI — front-running a cheap CI check locally without hand-transcribing it. With `github-ci`, optionally set `ciWorkflow` to one workflow-file basename (e.g. `ci.yml`) to narrow discovery; omit it to discover all PR-gating workflows." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to auto-derive the gate from your GitHub Actions CI without hand-transcribing it. With `github-ci`, optionally set `ciWorkflow` to one workflow-file basename (e.g. `ci.yml`) to narrow discovery; omit it to discover all PR-gating workflows." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
 **Tier: Integration** (optional; pure preference — no Phase-1 inference signal, since granularity is not detectable from repo signals. Show `"issue"` as the default/example.)
 
@@ -121,15 +124,15 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 > "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge — the failing issue isolates, the rest merge — use `issue` (the default)."
 
-`"full suite?"` is posed as a **question to the human**, NOT a check the skill performs — it is not machine-detectable at setup time. The prompt does **not** block: after the user acknowledges, `"wave"` is still written. Selecting `"issue"` (or accepting the default) shows no prompt, and selecting `"milestone"` fires the milestone prompt below instead of this one.
+`"full suite?"` is posed as a **question to the human**, NOT a check the skill performs — it is not machine-detectable at setup time. The prompt does **not** block: after the user acknowledges, `"wave"` is still written.
 
-**Milestone precondition prompt.** When, and only when, the user selects `"milestone"`, fire this informational, **non-blocking** prompt. It never fires for `"wave"` or `"issue"`, and the wave prompt above never fires for `"milestone"`. After the user acknowledges, `"milestone"` is still written:
+**Milestone precondition prompt.** When, and only when, the user selects `"milestone"`, fire this informational, **non-blocking** prompt. After the user acknowledges, `"milestone"` is still written:
 
 > "Milestone mode pushes once, at the end, so no issue branch reaches origin during the run. If one of your own workflows triggers on a push to every branch, exclude the `milestone-*` prefix so you do not pay for the assembled milestone twice: `branches-ignore: ['milestone-*']`, or `branches: ['**', '!milestone-*']` (order matters, negate last). Set one form per event, never both. See `skills/solve-milestone/milestone-granularity.md` for the branch mechanics, `docs/consumer-setup.md` for the full walkthrough."
 
-**Write rule:** omit `integrationGranularity` from the written profile when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `integrationGranularity: "wave"` or `integrationGranularity: "milestone"` only when that value is explicitly chosen. Aborting before Phase 3's write persists nothing, so a mid-interview `"milestone"` choice never lands in the profile (see `## Non-negotiables`: do not write a partial profile).
+**Write rule:** omit `integrationGranularity` from the written profile when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `integrationGranularity: "wave"` or `integrationGranularity: "milestone"` only when that value is explicitly chosen. Aborting before Phase 3's write persists nothing, so a mid-interview choice never lands in the profile.
 
-**Conditional question: `parallel`** (present **only when a `unitTestCmd` was supplied/detected** in Phase 1 — the unit-test detection signal. Otherwise skip it silently, exactly as the E2E tier and the Visual Capture tier are skipped when their presentation gate is not met: no `unitTestCmd` means no shared-external-service hazard, so no question.)
+**Conditional question: `parallel`** (present **only when a `unitTestCmd` was supplied/detected** in Phase 1 — the unit-test detection signal. Otherwise skip it silently: no `unitTestCmd` means no shared-external-service hazard, so no question.)
 
 Only per-worker unit runs execute concurrently, so a shared test DB (or other shared external service) is the one parallel-safety hazard. Present the question after `integrationGranularity`, with its answer mapping on the same line:
 
@@ -137,13 +140,13 @@ Only per-worker unit runs execute concurrently, so a shared test DB (or other sh
 |---|---|---|
 | `parallel` | "Your unit tests may share external services (like a test DB) across concurrent builds. Is your harness isolated per worker so parallel builds are safe?" | **Yes** → `parallel: true`. **No** → `parallel: false`. **Skip** → omit `parallel`; the run-start interview asks on the first `solve-milestone` run. |
 
-The three answers are mutually exclusive and cover every path. See the Phase 3 write rule for why a Yes/No answer records an explicit boolean (and does **not** follow the omit-the-default convention).
+See the Phase 3 write rule for why a Yes/No answer records an explicit boolean (and does **not** follow the omit-the-default convention).
 
 **Tier: Release** (optional; default inferred from the `.claude-plugin/plugin.json` presence signal — present → versioned, absent → suggest `versioning: false`)
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `versioning` | "Should I bump a plugin version on each PR via `.claude-plugin/plugin.json`? (Inferred default: file present → versioned; absent → suggest version-free.)" | Skip → key omitted → **opportunistic versioning**: the milestone title is parsed for a version; a miss **silently degrades to version-free** (never prompts). Choose explicit `versioning: true` to make a miss/ambiguity **prompt** the operator instead (or degrade with a warning when non-interactive). For explicit version-free, choose the inferred `versioning: false` (the suggested value when no `.claude-plugin/plugin.json` exists). |
+| `versioning` | "Should I bump a plugin version on each PR via `.claude-plugin/plugin.json`? (Inferred default: file present → versioned; absent → suggest version-free.)" | Skip → key omitted → **opportunistic versioning**: the milestone title is parsed for a version; a miss **silently degrades to version-free** (never prompts). Choose explicit `versioning: true` to make a miss/ambiguity **prompt** the operator instead (or degrade with a warning when non-interactive). For explicit version-free, choose the inferred `versioning: false`. |
 
 **Tier: Enrichment** (optional; show inferred values — accept with one keystroke)
 
@@ -152,13 +155,11 @@ The three answers are mutually exclusive and cover every path. See the Phase 3 w
 | `domainSkills` | "Any stack-specific skills the implementer and reviewers should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
 
-**Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations** — suppressed when setup runs as an auto-bootstrap sub-step invoked by solve-issue/solve-milestone)
+**Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations**. When setup is auto-invoked as a bootstrap sub-step (because a required Core key is missing), skip this tier entirely — never an interactive Trello question mid-run.)
 
-> **Auto-bootstrap suppression.** When setup is auto-invoked as a bootstrap sub-step (because a required Core key is missing), skip the External integrations tier entirely — never an interactive Trello question mid-run. The External integrations tier appears only when the user runs `/milestone-driver:setup` directly.
+Run this tier as a four-step flow:
 
-**Tier flow (direct invocation only):**
-
-> **Re-run behavior.** If `integrations.trello` already exists in the profile (Phase 1 pre-filled it), show the existing `boardId` as the default in Step 3 (board picker) and the existing `lists` overrides as defaults in Step 4 (list mapping). The user can accept, edit, or re-configure — the full flow still runs, but with existing values pre-filled.
+> **Re-run behavior.** If `integrations.trello` already exists in the profile (Phase 1 pre-filled it), show the existing `boardId` as the default in Step 3 (board picker) and the existing `lists` overrides as defaults in Step 4 (list mapping). The user can accept, edit, or re-configure — the full flow still runs, pre-filled.
 
 1. **Detect** Trello MCP availability by probing `mcp__trello__get_health`. If the tool is absent or errors:
    - Print: "Trello MCP (`@delorenj/mcp-server-trello`) not available in this session — skipping External integrations tier."
@@ -175,9 +176,9 @@ The three answers are mutually exclusive and cover every path. See the Phase 3 w
 4. **List mapping** (after board selection):
    - Attempt to fetch the board's actual lists via `mcp__trello__get_lists`.
    - **On success:** present the board's actual list names for the queue / inProgress / inReview mapping, with the three defaults (`"Queue"`, `"In Progress"`, `"In Review"`) shown as suggestions.
-   - **On failure (get_lists errors):** fall back to manual text entry — prompt for each of the three list names using the defaults as suggestions. Note that wrong names are tolerated: the runtime skill auto-creates any missing list (Wave-2 behavior).
+   - **On failure (get_lists errors):** fall back to manual text entry — prompt for each of the three list names using the defaults as suggestions. Note that wrong names are tolerated: the runtime skill auto-creates any missing list.
    - Defaults accepted → **omit `lists` from the written profile** (absent-means-default, same convention as `versioning`). Only overridden sub-keys are written (sparse object — e.g., only `"queue": "Backlog"` if only queue was changed).
-   - User aborts at any point (mid-board-pick or mid-list-mapping) → write no partial `integrations.trello` node (consistent with "do not write a partial profile"). Either the full `boardId` (and any overridden list names) is written, or nothing is written — never a partial node.
+   - User aborts at any point (mid-board-pick or mid-list-mapping) → write no partial `integrations.trello` node (consistent with "do not write a partial profile"): either the full `boardId` and any overridden list names are written, or nothing is.
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
@@ -188,14 +189,12 @@ The three answers are mutually exclusive and cover every path. See the Phase 3 w
 
 ### Phase 3 — Write and confirm
 
-The canonical profile location is `<repo-root>/.milestone-config/driver.json`. The migration preamble (run before Phase 1) has already relocated any legacy root profile, so by Phase 3 there is no migration left to do here — there are only two cases:
+The migration preamble has already relocated any legacy root profile, so Phase 3 has no migration left to do — only two cases:
 
 - **New project** — neither file present (the preamble found nothing to migrate): create the `.milestone-config/` directory (`mkdir -p .milestone-config`) and write the assembled profile to `.milestone-config/driver.json`. Never write a fresh profile to the root.
-- **Existing profile** — `.milestone-config/driver.json` present (the preamble used or migrated it): write the assembled profile to `.milestone-config/driver.json` in place. If a leftover root `milestone-driver.json` is also present (the both-present case the preamble left untouched), `.milestone-config/driver.json` wins: do **not** overwrite the canonical file from the root, and do **not** delete the leftover root file (no destructive surprise — the operator removes it; no `.gitignore` change is made).
+- **Existing profile** — `.milestone-config/driver.json` present (the preamble used or migrated it): write the assembled profile to `.milestone-config/driver.json` in place. If a leftover root `milestone-driver.json` is also present, `.milestone-config/driver.json` wins: do **not** overwrite the canonical file from the root, and do **not** delete the leftover root file (the operator removes it; no `.gitignore` change is made).
 
-Assemble the **full** profile object — every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 — into a valid JSON object, and write that complete object to `.milestone-config/driver.json`. **Drop no accepted key:** a key that was pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (do not write `null` or empty values for it). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention, same as the other optional keys. For `integrationGranularity`, follow the same absent-means-default convention: omit it when `issue` is chosen (the default) and write the explicitly chosen value, `integrationGranularity: "wave"` or `integrationGranularity: "milestone"`, only when the user picked it. For `parallel`, **deviate from the omit-the-default convention** used by `versioning` and `integrationGranularity`: write the explicit boolean the user chose — `parallel: true` on **Yes**, `parallel: false` on **No** — whenever the Integration-tier `parallel` question was answered. Omit `parallel` **only** when that question was not shown (no `unitTestCmd`) or was skipped. This deviation is deliberate — do **not** "correct" it back to omit-the-default: omitting a made decision would re-fire the run-start DB-hazard interview on every `solve-milestone` run whenever `unitTestCmd` is present, re-asking the operator a question they already answered. Print the final file contents so the user can verify.
-
-Writing the file is sufficient for the mechanical gates to read it immediately this session — no commit is required for the gates to function.
+Assemble the **full** profile object as valid JSON — every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 — and write it to `.milestone-config/driver.json`. **Drop no accepted key:** a key that was pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (do not write `null` or empty values for it). For `versioning`, omit it when versioned is chosen (the default) and write `versioning: false` only when version-free is chosen — the absent-means-default convention. `integrationGranularity` follows the same convention: omit it on `issue`, write `"wave"` or `"milestone"` only when the user picked it. For `parallel`, **deviate from the omit-the-default convention** used by `versioning` and `integrationGranularity`: write the explicit boolean the user chose — `parallel: true` on **Yes**, `parallel: false` on **No** — whenever the Integration-tier `parallel` question was answered. Omit `parallel` **only** when that question was not shown (no `unitTestCmd`) or was skipped. This deviation is deliberate — do **not** "correct" it back to omit-the-default: omitting a made decision would re-fire the run-start DB-hazard interview on every `solve-milestone` run whenever `unitTestCmd` is present. Print the final file contents so the user can verify.
 
 ```
 .milestone-config/driver.json written.
@@ -225,7 +224,7 @@ After the profile is written (Phase 3) and before returning control, ensure all 
 
 #### Reconcile the existing `judgment-call` label
 
-Run this step FIRST, before bulk provisioning. This repo (and consumer repos bootstrapped from it) may have a legacy label named `judgment-call` or `⚠ judgment-call`. Renaming it here preserves all existing issue/PR associations before the provisioning block below runs:
+Run this step FIRST, before bulk provisioning. A repo may carry a legacy label named `judgment-call` or `⚠ judgment-call`; renaming it here preserves all existing issue/PR associations:
 
 ```
 # If the legacy label exists, rename it (preserves all issue/PR associations):
@@ -234,11 +233,11 @@ gh label edit "judgment-call"    --name "judgment call" --color FBCA04
 gh label edit "⚠ judgment-call" --name "judgment call" --color FBCA04
 ```
 
-If neither legacy label exists, the rename step errors harmlessly — no action needed. The provisioning block below then upserts the canonical color/description onto the renamed label, or creates `judgment call` fresh if no legacy existed. Either path is idempotent: running the full sequence again when `judgment call` already exists changes nothing.
+If neither legacy label exists, the rename step errors harmlessly — no action needed, and the provisioning block below creates `judgment call` fresh. Either path is idempotent: running the full sequence again when `judgment call` already exists changes nothing.
 
 #### Idempotent provisioning
 
-Use `gh label create --force` for all six labels. The `--force` flag upserts: it creates the label if absent and updates color/description if the label already exists. Re-runs produce no duplicates. The `judgment call` row updates the just-reconciled label (or creates it fresh if no legacy existed).
+Use `gh label create --force` for all six labels. The `judgment call` row updates the just-reconciled label.
 
 ```
 gh label create "in progress"    --color 1D76DB --description "Branch open with partial or parked work; not yet done" --force
@@ -249,17 +248,17 @@ gh label create "needs review"   --color 0E8A16 --description "Built; awaiting h
 gh label create "judgment call"  --color FBCA04 --description "Borderline autonomous call — audit post-run" --force
 ```
 
-These commands are identical on bash and PowerShell 7+. Run them as a flat list (no shell loop required), which keeps them portable across both platforms.
+Run them as a flat list — no shell loop.
 
 #### Apply-time label helper (for consuming skills)
 
-The `gh label create --force` idiom above is the **canonical apply-time label helper** that `triage` (#27), `solve-milestone` (#28), and `solve-issue` (#29) must call before applying any taxonomy label at runtime. Concretely: immediately before each `gh issue edit --add-label "<name>"` call, the consuming skill runs:
+The `gh label create --force` idiom above is the **canonical apply-time label helper** that `triage`, `solve-milestone`, and `solve-issue` must call before applying any taxonomy label at runtime: immediately before each `gh issue edit --add-label "<name>"` call, the consuming skill runs:
 
 ```
 gh label create "<name>" --color <hex> --description "<desc>" --force
 ```
 
-using the color and description from the taxonomy table above. This guarantees that a fresh consumer repo that has never run `/milestone-driver:setup` still receives the label on first use — no separate setup gate is required before labeling can work.
+using the color and description from the taxonomy table above, so a fresh consumer repo that has never run `/milestone-driver:setup` still receives the label on first use.
 
 ### Phase 5 — Return control
 
@@ -267,11 +266,11 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes.
 
 ## Non-negotiables
 
 - Never present a blank prompt. Every key shows either a detected default or an illustrative example.
 - Skip always states its consequence. A user who skips knows exactly what gate or behavior is affected.
-- Do not write a partial profile. Either all three required Core keys (`integrationBranch`, `protectedBranch`, `sourceGlobs`) are present, or no file is written. (`implementerAgent` is auto-filled; the optional keys may be omitted.)
-- **Committing the profile:** writing the file is enough for the gates to read it this session. When `setup` is invoked **directly** (`/milestone-driver:setup`), suggest the user commit it (`git add .milestone-config/driver.json && git commit -m "chore: add milestone-driver profile"`) so every clone and CI has it; when a legacy root `milestone-driver.json` was migrated, the `git mv` is already staged and is committed by the same flow (the move and the new file land in one commit). When `setup` is auto-invoked **as a bootstrap sub-step**, leave the commit to the normal flow — do not create a commit on the current branch.
+- Do not write a partial profile. Either all three required Core keys are present, or no file is written. (`implementerAgent` is auto-filled; the optional keys may be omitted.)
+- **Committing the profile:** writing the file is enough for the gates to read it this session. When `setup` is invoked **directly** (`/milestone-driver:setup`), suggest the user commit it (`git add .milestone-config/driver.json && git commit -m "chore: add milestone-driver profile"`) so every clone and CI has it; when a legacy root `milestone-driver.json` was migrated, the `git mv` is already staged and is committed by the same flow. When `setup` is auto-invoked **as a bootstrap sub-step**, leave the commit to the normal flow — do not create a commit on the current branch.

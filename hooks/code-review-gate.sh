@@ -6,8 +6,8 @@
 # rule: checks for a literal, ANCHORED `## Code Review` heading before a PR
 # is created or merged, and blocks when it's missing (docs/profile-schema.md's
 # enforcement table — the plugin previously shipped no PreToolUse hook for
-# code review at all; this is the fifth gate, alongside force-subagent,
-# tests-green, no-push, no-pr-to-protected, no-bom).
+# code review at all; this is the sixth gate, alongside force-subagent,
+# no-bom, tests-green, no-push, no-pr-to-protected).
 #
 # create: detects a --body/-b or --body-file/-F SIGNAL (presence only — NOT a
 # precisely delimited value) and checks the heading against the WIDEST
@@ -86,7 +86,7 @@ heading_match() {
 # ---- gh pr create -----------------------------------------------------------
 if [ "$is_create" = "1" ]; then
   # Exemption: --base/-B <protectedBranch> — single-token regex is fine here
-  # (branch names never contain spaces), mirrors no-pr-to-protected.sh:36-38.
+  # (branch names never contain spaces), mirrors hooks/no-pr-to-protected.sh (--base[=[:space:]]+).
   if [ -n "$protected" ] && [[ "$cmd" =~ (--base[=[:space:]]+|-B[[:space:]]+)\"?\'?([^[:space:]\"\']+) ]]; then
     [ "${BASH_REMATCH[2]}" = "$protected" ] && exit 0
   fi

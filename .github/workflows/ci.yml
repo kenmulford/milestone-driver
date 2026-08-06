@@ -37,6 +37,16 @@ jobs:
         run: bash tests/write-cost-record.test.sh
       - name: resolve-citation (bash)
         run: bash tests/resolve-citation.test.sh
+      - name: triage-cache (bash)
+        run: bash tests/triage-cache.test.sh
+      - name: check-citations (bash)
+        run: bash tests/check-citations.test.sh
+      # The only scripts/check-* step that runs against THIS repo's real tree.
+      # Every other checker is exercised through fixture roots only, which
+      # proves the script works without gating a citation the repo actually
+      # broke — and a broken anchor is invisible to every other check here.
+      - name: citations resolve (bash)
+        run: bash scripts/check-citations.sh .
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -64,6 +74,15 @@ jobs:
         run: pwsh tests/write-cost-record.test.ps1
       - name: resolve-citation (pwsh)
         run: pwsh tests/resolve-citation.test.ps1
+      - name: triage-cache (pwsh)
+        run: pwsh tests/triage-cache.test.ps1
+      - name: check-citations (pwsh)
+        run: pwsh tests/check-citations.test.ps1
+      # Twin of the bash leg's real-tree step. Both legs run it because a
+      # <line> that differs between the twins is the worst answer a citation
+      # checker can give, and only running both catches that.
+      - name: citations resolve (pwsh)
+        run: pwsh scripts/check-citations.ps1 .
 
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)

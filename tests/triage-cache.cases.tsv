@@ -1,0 +1,66 @@
+# milestone-driver — golden matrix for scripts/triage-cache.{sh,ps1} (issue #441).
+# One row per READ-ONLY case. Columns, TAB-separated:
+#   name         case label, reported on failure
+#   args         the script's argv, SPACE-separated. No argument in this table
+#                contains a space, and the runners disable globbing before the
+#                split, so the column stays a plain word list.
+#   stdout_file  golden under fixtures/triage-cache/_expected/. An EMPTY column
+#                means "expect EMPTY stdout"; a NAMED-BUT-MISSING golden is
+#                FATAL, never a silent degradation to "expect empty".
+#   want_exit    expected exit code
+#   stderr_file  golden under _expected/ for stderr; __SCRIPT__ inside it expands
+#                to this leg's script filename, so ONE table drives both legs
+#                while each asserts its OWN usage text. An EMPTY column means
+#                expect EMPTY stderr, so those rows END IN A TAB (same
+#                empty-last-column convention as resolve-citation.cases.tsv).
+# The `write` subcommand has no row here: it MUTATES its root, so a committed
+# fixture cannot express it. Both runners drive it from mktemp workspaces in
+# bespoke blocks after this table.
+# Paths are relative to tests/fixtures/triage-cache/, which both runners cd into,
+# so no output text is checkout-dependent.
+#
+# name	args	stdout_file	want_exit	stderr_file
+query-keys-dedup	query keys acme widgets 7 9 7	query-keys.out	0	
+query-edges	query edges acme widgets 12	query-edges.out	0	
+query-no-numbers	query keys acme widgets		2	usage.err
+query-bad-kind	query bogus acme widgets 1		2	usage.err
+query-bad-number	query keys acme widgets 1x		2	usage.err
+query-bad-owner	query keys acme! widgets 1		2	usage.err
+unknown-subcommand	frobnicate		2	usage.err
+lookup-wrong-argc	lookup roots/hit		2	usage.err
+# The cache is READ from the canonical path, and from the legacy root ONLY when
+# the canonical one is ABSENT. These two rows share one golden on purpose: the
+# fallback must return the SAME answer, not merely some answer.
+lookup-key-match	lookup roots/hit resp/ts-two.json	lookup-hit.out	0	
+lookup-legacy-root-only	lookup roots/legacy-only resp/ts-two.json	lookup-hit.out	0	
+# roots/both holds BOTH files, with DIFFERENT contents: the canonical file knows
+# issue 9 and the legacy one knows issue 7. A canonical-wins read reports issue 7
+# as no-entry; a read that merged, or that preferred the legacy file, could not.
+lookup-both-present	lookup roots/both resp/ts-two.json	lookup-both.out	0	
+# A corrupt canonical file degrades to an EMPTY cache — it does NOT fall through
+# to the legacy root, which here holds a file that would have produced a HIT.
+# Same golden as the cache-absent row: both are the empty-cache answer.
+lookup-bad-json	lookup roots/bad-json resp/ts-two.json	lookup-empty.out	0	
+lookup-cache-absent	lookup roots/no-cache resp/ts-two.json	lookup-empty.out	0	
+lookup-null-issue	lookup roots/hit resp/ts-null-issue.json	lookup-nolivekey.out	0	
+lookup-no-aliases	lookup roots/hit resp/ts-nodata.json	skip-bad-response.out	0	
+lookup-malformed-response	lookup roots/hit resp/malformed.json	skip-bad-response.out	0	
+lookup-missing-response	lookup roots/hit resp/absent.json	skip-bad-response.out	0	
+# WRONG-TYPED containers (comments/labels as numbers, a label node that is a bare
+# string) degrade to the field defaults rather than aborting. This row is the twin
+# pin: jq errors where the pwsh leg returns null, so before the obj/arr guards the
+# .sh leg answered SKIP bad-response for this response while the .ps1 leg answered
+# HIT. The cached keys ARE the degraded keys, so a HIT proves both legs built the
+# same key text, not merely the same record shape.
+lookup-wrong-typed-fields	lookup roots/wrong-types resp/ts-wrong-types.json	lookup-wrong-types.out	0	
+# Edge 100 is CLOSED/NOT_PLANNED, so both cached entries that reference it are
+# downgraded. Edge 101 is CLOSED/COMPLETED — merged, and never a downgrade.
+check-edges-closed-not-merged	check-edges roots/hit resp/edges-closed.json	check-edges-two.out	0	
+check-edges-all-open	check-edges roots/hit resp/edges-open.json	check-edges-none.out	0	
+# roots/both's entry references edge 102 ONLY, whose stateReason is null: absent
+# is not COMPLETED, so it is closed-but-not-merged and downgrades.
+check-edges-null-state-reason	check-edges roots/both resp/edges-closed.json	check-edges-one.out	0	
+check-edges-empty-cache	check-edges roots/no-cache resp/edges-closed.json	check-edges-none.out	0	
+check-edges-bad-json-cache	check-edges roots/bad-json resp/edges-closed.json	check-edges-none.out	0	
+check-edges-bad-response	check-edges roots/hit resp/ts-nodata.json	skip-bad-response.out	0	
+check-edges-missing-response	check-edges roots/hit resp/absent.json	skip-bad-response.out	0	

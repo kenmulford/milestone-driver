@@ -38,6 +38,45 @@ and names the heading
 `path (anchor)` does not replace, narrow, or compete with either — **where a
 heading exists, a heading form remains the form to write.**
 
+## The base a citation path resolves from
+
+**Every `path`, in all four forms, is relative to the root of the repository
+the citation is written in**, and **there is no fallback to any other base**:
+not the citing file's own directory, not a walk up the tree.
+
+Nothing rebases the path. `scripts/resolve-citation.{sh,ps1}` and
+`scripts/read-doc-section.{sh,ps1}` open `path` exactly as written against the
+process working directory, and the skills that invoke them
+(`skills/solve-issue/SKILL.md (Resolve each citation once)`,
+`skills/triage/SKILL.md (Resolve, then feed BOTH briefs)`) do not change
+directory first. A path written against any other base does not open, unless
+some file happens to sit at that mis-based path relative to the root (a bare
+filename against a root-level `README.md`, `index.ts`, or `Makefile`), in which
+case it opens the wrong file, and answers about that wrong file at exit 0 when
+the anchor happens to appear there too. Otherwise it fails closed: nonzero
+exit, nothing on stdout, the failure named on stderr
+(`scripts/resolve-citation.sh (a missing/unreadable file)`; D3 makes the same
+call for an anchor present in the citation but not found in the file). Both runs
+below are from the repository root:
+
+    $ bash scripts/resolve-citation.sh "parallel-waves.md" "Parallelizable-set selection (parallel mode)"
+    resolve-citation: file not found or not readable: parallel-waves.md
+    $ echo $?
+    1
+
+    $ bash scripts/resolve-citation.sh "skills/solve-milestone/parallel-waves.md" "Parallelizable-set selection (parallel mode)"
+    PRIMARY	7	### Parallelizable-set selection (parallel mode)
+    $ echo $?
+    0
+
+For `path § Heading` and the line forms, which nothing resolves, the same base
+is where the reader opens the path from.
+
+`skills/solve-issue/SKILL.md (an issue has no directory)` and
+`skills/triage/SKILL.md (no multi-base fallback)` state this rule for citations
+written inside a GitHub issue body. This section is the general rule those two
+are instances of.
+
 ## D1 — the `path (anchor)` form
 
 A citation in this form is `path (anchor)`:
@@ -110,6 +149,15 @@ A citation is one whole token, on one line, read left to right:
    mis-splits. There is no escape syntax: write `path:line` or
    `path:start-end` for that file instead.
 
+### Same-file — write a heading form
+
+A citation **in the file it points at** reproduces its own anchor, so the citing
+line is itself an occurrence. Above its target it becomes the `PRIMARY` and the
+citation resolves to itself, at exit 0, with no error. **Never write the anchor
+form at a same-file citation.** Write a heading form: `read-doc-section.sh`
+matches an ATX heading whose text equals the anchor exactly, and a citing line
+is not a heading, so it cannot collide. If the target has no heading, add one.
+
 ## D2 — resolution, and the line forms
 
 **Resolution is a literal string search, and nothing else.** The anchor is
@@ -141,8 +189,8 @@ heading, `scripts/read-doc-section.sh (Duplicate anchors)`, and extends it with
 the report of the extras.
 
 **`path:line` and `path:start-end` are forms you may write today — not a legacy
-tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:249`,
-or a range like `skills/notices.md:10-16` — resolves exactly as it does now:
+tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:254`,
+or a range like `skills/notices.md:9-13` — resolves exactly as it does now:
 the bare line or lines, no resolution attempted, no error, and no warning. Both
 satisfy **every** evidence and citation slot in
 `skills/output-style.md (Each shape is defined)`; **no slot requires an anchor,

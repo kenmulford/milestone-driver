@@ -22,34 +22,67 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $Root = ($Root -replace '[\\/]+$', '')
 
-# Parallel arrays — index i in $files lines up with $ceilings[i]. MUST stay in
-# sync with scripts/check-size-budgets.sh's FILES/CEILINGS, and with the
-# $byteCeilings/BYTE_CEILINGS table paired alongside it (see that header for
-# the ratchet discipline governing these numbers, and for why a byte ceiling
-# rounds up to the next 500).
-$files = @(
-  'skills/setup/SKILL.md',
-  'skills/solve-issue/SKILL.md',
-  'skills/solve-issue/async-mode.md',
-  'skills/solve-issue/md-epic-fanout.md',
-  'skills/solve-milestone/SKILL.md',
-  'skills/solve-milestone/parallel-waves.md',
-  'skills/solve-milestone/trello-sync.md',
-  'skills/solve-milestone/milestone-granularity.md',
-  'skills/triage/SKILL.md',
-  'skills/notices.md',
-  'skills/output-style.md',
-  'agents/design-reviewer.md',
-  'agents/implementer.md',
-  'agents/triage-reviewer.md'
-)
-$ceilings = @(280, 400, 40, 60, 680, 215, 400, 165, 460, 250, 100, 115, 130, 120)
-$byteCeilings = @(33500, 78000, 5000, 9500, 80500, 68000, 21500, 25500, 42000, 13500, 10500, 16500, 15000, 16500)
+# The governed set, ONE ROW PER FILE: <path> <lineCeiling> <byteCeiling>, all
+# three columns of a file on the same line so a file's two ceilings can no
+# longer be MOVED apart from their path (issue #428 — see the .sh sibling's
+# table comment for what three free-standing parallel arrays cost, and for what
+# this shape does and does not remove). MUST stay in sync with
+# scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
+$governedTable = @'
+skills/setup/SKILL.md                             280    30000
+skills/solve-issue/SKILL.md                       375    69500
+skills/solve-issue/async-mode.md                   40     4500
+skills/solve-issue/md-epic-fanout.md               60     9000
+skills/solve-milestone/SKILL.md                   635    69000
+skills/solve-milestone/parallel-waves.md          205    68000
+skills/solve-milestone/trello-sync.md             400    20500
+skills/solve-milestone/milestone-granularity.md   165    25000
+skills/triage/SKILL.md                            390    37000
+skills/notices.md                                 250    11500
+skills/output-style.md                             90     9500
+skills/citation-format.md                         230    13000
+agents/design-reviewer.md                         120    16500
+agents/implementer.md                             130    15000
+agents/triage-reviewer.md                         120    17000
+'@
 
-# Length-parity guard: the three tables are hand-edited parallel arrays with no
-# structural link between them — a dropped/added line in one and not the
-# others must fail loud (same shape as the .sh sibling), not silently emit a
-# malformed record or misattribute a ceiling to the wrong file.
+# Parse into three index-aligned lists. A row contributes a ceiling only when
+# that column is present AND all digits — the same rule the .sh twin applies,
+# so a malformed row yields the same three counts and the same refusal on both.
+#
+# $c1/$c2 fold columns the way the .sh twin's
+# `read -r f line_ceiling byte_ceiling` does, and that fold is load-bearing for
+# the parity guard below: `read` fills column 2 whatever the row's width, and
+# folds every surplus column into column 3. So a SHORT row (byte column
+# dropped) still contributes its LINE ceiling on both twins, and a LONG row
+# (surplus 4th column) contributes a column 3 that is non-numeric on both.
+# Gating both adds on an exact 3-column row instead dropped the line ceiling
+# too, and the two twins then printed DIFFERENT counts in the refusal below for
+# the same malformed table — tests/check-size-budgets.test.{sh,ps1} cover both
+# shapes.
+#
+# [long], not [int]: the digit check accepts any number of digits, so a ceiling
+# past int32 max (2147483647) threw on the cast under
+# $ErrorActionPreference = 'Stop' while the .sh twin, whose arithmetic is
+# 64-bit, treated it as a very loose ceiling and printed a clean OK stream.
+$files = New-Object System.Collections.Generic.List[string]
+$ceilings = New-Object System.Collections.Generic.List[long]
+$byteCeilings = New-Object System.Collections.Generic.List[long]
+foreach ($row in ($governedTable -split "`n")) {
+  $cols = $row.Trim() -split '\s+'
+  if ($cols[0] -eq '' -or $cols[0].StartsWith('#')) { continue }
+  $files.Add($cols[0])
+  $c1 = if ($cols.Count -ge 2) { $cols[1] } else { '' }
+  $c2 = if ($cols.Count -ge 3) { ($cols[2..($cols.Count - 1)] -join ' ') } else { '' }
+  if ($c1 -match '^[0-9]+$') { $ceilings.Add([long]$c1) }
+  if ($c2 -match '^[0-9]+$') { $byteCeilings.Add([long]$c2) }
+}
+
+# Length-parity guard: the parse above appends a path unconditionally and each
+# ceiling only when its column is present and numeric, so a malformed row shows
+# up here as unequal counts. That must fail loud (same shape as the .sh
+# sibling), not silently emit a malformed record or misattribute a ceiling to
+# the wrong file.
 # Write, not WriteLine: WriteLine terminates with [Environment]::NewLine, which
 # is CRLF on Windows, and the .sh sibling's printf emits a bare LF there too.
 # An explicit "`n" keeps the two stderr streams byte-identical on every host,

@@ -55,7 +55,7 @@ function Unescape([string]$s) {
 # issue #418 parses, so a case-only divergence would otherwise ship silently on
 # the leg that runs on Windows.
 # NOTE: this deliberately diverges from the eight sibling pwsh runners, which
-# all use bare `-eq` (tests/build-file-index.test.ps1:49 and friends). Migrating
+# all use bare `-eq` (tests/build-file-index.test.ps1 (if ($out -eq $expOut -and $err -eq $expErr) {) and friends). Migrating
 # the house idiom is a separate sweep; this issue's acceptance criteria require
 # exact assertion here.
 function Eq-Exact([string]$a, [string]$b) {

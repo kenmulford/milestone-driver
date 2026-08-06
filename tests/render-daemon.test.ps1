@@ -76,12 +76,12 @@ try {
   # Malformed-pid footgun guard (parity with the .sh valid_pgid regression): a
   # state file recording pid 0 / 1 must read as DOWN — stop/status exit 0, the
   # state file is removed, and NOTHING external is killed. The pwsh twin already
-  # rejects processId <= 0 in Test-PidAlive (render-daemon.ps1:165) so Remove-
+  # rejects processId <= 1 in Test-PidAlive — scripts/render-daemon.ps1 (if ($n -le 1) { return $false }) — so Remove-
   # DaemonState never walks/kills a tree; this case CONFIRMS that parity (it would
   # regress if the guard were dropped). We prove "nothing killed" with a sentinel
   # process we own: it must still be alive after stop/status. (The .sh twin's
   # group-kill footgun has no pwsh analogue — pwsh kills an explicit pid tree, not
-  # a negative-pgid group — but the pid<=0 reject is the same fail-closed rule, so
+  # a negative-pgid group — but the pid<=1 reject is the same fail-closed rule, so
   # we assert the same observable contract.)
   foreach ($badpid in @(0, 1)) {
     Write-Profile 'true' $readyUrl

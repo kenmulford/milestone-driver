@@ -1,0 +1,22 @@
+{
+  "data": {
+    "issue_100": {
+      "issue": {
+        "state": "CLOSED",
+        "stateReason": "NOT_PLANNED"
+      }
+    },
+    "issue_101": {
+      "issue": {
+        "state": "CLOSED",
+        "stateReason": "COMPLETED"
+      }
+    },
+    "issue_102": {
+      "issue": {
+        "state": "CLOSED",
+        "stateReason": null
+      }
+    }
+  }
+}

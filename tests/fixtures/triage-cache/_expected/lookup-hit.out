@@ -1,0 +1,4 @@
+HIT	7
+MISS	9	key-mismatch
+EDGES	100	101
+SUMMARY	hits=1	misses=1

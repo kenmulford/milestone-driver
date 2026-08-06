@@ -1,0 +1,9 @@
+EXCLUDED	docs/superpowers/	skipped=0
+EXCLUDED	docs/briefs/	skipped=0
+EXCLUDED	CHANGELOG.md	skipped=0
+EXCLUDED	tests/fixtures/	skipped=0
+EXCLUDED	.milestone-config/worktrees/	skipped=2
+EXCLUDED	.milestone-feeder/	skipped=0
+OK	.milestone-config/kept.md:3	src/target.md (unique-anchor-alpha)
+TOTALS	unverified=0	excluded-files=2
+SUMMARY	ok=1	failed=0

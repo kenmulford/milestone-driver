@@ -6,7 +6,7 @@
 # DIRECTORY, like render-daemon's .runtime/ state file). Deterministic,
 # cross-platform, and NON-GATING: downstream #322 wires it into run-end.
 #
-# Input contract (stdin JSON, read ONCE — mirrors scripts/extract-version.sh:13):
+# Input contract (stdin JSON, read ONCE), mirroring scripts/extract-version.sh (input="$(cat)";):
 #   {"runId":"<str>", "wallClockSeconds":<num>, "tiers":{"<tier>":{
 #     "inputTokens":n,"outputTokens":n,"cacheReadTokens":n,"cacheWriteTokens":n}},
 #    "provenanceNote":"<optional str>"}
@@ -22,7 +22,7 @@
 #   only (rate-table keys: exactly opus + sonnet). Unknown tiers -> unpricedTiers,
 #   excluded from costUsd, one stderr note each.
 #
-# Fail-open (mirrors scripts/extract-version.sh:11 emit_none; always exit 0 —
+# Fail-open (mirrors scripts/extract-version.sh (emit_none() { printf 'none' >&2) emit_none; always exit 0 —
 #   .project/design-philosophy.md#Error & failure philosophy): on empty/malformed
 #   stdin, present-but-non-numeric token/wallClock, jq unavailable, empty/missing/
 #   non-string runId, or an uncreatable/unwritable cost-records/ dir -> write NO
@@ -30,7 +30,7 @@
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
-# Byte-deterministic string handling (mirrors extract-version.sh:10) so the
+# Byte-deterministic string handling, mirroring scripts/extract-version.sh (export LC_ALL=C), so the
 # filename sanitize stays aligned with the pwsh UTF-16 twin.
 export LC_ALL=C
 
@@ -45,7 +45,7 @@ input="$(cat)"
 [ -n "$input" ] || fail "empty stdin — no record written"
 command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH — no record written"
 
-# now_iso -> current time as ISO-8601 UTC (Zulu) — mirrors render-daemon.sh:173.
+# now_iso -> current time as ISO-8601 UTC (Zulu) — mirrors scripts/render-daemon.sh (now_iso() {).
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 WRITTEN_AT="$(now_iso)"
 
@@ -53,7 +53,7 @@ WRITTEN_AT="$(now_iso)"
 # (nonzero) on: unparseable JSON, an empty/missing/non-string runId, or any
 # present-but-non-numeric token/wallClock value (numify) — all of which collapse
 # to the single fail-open path below. Output is a wrapper {unpriced:[...],
-# record:{...}} (mirrors render-daemon.sh:176-182 jq -n --arg/--argjson construction).
+# record:{...}} (mirrors scripts/render-daemon.sh (write_state() {) jq -n --arg/--argjson construction).
 PROG='
 def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
 def toks(t): { inputTokens: numify(t.inputTokens), outputTokens: numify(t.outputTokens),
@@ -104,13 +104,15 @@ runId_raw="$(printf '%s' "$wrapper" | jq -r '.record.runId' | tr -d '\r')"
 sanitized="$(printf '%s' "$runId_raw" | tr -c 'A-Za-z0-9._-' '-')"
 
 # Filename: <sanitized>-<UTC-unix-seconds>-<nonce>.json. Nonce mirrors the
-# existing per-run pattern (render-daemon.sh:236): $$-$(date +%s)-$RANDOM.
+# existing per-run pattern at scripts/render-daemon.sh (TOKEN="rd-$$-$(date +%s)-$RANDOM"): $$-$(date +%s)-$RANDOM.
 ts="$(date -u +%s)"
 nonce="$$-$(date +%s)-$RANDOM"
 dir=".milestone-config/.runtime/cost-records"
 rel="$dir/${sanitized}-${ts}-${nonce}.json"
 
-# Create the scratch dir (mirrors render-daemon.sh:177,252). Uncreatable /
+# Create the scratch dir. Mirrors the mkdir -p idiom in
+# scripts/render-daemon.sh (write_state()), repeated there at the detached
+# serverCmd spawn. Uncreatable /
 # unwritable -> fail-open.
 mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir — no record written"
 

@@ -44,10 +44,11 @@ Commit it — the gates read this file, so it must be present in every clone and
 
 ## 3. Restart Claude Code
 
-All four gates (`force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected`)
-are plugin `PreToolUse` hooks registered in `hooks/hooks.json`. They **load at
-session start** — restart Claude Code after installing or updating the plugin so
-the hooks take effect. No separate native-hook installation step is required.
+The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
+`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all plugin
+`PreToolUse` hooks registered there. They **load at session start** — restart
+Claude Code after installing or updating the plugin so the hooks take effect. No
+separate native-hook installation step is required.
 
 ## 4. Add GitHub branch protection (server-side backstop)
 
@@ -83,7 +84,7 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 - **Visual-review gate (post-build, for UI issues).** An issue whose changes touch `uiSurfaceGlobs` is **not** auto-merged. Its PR is opened and left **open** with a `needs review` label for your visual sign-off. If you've configured the render capability (the `visualCapture` seam — see [`profile-schema.md`](profile-schema.md)), light + dark screenshots of the new surface are attached to the PR; if not, the gate posts a note that a human visual test is required before merge. Either way the PR waits for you — logic-only issues still auto-merge on green.
 - **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority — this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it — this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 
-To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
+To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](architecture.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
 ## Parallel builds and integration granularity
 
@@ -101,7 +102,7 @@ Each of those issues builds in its own git worktree (under a gitignored scratch 
 
 **Do not reach for `merge=union` in `.gitattributes` to make this go away.** Union never reports a conflict, so it removes the only signal you would get. It also interleaves multi-line changes into structurally broken output: a table row can land below the trailing bullets, orphaned from its table. A single-line-per-worker append does merge clean and correct under union, which is exactly what makes it tempting; the corruption shows up once a contribution is a multi-line block whose lines belong in different parts of the file, which is where union's interleaving drops one of them in the wrong place.
 
-**How wide it goes — `maxParallelWorkers`.** The concurrent build fan-out is capped per Wave. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
+**How wide it goes — `maxParallelWorkers`.** The concurrent agent fan-out is capped per Wave — one shared cap covering builds and reviews together, since the two overlap. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
 
 The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the build stages and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
@@ -334,9 +335,11 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 |---|---|
 | Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) — dispatch the implementer instead |
 | The same edit from a dispatched subagent | allowed |
+| A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) — write BOM-less UTF-8 instead |
 | `git commit` with the unit suite red (staged source) — **when `unitTestCmd` is defined** | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
+| `gh pr create` whose body has no `## Code Review` section | **blocked** (code-review-gate) — exempt when `--base` targets `protectedBranch` |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op — there is no unit gate to verify.
 

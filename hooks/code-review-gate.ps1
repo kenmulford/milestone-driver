@@ -72,7 +72,7 @@ function HeadingMatch([string]$text) {
 }
 
 if ($isCreate) {
-  # Exemption: --base/-B <protectedBranch> (mirrors no-pr-to-protected.ps1:37).
+  # Exemption: --base/-B <protectedBranch>, mirroring hooks/no-pr-to-protected.ps1 (--base[=\s]+|-B\s+).
   if ($protected -and ($cmd -match '(?:--base[=\s]+|-B\s+)["'']?([^\s"'']+)')) {
     if ($matches[1] -eq $protected) { exit 0 }
   }
