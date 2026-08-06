@@ -6,11 +6,12 @@
 #   triage-cache.ps1 query <keys|edges> <owner> <repo> <n>...
 #   triage-cache.ps1 lookup      <repo-root> <graphql-response.json>
 #   triage-cache.ps1 check-edges <repo-root> <graphql-response.json>
-#   triage-cache.ps1 write       <repo-root> <entries.json>
+#   triage-cache.ps1 write       <repo-root> <entries.json> <graphql-response.json>
 #
 # Behavior twin of scripts/triage-cache.sh — see that file's header for the full
-# record contract, the degradation rules, and the exit codes. Every subcommand
-# emits BYTE-IDENTICAL stdout and stderr on both legs;
+# record contract, the degradation rules, the exit codes, and why `write` takes
+# the SAVED Step 2.5 keys response and stamps each entry's `key` itself (#462).
+# Every subcommand emits BYTE-IDENTICAL stdout and stderr on both legs;
 # tests/triage-cache.test.{sh,ps1} drive the same cases table against the same
 # goldens to hold that — EXCEPT for one hazard the table cannot express: an argv
 # value containing a NEWLINE. The table's args column is a space-separated word
@@ -56,7 +57,7 @@ function Show-Usage {
   Err 'usage: triage-cache.ps1 query <keys|edges> <owner> <repo> <n>...'
   Err '       triage-cache.ps1 lookup <repo-root> <graphql-response.json>'
   Err '       triage-cache.ps1 check-edges <repo-root> <graphql-response.json>'
-  Err '       triage-cache.ps1 write <repo-root> <entries.json>'
+  Err '       triage-cache.ps1 write <repo-root> <entries.json> <graphql-response.json>'
   exit 2
 }
 
@@ -214,9 +215,14 @@ if ($sub -ceq 'query') {
 }
 
 if ($sub -cne 'lookup' -and $sub -cne 'check-edges' -and $sub -cne 'write') { Show-Usage }
-if ($args.Count -ne 3) { Show-Usage }
+# `write` alone takes FOUR: it recomputes each entry's key from the response.
+# The response is NOT optional — an optional argument would restore exactly the
+# "the key can be omitted" hole this signature exists to close (#462).
+$wantArgc = if ($sub -ceq 'write') { 4 } else { 3 }
+if ($args.Count -ne $wantArgc) { Show-Usage }
 $root = $args[1]
 $argfile = $args[2]
+$respfile = if ($sub -ceq 'write') { $args[3] } else { $null }
 
 if ($sub -ceq 'lookup') {
   $resp = Read-JsonRoot $argfile
@@ -296,12 +302,27 @@ function Skip([string]$reason) { Out-Rec "SKIP${TAB}$reason"; exit 0 }
 $entries = Read-JsonRoot $argfile
 if ($null -eq $entries -or $entries.ValueKind -ne $KObject) { Skip 'bad-entries' }
 
+# Number -> live key, through Read-JsonRoot and the SAME Get-LiveKey `lookup`
+# compares with — never ConvertFrom-Json, which would coerce every ISO-8601
+# timestamp to a [datetime] and culture-format it straight back into the key
+# (see this file's header). An absent, unreadable, or unparseable response
+# leaves the map EMPTY: entries are then stored exactly as supplied, with no new
+# SKIP reason and still exit 0 — fail-open, matching the .sh twin.
+$liveKeys = @{}
+$respRoot = Read-JsonRoot $respfile
+if ($null -ne $respRoot) {
+  foreach ($a in @(Get-Aliases $respRoot)) {
+    if ($null -ne $a.x) { $liveKeys[[string]$a.n] = Get-LiveKey $a.n $a.x }
+  }
+}
+
 $cache = Read-Cache $root
 # Entry-level overwrite, matching the recorded rule "write or overwrite its
 # entry": a re-triaged issue replaces its own entry and touches no other.
 # The ordered map keeps existing entries in file order and appends new ones.
 $order = New-Object System.Collections.Generic.List[string]
 $merged = @{}
+$injected = @{}
 if ($null -ne $cache) {
   foreach ($p in $cache.EnumerateObject()) {
     if (-not $merged.ContainsKey($p.Name)) { $order.Add($p.Name) }
@@ -311,6 +332,7 @@ if ($null -ne $cache) {
 foreach ($p in $entries.EnumerateObject()) {
   if (-not $merged.ContainsKey($p.Name)) { $order.Add($p.Name) }
   $merged[$p.Name] = $p.Value
+  $injected[$p.Name] = $true
 }
 
 $dir = Join-Path $root '.milestone-config'
@@ -369,7 +391,29 @@ try {
   $wopts.Indented = $true
   $w = [System.Text.Json.Utf8JsonWriter]::new($ms, $wopts)
   $w.WriteStartObject()
-  foreach ($k in $order) { $w.WritePropertyName($k); $merged[$k].WriteTo($w) }
+  foreach ($k in $order) {
+    $w.WritePropertyName($k)
+    $v = $merged[$k]
+    if ($injected.ContainsKey($k) -and $liveKeys.ContainsKey($k) -and $v.ValueKind -eq $KObject) {
+      # An INJECTED entry with a live key is the only thing rewritten, and it is
+      # rewritten PROPERTY BY PROPERTY: a JsonElement cannot be mutated, and
+      # round-tripping it through ConvertFrom-Json to add one field would
+      # reformat every timestamp it carries. `key` is replaced IN PLACE when
+      # present and appended otherwise, matching the .sh twin's `+` semantics.
+      $w.WriteStartObject()
+      $wroteKey = $false
+      foreach ($pp in $v.EnumerateObject()) {
+        if ($pp.Name -ceq 'key') { $w.WriteString('key', $liveKeys[$k]); $wroteKey = $true }
+        else { $w.WritePropertyName($pp.Name); $pp.Value.WriteTo($w) }
+      }
+      if (-not $wroteKey) { $w.WriteString('key', $liveKeys[$k]) }
+      $w.WriteEndObject()
+    } else {
+      # Everything else — untouched pre-existing entries above all — keeps the
+      # verbatim WriteTo that byte-preserves values this script does not own.
+      $v.WriteTo($w)
+    }
+  }
   $w.WriteEndObject()
   $w.Flush()
   # Bytes, not Set-Content: no BOM, no encoding parameter to get wrong, and the
