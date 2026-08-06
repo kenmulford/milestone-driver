@@ -1,9 +1,6 @@
 ## Parent-issue detection (`md-epic`)
 
-**Runs before anything else** — before SKILL.md's `## Before starting` step 1 (profile read) and before SKILL.md's `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. This is the plugin's standard opt-in-fork shape: one signal read before anything else, whose absence leaves the rest of the pipeline byte-unchanged. Here the signal is a label rather than an invocation token.
-
-- **No `md-epic`** → today's entire pipeline runs byte-unchanged, starting at SKILL.md's `## Before starting` step 1. Nothing in this section or `### Parent path` below applies.
-- **`md-epic` present** → `#n` is a **parent issue** — a pure orchestration node that carries no code. Do **not** proceed to SKILL.md's `## Before starting` steps 2/3, SKILL.md's `### 0. Triage`, SKILL.md's root-cause, or SKILL.md's implementer for `#n`. Go directly to `### Parent path` below; it replaces the rest of this skill's pipeline for this invocation.
+Detection runs before anything else and belongs to the caller, which reads `#n`'s labels and only then reads this file (`skills/solve-issue/SKILL.md (Runs before anything else)`). Reaching this file therefore means `#n` carries `md-epic`: it is a **parent issue**, a pure orchestration node that carries no code, and `### Parent path` below replaces the rest of that pipeline for this invocation.
 
 ### Parent path
 
@@ -20,9 +17,10 @@ A parent issue's body carries an ordered list of milestones — the build order 
 
    The parser emits one `<kind>\t<raw>` record per entry on stdout (`kind` = `number`|`title`), or exits nonzero with the failure named on stderr — it never calls `gh` and never resolves an entry itself (`${CLAUDE_PLUGIN_ROOT}/scripts/parse-md-epic-order.sh`, issue #266).
 
-   **A nonzero exit parks the PARENT issue `#n` — the fan-out never starts.** No `md-epic-order` block, an unterminated fence, or one malformed line all invalidate the whole list (a half-parsed build order is unsafe to act on). Post a comment on `#n` in the park-comment shape (`skills/output-style.md`) opening `🔴 Parked — ` quoting the parser's stderr (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
+   **Two triggers park the PARENT issue `#n` — the fan-out never starts.** Park action for both: post a comment on `#n` in the park-comment shape (`skills/output-style.md`) opening `🔴 Parked — ` with the reason below (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
 
-   **A zero exit with ZERO entries (empty stdout) also parks `#n` — this is not a silent success.** A well-formed `md-epic-order` block with no interior entries parses cleanly (exit 0) but has nothing to drive; treat it the same class as an authoring mistake, not a valid empty run. Post a comment on `#n` in the park-comment shape (`skills/output-style.md`) opening `🔴 Parked — ` naming "empty md-epic-order block — no milestones to drive" (`gh issue comment <n>`), apply `blocked` via the apply-time helper (`gh label create --force` then `gh issue edit <n> --add-label blocked`), leave `#n` open, and return. No milestone in the list is driven this run.
+   - **A nonzero exit.** No `md-epic-order` block, an unterminated fence, or one malformed line all invalidate the whole list (a half-parsed build order is unsafe to act on). Reason: quote the parser's stderr.
+   - **A zero exit with ZERO entries (empty stdout) — this is not a silent success.** A well-formed `md-epic-order` block with no interior entries parses cleanly (exit 0) but has nothing to drive; treat it the same class as an authoring mistake, not a valid empty run. Reason: "empty md-epic-order block — no milestones to drive".
 
 3. **Resolve each `{kind, raw}` entry to a live milestone**, mirroring `solve-milestone`'s own number/title resolution (`skills/solve-milestone/SKILL.md (Resolve the milestone argument)`):
    - `number: <raw>` → `gh api repos/{owner}/{repo}/milestones/<raw> --jq '{number, title}'`. A non-2xx response means "does not resolve."
