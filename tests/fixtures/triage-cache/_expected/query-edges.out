@@ -1,0 +1,1 @@
+query BatchEdgeStates { issue_12: repository(owner:"acme", name:"widgets") { issue(number:12) { state stateReason } } }

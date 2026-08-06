@@ -75,55 +75,22 @@ Both modes end with the same inputs for Step 3: each issue's number, title, body
 
 ### Step 2.5 — Cache lookup (before dispatching agents)
 
-Read the cache into memory as the **cache store**. **Resolution (transitional read):** read the new canonical path `.milestone-config/triage-cache.json` first; if it is absent, fall back to the legacy root `.milestone-driver-triage-cache.json` (mirrors the profile two-step read — `.milestone-config/driver.json || milestone-driver.json`). The write in Step 6.5 always targets the new path and cleans up the legacy root cache.
+The cache mechanics — path resolution, the change-signal key, and the batched GraphQL text — live in `${CLAUDE_PLUGIN_ROOT}/scripts/triage-cache.{sh,ps1}` (pwsh on Windows, bash elsewhere — same host selection as the two resolvers invoked below). Do **not** re-derive them here. The script never runs `gh`: it prints the query for you to run, and parses the response you hand back. It never errors the run — an absent, unreadable, or invalid cache file is an **empty cache**, and every degraded path exits 0.
 
-**Degradation rules (never error — always degrade gracefully):**
-- Bash path: `jq . .milestone-config/triage-cache.json 2>/dev/null` (then the legacy `jq . .milestone-driver-triage-cache.json 2>/dev/null` only if the new path is absent) — non-zero exit or empty output → treat as empty cache (pattern from `hooks/tests-green.sh (input="$(cat)"; [ -z "$input" ] &&)`: `command -v jq >/dev/null 2>&1 || exit 0` / `jq -r '…' 2>/dev/null`)
-- PowerShell path: `try { Get-Content .milestone-config/triage-cache.json -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { <empty hashtable> }` (falling back to the legacy root `.milestone-driver-triage-cache.json` only if the new path is absent) (pattern from `hooks/tests-green.ps1 (try { $hook = $raw)`: `try { $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }`)
-- File absent (neither path present), unreadable, or invalid JSON → empty cache in all cases
+1. **Fetch the change signals.** `triage-cache.<sh|ps1> query keys <owner> <repo> <n>…` prints one batched, aliased GraphQL query covering every issue gathered in Step 2 — one round-trip, not one per issue. Run it (`gh api graphql -f query="$(…)"`) and save the response. Fall back to per-issue `gh issue view <n> --json …` calls only if the batch call fails (graceful degradation). **Note:** `bodyLastEditedAt` is NOT a valid field for `gh issue view --json` (verified 2026-06-11) — use `lastEditedAt` via GraphQL only.
+2. **Partition.** `triage-cache.<sh|ps1> lookup <repo-root> <response.json>` prints TAB-separated records: `HIT<TAB><n>`; `MISS<TAB><n><TAB><reason>` (`no-entry`, `key-mismatch`, `no-live-key`); `EDGES<TAB><n>…`, the deduplicated union of every HIT candidate's cached `result.edges`; and `SUMMARY<TAB>hits=<h><TAB>misses=<m>`. A single `SKIP<TAB><reason>` record replaces the whole set when no cache information is available (`no-jq`, `bad-response`) — treat **every** issue as a MISS.
+3. **Check the edges.** When the `EDGES` record carries at least one number, run `triage-cache.<sh|ps1> query edges <owner> <repo> <those numbers>` through `gh api graphql`, then `triage-cache.<sh|ps1> check-edges <repo-root> <response.json>`. Fall back to per-issue `gh issue view <n> --json state,stateReason` only when the batch query fails, exactly as before — collect those per-issue results into the same `issue_<n>` alias shape the batch query returns (`{"issue_<n>": {"issue": {"state": …, "stateReason": …}}, …}`) and hand that file to `check-edges`, so a failed batch costs extra fetches instead of re-triaging every cached issue. Each `MISS<TAB><n><TAB>stale-edge` it prints **downgrades that HIT to a MISS**; `SUMMARY<TAB>stale=<k>` closes the set. Its own `SKIP<TAB>bad-response` — reached only once the per-issue fallback has also failed to produce a response — means the downgrade could not be computed; downgrade every HIT, because an unverifiable edge is the case this check exists for.
 
-For **each issue** gathered in Step 2, fetch all issue timestamps in a **single batched/aliased GraphQL query** — one round-trip for all issues. Fall back to per-issue calls only if the batch call fails (graceful degradation):
-
-```graphql
-query BatchTimestamps {
-  issue_1: repository(owner:"<owner>", name:"<repo>") { issue(number:<n1>) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } }
-  issue_2: repository(owner:"<owner>", name:"<repo>") { issue(number:<n2>) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } }
-  # … one alias per issue
-}
-```
-
-Per-issue fallback (used only when the batch call fails):
-
-```
-gh api graphql -f query='query { repository(owner:"<o>", name:"<r>") { issue(number:<n>) {
-  lastEditedAt createdAt labels(first:100){nodes{name}} comments{totalCount} } } }'
-```
-
-Compose the **live cache key** for each issue. Use the appropriate null-coalescing form for the execution environment:
-
-- **jq form** (Bash/shell): `(.lastEditedAt // .createdAt)` — `//` is jq's alternative/null-coalescing operator
-- **pwsh form** (PowerShell 7+): `$x.lastEditedAt ?? $x.createdAt` — `??` is the PowerShell null-coalescing operator
-
-```
-key = "<n>:<lastEditedAt // createdAt (jq) | $x.lastEditedAt ?? $x.createdAt (pwsh)>:<comments.totalCount>:<sorted label names joined by comma>"
-```
-
-- `lastEditedAt` is null until the body is first edited → fall back to `createdAt`
-- Comment count is ALL comments, no author filter (over-broad but safe — simplicity first)
-- Label names sorted lexicographically, joined by comma (empty string when no labels)
-
-**Note:** `bodyLastEditedAt` is NOT a valid field for `gh issue view --json` (verified 2026-06-11) — use `lastEditedAt` via GraphQL only.
-
-Compare the live key to the cached entry for each issue:
+The partition contract those records implement:
 
 | Result | Condition | Action |
 |---|---|---|
 | **HIT** | Cached entry exists AND `key` matches the live key AND no stale-edge condition (see below) | Reuse cached `result`; do NOT dispatch `triageAgent`; do NOT dispatch `designReviewAgent` |
 | **MISS** | No entry OR key mismatch OR stale-edge condition | Proceed to Step 3 dispatch normally |
 
-**Stale-edge memo (dedup across candidates — built before the per-candidate checks below run):** Compute the union of every issue number appearing across all HIT-candidates' cached `result.edges` arrays for this run — fixed once, from the HIT set already partitioned above, before Step 3 dispatch. Fetch `state`/`stateReason` for that union in one pass — run concurrently when the tool environment supports it — using the same batched/aliased GraphQL pattern already used for the cache-key timestamp fetch above, its scope extended from "one candidate's referenced edges" to "the deduplicated union across every candidate in this run": `query { issue_1: repository(owner:"<o>", name:"<r>") { issue(number:<n1>) { state stateReason } }, issue_2: repository(owner:"<o>", name:"<r>") { issue(number:<n2>) { state stateReason } }, … }` — one alias per **distinct** issue number in the union, not per candidate. Fall back to per-issue `gh issue view <n> --json state,stateReason` only when the batch query fails, exactly as before. Store the fetched `{state, stateReason}` per issue number in a **run-scoped, in-memory memo** (a plain map keyed by issue number) that exists only for the lifetime of this triage invocation — it is never written to `.milestone-config/triage-cache.json` (or the legacy root cache) and never read from it; it is unrelated to the Step 6.5 cache write. A number referenced by 2+ candidates is fetched once here and read from the memo by every candidate that shares it — a triage pass over N cached issues sharing M distinct dependencies makes M fetches total, not up to N×M.
+**Stale-edge memo (why the union, not per candidate):** the union is fetched once per run, so an issue number referenced by several HIT candidates costs one fetch, not one per candidate — a pass over N cached issues sharing M distinct dependencies makes M fetches, not up to N×M. The fetched states are run-scoped: `check-edges` reads them from the response file you pass it, and nothing about them is ever written to the cache.
 
-**Stale-edge invalidation rule (applied on every candidate HIT):** After a key match, inspect each issue number in the cached `result.edges` array. For each referenced issue, look up its `state`/`stateReason` in the memo above instead of issuing a fresh fetch. If any referenced issue is **closed but NOT merged** (i.e., `state == "CLOSED"` and `stateReason != "COMPLETED"`) → treat the candidate HIT as a **MISS** and force re-triage. Rationale: a dependency closed without merging (e.g., abandoned) leaves dependents permanently blocked on a stale cached edge that claims they're blocked by an open issue that is actually abandoned. This rule itself is unchanged — only where the `state`/`stateReason` values come from has changed.
+**Stale-edge invalidation rule (why a HIT can still be downgraded):** a dependency closed without merging (e.g. abandoned) leaves its dependents permanently blocked on a cached edge claiming they are blocked by an issue nobody will merge. `check-edges` is that rule — `state == "CLOSED"` with `stateReason != "COMPLETED"` forces re-triage. The rule is unchanged; only where the values come from has moved.
 
 **Risk staleness corollary (Fix 3):** A HIT returns cached `risk` only while its edge references remain valid. Any stale-edge condition (the closed-without-merge check above) forces a MISS, which causes `risk` to be re-derived from live data along with the edges. When the HIT is clean (no stale edges), the cached `risk` value is authoritative.
 
@@ -345,58 +312,9 @@ A Blocker **parks** the issue — triage posts the comment (Step 6) and returns 
 
 After posting Blocker comments in Step 6, write/update entries for every **freshly-triaged** (MISS) issue. This step is **best-effort: a write failure logs a warning and does not error the triage run.**
 
-1. Re-read the cache using the same transitional resolution and degradation rules as Step 2.5 (new `.milestone-config/triage-cache.json` first, legacy root `.milestone-driver-triage-cache.json` as fallback; absent/unreadable/invalid JSON → start from an empty object). **Why re-read instead of reusing the Step 2.5 parse:** Step 6 posts Blocker comments, which increments each blockered issue's comment count — this count is part of the cache key. The re-read captures any concurrent writes (e.g., from a parallel triage run) and ensures the written object is based on the most current file state rather than the snapshot from Step 2.5. This prevents silently overwriting entries that were updated between Step 2.5 and Step 6.5.
-2. For each freshly-triaged issue, write or overwrite its entry using **the key computed at Step 2.5** (the pre-comment key — intentionally, so the next run re-triages blockered issues whose comment count has since changed; see "Accepted trade-off" in Step 6) and the aggregated result from Step 4:
-
-   ```json
-   {
-     "<issue_number>": {
-       "key": "<composed change-signal key from Step 2.5>",
-       "triaged_at": "<ISO 8601 timestamp of this run>",
-       "result": {
-         "blockers": false,
-         "label": null,
-         "advisories": [],
-         "risk": "light",
-         "edges": []
-       }
-     }
-   }
-   ```
-
-   The `result` object carries: `blockers` (boolean), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
-
-3. Write the updated cache object to the new canonical path `.milestone-config/triage-cache.json` — `mkdir -p .milestone-config` (Bash) / `New-Item -ItemType Directory -Force` (PowerShell) first, since no writer may assume the directory exists. **Self-heal the scratch-ignore (always, before this write):** ensure a **committed** `.milestone-config/.gitignore` exists so the cache (and the other per-clone scratch — `preflight-notice`, `trello-notice`, `tests-stamp`, `.runtime/`, `worktrees/`) is git-invisible in the consumer repo from the first write, with zero user setup, while the tracked config (`driver.json`, `feeder.json`) stays tracked. If the file is absent, create it with the block below; if it already exists, do nothing. (Config files are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.) After the new cache file is written successfully, **remove the stale legacy root cache** `.milestone-driver-triage-cache.json` if present (`rm -f` / `Remove-Item -ErrorAction SilentlyContinue`), so it stops shadowing future transitional reads. The directory-create, gitignore self-heal, and stale-removal are best-effort, on the same fail-open footing as the write itself.
-
-   <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / solve-milestone, feeder setup / plan. -->
-   ```gitignore
-   # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
-   # Committed so per-run scratch stays out of `git status` with zero user setup.
-   # Patterns are relative to this .milestone-config/ directory. Tracked config
-   # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
-   preflight-notice
-   trello-notice
-   visualcapture-notice
-   parallel-default-notice
-   code-review-gate-notice
-   aiprefilter-notice
-   cost-record-notice
-   uisurfaceglobs-notice
-   triage-cache.json
-   tests-stamp
-   .runtime/
-   worktrees/
-   ```
-
-**Write paths (both are best-effort — failure skips write, does not abort the run):**
-
-- Bash path: Use `jq` to merge the updated entries into the existing file and write atomically. This stays fail-open (same pattern as `hooks/tests-green.sh (command -v jq >/dev/null 2>&1)`), but the skip/failure is now **visible** — emit one stderr line and continue (never abort the run):
-  - If `jq` is absent, emit `milestone-driver: triage cache write skipped (jq not found)` to stderr, then continue (effectively `exit 0` for the write — the run proceeds). Do **not** silently `exit 0`.
-  - If the write itself fails, emit `milestone-driver: triage cache write failed: <err>` to stderr (with the captured error), then continue.
-  - Both branches set the "cache write skipped this run" condition consumed by the Step 5 output line.
-- PowerShell path: Use `ConvertTo-Json -Depth 10` and `Set-Content -Encoding utf8NoBOM`. These are built-in cmdlets with **no external-tool dependency** (no `jq`), so there is no tool-absent case here — the only realistic visible case is a thrown write error. The failure is **visible** (mirroring the Bash path's intent — visible, fail-open), still fail-open (pattern from `hooks/tests-green.ps1 (try { $hook = $raw)`):
-  - Failure branch: wrap the write in `try { … } catch { Write-Warning "triage cache write failed: $_" }` and continue — do **not** fail the run.
-  - The failure (`catch`) branch sets the "cache write skipped this run" condition consumed by the Step 5 output line.
+1. **Build the entries object.** One JSON object keyed by issue number; per freshly-triaged issue: `key` — **the key computed at Step 2.5** (the pre-comment key, intentionally, so the next run re-triages blockered issues whose comment count has since changed; see "Accepted trade-off" in Step 6) — `triaged_at` (this run's ISO 8601 timestamp), and `result` from the Step 4 aggregate. The `result` object carries: `blockers` (boolean), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
+2. **Hand it to the script.** `${CLAUDE_PLUGIN_ROOT}/scripts/triage-cache.<sh|ps1> write <repo-root> <entries.json>` re-reads the cache under the same resolution and degradation rules as Step 2.5, merges these entries over it one entry at a time, creates `.milestone-config/`, self-heals the committed `.milestone-config/.gitignore` so the cache is git-invisible in the consumer repo from the first write, writes the canonical `.milestone-config/triage-cache.json` atomically, and removes the stale legacy root cache. **Why re-read rather than reuse the Step 2.5 parse:** Step 6 posts Blocker comments, which increments each blockered issue's comment count, and that count is part of the cache key. The re-read also picks up a concurrent write (e.g. from a parallel triage run) instead of overwriting it with the Step 2.5 snapshot.
+3. **Read the one record it prints.** `OK<TAB><path>` when the cache was written; `SKIP<TAB><reason>` (`no-jq`, `bad-entries`, `mkdir-failed`, `write-failed`) when it was not. It **always exits 0** — a `SKIP` sets the "cache write skipped this run" condition the Step 5 output line reports, and never aborts the run.
 
 **Single mode:** cache write applies identically — write the single issue's entry.
 

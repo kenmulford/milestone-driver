@@ -1,0 +1,1 @@
+query BatchTimestamps { issue_7: repository(owner:"acme", name:"widgets") { issue(number:7) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } } issue_9: repository(owner:"acme", name:"widgets") { issue(number:9) { lastEditedAt createdAt comments { totalCount } labels(first:100) { nodes { name } } } } }
