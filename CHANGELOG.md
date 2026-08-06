@@ -3,6 +3,38 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.20.1 — the cache that shipped switched off
+
+**Theme:** v1.20.0 moved the triage cache's mechanics out of the skill and into a script, and in doing so left the skill asking for something it also forbade. Step 6.5 said every cache entry must carry a `key` "computed at Step 2.5"; Step 2.5 said not to compute keys; and the script never printed one. There was no legal way to fill the field, so entries were written without a usable key and every later lookup missed — the cache was inert in the release that introduced it. It is fixed here, along with three consistency defects a post-release coherence review turned up. No new features, no behavior changes beyond the fix.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #462 Triage Step 6.5 requires a cache key that Step 2.5 forbids deriving and triage-cache never prints | #473 | `write` takes the Step 2.5 GraphQL response as a fourth argument and stamps each entry's `key` from the same definition `lookup` compares against, so the orchestrator never handles a key at all |
+| #466 Consumer docs say four gates where there are six, and three links point at a heading that moved | #469 | Four docs and one hook comment now name all six shipped gates in one order; three dead links to `README.md#the-layered-gating-model` repointed to `docs/architecture.md` |
+| #464 The reviewer agent pair diverged | #470 | Restored the "you surface it, you don't design the fix" rule that #439 removed from `triage-reviewer.md` while leaving `design-reviewer.md`'s equivalent, plus five smaller divergences |
+| #463 `docs/architecture.md:148` still calls implementation the sole concurrent stage | #467 | Corrected to match `:117` and `:145` after #400 pipelined build and review |
+
+### Consumer notes (upgrading from v1.20.0)
+
+- **Upgrade if you use `/milestone-driver:triage`.** On v1.20.0 the triage cache never matched, so every run re-dispatched a reviewer for every issue. Nothing was wrong with the results; you paid full triage cost each time. Existing `.milestone-config/triage-cache.json` files are **not** invalidated — the key format is unchanged, only which component computes it.
+- `scripts/triage-cache.{sh,ps1}`'s `write` subcommand now takes **four** arguments (`write <repo-root> <entries.json> <graphql-response.json>`). If you call it directly, add the response file. An absent or unreadable response stays fail-open: entries are written without a key, exit 0, and those issues re-triage next run.
+- Two ceilings in `scripts/check-size-budgets.{sh,ps1}` were raised by recorded decision, each narrowed to what its file needed: `agents/triage-reviewer.md` to 17000 bytes, `agents/design-reviewer.md` to 120 lines. The authorization is recorded in the script header and is spent — the next edit to either re-derives downward as usual.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none.
+
+**Why a patch release at all.** v1.20.0 was tagged and released before #462 merged. The defect was known and its fix was built, reviewed and green on an open PR at the time of the release; it simply had not landed. Recorded rather than smoothed over.
+
+**One issue was cut, not built.** #465 (eight tables of contents in four inconsistent shapes) was closed unbuilt: the inconsistency costs human navigation and nothing else, since the model loads the whole file regardless and cross-file references resolve against headings rather than TOC labels. Its body also records three errors of its own — it miscounted its own sites, cited `docs/plugin-features-reference.md` which has never existed in the tree or in git history, and declared an independence that was not true.
+
+**Two defects found and filed, not fixed:** #468, three test runners use bash 4.3 namerefs and report `0 passed` under the `/bin/bash 3.2.57` macOS ships — invisible in CI, which runs the bash suite on Ubuntu and reserves its macOS leg for hooks; and #471, the bash and PowerShell legs sort labels in different orders outside the BMP, so an issue carrying both an emoji label and a `U+E000-FFFF` label gets a different cache key on each platform.
+
+**The recurring failure of this milestone, now nine instances.** A fix that reads correctly and no longer does the same thing. #466 corrected a gate count in a sentence and left the table 45 lines below it still enumerating four. #464's ceiling raise would have collapsed the two rows `positional-desync` swaps to identical values, leaving the assertion passing while proving nothing. #464 also introduced a fresh false claim into the very comment block it was repairing. Every instance was caught by a reviewer opening the target and reading it. **None was caught by a gate**, because in every case the result is valid, passes every check, and reads like it means what it used to.
+
 ## v1.20.0 — anchor every citation, then cut 20%
 
 **Theme:** Two things this plugin is built out of got fixed at once. A *citation* is a pointer this repo's skills and agent briefs write next to a claim, naming the file the claim comes from, so that a model reading the skill can go check it rather than take it on faith. v1.19.0 added a second way to write one: name the target by a quoted string of its own content (an *anchor*) instead of by line number, which a single edit above the target silently invalidates. This release finishes that migration and makes it stick. Every live line citation became an anchor or a heading reference, repo-root-relative paths became the only conforming way to write a path, 20 citations that already pointed at the wrong content were retargeted, and `scripts/check-citations.{sh,ps1}` now walks the whole tree in CI, so a reworded line fails the build instead of quietly misdirecting its next reader. The second half is size. Every skill and agent file the driver loads is context spent on every run, and this milestone set out to cut 20% of the bytes from the ones loaded most. It cut 7.3% of the bytes and 4.8% of the lines across the governed set. What did not come out, and why, is recorded in the audit trail. Two issues are not cleanup: a parallel run's reviews no longer wait for the wave's slowest build, and the two reviewer agents can no longer stop an issue because *they* were unsure.
