@@ -90,7 +90,7 @@ trap 'rm -f "$GUARD_SCRIPT" "$GUARD_ERR" "$SWAP_SCRIPT" "$MAL_SCRIPT" "$MAL_ERR"
 # checker refuses to run rather than measure a file against a neighbour's
 # ceiling. No fixture tree can reach that path (a fixture is input, the table
 # is the script's own source), so this case garbles ONE column in a COPY of the
-# script (awk blanks the first row's LINE ceiling to "-", leaving 14/13/14) and
+# script (awk blanks the first row's LINE ceiling to "-", leaving 15/14/15) and
 # asserts all three halves of the refusal: EMPTY stdout, exit 1, and the
 # exact stderr line. The stderr golden is shared with the .ps1 runner, which
 # runs the same case against the same file, so the two twins' refusal messages
@@ -159,17 +159,17 @@ else
 fi
 
 # --- malformed-row parity: the other three single-row edits (issue #428) ----
-# parity-guard above garbles a LINE ceiling and leaves 14/13/14. Three further
+# parity-guard above garbles a LINE ceiling and leaves 15/14/15. Three further
 # single-row edits are the ones where the two twins' PARSES can disagree, so
 # each is asserted on both twins against the same derived expectation:
-#   short   byte column deleted           -> refusal, counts 14/14/13
-#   long    surplus fourth column         -> refusal, counts 14/14/13
+#   short   byte column deleted           -> refusal, counts 15/15/14
+#   long    surplus fourth column         -> refusal, counts 15/15/14
 #   wide    byte ceiling past int32 max   -> clean OK record, exit 0
 # `read -r f line_ceiling byte_ceiling` fills column 2 whatever the row's width
 # and folds every surplus column into column 3, so short and long both KEEP
 # their line ceiling and lose only the byte one. A pwsh parse that gated both
 # ceiling adds on an exact 3-column row instead dropped the line ceiling too
-# and printed 14/13/13 for these same two tables, diverging from this twin on a
+# and printed 15/14/14 for these same two tables, diverging from this twin on a
 # malformed table. `wide` is the other half: the digit check accepts any number
 # of digits and bash arithmetic is 64-bit, so 99999999999 is simply a very
 # loose ceiling here, while a pwsh parse casting to [int] threw on it and
@@ -180,7 +180,7 @@ fi
 # has exactly one place to update and the two twins cannot drift apart. A
 # surgery that no-ops fails loud, same as the two cases above: the unmodified
 # copy's stream matches neither expectation.
-mal_refusal="$(sed 's/CEILINGS(13) and BYTE_CEILINGS(14)/CEILINGS(14) and BYTE_CEILINGS(13)/' "$GUARD_GOLD" | tr -d '\r')"
+mal_refusal="$(sed 's/CEILINGS(14) and BYTE_CEILINGS(15)/CEILINGS(15) and BYTE_CEILINGS(14)/' "$GUARD_GOLD" | tr -d '\r')"
 wide_stream="$(sed 's#/33500#/99999999999#' "$GOLD/at-ceiling.txt" | tr -d '\r')"
 for mal in short long wide; do
   case "$mal" in

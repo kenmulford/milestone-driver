@@ -45,7 +45,7 @@
 #     file's actual count (when the ratchet was introduced, or last tightened)
 #     plus ~5% headroom. A LINE ceiling rounds to a clean number; a BYTE
 #     ceiling ROUNDS UP TO THE NEXT 500 BYTES, a fixed granularity so that at
-#     byte scale the 14 derivations stay arithmetic instead of 14 judgment
+#     byte scale the 15 derivations stay arithmetic instead of 15 judgment
 #     calls.
 #   - When a governed file SHRINKS (a future split/trim), lower BOTH its
 #     ceilings to the new actuals + headroom in the SAME change that shrinks it.
@@ -129,6 +129,7 @@ skills/solve-milestone/milestone-granularity.md   165    25500
 skills/triage/SKILL.md                            460    42000
 skills/notices.md                                 250    13500
 skills/output-style.md                            100    10500
+skills/citation-format.md                         230    13000
 agents/design-reviewer.md                         115    16500
 agents/implementer.md                             130    15000
 agents/triage-reviewer.md                         120    16500
