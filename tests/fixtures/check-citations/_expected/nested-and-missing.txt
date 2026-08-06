@@ -1,0 +1,9 @@
+EXCLUDED	docs/superpowers/	skipped=0
+EXCLUDED	docs/briefs/	skipped=0
+EXCLUDED	CHANGELOG.md	skipped=0
+EXCLUDED	tests/fixtures/	skipped=0
+OK	docs/citing.md:3	src/target.sh (extract_symbols() {)
+OK	docs/citing.md:4	src/target.sh (Fail-loud (fail-CLOSED))
+FAIL	docs/citing.md:5	src/gone.md (any anchor at all)	0 matches
+TOTALS	unverified=0	excluded-files=0
+SUMMARY	ok=2	failed=1
