@@ -1,0 +1,12 @@
+EXCLUDED	docs/superpowers/	skipped=0
+EXCLUDED	docs/briefs/	skipped=0
+EXCLUDED	CHANGELOG.md	skipped=0
+EXCLUDED	tests/fixtures/	skipped=0
+UNVERIFIED	docs/citing.md:3	src/target.md#Naming	path#Heading — not verified
+UNVERIFIED	docs/citing.md:4	src/target.md#Adding a dependency (the gate)	path#Heading — not verified
+UNVERIFIED	docs/citing.md:5	src/target.md#the-layered-gating-model	path#Heading — not verified
+UNVERIFIED	docs/citing.md:6	src/target.md#Adding a dependency (the gate)	path#Heading — not verified
+UNVERIFIED	docs/citing.md:7	src/target.md § Parallel mode — Phase 1: concurrent stage dispatch	path § Heading — not verified
+UNVERIFIED	docs/citing.md:8	src/target.md § Check if a PR exists (re-run safety)	path § Heading — not verified
+TOTALS	unverified=6	excluded-files=0
+SUMMARY	ok=0	failed=0

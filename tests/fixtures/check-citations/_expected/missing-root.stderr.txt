@@ -1,0 +1,1 @@
+ERROR check-citations: not a directory: tests/fixtures/check-citations/no-such-root
