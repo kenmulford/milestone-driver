@@ -75,75 +75,80 @@ export LC_ALL=C
 ROOT="${1:-$PWD}"
 ROOT="${ROOT%/}"
 
-# Parallel arrays (bash-3.2-safe — no associative arrays). Index i in FILES
-# lines up with CEILINGS[i] (lines) and BYTE_CEILINGS[i] (bytes). See the
-# header for the ratchet discipline that governs these numbers.
-FILES=(
-  "skills/setup/SKILL.md"
-  "skills/solve-issue/SKILL.md"
-  "skills/solve-issue/async-mode.md"
-  "skills/solve-issue/md-epic-fanout.md"
-  "skills/solve-milestone/SKILL.md"
-  "skills/solve-milestone/parallel-waves.md"
-  "skills/solve-milestone/trello-sync.md"
-  "skills/solve-milestone/milestone-granularity.md"
-  "skills/triage/SKILL.md"
-  "skills/notices.md"
-  "skills/output-style.md"
-  "agents/design-reviewer.md"
-  "agents/implementer.md"
-  "agents/triage-reviewer.md"
-)
-CEILINGS=(
-  280
-  400
-  40
-  60
-  680
-  215
-  400
-  165
-  460
-  250
-  100
-  115
-  130
-  120
-)
-# BYTE ceilings, set from the actuals measured at introduction (issue #399) as
-# actual * 1.05 rounded UP to the next 500 bytes. Same ratchet discipline as
-# CEILINGS above: down freely, up only with a decision recorded in the PR body.
-BYTE_CEILINGS=(
-  33500
-  78000
-  5000
-  9500
-  80500
-  68000
-  21500
-  25500
-  42000
-  13500
-  10500
-  16500
-  15000
-  16500
-)
+# The governed set, ONE ROW PER FILE:
+#
+#   <path>   <lineCeiling>   <byteCeiling>
+#
+# All three columns of a file sit on the same line, so a file's two ceilings
+# can no longer be MOVED apart from their path, and every number is read next
+# to the path it belongs to. Issue #428 is why: this used to be three
+# free-standing parallel arrays, and length was all the guard below compared.
+# Swapping two entries inside FILES alone kept all three lengths equal, passed
+# the guard, measured each file against the other's ceiling and still exited 0
+# — and reading a ceiling meant counting down an unlabelled column, which on
+# 2026-08-05 mis-reported skills/triage/SKILL.md as having 26KB of byte
+# headroom when it had 66 bytes. One row per file removes that MOVE, and every
+# plausible accident with it; deliberately swapping two path STRINGS between
+# rows still desyncs silently, which no table shape can prevent. See the header
+# for the ratchet discipline that governs these numbers. Rows start at column
+# 0; `#` starts a comment row.
+#
+# BYTE ceilings were set from the actuals measured at introduction (issue #399)
+# as actual * 1.05 rounded UP to the next 500 bytes. Same ratchet discipline as
+# the line ceilings: down freely, up only with a decision recorded in the PR
+# body.
+FILES=()
+CEILINGS=()
+BYTE_CEILINGS=()
+nfiles=0
+nceilings=0
+nbytes=0
+# A row contributes to a ceiling array only when that column is present AND all
+# digits, so a hand-edit that drops or garbles a column leaves the three counts
+# unequal and trips the parity guard below. Without the digit check a garbled
+# ceiling would reach `[ "$actual" -gt "$ceiling" ]`, which prints "integer
+# expression expected" on stderr and then takes the FALSE branch — a silent OK,
+# the same shape of quiet wrong answer #428 removed.
+# bash-3.2-safe: `read` and `case` builtins plus index assignment, no
+# associative arrays and no `mapfile`; the heredoc feeds the loop in the
+# CURRENT shell, so the arrays it fills survive it.
+while read -r f line_ceiling byte_ceiling; do
+  case "$f" in ''|'#'*) continue ;; esac
+  FILES[$nfiles]="$f"; nfiles=$((nfiles + 1))
+  case "$line_ceiling" in ''|*[!0-9]*) ;; *) CEILINGS[$nceilings]="$line_ceiling"; nceilings=$((nceilings + 1)) ;; esac
+  case "$byte_ceiling" in ''|*[!0-9]*) ;; *) BYTE_CEILINGS[$nbytes]="$byte_ceiling"; nbytes=$((nbytes + 1)) ;; esac
+done <<'GOVERNED_TABLE'
+skills/setup/SKILL.md                             280    33500
+skills/solve-issue/SKILL.md                       400    78000
+skills/solve-issue/async-mode.md                   40     5000
+skills/solve-issue/md-epic-fanout.md               60     9500
+skills/solve-milestone/SKILL.md                   680    80500
+skills/solve-milestone/parallel-waves.md          215    68000
+skills/solve-milestone/trello-sync.md             400    21500
+skills/solve-milestone/milestone-granularity.md   165    25500
+skills/triage/SKILL.md                            460    42000
+skills/notices.md                                 250    13500
+skills/output-style.md                            100    10500
+agents/design-reviewer.md                         115    16500
+agents/implementer.md                             130    15000
+agents/triage-reviewer.md                         120    16500
+GOVERNED_TABLE
 
-# Length-parity guard: the three tables are hand-edited parallel arrays with no
-# structural link between them — a dropped/added line in one and not the
-# others must fail loud, not desync the loop (which would misattribute
-# ceilings under `set -u`, or die mid-loop on an unbound index).
-if [ "${#FILES[@]}" -ne "${#CEILINGS[@]}" ] || [ "${#FILES[@]}" -ne "${#BYTE_CEILINGS[@]}" ]; then
+# Length-parity guard: the parse above appends a path unconditionally and each
+# ceiling only when its column is present and numeric, so a malformed row shows
+# up here as unequal counts. That must fail loud, not desync the loop (which
+# would misattribute ceilings under `set -u`, or die mid-loop on an unbound
+# index).
+if [ "$nfiles" -ne "$nceilings" ] || [ "$nfiles" -ne "$nbytes" ]; then
   printf 'ERROR check-size-budgets: FILES(%s), CEILINGS(%s) and BYTE_CEILINGS(%s) length mismatch, fix the table\n' \
-    "${#FILES[@]}" "${#CEILINGS[@]}" "${#BYTE_CEILINGS[@]}" >&2
+    "$nfiles" "$nceilings" "$nbytes" >&2
   exit 1
 fi
 
 ok=0
 failed=0
 i=0
-while [ "$i" -lt "${#FILES[@]}" ]; do
+while [ "$i" -lt "$nfiles" ]; do
   f="${FILES[$i]}"
   ceiling="${CEILINGS[$i]}"
   byte_ceiling="${BYTE_CEILINGS[$i]}"
