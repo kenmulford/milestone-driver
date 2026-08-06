@@ -12,7 +12,7 @@ the seven files that consume it: `skills/setup/SKILL.md`,
 It sits here — a peer of the skill folders, not nested inside any one skill's
 own directory — because multiple skills and every agent consume it. That is
 the same placement, for the same recorded reason, that `skills/notices.md`
-already occupies (`skills/notices.md:10-16`): a reference file with no single
+already occupies (`skills/notices.md:10-15`): a reference file with no single
 owning skill sits one level up instead.
 
 This is a growing list — a new GitHub-facing shape is added as another row in

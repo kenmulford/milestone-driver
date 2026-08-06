@@ -3,9 +3,9 @@
 #
 # Boots the consumer's seeded/persona app server ONCE per run and reuses it
 # across the run; tears it down at run end. Built for the SERIAL capture path
-# only — a single per-run daemon on the consumer's configured port (since
-# parallel is now the default, render capture is deferred to the serial tail,
-# so this never serves concurrent worktrees — skills/solve-issue/SKILL.md:323).
+# only — a single per-run daemon on the consumer's configured port. Parallel is
+# now the default, so render capture is deferred to the serial tail and this
+# never serves concurrent worktrees (skills/solve-milestone/parallel-waves.md:83).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
 # (mirroring the jq profile-read in scripts/ci-preflight-steps.sh:64-68):
@@ -141,7 +141,7 @@ probe() {
 # children) and `kill -- -1` targets EVERY process the user owns. A corrupted /
 # zero / one / negative / non-numeric recorded pid must therefore read as "no
 # usable group" so nothing is ever signaled. (Parity with the pwsh twin, which
-# rejects processId <= 0 in Test-PidAlive — render-daemon.ps1:165.)
+# rejects processId <= 1 in Test-PidAlive — render-daemon.ps1:174.)
 valid_pgid() { local g="$1"; case "$g" in ''|*[!0-9]*) return 1 ;; esac; [ "$g" -gt 1 ]; }
 
 # group_alive <pgid> -> 0 if any process in that process group exists. This is
