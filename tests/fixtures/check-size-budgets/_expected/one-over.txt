@@ -9,7 +9,8 @@ OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25500
 OK	skills/triage/SKILL.md	1/460	7/42000
 OK	skills/notices.md	1/250	7/13500
 OK	skills/output-style.md	1/100	7/10500
+OK	skills/citation-format.md	1/230	7/13000
 OK	agents/design-reviewer.md	1/115	7/16500
 OK	agents/implementer.md	1/130	7/15000
 OK	agents/triage-reviewer.md	1/120	7/16500
-SUMMARY	ok=13	failed=1
+SUMMARY	ok=14	failed=1
