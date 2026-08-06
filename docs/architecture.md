@@ -13,7 +13,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Implementer agent | `agents/implementer.md` | Self-contained TDD implementer subagent (a project may override via its profile) |
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
-| Hooks | `hooks/` | All four gates are `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open): `force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected`. The triage / declaration / visual layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
+| Hooks | `hooks/` | The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration / visual layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
 ## Plugin version
@@ -56,9 +56,11 @@ A parked issue carries exactly one blocker label (`blocked` / `needs design` / `
 | Gate | Mechanism |
 |---|---|
 | force-subagent | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`NotebookEdit`): denies edits to `sourceGlobs` from the main thread (no subagent context); only the dispatched subagent may author app/test code. Docs, plans, and `.claude/**` stay editable by the orchestrator. |
+| no-bom | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`): rejects writes whose content begins with the UTF-8 BOM. Reads no profile keys — it is a content byte-check. |
 | tests-green | Plugin `PreToolUse` (`Bash(git commit *)`): runs `unitTestCmd` when staged files touch `sourceGlobs`; blocks the commit on red. |
 | no-push | Plugin `PreToolUse` (`Bash(git push *)`): rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
 | no-pr-to-protected | Plugin `PreToolUse` (`Bash(gh pr create *)`): blocks `gh pr create --base <protectedBranch>`. |
+| code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading. A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
@@ -76,7 +78,7 @@ Where it slots: the concluding action of `solve-issue` step 6.1, after the `/cod
 
 Also accepted: both impls honor `continue-on-error` only at **step** scope — a **job-level** `continue-on-error: true` is not modeled, so a failing step in such a job would park on a real failure rather than being treated as tolerated. Job-scope handling is deferred.
 
-This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It is not one of the four hooks in [The mechanical gates](#the-mechanical-gates). See [`profile-schema.md`](profile-schema.md) for the `preflightCmd` and `ciWorkflow` keys.
+This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It is not one of the shipped hooks in [The mechanical gates](#the-mechanical-gates). See [`profile-schema.md`](profile-schema.md) for the `preflightCmd` and `ciWorkflow` keys.
 
 ## The skills
 
@@ -161,14 +163,16 @@ When a merge-in conflicts, the tail applies bounded auto-resolve. Git's `ort` me
 
 ### Hooks inside a worktree
 
-The four mechanical gates behave correctly inside a worktree with no worktree-specific configuration:
+The six mechanical gates behave correctly inside a worktree with no worktree-specific configuration:
 
 | Gate | Behavior in a worktree |
 |---|---|
 | force-subagent | The implementer is a dispatched subagent, so its edits are already allowed. The profile is a committed file present in every worktree, and the hook resolves it relative to the working directory, so it fires identically per-worktree. |
+| no-bom | Unaffected. It inspects only the tool-input bytes (`content` / `new_string`) and reads no profile keys and no paths, so it behaves identically in any working directory. |
 | tests-green | The `.milestone-config/tests-stamp` is keyed `branch:treeSHA`, so a per-worktree stamp is correct, not a collision. Each worktree's branch and tree get their own key. |
 | no-push | Unaffected. It guards only `protectedBranch`; feature-branch pushes from a worktree are allowed. |
 | no-pr-to-protected | Unaffected. The orchestrator opens PRs with `--base <integrationBranch>`, so they pass. |
+| code-review-gate | The profile is a committed file present in every worktree and the hook resolves it from the tool call's `cwd`, so `protectedBranch` reads correctly per-worktree; a relative `--body-file` path resolves against that same directory. PRs opened with `--base <integrationBranch>` are not exempt, so the `## Code Review` check applies as normal. |
 | **Shared external services (test DB, caches, fixed ports)** | A worktree isolates the **filesystem**, not external services. In a parallel run, all N concurrent `unitTestCmd` runs share external services (notably `DATABASE_URL` / the test DB) unless the consumer's harness provides per-worker isolation (e.g. `parallel_tests` / `TEST_ENV_NUMBER` DB-suffix pattern, or per-worker `DATABASE_URL`). The driver surfaces this hazard up front: when `unitTestCmd` is set and `parallel` is absent, the run-start DB-hazard interview asks once whether the harness is safe to run concurrently and records the answer to the `parallel` key, rather than proceeding blind. Per-worker isolation stays a **consumer responsibility** — the interview raises the risk, it does not inject isolation. See [consumer setup — DB isolation](consumer-setup.md#db-isolation-consumer-responsibility). |
 
 One per-clone marker becomes per-worktree: the `.milestone-config/preflight-notice` one-time notice marker is per-clone, so inside a worktree it becomes per-worktree (the notice could print once per worktree). This is acceptable, and the worktree setup can `touch` the marker to suppress it.

@@ -44,10 +44,11 @@ Commit it — the gates read this file, so it must be present in every clone and
 
 ## 3. Restart Claude Code
 
-All four gates (`force-subagent`, `tests-green`, `no-push`, `no-pr-to-protected`)
-are plugin `PreToolUse` hooks registered in `hooks/hooks.json`. They **load at
-session start** — restart Claude Code after installing or updating the plugin so
-the hooks take effect. No separate native-hook installation step is required.
+The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
+`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all plugin
+`PreToolUse` hooks registered there. They **load at session start** — restart
+Claude Code after installing or updating the plugin so the hooks take effect. No
+separate native-hook installation step is required.
 
 ## 4. Add GitHub branch protection (server-side backstop)
 
@@ -83,7 +84,7 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 - **Visual-review gate (post-build, for UI issues).** An issue whose changes touch `uiSurfaceGlobs` is **not** auto-merged. Its PR is opened and left **open** with a `needs review` label for your visual sign-off. If you've configured the render capability (the `visualCapture` seam — see [`profile-schema.md`](profile-schema.md)), light + dark screenshots of the new surface are attached to the PR; if not, the gate posts a note that a human visual test is required before merge. Either way the PR waits for you — logic-only issues still auto-merge on green.
 - **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority — this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it — this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 
-To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](../README.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
+To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](architecture.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
 ## Parallel builds and integration granularity
 
@@ -334,9 +335,11 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 |---|---|
 | Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) — dispatch the implementer instead |
 | The same edit from a dispatched subagent | allowed |
+| A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) — write BOM-less UTF-8 instead |
 | `git commit` with the unit suite red (staged source) — **when `unitTestCmd` is defined** | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
+| `gh pr create` whose body has no `## Code Review` section | **blocked** (code-review-gate) — exempt when `--base` targets `protectedBranch` |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op — there is no unit gate to verify.
 
