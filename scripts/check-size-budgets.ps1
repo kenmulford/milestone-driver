@@ -40,6 +40,7 @@ skills/solve-milestone/milestone-granularity.md   165    25500
 skills/triage/SKILL.md                            460    42000
 skills/notices.md                                 250    13500
 skills/output-style.md                            100    10500
+skills/citation-format.md                         230    13000
 agents/design-reviewer.md                         115    16500
 agents/implementer.md                             130    15000
 agents/triage-reviewer.md                         120    16500

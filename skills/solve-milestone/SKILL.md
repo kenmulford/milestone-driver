@@ -9,15 +9,19 @@ description: >-
 
 Drive an entire GitHub milestone to completion by ordering its issues and running `/milestone-driver:solve-issue` on each, integrating to `integrationBranch` between issues. This skill owns **ordering, the loop, branch re-sync, parking, and the final summary**; the full per-issue pipeline — root-cause, implementer dispatch, gates, review, PR, auto-merge on green (non-UI) or visual-review hold (UI), close — is delegated to `/milestone-driver:solve-issue`.
 
-The **read-only post-build coherence pass** (an optional, never-gating second opinion on whether a built change fits the app, `coherenceReviewAgent`) is delegated too: it runs per-issue inside `solve-issue` section 6, before that issue's final `/code-review` (so sequential and issue-granularity runs get it automatically). Under **wave granularity** the assembled wave is the largest body reviewed before its one wave PR, so the coherence pass runs at the **Phase-2 serial-merge-tail re-verify point** (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail`) against the integrated wave. Like every optional integration it is silently skipped when the coherence-reviewer is absent.
+The **read-only post-build coherence pass** (`coherenceReviewAgent`, optional and never-gating) is delegated too: it runs per-issue inside `solve-issue` section 6, before that issue's final `/code-review`. Under **wave granularity** it runs instead at the **Phase-2 serial-merge-tail re-verify point** (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail`) against the integrated wave. Like every optional integration it is silently skipped when the coherence-reviewer is absent.
 
-**Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`), **closing the GitHub milestone object**, and deploy stay manual and human-only — the driver closes the milestone's **issues** and authors the CHANGELOG, but never closes the **milestone** itself. That boundary is what makes unattended operation safe.
+**Bounded blast radius.** The loop merges only to `integrationBranch`, never to `protectedBranch`. Release (`integrationBranch` → `protectedBranch`), **closing the GitHub milestone object**, and deploy stay manual and human-only — the driver closes the milestone's **issues** and authors the CHANGELOG, but never closes the **milestone** itself.
 
-**Execution mode (parallel by default, barrier-checked).** Parallel is the **default** execution mode — there is **no** `--parallel` flag and no "in parallel" trigger to opt in. The run instead resolves its mode **once** at run start, as the last Before-starting step (**Resolve execution mode**), via a barrier cascade: it runs **parallel** unless a barrier drops it to **sequential** — a `parallel: false` profile opt-out, a permission-allowlist gap (a physical barrier), or an unconfirmed test-isolation answer (the DB-hazard interview). The resolved mode is held for the whole run and drives the Phase 1 / Phase 2 machinery in `skills/solve-milestone/parallel-waves.md` (§ Parallel mode — Phase 1: concurrent stage dispatch). **Back-compat:** a habit-typed `--parallel` token (or the phrase "in parallel") in `$ARGUMENTS` is **harmlessly stripped and ignored** by the generic `--<token>` flag-strip in Before-starting step 3 — parallel is already the default, so it changes nothing and never corrupts the milestone identifier. When the resolved mode is **sequential**, the loop (steps 1–5), the buildability conditions (a)/(b)/(c), and the buildable / not-buildable branches run byte-unchanged. The blast-radius boundary above is identical in both modes (the loop and the merge tail merge only to `integrationBranch`, never `protectedBranch`).
+**Execution mode (parallel by default, barrier-checked).** Parallel is the **default** — there is **no** `--parallel` flag and no "in parallel" trigger to opt in. The run resolves its mode **once** at run start, as the last Before-starting step (**Resolve execution mode**), via a barrier cascade, and holds it for the whole run; it drives the Phase 1 / Phase 2 machinery in `skills/solve-milestone/parallel-waves.md` (§ Parallel mode — Phase 1: concurrent stage dispatch). **Back-compat:** a habit-typed `--parallel` token (or the phrase "in parallel") in `$ARGUMENTS` is **harmlessly stripped and ignored** by the generic `--<token>` flag-strip in Before-starting step 3.
+
+## Contents
+
+Before starting · The procedure — 1. List the milestone's open issues · 2. Determine the order · 3. Determine the target version · Phase 0 — Triage · 4. Loop over issues in dependency-graph order · Parallelizable-set selection (parallel mode) · Permission pre-flight gate · Parallel mode — Phase 1: concurrent stage dispatch · Parallel mode — Phase 2: serial verified merge tail · Integration granularity (issue vs wave) · 5. Finish · Autonomy · Output spec — Template 1 — Run start / plan board · Template 2 — Status update at each wave boundary · Template 3 — Final results · Output style · Final summary — 6. Author the CHANGELOG entry (6.1–6.9) · Run-complete notification
 
 ## Before starting
 
-1. **Auth preflight.** Run `gh auth status`. If it fails (non-zero exit or any "not logged in" / "authentication failed" output), print a clear error — e.g. `"Error: gh auth status failed — authenticate with 'gh auth login' before running solve-milestone."` — and **halt immediately**. Do NOT proceed to profile read, milestone resolution, or any other step.
+1. **Auth preflight.** Run `gh auth status`. If it fails (non-zero exit or any "not logged in" / "authentication failed" output), print a clear error — e.g. `"Error: gh auth status failed — authenticate with 'gh auth login' before running solve-milestone."` — and **halt immediately**.
 2. Read the profile (see the plugin's `docs/profile-schema.md`).
 
    | Profile-resolution decision point | Behavior |
@@ -30,9 +34,9 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup` to bootstrap it, then continue — do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, `nonNegotiables` | Optional; their steps are skipped cleanly when absent. |
-   | `integrationGranularity` / `visualHold` (resolve BOTH here, once, and hold them for the whole run) | Absent → the documented defaults (`"issue"`; hold). **Fail-open, never a hard error**, the shape `maxParallelWorkers` uses (`skills/solve-milestone/parallel-waves.md (Resolve the concurrency cap)`) and `versioning`'s fail-safe restates (`skills/solve-issue/SKILL.md (Fail-safe degradation)`): an **out-of-enum** `integrationGranularity` degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`; a **non-boolean** `visualHold` degrades **toward holding** (the UI hold is a one-way door: silently weakening it is unrecoverable, an over-strict hold costs one operator action), logging `visualHold "<value>" is not a boolean, degraded to holding the milestone PR`. A valid value logs nothing and passes through byte-unchanged. Every later read of either key (`docs/profile-schema.md (How should built issues integrate?)`, `docs/profile-schema.md (Should the single milestone PR wait)`) uses this one resolved value; nothing re-resolves mid-run. |
+   | `integrationGranularity` / `visualHold` (resolve BOTH here, once, and hold them for the whole run) | Absent → the documented defaults (`"issue"`; hold). **Fail-open, never a hard error**, the shape `maxParallelWorkers` uses (`skills/solve-milestone/parallel-waves.md (Resolve the concurrency cap)`) and `versioning`'s fail-safe restates (`skills/solve-issue/SKILL.md (Fail-safe degradation)`): an **out-of-enum** `integrationGranularity` degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`; a **non-boolean** `visualHold` degrades **toward holding**, logging `visualHold "<value>" is not a boolean, degraded to holding the milestone PR`. A valid value logs nothing. Every later read (`docs/profile-schema.md (How should built issues integrate?)`, `docs/profile-schema.md (Should the single milestone PR wait)`) uses this resolved value. |
 
-   2.0.5. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names while leaving the config tracked. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below); if it already exists, do nothing. Unlike the profile `git mv` (which the orchestrator defers to the first `solve-issue`), this is a single new gitignore file that makes the orchestrator's own marker writes invisible; the first dispatched `solve-issue` commits it on its feature branch alongside the migration. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
+   2.0.5. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (the names in the block below) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below); if it already exists, do nothing. The first dispatched `solve-issue` commits it on its feature branch alongside the migration. Never add a blanket `*` or `/` rule.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -54,16 +58,16 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       worktrees/
       ```
 
-   2.1. **One-time notices.** Immediately after reading the profile: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record, uisurfaceglobs) — for each, apply the `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics recorded in that section, exactly as stated there. File order is print order — today's order is preflight → trello → visualcapture → parallel-default → code-review-gate → aiprefilter → cost-record → uisurfaceglobs, appended in the order each notice was added to `skills/notices.md`.
-3. **Resolve the milestone argument** (subsumes the old "named milestone exists" confirmation). Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` and `--driven` are boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
+   2.1. **One-time notices.** Immediately after reading the profile: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (which is print order), evaluate each section whose `Skills` field includes `solve-milestone` (today: preflight, trello, visualcapture, parallel-default, code-review-gate, aiprefilter, cost-record, uisurfaceglobs), applying that section's `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics exactly as stated there.
+3. **Resolve the milestone argument.** Strip flags from `$ARGUMENTS` to get the bare argument (flags are tokens starting with `--`; for each `--<token>`, remove it; ALSO remove the immediately-following token only if that token does not start with `--` AND the flag is value-bearing: `--parallel` and `--driven` are boolean — strip the flag token only, do NOT consume the next token; any other `--<token>` with a following non-flag token is treated conservatively as value-bearing — strip both). Then:
    - **If purely numeric** (`$ARGUMENTS` minus flags is digits only): call `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone #<milestone-number> → '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** (see format below) and stop.
    - **Otherwise (title/name):** call `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'` — if found, record the canonical `{number, title}` and state `"Resolved milestone '<title>'"` in the run output; if not found, fail fast — print the available milestones as a **number + title table** and stop.
-   - **Ambiguity note:** a purely-numeric milestone *title* (e.g. a milestone literally titled `"2"`) is reachable via the numeric-input path (routing is determined by `$ARGUMENTS` form — digits only — not by title content). After resolution, check the resolved title: **if it is purely numeric, halt immediately and prompt the human.** Triage interprets a bare number as single-issue mode, so the milestone title must be renamed to a non-numeric value before this skill can drive it unattended — do not proceed to Phase 0.
+   - **Ambiguity note:** a purely-numeric milestone *title* (e.g. a milestone literally titled `"2"`) is reachable via the numeric-input path. After resolution, check the resolved title: **if it is purely numeric, halt immediately and prompt the human.** Triage interprets a bare number as single-issue mode, so the milestone title must be renamed to a non-numeric value before this skill can drive it unattended — do not proceed to Phase 0.
    - **Available-milestones table format** (for the error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` formatted as a Markdown table with columns `#` and `Title`.
 
-   All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in the ordering step (procedure step 2, `### 2. Determine the order`) or Phase 0.
+   All downstream steps use the resolved `{number, title}` — do NOT re-read `$ARGUMENTS` directly in `### 2. Determine the order` or Phase 0.
    **3.5** If `integrations.trello` is present in the profile, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort — a Trello failure never blocks the run).
-   **3.6** **Cherry-pick check for a human-typed milestone under a parent group (fires only when `--driven` is absent).** A milestone can be one ordered slice of a larger feature spanning several milestones, grouped under a parent GitHub issue that carries the `md-epic` label (recorded in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). When a human types `solve-milestone <name>` directly, this step warns them before they build only that slice. The `--driven` token (defined in step 5 below; string-presence recognition for this token added in #267) is never typed by a human — an automated fan-out loop supplies it when it dispatches this skill on its own behalf. **When `--driven` is present, this step does not execute at all** — not the first-issue query, not the parent lookup — so a driven run can never re-detect its own dispatching parent and re-prompt. This is what keeps the *driven* path true to this skill's own frontmatter contract, "never waits on a human... only a systemic failure ends the run early" — unlike the purely-numeric-title halt in step 3 above, which still fires under `--driven`, this new prompt is a human-typed-invocation-only exception to that contract and never fires under `--driven`.
+   **3.6** **Cherry-pick check for a human-typed milestone under a parent group (fires only when `--driven` is absent).** A milestone can be one ordered slice of a larger feature spanning several milestones, grouped under a parent GitHub issue carrying the `md-epic` label (`docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). This step warns a human who typed `solve-milestone <name>` directly before they build only that slice. The `--driven` token is defined in step 5 below (string-presence recognition added in #267). **When `--driven` is present, this step does not execute at all** — not the first-issue query, not the parent lookup.
 
    When `--driven` is absent:
 
@@ -88,15 +92,15 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
             whole parent in build order] · [Pause for clarification]
          ```
 
-         - **Build just this milestone** → fall through to today's step 4 / step 5 / Phase 0 sequence exactly as the no-prompt branch above does — this milestone builds autonomously, same as today.
+         - **Build just this milestone** → fall through to today's step 4 / step 5 / Phase 0 sequence exactly as the no-prompt branch above does.
          - **Hand off** → invoke `/milestone-driver:solve-issue <parent-number>` directly (the same skill-invokes-skill pattern this skill already uses to invoke `/milestone-driver:triage`, Phase 0 below) and **stop this run's Before-starting sequence here** — no clean-tree check, no execution-mode resolution, no Phase 0 triage for this milestone under this invocation.
          - **Pause for clarification** → halt immediately. No build, no hand-off, no state change.
-      e. **Out-of-order safety is reactive only.** If the human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier, not-yet-built milestone in the same parent group, that dependency is not caught proactively — triage's `dependencyGraph` is scoped to this one milestone's own issues and has no edge into a different milestone. It surfaces reactively, through whatever build-time signal it naturally trips (the root-cause gate, a red suite, or an implementer-declared architecture conflict) — not through the same-milestone "held by unmerged upstream #N" proactive comment in `### 4. Loop over issues in dependency-graph order` below, which has no cross-milestone upstream to name. Expect a less specific park reason than that comment. No new mechanism.
+      e. **Out-of-order safety is reactive only.** If the human picks "build just this milestone" and one of its issues depends on unmerged work from an earlier, not-yet-built milestone in the same parent group, that dependency is not caught proactively — triage's `dependencyGraph` is scoped to this milestone's own issues and has no edge into another milestone. It surfaces through whatever build-time signal it trips (the root-cause gate, a red suite, or an implementer-declared architecture conflict); the "held by unmerged upstream #N" comment in `### 4. Loop over issues in dependency-graph order` below has no cross-milestone upstream to name, so expect a less specific park reason.
       f. **A non-404 failure of the `.../parent` call** (auth, 5xx, network) is a systemic condition, not "no parent" — surface it and halt per the existing Autonomy contract below, the same as any other systemic failure.
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
-5. **Resolve execution mode (the LAST Before-starting step).** Runs **after** the clean-tree check (step 4) on purpose: the DB-hazard interview's single profile write (below) is then the one intentional uncommitted change, with no clean-tree conflict. Resolve the run's execution mode **once**, here, and hold the result for the whole run — every downstream reference reads this resolved decision; nothing re-decides mid-loop. Evaluate the barrier cascade **top-down; first match wins**:
+5. **Resolve execution mode (the LAST Before-starting step).** Resolve the run's execution mode **once**, here, and hold it for the whole run; nothing re-decides mid-loop. Evaluate the barrier cascade **top-down; first match wins**:
 
-   **The `--driven` token.** `--driven` is an **interpreted token, not a parsed CLI flag** — recognized by **string presence** in the invocation text, never argument parsing, the same way this plugin reads every invocation token (`skills/solve-issue/SKILL.md`'s `## Async mode (\`--async\`): retired`). It is never typed by a human — an internal caller (a future driven-invocation loop) supplies it when dispatching this skill on its own behalf. Today it gates **only row 4 below (the DB-hazard interview):** a driven run degrades that interview to its non-interactive path (row 4′) instead of prompting. **Other Before-starting steps that can prompt a human are unaffected** — e.g. the purely-numeric-title halt in step 3 above still halts and prompts even on a driven run. **When `--driven` is absent, this cascade and every other Before-starting step run byte-unchanged.**
+   **The `--driven` token.** `--driven` is an **interpreted token, not a parsed CLI flag** — recognized by **string presence** in the invocation text, never argument parsing, the same way this plugin reads every invocation token (`skills/solve-issue/SKILL.md`'s `## Async mode (\`--async\`): retired`). It is never typed by a human — an internal caller supplies it when dispatching this skill on its own behalf. It gates **only row 4 below (the DB-hazard interview):** a driven run degrades that interview to its non-interactive path (row 4′) instead of prompting. **Other Before-starting steps that can prompt a human are unaffected** — e.g. the purely-numeric-title halt in step 3 above still halts and prompts even on a driven run.
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|
@@ -107,11 +111,9 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
    | 4′ | same as row 4 but (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven` present) | **sequential** | background leaf dispatch ok if the gate passes, else synchronous | loud `⚠` note + how to set `parallel: true`; **no persist** |
    | 5 | otherwise | **parallel** | background | quiet — default |
 
-   The outcome is `(mode ∈ {parallel, sequential}) × (dispatch ∈ {background, synchronous})`. Row 2 forces `synchronous` dispatch and, because concurrent leaf dispatch **requires** background dispatch, also forces `sequential` — this physical barrier overrides even `parallel: true` downward (no config can grant a tool the session has not allow-listed). All other sequential outcomes may still dispatch their leaves in the background when the gate passes.
+   **The permission pre-flight gate runs here, once** (per `### Permission pre-flight gate`). Union `permissions.allow` across the three settings layers; a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (the `### 4` loop's step 2 and `parallel-waves.md`'s Phase 1 step 3) **read this already-resolved decision** — the gate does **not** re-fire mid-loop.
 
-   **The permission pre-flight gate runs here, once** (per `### Permission pre-flight gate`) — it is the run's single background-dispatch permission decision (row 2). Union `permissions.allow` across the three settings layers; a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (the `### 4` loop's step 2 and `parallel-waves.md`'s Phase 1 step 3) **read this already-resolved decision** — the gate does **not** re-fire mid-loop.
-
-   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` is set AND `parallel` is absent from the profile. Fire it **once**, here at run start, before Phase 0. `unitTestCmd` presence is the **only** trigger — per-issue unit runs, which ride the concurrent implementer stage, are the only gate run *concurrently*; `e2eTestCmd` and any server-starting preflight are deferred to the serial merge tail and run once, so they are not a concurrency hazard. Prompt:
+   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` is set AND `parallel` is absent from the profile. Fire it **once**, here at run start, before Phase 0. `unitTestCmd` presence is the **only** trigger: per-issue unit runs are the only gate run *concurrently*; `e2eTestCmd` and any server-starting preflight are deferred to the serial merge tail and run once. Prompt:
 
       ```text
       ⚠ This repo runs unitTestCmd, and concurrent builds share external services like your
@@ -124,27 +126,25 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
       - **No** → run **sequential**; write `parallel: false`.
       - Either way, print the visible note: _"Recorded `parallel: <value>` in `.milestone-config/driver.json` — change it there anytime."_
 
-      **Persistence** is a minimal in-place JSON edit of `.milestone-config/driver.json` that adds the `parallel` key, preserving every other key and the file's formatting. It is the orchestrator's own working-tree edit — **not** committed, rides no PR (a local `.milestone-config/` decision the operator commits if they want it shared). Because this step runs **after** the clean-tree check (step 4), this single `parallel`-key edit is the one intentional uncommitted change the driver made — no clean-tree conflict, no preflight special-casing. This is the deliberate write-rule deviation for `parallel` (see `docs/profile-schema.md`): an explicit boolean is written whenever the decision is made — both `true` and `false` — because omitting it would re-fire the interview on the next run while `unitTestCmd` is present.
+      **Persistence** is a minimal in-place JSON edit of `.milestone-config/driver.json` that adds the `parallel` key, preserving every other key and the file's formatting. It is the orchestrator's own working-tree edit — **not** committed, rides no PR. Because this step runs **after** the clean-tree check (step 4), it is the one intentional uncommitted change the driver made. This is the deliberate write-rule deviation for `parallel` (see `docs/profile-schema.md`): an explicit boolean is written whenever the decision is made — both `true` and `false` — because omitting it would re-fire the interview on the next run while `unitTestCmd` is present.
 
-      **Non-interactive (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven` present — row 4′):** do **not** prompt. Fall to **sequential** with a loud note — `⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set "parallel": true in .milestone-config/driver.json to enable parallel builds.` — and do **NOT** persist a value (no human decision was made). This mirrors the versioning `NONINTERACTIVE` degradation in `### 3. Determine the target version`. **`--driven` forces this same degradation**: a driven run has no human watching, so `--driven` present makes row 4's "interactive" condition read false — exactly as `MILESTONE_DRIVER_NONINTERACTIVE=1` already does — without requiring the environment variable to be set.
+      **Non-interactive (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven` present — row 4′):** do **not** prompt. Fall to **sequential** with a loud note — `⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set "parallel": true in .milestone-config/driver.json to enable parallel builds.` — and do **NOT** persist a value (no human decision was made). This mirrors the versioning `NONINTERACTIVE` degradation in `### 3. Determine the target version`.
 
-      **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview fires and no value is persisted** (no hazard, no decision, so the profile is left byte-unchanged, per the "omit only when no decision was made" rule).
+      **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview fires and no value is persisted** (per the "omit only when no decision was made" rule).
 
-   **Surface the resolved mode.** State the resolved mode + reason in the run output; it drives Template 1's mode line (`## Output spec`) — one of `parallel` / `sequential (profile parallel:false)` / `sequential (permission gap — see 🔴)` / `sequential (test-isolation not confirmed)`.
+   **Surface the resolved mode.** State the resolved mode + reason in the run output; it drives Template 1's mode line (`## Output spec`).
 
 ## The procedure
 
 ### 1. List the milestone's open issues
-Run `gh issue list --milestone "<resolved-title>" --state open`.
-
-(Where `<resolved-title>` means the title from the canonical `{number, title}` resolved in Before-starting step 3.)
+Run `gh issue list --milestone "<resolved-title>" --state open`, where `<resolved-title>` is the title from the canonical `{number, title}` resolved in Before-starting step 3.
 
 ### 2. Determine the order
-The **milestone description is the ordering source of truth**. Read it (e.g. `gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'` or `gh api "repos/{owner}/{repo}/milestones?state=all" --jq '.[] | select(.title=="<resolved-title>") | .description'`) and follow the recorded Wave / dependency sequence. (Using the resolved number is more direct — prefer the by-number endpoint since it is already resolved.) If the description records no explicit order, fall back to ascending issue number and **state that assumption explicitly** in the run output — do not silently pick an order.
+The **milestone description is the ordering source of truth**. Read it (e.g. `gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'` or `gh api "repos/{owner}/{repo}/milestones?state=all" --jq '.[] | select(.title=="<resolved-title>") | .description'`) and follow the recorded Wave / dependency sequence; prefer the by-number endpoint. If the description records no explicit order, fall back to ascending issue number and **state that assumption explicitly** in the run output.
 
 ### 3. Determine the target version
 
-Read `versioning` from the profile. **Version-free mode** (`versioning: false`): skip this step entirely — no extraction, no prompt, no target version. Record "version-free run — no version determined or bumped" and proceed to Phase 0.
+Read `versioning` from the profile. **Version-free mode** (`versioning: false`): skip this step entirely. Record "version-free run — no version determined or bumped" and proceed to Phase 0.
 
 **Otherwise** (`versioning: true` or absent): determine the target version with the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (issue #158) — do **not** parse by judgment. Pipe the milestone's title + description as JSON to the extractor (bash where available, else pwsh):
 
@@ -161,15 +161,9 @@ The extractor prints the normalized version on **stdout**, or nothing — with a
 | empty + `none` | **version-free**, record "no parseable version in milestone — version-free run (logged)" | **prompt** the user: "No version found in milestone '<title>'. Enter a target version, or proceed version-free." |
 | empty + `ambiguous:<list>` | **version-free**, record "ambiguous version in title (<list>) — version-free run (logged)" | **prompt**, listing `<list>` as the candidates to choose from |
 
-**Non-interactive runs.** When `MILESTONE_DRIVER_NONINTERACTIVE=1` is set (scheduled / cron / headless), explicit `true` does **not** prompt — it degrades to version-free with a loud `⚠ explicit versioning:true but no parseable version — running version-free` warning and a logged note. The prompt path is interactive-main-thread only; this preserves unattended operation.
+**Non-interactive runs.** When `MILESTONE_DRIVER_NONINTERACTIVE=1` is set (scheduled / cron / headless), explicit `true` does **not** prompt — it degrades to version-free with a loud `⚠ explicit versioning:true but no parseable version — running version-free` warning and a logged note. The prompt path is interactive-main-thread only. The extractor is fail-open: any internal error yields empty + `none`, so a missing interpreter or malformed input degrades exactly like "no version found".
 
-The extractor is fail-open: any internal error yields empty + `none`, so a missing interpreter or malformed input degrades exactly like "no version found".
-
-> **Version source vs. version target.** In versioned mode the version **source** is the milestone (extracted here via the deterministic extractor). The version **target** is `.claude-plugin/plugin.json`; the missing-`plugin.json` fail-safe for that target is applied downstream at `solve-issue` step 6.4 (the bump step), not here. Step 3 determines the source only; it adds no fail-safe branch of its own.
->
-> **Precedence:** in versioned mode the milestone-derived target version is authoritative. The per-issue patch-default + confirm behavior in `solve-issue` does **not** fire inside a milestone run — the target version replaces it entirely.
->
-> **Handoff:** in versioned mode the same main thread runs both `solve-milestone` and each `solve-issue` invocation, so the target version is available directly from the orchestrator's working context — it is **not** passed as a CLI argument to `solve-issue`.
+> **In versioned mode:** the version **source** is the milestone (extracted here); the **target** is `.claude-plugin/plugin.json`, whose missing-`plugin.json` fail-safe is applied downstream at `solve-issue` step 6.4 (the bump step), not here. The milestone-derived target version is authoritative — the per-issue patch-default + confirm behavior in `solve-issue` does **not** fire inside a milestone run. The same main thread runs both `solve-milestone` and each `solve-issue` invocation, so the target version comes from the orchestrator's working context — it is **not** passed as a CLI argument to `solve-issue`.
 
 ### Phase 0 — Triage
 
@@ -179,18 +173,16 @@ Before the build loop begins, invoke the triage phase across the entire mileston
 /milestone-driver:triage <resolved-title>
 ```
 
-(Pass the resolved title — triage's bare-number path means single-issue mode, so always pass the title here. If the resolved title is purely numeric, the Before-starting step 3 guard applies — see the Caution there.)
+(Pass the resolved title — triage's bare-number path means single-issue mode.)
 
-1. **Present triage output.** Surface the all-clear or gap table in the run output so the operator can see what was found. The Wave-ordered dependency graph is included in triage's output regardless of whether there are gaps.
+1. **Present triage output.** Surface the all-clear or gap table in the run output. The Wave-ordered dependency graph is included in triage's output regardless of whether there are gaps.
 
-2. **Apply triage-recommended park labels.** Triage posts the `🔴 Triage` comment on each affected issue but does **not** apply labels — that is this skill's responsibility. For every issue where `issueStates[n].blockers == true`, apply its `issueStates[n].label` (`"needs design"` or `"needs decision"`) using the apply-time label helper from `skills/setup/SKILL.md` Phase 4:
+2. **Apply triage-recommended park labels.** Triage posts the `🔴 Triage` comment on each affected issue but does **not** apply labels — that is this skill's responsibility. For every issue where `issueStates[n].blockers == true`, apply its `issueStates[n].label` (`"needs design"` or `"needs decision"`) using the apply-time label helper from `${CLAUDE_PLUGIN_ROOT}/skills/setup/SKILL.md` Phase 4, with the hex color and description from its taxonomy table:
 
    ```
    gh label create "<name>" --color <hex> --description "<desc>" --force
    gh issue edit <n> --add-label "<name>"
    ```
-
-   Use the hex color and description from the taxonomy table in `${CLAUDE_PLUGIN_ROOT}/skills/setup/SKILL.md` Phase 4.
 
 2.5. If `integrations.trello` is configured, run trello-sync.md `## Phase 0 hooks` (best-effort).
 
@@ -198,13 +190,11 @@ Before the build loop begins, invoke the triage phase across the entire mileston
 
 ### 4. Loop over issues in dependency-graph order
 
-**Mode branch point.** If the run resolved to **parallel** mode (the *Resolve execution mode* Before-starting step): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md` and run its Wave loop (Parallelizable-set selection → Phase 1 → Phase 2 → Integration granularity) instead of this section's per-issue loop below — do not run steps 1–5 below. If `parallel-waves.md` is missing or unreadable at this point, that is a **systemic failure**: surface it and halt the run per `## Autonomy` → "Systemic failures that halt the run" (do **not** silently degrade to sequential, which would silently skip real dispatched work). If the run resolved to **sequential** mode: `parallel-waves.md` is **never read** — this section (steps 1–5, the buildable / not-buildable branches) runs byte-unchanged below.
-- **Granularity branch point.** If the Before-starting profile read resolved `integrationGranularity: "milestone"`, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md`: its `§ Branch model` and `§ Folding an issue into the milestone branch` own the mechanics behind condition (a) and every re-sync below, and are **not** restated here. Missing or unreadable once granularity has resolved to `"milestone"` is a **systemic failure** (same class as a missing `parallel-waves.md`; see that file's preamble and `## Autonomy` below). Under `"issue"` or `"wave"` it is **never read** and this whole section runs byte-unchanged. Orthogonal to the mode branch point above: both resolutions apply independently.
+**Mode branch point.** If the run resolved to **parallel** mode (the *Resolve execution mode* Before-starting step): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md` and run its Wave loop (Parallelizable-set selection → Phase 1 → Phase 2 → Integration granularity) instead of steps 1–5 below. If `parallel-waves.md` is missing or unreadable, that is a **systemic failure**: surface it and halt the run per `## Autonomy` → "Systemic failures that halt the run" — do **not** silently degrade to sequential, which would silently skip real dispatched work. In **sequential** mode `parallel-waves.md` is **never read** and this section runs below.
+- **Granularity branch point.** If the Before-starting profile read resolved `integrationGranularity: "milestone"`, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md`: its `§ Branch model` and `§ Folding an issue into the milestone branch` own the mechanics behind condition (a) and every re-sync below. Missing or unreadable once granularity has resolved to `"milestone"` is a **systemic failure** (same class as a missing `parallel-waves.md`; see that file's preamble and `## Autonomy` below). Under `"issue"` or `"wave"` it is **never read**. Orthogonal to the mode branch point above.
 - **Milestone branch creation.** Under `integrationGranularity: "milestone"`, cut the milestone branch `milestone-<number>-<slug>` from `integrationBranch` here, **before any issue branch** (`milestone-granularity.md § Branch model`); every issue branch this run is cut from it, and nothing reaches origin until milestone end.
 
-Create one TodoWrite item per issue. Drive the loop from the **validated dependency graph** produced by Phase 0. Process issues Wave by Wave; within a Wave, issues that are independent of each other may be treated as buildable in any order.
-
-For each issue, determine whether it is **buildable this pass**. An issue is buildable iff ALL THREE conditions hold:
+Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave, issues that are independent of each other may be treated as buildable in any order. For each issue, determine whether it is **buildable this pass**. An issue is buildable iff ALL THREE conditions hold:
 
 - **(a)** every issue in `dependencyGraph.edges["<n>"]` (the issues this issue directly DEPENDS_ON) is already merged to `integrationBranch`, or, under `integrationGranularity: "milestone"`, carries its `Issue: #<n>` trailer on the milestone branch, since nothing merges to `integrationBranch` before milestone end (`milestone-granularity.md § Resume and buildability from the trailer`); **AND**
 - **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'` and confirm none of `needs design`, `needs decision`, `blocked` is present. This live-label check is the **authoritative park-state**: it catches both triage parks labeled in Phase 0 AND prior-run build-time parks whose labels persist on the issue. A labeled issue must not be rebuilt until a human clears the label; **AND**
@@ -212,16 +202,14 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
 
 **If buildable:**
 
-1. Ensure the local build target is current: `integrationBranch` (`git fetch`, fast-forward), or, under `integrationGranularity: "milestone"`, the milestone branch, which is already current because nothing is pushed and each fold committed locally. Either way dependent issues build on already-integrated work.
-2. **Run `solve-issue <n>` on this main line, in-thread, never as a dispatched agent.** `solve-issue` dispatches an implementer and a review fan-out, so running the pipeline inside a dispatched agent would sit both at depth 2, where a completion notification never arrives and the issue strands mid-pipeline with work uncommitted and no park signal (`docs/architecture.md` → `## Dispatch topology`). The orchestrator runs the pipeline itself and dispatches those agents as leaves. The `--async` token that used to request background dispatch of the whole pipeline is retired and inert (`skills/solve-issue/async-mode.md`).
+1. Ensure the local build target is current: `integrationBranch` (`git fetch`, fast-forward), or, under `integrationGranularity: "milestone"`, the milestone branch, which is already current because nothing is pushed and each fold committed locally.
+2. **Run `solve-issue <n>` on this main line, in-thread, never as a dispatched agent.** `solve-issue` dispatches an implementer and a review fan-out, so running the pipeline inside a dispatched agent would sit both at depth 2, where a completion notification never arrives and the issue strands mid-pipeline with work uncommitted and no park signal (`docs/architecture.md` → `## Dispatch topology`); the orchestrator runs the pipeline itself and dispatches those agents as leaves. The `--async` token is retired and inert (`skills/solve-issue/async-mode.md`).
 
-   **Restate both held values inline when invoking, with ACTUAL VALUES:** the Phase 0 triage result for step 0 (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]") so step 0's Branch A reuses it instead of re-invoking triage, and the target version for step 6.4's milestone-run path (e.g. `targetVersion: <x.y.z>`). If either is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage), and step 6.4 **re-derives** the target version from the milestone rather than asking (`skills/solve-issue/SKILL.md` step 6.4, standalone bullet: the ask never fires inside a milestone run, because this loop never waits on a human). Both are safe defaults, never an error, and neither prompts.
+   **Restate both held values inline when invoking, with ACTUAL VALUES:** the Phase 0 triage result for step 0 (e.g. "step-0 result for #N: { blockers: false, label: null, advisories: [...], risk: light }, edges: [...]") so step 0's Branch A reuses it instead of re-invoking triage, and the target version for step 6.4's milestone-run path (e.g. `targetVersion: <x.y.z>`). If either is no longer reliably in context (long run, context compression), step 0 falls to Branch B (fresh single-issue triage), and step 6.4 **re-derives** the target version from the milestone rather than asking (`skills/solve-issue/SKILL.md` step 6.4, standalone bullet). Neither prompts.
 
-   The **background-dispatch permission decision already resolved at run start** (the *Resolve execution mode* Before-starting step, row 2 — the permission pre-flight gate ran there; do NOT re-run it) still governs the leaves `solve-issue` dispatches from here: a gap makes those dispatches synchronous for this run, which costs concurrency and nothing else. When the issue finishes, re-sync the local build target, then take the next issue: `integrationBranch` (`git fetch`, fast-forward), or, under `integrationGranularity: "milestone"`, the milestone branch, where nothing was pushed so the re-sync is a no-op and the fold below is what advanced it.
+   The **background-dispatch permission decision already resolved at run start** (the *Resolve execution mode* Before-starting step, row 2 — the permission pre-flight gate ran there; do NOT re-run it) still governs the leaves `solve-issue` dispatches from here: a gap makes those dispatches synchronous for this run. When the issue finishes, re-sync the local build target, then take the next issue: `integrationBranch` (`git fetch`, fast-forward), or, under `integrationGranularity: "milestone"`, the milestone branch, where nothing was pushed so the re-sync is a no-op and the fold below is what advanced it.
 
-   **Operator redirect window.** Between issues the main line is interactive, so the operator can redirect before the next issue begins. **SendMessage addressing:** the main line CAN send a dispatched leaf a mid-run message (delivered at its next tool-use round, not instantaneously) — but only by that leaf's own dispatched ID/name; an agent-TYPE name (e.g. `milestone-driver:implementer`) is not a reachable address, and only the session that spawned the leaf can message it.
-
-   **Dispatched leaves never call PushNotification** — confirmed absent from subagent tool registries (see issue #97 recorded decision); the main line emits at this boundary.
+   **Operator redirect window.** Between issues the main line is interactive, so the operator can redirect before the next issue begins. **SendMessage addressing:** the main line CAN send a dispatched leaf a mid-run message (delivered at its next tool-use round, not instantaneously) — but only by that leaf's own dispatched ID/name; an agent-TYPE name (e.g. `milestone-driver:implementer`) is not a reachable address, and only the session that spawned the leaf can message it. **Dispatched leaves never call PushNotification** — confirmed absent from subagent tool registries (see issue #97 recorded decision); the main line emits at this boundary.
 
    **Sequential mode only** (parallel mode emits its parks at `parallel-waves.md`'s Phase 1 step 9): After each issue completes in **sequential mode**, post the chunk-boundary board first (Template 2), then emit a `PushNotification` for the terminal state of the just-completed issue:
    - **Issue parked** (any park subtype — triage-park, dependency-hold, STOP/build-park): emit `⏸️ #N parked — <reason>` (where `<reason>` is the park label + brief blocker description, e.g. "needs decision: new dependency").
@@ -233,35 +221,33 @@ For each issue, determine whether it is **buildable this pass**. An issue is bui
    c. The STOP/PAUSE reason is already recorded on the issue (by `solve-issue` or the implementer). Confirm it is there **and that it fills all three slots of the park-comment shape** (`skills/output-style.md`) — reason · evidence · what unblocks it; if it is missing, or is present but carries no evidence slot, post it (or the missing slot) via `gh issue comment <n>`.
    d. Leave the issue open; note it in the run output.
    e. Continue to the next issue in the dependency graph whose dependencies are merged.
-4. **On success**, `/milestone-driver:solve-issue` has reached one of two terminal states: for a **non-UI issue** it has squash-merged to `integrationBranch` and closed the issue; for a **UI issue** held at the visual-review gate (`solve-issue` steps 7–9) it has left the PR **open** with the `needs review` label — not merged, issue not closed — for human visual sign-off (the final summary reports these open PRs). For non-UI merged issues, if `integrations.trello` is present and a card handle was resolved, tick the checklist item for issue `#<n>` per `trello-sync.md § Issue granularity` (under `## Loop hooks`; best-effort; failure logged, loop continues). Re-sync the local build target before the next issue either way, `integrationBranch` (`git fetch`, fast-forward) or, under `integrationGranularity: "milestone"`, the milestone branch — for a UI issue nothing was merged, so the re-sync is a no-op.
+4. **On success**, `/milestone-driver:solve-issue` has reached one of two terminal states: for a **non-UI issue** it has squash-merged to `integrationBranch` and closed the issue; for a **UI issue** held at the visual-review gate (`solve-issue` steps 7–9) it has left the PR **open** with the `needs review` label, issue not closed, for human visual sign-off. For non-UI merged issues, if `integrations.trello` is present and a card handle was resolved, tick the checklist item for issue `#<n>` per `trello-sync.md § Issue granularity` (under `## Loop hooks`; best-effort; failure logged, loop continues). Re-sync the local build target before the next issue either way (step 2 above); for a UI issue nothing was merged, so it is a no-op.
    - **Milestone granularity: fold first, then re-sync.** There is no terminal state above to observe: `solve-issue` opened no PR, merged nothing, held no UI issue, and closed nothing (`skills/solve-issue/SKILL.md (Resolved from the profile at step)`). This loop instead squash-merges the completed issue's branch onto the milestone branch and commits it, running the same steps the parallel Phase 2 tail runs, per `milestone-granularity.md § Folding an issue into the milestone branch`; neither caller carries its own copy, and a conflict or red re-verify parks `blocked` there and continues.
    - That commit's `Issue: #<n>` trailer is what condition (a) above reads for the next issue (`milestone-granularity.md § Resume and buildability from the trailer`). A parked issue leaves no trailer, so its dependents stay unbuildable this run.
 
 **If not buildable (triage-parked, live-label park, or dependency not yet merged):**
 
-- **Triage-parked or prior-run park** (`issueStates[n].blockers == true` OR live labels include a blocker label): in the common case the blocker label is already present (applied in Phase 0 or by a prior run); no build attempt. However, if Phase 0's label application was interrupted (e.g., a transient `gh` error), the label may be unexpectedly absent — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`. If none of `needs design`, `needs decision`, or `blocked` is present, apply `issueStates[n].label` now via the apply-time label helper (`gh label create … --force` + `gh issue edit <n> --add-label …`) before proceeding. This makes the branch idempotent and ensures the handoff label is always on the issue. Apply `in progress` (via the apply-time helper) if a feature branch for this issue already exists with commits (check `git branch -a`). Note the issue in the run output (label + blocker reason) and continue.
+- **Triage-parked or prior-run park** (`issueStates[n].blockers == true` OR live labels include a blocker label): no build attempt. The blocker label is normally already present (applied in Phase 0 or by a prior run), but if Phase 0's label application was interrupted (e.g. a transient `gh` error) it may be absent — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`. If none of `needs design`, `needs decision`, or `blocked` is present, apply `issueStates[n].label` now via the apply-time label helper (`gh label create … --force` + `gh issue edit <n> --add-label …`) before proceeding. Apply `in progress` (via the apply-time helper) if a feature branch for this issue already exists with commits (check `git branch -a`). Note the issue in the run output (label + blocker reason) and continue.
 
-  > **One blocker label per issue.** A parked issue carries exactly ONE blocker label. Do not apply `blocked` to an issue that already carries `needs design` or `needs decision` — the triage/design label is the root block and takes precedence; `blocked` would be redundant. (`in progress` is orthogonal and may still be applied.)
+  > **One blocker label per issue.** A parked issue carries exactly ONE blocker label. Do not apply `blocked` to an issue that already carries `needs design` or `needs decision` — the triage/design label is the root block and takes precedence. (`in progress` is orthogonal and may still be applied.)
 
-- **Dependency not yet merged** (condition (a) fails but conditions (b) and (c) pass — the issue is NOT itself triage- or live-label-parked): apply the `blocked` label (and `in progress` if a branch with commits exists) via the apply-time helper, and post a comment in the blocked-comment shape (`skills/output-style.md` — reason · evidence · what unblocks it, where the evidence slot is this issue's OWN unmerged upstream numbers) with the opener byte-unchanged:
+- **Dependency not yet merged** (condition (a) fails, (b) and (c) pass): apply the `blocked` label (and `in progress` if a branch with commits exists) via the apply-time helper, and post a comment in the blocked-comment shape (`skills/output-style.md` — reason · evidence · what unblocks it, where the evidence slot is this issue's OWN unmerged upstream numbers) with the opener byte-unchanged:
   `gh issue comment <n> --body "🔴 Blocked — dependency-ordering hold; no design or decision work is needed for this issue itself. Evidence: unmerged upstream(s) #<each unmerged issue in edges[\"<n>\"]>. Unblocks: merge the upstream(s) and clear any upstream parks, then remove this \`blocked\` label and re-run solve-milestone to build this issue."`
-  Then hold every transitive dependent (any issue whose `dependencyGraph.edges` include this issue or another held issue): for EACH such issue m, **before applying `blocked`**, check m's live labels (`gh issue view <m> --json labels --jq '[.labels[].name]'`). If m already carries `needs design`, `needs decision`, or `blocked`, do NOT add another blocker label — the existing label stands (one blocker label per issue). Otherwise apply `blocked` (+ `in progress` if it has a branch). In all cases post the same KIND of comment naming m's OWN unmerged upstream(s) from `edges["<m>"]` — not this issue's (same wording: dependency-ordering hold, clear `blocked` label and re-run). Note all held issues in the run output and continue with independent buildable issues.
+  Then hold every transitive dependent (any issue whose `dependencyGraph.edges` include this issue or another held issue): for EACH such issue m, **before applying `blocked`**, check m's live labels (`gh issue view <m> --json labels --jq '[.labels[].name]'`). If m already carries `needs design`, `needs decision`, or `blocked`, do NOT add another blocker label. Otherwise apply `blocked` (+ `in progress` if it has a branch). In all cases post the same KIND of comment naming m's OWN unmerged upstream(s) from `edges["<m>"]` — not this issue's (same wording: dependency-ordering hold, clear `blocked` label and re-run). Note all held issues in the run output and continue with independent buildable issues.
 
-The loop **never waits on a human**. It runs to completion — every issue is either done (merged), **held at the visual-review gate** (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked (labeled, branch open if applicable, comment posted). Comment provenance by park type: triage-parked issues carry the `🔴 Triage` comment posted by Phase 0; build-time STOP/PAUSE parks carry the reason confirmed or posted at the park step (step 3c above); dependency-held issues carry the `🔴 Blocked` comment posted in the dependency-not-yet-merged branch above. The run ends when no more buildable issues remain.
+The loop **never waits on a human**. It runs to completion — every issue is either done (merged), **held at the visual-review gate** (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked (labeled, branch open if applicable, comment posted). Comment provenance by park type: triage-parked issues carry the `🔴 Triage` comment posted by Phase 0; build-time STOP/PAUSE parks carry the reason confirmed or posted at the park step (step 3c above); dependency-held issues carry the `🔴 Blocked` comment posted in the dependency-not-yet-merged branch above.
 
 In **versioned mode** the **first issue's PR** sets `plugin.json` to the target version. Every subsequent issue's PR is **idempotent** — if `plugin.json` already carries the target version, the version bump step in `solve-issue` makes no change. In **version-free mode** (`versioning: false`) no PR carries a version change at all.
 
 ### Parallelizable-set selection (parallel mode)
 
-Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallelizable-set selection (parallel mode)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `parallel-waves.md § Parallelizable-set selection (parallel mode)` — read there in parallel mode only (`### 4. Loop over issues in dependency-graph order`, mode branch point, carries the path).
 
 ### Permission pre-flight gate
 
 **Runs once per run, at run-start mode resolution (the *Resolve execution mode* Before-starting step, row 2), before any dispatch.**
 
-**Scope: this gate applies whenever background dispatch is about to be used — now the default path** (parallel-by-default, plus the leaves the sequential loop dispatches). It runs once at run-start mode resolution (row 2); the mode cascade and the loop then **read** its result. A run that resolves to purely synchronous dispatch incurs no further gate cost.
-
-Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior). A background leaf hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. At run-start mode resolution (row 2), before any background dispatch, run this gate to verify the session's permission allowlist is complete.
+**Scope: this gate applies whenever background dispatch is about to be used** (parallel-by-default, plus the leaves the sequential loop dispatches); the mode cascade and the loop then **read** its result. Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior), and a background leaf hitting an un-allowlisted tool fails outright with no interactive recovery — park-don't-prompt becomes physically enforced. This gate verifies the session's permission allowlist is complete before that can happen.
 
 **Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
 
@@ -271,7 +257,7 @@ Background subagents auto-deny any tool call that would otherwise prompt (docume
 | 2 | `.claude/settings.json` (project) |
 | 3 | `.claude/settings.local.json` (project local) |
 
-Absent or unreadable layers are skipped in the union (not treated as gaps). The union covers all readable layers. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
+Absent or unreadable layers are skipped in the union (not treated as gaps). Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
 
 **Pipeline tool surface.** The allowlist must cover, at minimum:
 
@@ -289,34 +275,34 @@ Absent or unreadable layers are skipped in the union (not treated as gaps). The 
 - **No gaps:** proceed with background dispatch as planned.
 - **Gap detected (union does not cover the required surface, or no layer is readable):** do **not** dispatch in the background. Instead:
   1. Surface a 🔴 gap table listing each missing grant and which settings layer(s) could supply it.
-  2. **Fall back to synchronous dispatch for this run** — today's sequential behavior, unchanged. The run completes; it just does not use background concurrency.
+  2. **Fall back to synchronous dispatch for this run.** The run completes; it just does not use background concurrency.
   3. Recommend the consumer run `/fewer-permission-prompts` to establish a stable allowlist (see `docs/consumer-setup.md`).
 
-The gate fires **once per run**, not once per issue — at run-start mode resolution (row 2). After that single decision, the result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
+The result (proceed / fallback) is held for the rest of the run — do not re-read settings on every issue.
 
-**Auto-deny handling.** If a background leaf reports an auto-deny it could not work around, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and continue with the next issue. The comment and label are the durable record; the orchestrator runs on the main line, so nothing else has to carry the park back. This is the same park-don't-prompt contract all other gates use — an auto-deny is not a silent failure.
+**Auto-deny handling.** If a background leaf reports an auto-deny it could not work around, treat it as a **park** — post a `blocked` comment on the issue naming the denied tool, apply the `blocked` label (+ `in progress` if the branch has commits), preserve the branch, and continue with the next issue. The comment and label are the durable record.
 
 ### Parallel mode — Phase 1: concurrent stage dispatch
 
-Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch` — read there in parallel mode only (`### 4. Loop over issues in dependency-graph order`, mode branch point, carries the path).
 
 ### Parallel mode — Phase 2: serial verified merge tail
 
-Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail` — read there in parallel mode only (`### 4. Loop over issues in dependency-graph order`, mode branch point, carries the path).
 
 ### Integration granularity (issue vs wave)
 
-Relocated to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md § Integration granularity (issue vs wave)` — read there when the run resolves to parallel mode (see the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` above).
+Relocated to `parallel-waves.md § Integration granularity (issue vs wave)` — read there in parallel mode only (`### 4. Loop over issues in dependency-graph order`, mode branch point, carries the path).
 
 ### 5. Finish
-Continue until every issue is done (merged), held at the visual-review gate (a UI issue with an open `needs review` PR awaiting human visual sign-off), or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
+Continue until every issue is done (merged), held at the visual-review gate, or parked. The run ends when no more buildable issues remain — not because it is waiting on a human.
 If `integrations.trello` is present, apply `## Finish hooks` from `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
 
 ## Autonomy
 
-- **Unattended between systemic failures.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues — it does **not** halt the loop. Only a systemic failure ends the run early.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), a missing or unreadable `skills/solve-milestone/parallel-waves.md` when the run has resolved to parallel mode (core default-on machinery, not a best-effort integration — unlike `trello-sync.md` / `coherenceReviewAgent`, which degrade silently). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, then present the final summary and stop — the `## Run-complete notification` section (below `## Final summary`) emits the `🚨 Run halted — <reason>` notification, after which the run-end cost record fires as that section's final step (see the section's **Run-end cost record**).
-- **Architecture is locked** per issue at its plan-approval time. The loop executes approved architecture; it does not pivot. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
+- **Unattended between systemic failures.** Within an explicit `/milestone-driver:solve-milestone` run, operate autonomously. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues. Only a systemic failure ends the run early.
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), a missing or unreadable `skills/solve-milestone/parallel-waves.md` when the run has resolved to parallel mode (core default-on machinery, not a best-effort integration like `trello-sync.md` / `coherenceReviewAgent`, which degrade silently). These are conditions where no further issue can make progress. Surface the failure, leave the working tree clean and all in-flight issues parked, then present the final summary and stop — the `## Run-complete notification` section emits the `🚨 Run halted — <reason>` notification.
+- **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For the bounded definition of architecture vs implementation detail (the decision test), see the Autonomy model in `solve-issue`.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch` (enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection).
 
 ## Output spec
@@ -363,9 +349,7 @@ Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
 ### Template 3 — Final results
 
-Use as the layout for the Final summary section (see `## Final summary` below).
-<!-- Post-run summary: columns differ from Template 2 by design — Gates is omitted (not relevant post-merge), Result → Outcome, Note → Follow-up (action-oriented framing). -->
-Populate the metadata lines below the table from the `## Final summary` requirements below: derive each field from the run's tracked context.
+Use as the layout for the Final summary section (see `## Final summary` below); populate the metadata lines below the table from that section's requirements, derived from the run's tracked context.
 
 ```text
 🏁 v[version] complete · [T] min · ✅ [M] merged · 👁️ [U] open · ⏸️ [P] parked
@@ -390,29 +374,27 @@ PR cell: show the PR number if the issue has one, else —.
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract, and the same file every other skill's `## Output style` and every agent's `## Communication style` points at. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule, which applies to this skill); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR body, and CHANGELOG entry this skill writes. The two surfaces are distinct — the terminal rules never reach GitHub.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule, which applies to this skill); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR body, and CHANGELOG entry this skill writes.
 
 ## Final summary
 
-Use Template 3 from `## Output spec` (above) as the layout for this summary. All content requirements below remain in effect — each bullet maps to a row or section in the template.
-
-On completion or systemic-failure halt, report:
+Use Template 3 from `## Output spec` (above) as the layout. On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch` (with PR links).
-- **Issues parked** — for each: the issue number and title, the park label applied, the blocker reason, and the open feature branch (if applicable). Report each parked issue's blocker reason from the run's tracked context — the loop recorded WHY each issue was parked as it happened (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). If a reason is not in active context, read the issue's comments (`gh issue view <n> --json comments`) and use the most recent format-matching comment on the issue (which may be from a prior run — e.g. a cache-HIT park posts no fresh comment). A format-matching comment is one whose body opens with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first — take the LAST format-matching comment. Back-compat note: issues parked by pre-1.7.0 runs may carry un-anchored build-park comments; if no anchored match exists, report "park reason not recorded (pre-1.7.0 park format)". Do **not** invent or hallucinate a reason.
-- **Open UI PRs** awaiting human merge: PRs carrying the `needs review` label (UI issues per issue #18 that were built but left open for visual sign-off), listed with their PR links.
+- **Issues parked** — for each: the issue number and title, the park label applied, the blocker reason, and the open feature branch (if applicable). Report each parked issue's blocker reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). If a reason is not in active context, read the issue's comments (`gh issue view <n> --json comments`) and use the most recent format-matching comment on the issue, which may be from a prior run. A format-matching comment is one whose body opens with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first — take the LAST format-matching comment. Back-compat note: issues parked by pre-1.7.0 runs may carry un-anchored build-park comments; if no anchored match exists, report "park reason not recorded (pre-1.7.0 park format)". Do **not** invent or hallucinate a reason.
+- **Open UI PRs** awaiting human merge: PRs carrying the `needs review` label (UI issues per issue #18, built but left open for visual sign-off), listed with their PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section** in their body — flagged, like `judgment call` PRs, as requiring post-run human review before the `integrationBranch` → `protectedBranch` merge.
-- **Auto-resolved-conflict issues** (parallel mode) — issues whose merge conflict the serial verified merge tail **auto-resolved** (bounded auto-resolve) before merging, listed so a human can sanity-check the reconciliation.
-- **Per-Wave parallel-set sizes** (parallel mode) — for each Wave, how many issues built **concurrently** (the parallelizable-set size dispatched that Wave).
-- **The run ended because** all issues are done (merged), held at the visual-review gate (open `needs review` PRs), or parked — not because it is waiting on a human.
-- The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, merge `integrationBranch` → `protectedBranch` with `--merge` (not squash), merging the release PR *before* tagging, then **back-merge `protectedBranch` → `integrationBranch`** (history-only, conflict-free, keeps `integrationBranch` tag-current and topologically even) (full ordered runbook in `docs/consumer-setup.md` § "Releasing to your protected branch"), close the GitHub milestone object (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed` — the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself), and deploy manually.
+- **Auto-resolved-conflict issues** (parallel mode) — issues whose merge conflict the serial verified merge tail **auto-resolved** (bounded auto-resolve) before merging, for a human to sanity-check.
+- **Per-Wave parallel-set sizes** (parallel mode) — for each Wave, the parallelizable-set size dispatched that Wave.
+- **The run ended because** no buildable issues remain — not because it is waiting on a human.
+- The next human step: review parked issues and the open `needs review` PRs; clear the park labels when the blockers are resolved and re-run to pick up the remaining work; when all work is merged, run the release sequence in Template 3's `🔴 Your move:` item 3 above verbatim — the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself — and deploy manually.
 
-**Output ordering (clean-completion path only):** On the clean-completion path, do not emit the Template 3 final summary until after step 6 completes (see step 6.9 — the CHANGELOG result is appended to the `🔴 Your move:` section before the summary is output). On the systemic-halt path, step 6 is skipped entirely (per step 6's preamble) — emit the Template 3 final summary immediately.
+**Output ordering (clean-completion path only):** On the clean-completion path, do not emit the Template 3 final summary until after step 6 completes (see step 6.9). On the systemic-halt path, step 6 is skipped entirely (per step 6's preamble) — emit the Template 3 final summary immediately.
 
 ### 6. Author the CHANGELOG entry
 
-**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the `## Run-complete notification` section. The systemic-halt path is identified by the fact that the run ended with a 🚨 reason (not a 🏁 reason).
+**This step runs on the CLEAN COMPLETION PATH ONLY.** When the Autonomy section's systemic-halt path reaches the Final summary, skip this step entirely and proceed directly to the `## Run-complete notification` section. The systemic-halt path ends with a 🚨 reason, not a 🏁 reason.
 
 **Guard — skip this step entirely if any condition holds:**
 
@@ -421,30 +403,26 @@ On completion or systemic-failure halt, report:
 
 The parked count is derived from this run's **in-context tracking** — it counts ALL issues that did not reach "merged" or "held at visual-review gate" status in this run: issues parked at build time, issues skipped due to triage blockers, AND issues excluded by the buildability check due to a live blocker label (e.g., `blocked` from a prior run). This is the `⏸️ P` count in Template 3's summary line. Do NOT re-derive via a live `gh issue list` query — a live query may find labels unrelated to this run's completion status.
 
-If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the `## Run-complete notification` section.
-
-Only proceed through steps 6.1–6.9 when **every issue in the milestone is either merged (non-UI) or held at the visual-review gate (UI)** — i.e. no parks. Visual-review holds (open `needs review` PRs for UI issues) are expected clean-completion state and do NOT block CHANGELOG authoring.
+If any condition holds, post to the run output: _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and proceed directly to the `## Run-complete notification` section. Visual-review holds (open `needs review` PRs for UI issues) are expected clean-completion state and do NOT block CHANGELOG authoring.
 
 #### 6.1 Idempotency check
 
 Determine the heading prefix based on the versioning mode:
 
 - **Versioned mode** (`versioning: true` or absent): prefix is `## v<target-version> ` (with a trailing space)
-- **Version-free mode** (`versioning: false`): full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. Strip leading and trailing whitespace (including `\r` on Windows) from each line before comparing — the trimmed line content must equal the heading with no additional characters. This prevents false-positive matches against entries like `## Q3 Hardening` when the current milestone is titled `Q3`. **Suffix caveat, version-free mode only.** A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal to `## <milestone title>`, so the equality match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
+- **Version-free mode** (`versioning: false`): full-line equality on the trimmed line — strip leading and trailing whitespace (including `\r` on Windows), then require `trim(line) == '## <milestone title>'` with no additional characters. **Suffix caveat, version-free mode only.** A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal to `## <milestone title>`, so the equality match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
 
-If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync). Scan each line for the prefix starting at the beginning of the line. For versioned mode use a line-start prefix match on the trimmed line; for version-free mode use a full-line equality match after stripping whitespace: `trim(line) == '## <milestone title>'`. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the `## Run-complete notification` section. If no match → continue. **Suffix caveat, version-free mode only.** A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal to `## <milestone title>`, so the equality match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
-
-If `CHANGELOG.md` is absent, treat it as "no existing entry" and continue.
+If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync) and scan each line, from the start of the trimmed line, with the mode's match rule above. If a match is found → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to the `## Run-complete notification` section. If no match → continue. If `CHANGELOG.md` is absent, treat it as "no existing entry" and continue.
 
 #### 6.2 Fetch PR summaries
 
-For each issue merged in this run, look up its PR number from the **run's in-context issue→PR tracking table** (the same data that populates Template 2 and Template 3's PR column). If the PR number for a particular issue is not in active context, fall back to querying the issue's closing PR references:
+For each issue merged in this run, look up its PR number from the **run's in-context issue→PR tracking table**. If the PR number for a particular issue is not in active context, fall back to querying the issue's closing PR references:
 
 ```bash
 gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | map(select(.state == "MERGED")) | .[0].number // empty'
 ```
 
-Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. If it is null or empty (no linked PR found), apply the following fallback: use the issue title as the What-column content for that issue and skip `gh pr view` for that issue. Record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
+Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. If it is null or empty (no linked PR found), use the issue title as that issue's What-column content and skip `gh pr view`. Record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
 
 When a valid PR number is confirmed, call:
 
@@ -465,9 +443,7 @@ Record a triple for each issue: `{ issue: #N, pr: #P, summary: "<extracted line>
 Group the merged issues into two buckets based on labels and title prefixes:
 
 - **✨ Features / enhancements:** issues with label `enhancement`, `feature`, or title prefixes `feat(`, `polish(`. Issues that don't clearly match either bucket default to this one.
-- **🔧 Fixes:** issues with label `bug` or `fix`, or title prefixes `fix(`.
-
-A single issue belongs to exactly one bucket. If an issue matches both, prefer the fix bucket.
+- **🔧 Fixes:** issues with label `bug` or `fix`, or title prefixes `fix(`. An issue belongs to exactly one bucket; if it matches both, prefer this one.
 
 #### 6.4 Determine the milestone theme
 
@@ -477,9 +453,7 @@ A single issue belongs to exactly one bucket. If an issue matches both, prefer t
 
 #### 6.5 Author the CHANGELOG entry
 
-Construct the markdown block using the structure below. Mirror the v1.7.0 entry in `CHANGELOG.md` exactly — same heading format, same table schema, same section names.
-
-**Versioned mode entry:**
+Construct the markdown block below, mirroring the v1.7.0 entry in `CHANGELOG.md` exactly — same heading format, same table schema, same section names. **Versioned mode entry:**
 
 ```markdown
 ## v<target-version> — <milestone theme>
@@ -508,34 +482,7 @@ Construct the markdown block using the structure below. Mirror the v1.7.0 entry 
 Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
 ```
 
-**Version-free mode entry** (omit the version number and theme suffix; include Consumer notes and ⚖️ Post-run audit trail sections using the same rules as versioned mode — only the heading format differs):
-
-```markdown
-## <milestone title>
-
-**Theme:** <one-sentence theme description>
-
-### ✨ <Feature category label>
-
-| Issue | PR | What |
-|---|---|---|
-| #N <issue title> | #P | <summary line> |
-
-### 🔧 Fixes
-
-| Issue | PR | What |
-|---|---|---|
-| #N <issue title> | #P | <summary line> |
-
-### Consumer notes
-
-- <upgrade-relevant behavior changes, new artifacts, schema impact>
-- **No schema changes** to `.milestone-config/driver.json` (include this line only when true)
-
-### ⚖️ Post-run audit trail
-
-Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
-```
+**Version-free mode entry:** the block above with exactly two lines changed — the entry heading becomes `## <milestone title>` (no version, no ` — <milestone theme>` suffix) and the Consumer notes heading becomes `### Consumer notes` (no prev-version parenthetical). Every other line, including both tables and the ⚖️ Post-run audit trail section, is identical.
 
 Rules for authoring the entry:
 
@@ -544,10 +491,10 @@ Rules for authoring the entry:
 - Omit the `### ✨` section entirely if there are no feature-bucket issues (unusual, but possible).
 - Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".
 - Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes — authored from what was actually built. Include the "No schema changes" line only when confirmed true.
-- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (the same set used for the Template 3 row entries — do NOT re-query `gh pr list`; read from context); write "none" if the list is empty.
+- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (do NOT re-query `gh pr list`; read from context); write "none" if the list is empty.
 - Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. If CHANGELOG is absent or contains no `## v...` heading, use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched CHANGELOG.md, then run `git show <commit>:CHANGELOG.md | grep '^## v' | head -1` to extract the most recent version heading from history. If no prior CHANGELOG exists in history, omit the prev-version parenthetical from the Consumer notes heading and use simply `### Consumer notes`. Do NOT use `plugin.json` as a fallback — `plugin.json` holds the target version, not the previous one.
 
-**Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose that precedes the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create a new one with a standard `# Changelog` header and intro paragraph, then append the new entry below. To retrieve an existing structure as a template: first run `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched the file, then run `git show <commit>:CHANGELOG.md` to retrieve the content. If no prior version exists in history, use a minimal header (`# Changelog` followed by a blank line).
+**Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose that precedes the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create a new one with a standard `# Changelog` header and intro paragraph, then append the new entry below. To retrieve an existing structure as a template, find the most recent commit that touched the file with the `git log` command in the prev-version rule above, then run `git show <commit>:CHANGELOG.md` to retrieve the full content. If no prior version exists in history, use a minimal header (`# Changelog` followed by a blank line).
 - **Milestone granularity: steps 6.6 to 6.8 do not run.** Under `integrationGranularity: "milestone"` the entry authored above is committed onto the milestone branch instead: no `docs/changelog-<slug>` branch is cut and no second PR is opened. Run `milestone-granularity.md § Milestone end: one push, one PR, one CI run` in their place (it also owns the red-CI handler), then continue at step 6.9 below.
 
 #### 6.6 Determine the branch name
@@ -557,9 +504,7 @@ Rules for authoring the entry:
 
 #### 6.7 Open the doc-only PR
 
-Cut the branch from the current `integrationBranch` tip (step 6.7 re-syncs integrationBranch inline before branching — do not rely on a prior re-sync having occurred):
-
-If the docs branch already exists from a prior interrupted run (local or on remote), check it out instead of creating it anew. This makes step 6.7 re-runnable.
+Cut the branch from the current `integrationBranch` tip — this step re-syncs inline, so do not rely on a prior re-sync:
 
 ```bash
 # Ensure integrationBranch is current before cutting the docs branch
@@ -575,21 +520,17 @@ else
   git checkout -b docs/changelog-<slug> <integrationBranch>
 fi
 # edit CHANGELOG.md as authored in step 6.5
-# If CHANGELOG.md was already committed on this branch (re-run after interruption), the commit is skipped (CHANGELOG is already in place).
 git add CHANGELOG.md
-# Run exactly ONE of the following — choose based on versioning mode:
+# Run exactly ONE of the next two lines: the first when `versioning` is true or absent, the second (uncommented) when `versioning: false`.
 git diff --cached --quiet || git commit -m "docs: v<version> release notes"           # VERSIONED MODE
 # git diff --cached --quiet || git commit -m "docs: <milestone-title> release notes"  # VERSION-FREE MODE
-# Run the versioned commit line when `versioning` is true or absent; uncomment the version-free line (and comment out the versioned line) when `versioning: false`.
 git push -u origin docs/changelog-<slug>
 # Check if a PR already exists for this branch (re-run safety)
 existing_pr=$(gh pr list --head "docs/changelog-<slug>" --json number --jq '.[0].number // empty' 2>/dev/null)
 if [ -n "$existing_pr" ]; then
   echo "CHANGELOG PR already open: #$existing_pr"
 else
-  # PR title uses the versioned or version-free form depending on mode:
-  #   Versioned:    "docs: v<version> release notes"
-  #   Version-free: "docs: <milestone-title> release notes"
+  # PR title: the same versioned / version-free form as the commit message above.
   gh pr create \
     --base <integrationBranch> \
     --title "docs: <title>" \
@@ -610,7 +551,7 @@ Record the PR number and URL — either the newly created PR or the existing one
 
 #### 6.8 Handle CI result
 
-The PR is doc-only; CI is typically vacuously green (no required status checks on a documentation-only change). Immediately attempt:
+The PR is doc-only; CI is typically vacuously green. Immediately attempt:
 
 ```bash
 gh pr merge <pr-number> --squash --delete-branch
@@ -621,29 +562,26 @@ gh pr merge <pr-number> --squash --delete-branch
   ```bash
   git checkout <integrationBranch>
   git fetch
-  git merge --ff-only origin/<integrationBranch>   # fast-forward local branch to include the squash-merge commit
-  # fast-forward local branch — git fetch alone does not advance the local ref
-  git branch -d docs/changelog-<slug>   # safe to delete: local tip is reachable from integrationBranch after fast-forward
+  git merge --ff-only origin/<integrationBranch>   # git fetch alone does not advance the local ref
+  git branch -d docs/changelog-<slug>
   ```
 
 - **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR (`gh pr edit <pr-number> --add-label "needs review"`). Add a 🔴 item to the run output:
 
   > 🔴 CHANGELOG PR needs human merge (CI red): #P — <pr-url>
 
-  Return to `integrationBranch` but preserve the local `docs/changelog-<slug>` branch (the remote PR is still open and needs the branch):
+  Return to `integrationBranch` but preserve the local `docs/changelog-<slug>` branch:
 
   ```bash
   git checkout <integrationBranch>
   # do NOT delete the local docs/changelog-<slug> branch — remote PR is still open
   ```
 
-  Do NOT re-attempt the merge. Proceed to step 6.9 (the CI-red branch falls through to 6.9 exactly as the merged branch does).
+  Do NOT re-attempt the merge. Proceed to step 6.9, exactly as the merged branch does.
 
 #### 6.9 Surface in the final summary "Your move" section
 
-**Output ordering:** The Template 3 final summary MUST NOT be emitted until step 6 completes. Hold the summary in-context through steps 6.1–6.8, then add this line to the `🔴 Your move:` section, and emit the complete Template 3 only after step 6.9.
-
-Add one line to the `🔴 Your move:` list in Template 3 (the final summary):
+**Output ordering:** the Template 3 final summary MUST NOT be emitted until step 6 completes. Hold it in-context through steps 6.1–6.8, add one line to its `🔴 Your move:` list, then emit the complete Template 3:
 
 - **Merged:** `CHANGELOG entry merged → use as GitHub release body (#P)`
 - **Held open (CI red):** `🔴 CHANGELOG PR needs human merge (CI red): #P`
@@ -656,9 +594,9 @@ After presenting the final summary (Template 3), emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked` (where M, U, P are the counts from Template 3).
 - **Systemic halt** (invoked from the Autonomy section's halt path): `🚨 Run halted — <reason>` (where `<reason>` is the systemic-failure description, e.g. "gh auth failure").
 
-**Run-end cost record (additive, never-gating).** As the **last step of this `## Run-complete notification` section** — the single point common to both the clean-completion and systemic-halt paths — emit one per-run cost record, then finish. Additive and **never-gating**: it never blocks, parks, or changes the run's outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
+**Run-end cost record (additive, never-gating).** As the **last step of this `## Run-complete notification` section**, common to both the clean-completion and systemic-halt paths, emit one per-run cost record, then finish. It never blocks, parks, or changes the run's outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
 
 1. **Aggregate its own dispatches.** From the `<usage>` block each Agent-dispatch tool result carried this run — the Phase 0 triage dispatch and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch (whose completion notification carries the same block) — sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`, plus the orchestrator's own run clock → `wallClockSeconds`. This record is independent of any background `solve-issue`'s own record — no cross-orchestrator de-dup.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (not surfaced per-dispatch — the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
-3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}`). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's responsibility.
+3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}`). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's.
 4. **Skip cleanly.** Zero dispatches this run (e.g. a halt before Phase 0 completes any dispatch) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced at all → silent no-op, one log line. Never fails the run.
