@@ -129,9 +129,14 @@
 #     case without that false positive.
 #
 # ── EXCLUDED FROM THE WALK ────────────────────────────────────────────────────
-# Four patterns, and every one of them is EMITTED as an EXCLUDED record carrying
+# Six patterns, and every one of them is EMITTED as an EXCLUDED record carrying
 # the file count it skipped — a silent exclusion would hide a third of the
-# corpus:
+# corpus.
+#
+# ONE CLASS, six spellings: content that is historical, generated, or
+# deliberately malformed, and therefore holds stale citations BY DESIGN. None of
+# it is code a reader of this repo is asked to trust, and every one of the six is
+# either committed-but-frozen or gitignored per-clone scratch:
 #   docs/superpowers/**, docs/briefs/**, CHANGELOG.md   FROZEN RECORDS. Plans,
 #     briefs and a changelog describe the tree as it WAS, and they hold ~150
 #     line citations that are stale BY DESIGN.
@@ -144,6 +149,30 @@
 #     exclusion was added: zero citation records came from tests/fixtures/, so
 #     it costs no live coverage. The runners under tests/ ITSELF are still
 #     scanned, and do carry live citations.
+#   .milestone-config/worktrees/**   ANOTHER CHECKOUT, NOT THIS ONE. The driver
+#     builds a git worktree per issue there, so each one is a WHOLE SECOND COPY
+#     of the repo sitting inside the tree being walked. Two effects, and the
+#     second is the one that bites: every citation gets counted once per live
+#     worktree, and — because the exclusions above are REPO-RELATIVE PREFIXES —
+#     a worktree's own `tests/fixtures/` reads as
+#     `.milestone-config/worktrees/issue-N/tests/fixtures/`, matches NO
+#     exclusion, and its deliberately-broken fixture anchors FAIL THE RUN.
+#     Measured on this repo with two worktrees live: 58 FAIL records, every one
+#     of them a fixture citation that is broken ON PURPOSE, against a tree whose
+#     TRACKED files were clean. CI never sees it — a fresh checkout has no
+#     worktrees — so the gate went red only for the person running the driver,
+#     which is every real run. Excluded as a SOURCE only, like the others.
+#   .milestone-feeder/**   A SIBLING PLUGIN'S PER-RUN SCRATCH. milestone-feeder
+#     writes its plan file, needs-input report and authoring temp files there
+#     (gitignored, `/.milestone-feeder/` in .gitignore). A plan describes the
+#     tree as it WAS at planning time, so its citations go stale exactly the way
+#     docs/briefs/** does — same class, different author. Measured on this repo:
+#     11 FAIL records, every one a plan or resolved-body file naming an anchor
+#     that has since been reworded. Like the worktrees, CI never sees it and a
+#     fresh clone has none, so the cost landed entirely on the person running the
+#     tools. A gate that is red BY DEFAULT on any machine with feeder scratch on
+#     disk is a gate people stop reading, and that costs more than the coverage
+#     it buys.
 # `.git/` is pruned too, as machinery rather than policy, and is not reported.
 # The exclusion applies to a file as a citation SOURCE, never as a citation
 # TARGET: a live file may still cite into `docs/superpowers/`, and that anchor
@@ -177,13 +206,15 @@ ROOT="${ROOT%/}"
 PC='A-Za-z0-9._/-'
 WS=$' \t'
 
-# Frozen-record patterns, in report order. A trailing `/` means "this prefix";
-# anything else is an exact repo-relative path. Kept as three scalars rather
+# Walk-exclusion patterns, in report order. A trailing `/` means "this prefix";
+# anything else is an exact repo-relative path. Kept as flat scalars rather
 # than one array-of-pairs so bash 3.2 needs no associative array.
 EX1='docs/superpowers/'; EXN1=0
 EX2='docs/briefs/';      EXN2=0
 EX3='CHANGELOG.md';      EXN3=0
 EX4='tests/fixtures/';   EXN4=0
+EX5='.milestone-config/worktrees/'; EXN5=0
+EX6='.milestone-feeder/';           EXN6=0
 
 ok=0
 failed=0
@@ -356,6 +387,8 @@ while IFS= read -r rel; do
     "$EX2"*)  EXN2=$((EXN2 + 1)); continue ;;
     "$EX3")   EXN3=$((EXN3 + 1)); continue ;;
     "$EX4"*)  EXN4=$((EXN4 + 1)); continue ;;
+    "$EX5"*)  EXN5=$((EXN5 + 1)); continue ;;
+    "$EX6"*)  EXN6=$((EXN6 + 1)); continue ;;
   esac
   printf '%s\n' "$rel" >> "$KEPT"
 done < "$FILELIST"
@@ -364,6 +397,8 @@ printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX1" "$EXN1"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX2" "$EXN2"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX3" "$EXN3"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX4" "$EXN4"
+printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX5" "$EXN5"
+printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX6" "$EXN6"
 
 # ---------------------------------------------------------------------------
 # Scan. One pass per line, left to right: pull the next path-class run, test it
@@ -452,6 +487,6 @@ while IFS= read -r rel; do
   done < "$src"
 done < "$KEPT"
 
-printf 'TOTALS\tunverified=%s\texcluded-files=%s\n' "$unverified" "$((EXN1 + EXN2 + EXN3 + EXN4))"
+printf 'TOTALS\tunverified=%s\texcluded-files=%s\n' "$unverified" "$((EXN1 + EXN2 + EXN3 + EXN4 + EXN5 + EXN6))"
 printf 'SUMMARY\tok=%s\tfailed=%s\n' "$ok" "$failed"
 [ "$failed" -eq 0 ]

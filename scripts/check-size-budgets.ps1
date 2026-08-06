@@ -29,17 +29,17 @@ $Root = ($Root -replace '[\\/]+$', '')
 # this shape does and does not remove). MUST stay in sync with
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
-skills/setup/SKILL.md                             280    33500
-skills/solve-issue/SKILL.md                       400    78000
-skills/solve-issue/async-mode.md                   40     5000
-skills/solve-issue/md-epic-fanout.md               60     9500
-skills/solve-milestone/SKILL.md                   680    80500
-skills/solve-milestone/parallel-waves.md          215    68000
-skills/solve-milestone/trello-sync.md             400    21500
-skills/solve-milestone/milestone-granularity.md   165    25500
-skills/triage/SKILL.md                            460    42000
-skills/notices.md                                 250    13500
-skills/output-style.md                            100    10500
+skills/setup/SKILL.md                             280    30000
+skills/solve-issue/SKILL.md                       375    69500
+skills/solve-issue/async-mode.md                   40     4500
+skills/solve-issue/md-epic-fanout.md               60     9000
+skills/solve-milestone/SKILL.md                   635    69000
+skills/solve-milestone/parallel-waves.md          205    68000
+skills/solve-milestone/trello-sync.md             400    20500
+skills/solve-milestone/milestone-granularity.md   165    25000
+skills/triage/SKILL.md                            390    37000
+skills/notices.md                                 250    11500
+skills/output-style.md                             90     9500
 skills/citation-format.md                         230    13000
 agents/design-reviewer.md                         115    16500
 agents/implementer.md                             130    15000

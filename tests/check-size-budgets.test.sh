@@ -17,16 +17,16 @@
 # case a line-only checker CANNOT catch: its async-mode.md is the at-ceiling
 # tree's file with one sentence appended to the END OF AN EXISTING LINE. Line
 # count is unchanged at 40/40, so the pre-#399 checker emitted an all-OK stream
-# and exited 0; the byte count moved 5000 -> 5106 against a 5000 ceiling, so
+# and exited 0; the byte count moved 4500 -> 4606 against a 4500 ceiling, so
 # the byte column fails it. That is the real growth shape this ratchet missed
 # (PR #398 grew a governed file 1052 bytes at a flat line count).
 #
 # Fixture-prose caveat: the line-flat-byte-over tree is a BYTE-FOR-BYTE COPY of
 # the at-ceiling tree with one sentence appended to an existing line. Its
 # inherited prose therefore describes the at-ceiling copy, not itself: that
-# file says it "stands at exactly 5000 bytes", that "both report 5000 here",
-# and that its padding line is "sized so this fixture lands on exactly 5000
-# bytes", while the file it sits in is 5106 bytes and is the deliberately-over
+# file says it "stands at exactly 4500 bytes", that "both report 4500 here",
+# and that its padding line is "sized so this fixture lands on exactly 4500
+# bytes", while the file it sits in is 4606 bytes and is the deliberately-over
 # case; it also names line-flat-byte-over/ as the sibling from inside
 # line-flat-byte-over/. Do not "fix" that prose. The byte-for-byte-copy
 # property is what the case rests on, and rewording a byte-pinned fixture moves
@@ -181,7 +181,7 @@ fi
 # surgery that no-ops fails loud, same as the two cases above: the unmodified
 # copy's stream matches neither expectation.
 mal_refusal="$(sed 's/CEILINGS(14) and BYTE_CEILINGS(15)/CEILINGS(15) and BYTE_CEILINGS(14)/' "$GUARD_GOLD" | tr -d '\r')"
-wide_stream="$(sed 's#/33500#/99999999999#' "$GOLD/at-ceiling.txt" | tr -d '\r')"
+wide_stream="$(sed 's#/30000#/99999999999#' "$GOLD/at-ceiling.txt" | tr -d '\r')"
 for mal in short long wide; do
   case "$mal" in
     short) prog='!hit && /^(skills|agents)\// && NF == 3 { $0 = $1 " " $2; hit = 1 } { print }'

@@ -26,3 +26,14 @@ tests/fixtures/** text eol=lf
 *.txt text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Markdown carries the GOVERNED files (skills/**, agents/**) that
+# scripts/check-size-budgets.sh measures in BYTES ON DISK. A CRLF working tree
+# adds one byte per line, and for two of them that alone is more than their
+# whole remaining headroom: agents/triage-reviewer.md has 0.12% headroom against
+# a 0.70% CRLF cost, agents/design-reviewer.md 0.43% against 0.67%. Without this
+# pin a Windows contributor's FIRST CLONE reports
+# `FAIL agents/design-reviewer.md 110/115 16540/16500` on files they never
+# touched. Pinning LF is what makes the byte ceilings mean the same number on
+# every platform; headroom cannot be sized to absorb it.
+*.md text eol=lf
