@@ -10,7 +10,7 @@ OK	skills/triage/SKILL.md	1/390	7/37000
 OK	skills/notices.md	1/250	7/11500
 OK	skills/output-style.md	1/90	7/9500
 OK	skills/citation-format.md	1/230	7/13000
-OK	agents/design-reviewer.md	1/115	7/16500
+OK	agents/design-reviewer.md	1/120	7/16500
 OK	agents/implementer.md	1/130	7/15000
-FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/16500
+FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/17000
 SUMMARY	ok=14	failed=1

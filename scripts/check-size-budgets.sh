@@ -39,10 +39,13 @@
 #     core.autocrlf) therefore reads one extra byte per line: 0.29% to 2.27%
 #     across the governed set. THE HEADROOM DOES NOT ABSORB THAT, and an earlier
 #     version of this comment claiming it did was wrong. Measured on a simulated
-#     autocrlf tree: agents/triage-reviewer.md carries 0.12% headroom against a
-#     0.70% CRLF cost and agents/design-reviewer.md 0.43% against 0.67%, so both
-#     FAIL (16595/16500 and 16540/16500) on a Windows contributor's first clone,
-#     on files they never touched. What guarantees the byte ceilings mean the
+#     autocrlf tree, TODAY: agents/design-reviewer.md carries 0.55% headroom
+#     against a 0.72% CRLF cost, so it STILL FAILS (16528/16500) on a Windows
+#     contributor's first clone, on a file they never touched. Its twin
+#     agents/triage-reviewer.md no longer does: issue #464 raised that file's
+#     byte ceiling for reasons unrelated to CRLF, and 16689/17000 now absorbs
+#     the cost. That is one file clearing it, not the set, and the pin is what
+#     keeps it from mattering. What guarantees the byte ceilings mean the
 #     same number on every platform is the `*.md text eol=lf` PIN in
 #     .gitattributes, alongside the pins already held by *.sh, *.ps1, *.tsv,
 #     *.txt, *.yml and tests/fixtures/**. Do not remove it, and do not size a
@@ -69,6 +72,12 @@
 #   - Raising a ceiling requires a recorded decision in the Decision Log of
 #     the PR body that grows the file. This script enforces whatever ceiling
 #     it is given — it has no opinion on when raising one is warranted.
+#     RECORDED RAISE, issue #464 (decision 2026-08-06): agents/triage-reviewer.md
+#     BYTE 16500 -> 17000, agents/design-reviewer.md LINE 115 -> 120, each
+#     narrowed to what its own file actually needed rather than raised in
+#     lockstep. That authorization is spent on that issue's three fixes and
+#     covers nothing else: the next edit to either row re-derives normally, and
+#     both go down again from there.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -147,9 +156,9 @@ skills/triage/SKILL.md                            390    37000
 skills/notices.md                                 250    11500
 skills/output-style.md                             90     9500
 skills/citation-format.md                         230    13000
-agents/design-reviewer.md                         115    16500
+agents/design-reviewer.md                         120    16500
 agents/implementer.md                             130    15000
-agents/triage-reviewer.md                         120    16500
+agents/triage-reviewer.md                         120    17000
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each
