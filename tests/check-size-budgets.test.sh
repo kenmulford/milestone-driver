@@ -124,23 +124,32 @@ fi
 # each file against the other's ceilings and still exited 0. One row per file
 # removes that edit: the smallest unit of the table that names a file carries
 # both of its ceilings. This case is the issue's reproduction expressed in the
-# new table — swap those two ROWS in a COPY of the script — and asserts the
-# stream is the same records in a different ORDER, never the same order with
-# reattributed ceilings:
-#   sorted == at-ceiling golden  the two rows carry line ceilings 115 and 120,
-#                                so a reattribution changes a record's text and
+# new table — swap two ROWS in a COPY of the script — and asserts the stream is
+# the same records in a different ORDER, never the same order with reattributed
+# ceilings:
+#   sorted == at-ceiling golden  the two rows carry DIFFERENT ceilings, so a
+#                                reattribution changes a record's text and
 #                                survives the sort; a pure reorder does not
 #   raw    != at-ceiling golden  the swap actually landed. Without this half a
 #                                table rewrite that made the surgery a no-op
 #                                would pass vacuously, the same fail-loud
 #                                property the parity-guard case relies on.
+# THE PAIR MUST DIFFER ON AT LEAST ONE CEILING, or the sorted half asserts
+# nothing: two rows carrying identical ceilings produce identical record text,
+# so a reattribution would be invisible to it. #428's own pair was
+# design-reviewer/triage-reviewer, and it still satisfies that. #464 collapsed
+# their LINE column to 120/120 but left them apart on BYTES (16500 vs 17000),
+# and the mutation is still caught there. Re-keying the swap to design-reviewer
+# (120/16500) against implementer.md (130/15000) is HARDENING, not a repair:
+# that pair differs on BOTH axes, so it survives a future ratchet that collapses
+# either axis alone. Re-key again only if a pair goes identical on both.
 SWAP_GOLD="$GOLD/at-ceiling.txt"
 if [ ! -f "$SWAP_GOLD" ]; then
   echo "FAIL positional-desync: missing golden $SWAP_GOLD" >&2; fail=$((fail+1))
 else
   awk '{ line[NR] = $0
          if ($1 == "agents/design-reviewer.md") a = NR
-         if ($1 == "agents/triage-reviewer.md") b = NR }
+         if ($1 == "agents/implementer.md") b = NR }
        END { if (a && b) { t = line[a]; line[a] = line[b]; line[b] = t }
              for (n = 1; n <= NR; n++) print line[n] }' "$SCRIPT" > "$SWAP_SCRIPT"
   swap_out="$(bash "$SWAP_SCRIPT" "$FIX/at-ceiling" 2>&1)"; swap_rc=$?

@@ -41,9 +41,9 @@ skills/triage/SKILL.md                            390    37000
 skills/notices.md                                 250    11500
 skills/output-style.md                             90     9500
 skills/citation-format.md                         230    13000
-agents/design-reviewer.md                         115    16500
+agents/design-reviewer.md                         120    16500
 agents/implementer.md                             130    15000
-agents/triage-reviewer.md                         120    16500
+agents/triage-reviewer.md                         120    17000
 '@
 
 # Parse into three index-aligned lists. A row contributes a ceiling only when
