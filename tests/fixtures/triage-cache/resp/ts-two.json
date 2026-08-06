@@ -1,0 +1,35 @@
+{
+  "data": {
+    "issue_7": {
+      "issue": {
+        "lastEditedAt": "2026-08-01T00:00:00Z",
+        "createdAt": "2026-07-01T00:00:00Z",
+        "comments": {
+          "totalCount": 3
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "zeta"
+            },
+            {
+              "name": "alpha"
+            }
+          ]
+        }
+      }
+    },
+    "issue_9": {
+      "issue": {
+        "lastEditedAt": null,
+        "createdAt": "2026-07-02T00:00:00Z",
+        "comments": {
+          "totalCount": 0
+        },
+        "labels": {
+          "nodes": []
+        }
+      }
+    }
+  }
+}

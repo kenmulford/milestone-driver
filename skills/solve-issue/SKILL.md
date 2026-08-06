@@ -26,7 +26,7 @@ Orchestrate the `superpowers:*` skills for the inner loop rather than reimplemen
 
    1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch must be git-invisible from the first write with zero user setup, but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only the scratch names below. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch and is committed with the issue work, self-healing consumer repos that predate this seam. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
 
-      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / triage, feeder setup / plan. -->
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
       # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
       # Committed so per-run scratch stays out of `git status` with zero user setup.
