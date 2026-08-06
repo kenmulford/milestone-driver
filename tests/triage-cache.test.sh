@@ -138,8 +138,8 @@ fi
 # the end (total assertions minus TSV rows) so a block added here can never
 # report a stale total.
 ws() { mktemp -d "$TMP/ws.XXXXXX"; }
-run_write() { # <root> <entries> -> OUT/RC
-  OUT="$("$BASH_BIN" "$SCRIPT" write "$1" "$2" 2>"$ERRFILE")"; RC=$?
+run_write() { # <root> <entries> <response> -> OUT/RC
+  OUT="$("$BASH_BIN" "$SCRIPT" write "$1" "$2" "$3" 2>"$ERRFILE")"; RC=$?
   ERR="$(cat "$ERRFILE")"
 }
 
@@ -148,12 +148,18 @@ run_write() { # <root> <entries> -> OUT/RC
 # mentions — must survive UNTOUCHED, triaged_at byte-for-byte included. That
 # last part is the regression guard for a JSON round-trip that reformats values
 # it does not own.
+# Entry 7's expected key is the LIVE key resp/ts-two.json yields, not the stale
+# one entries-two.json supplies: `write` stamps the key itself (issue #462).
+# Entry 11 is absent from that response, so it keeps its supplied key — the
+# per-issue no-live-key degradation, which writes what it was given rather than
+# inventing a key.
 W="$(ws)"; cp -R "$FIX/roots/hit/." "$W/"
-run_write "$W" "$FIX/entries-two.json"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 CACHE="$W/.milestone-config/triage-cache.json"
 if [ "$RC" -eq 0 ] && [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ] && [ -z "$ERR" ] \
    && jq -e '(keys | sort) == ["11","7","9"]
-             and .["7"].key == "7:2026-08-02T00:00:00Z:4:alpha,zeta"
+             and .["7"].key == "7:2026-08-01T00:00:00Z:3:alpha,zeta"
+             and .["11"].key == "11:2026-08-02T00:00:00Z:0:"
              and .["9"].key == "9:STALE-KEY"
              and .["9"].triaged_at == "2026-08-01T01:00:00Z"
              and .["9"].result.edges == [100]
@@ -171,32 +177,32 @@ elif cmp -s "$W/.milestone-config/.gitignore" "$REPO_GITIGNORE"; then ok; else
 
 # ---- write: an EXISTING .gitignore is never rewritten ------------------------
 W="$(ws)"; mkdir -p "$W/.milestone-config"; printf 'sentinel\n' > "$W/.milestone-config/.gitignore"
-run_write "$W" "$FIX/entries-two.json"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 if [ "$RC" -eq 0 ] && [ "$(cat "$W/.milestone-config/.gitignore")" = "sentinel" ]; then ok; else
   no "write-gitignore-preserved: rc=$RC content=[$(cat "$W/.milestone-config/.gitignore")]"; fi
 
 # ---- write: legacy root cache is READ, then REMOVED --------------------------
 W="$(ws)"; cp "$FIX/roots/legacy-only/.milestone-driver-triage-cache.json" "$W/"
-run_write "$W" "$FIX/entries-two.json"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 if [ "$RC" -eq 0 ] && [ ! -e "$W/.milestone-driver-triage-cache.json" ] \
    && jq -e '(keys | sort) == ["11","7","9"]' "$W/.milestone-config/triage-cache.json" >/dev/null; then ok; else
   no "write-legacy-cleanup: rc=$RC legacy_present=$([ -e "$W/.milestone-driver-triage-cache.json" ] && echo yes || echo no)"; fi
 
 # ---- write: every failure path is exit 0 + one SKIP record -------------------
 W="$(ws)"
-run_write "$W" "$FIX/entries-bad.json"
+run_write "$W" "$FIX/entries-bad.json" "$FIX/resp/ts-two.json"
 if [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}bad-entries" ] && [ -z "$ERR" ] \
    && [ ! -e "$W/.milestone-config/triage-cache.json" ]; then ok; else
   no "write-bad-entries: rc=$RC out=[$OUT] err=[$ERR]"; fi
 
 W="$(ws)"
-run_write "$W" "$FIX/does-not-exist.json"
+run_write "$W" "$FIX/does-not-exist.json" "$FIX/resp/ts-two.json"
 if [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}bad-entries" ] && [ -z "$ERR" ]; then ok; else
   no "write-missing-entries: rc=$RC out=[$OUT] err=[$ERR]"; fi
 
 # A regular FILE occupying .milestone-config/ makes `mkdir -p` fail.
 W="$(ws)"; : > "$W/.milestone-config"
-run_write "$W" "$FIX/entries-two.json"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 if [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}mkdir-failed" ] && [ -z "$ERR" ]; then ok; else
   no "write-mkdir-failed: rc=$RC out=[$OUT] err=[$ERR]"; fi
 
@@ -207,20 +213,93 @@ if [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}mkdir-failed" ] && [ -z "$ERR" ]; th
 # chmod 555 bites on the CI (Linux) leg; where perms don't bite (some Windows
 # FS / root) the write succeeds and we skip rather than false-fail.
 W="$(ws)"; mkdir -p "$W/.milestone-config"; chmod 555 "$W/.milestone-config"
-run_write "$W" "$FIX/entries-two.json"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 if [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ]; then
   ok  # read-only not enforced on this FS — the write-fail path is unreachable here
 elif [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}write-failed" ] && [ -z "$ERR" ]; then ok; else
   no "write-failed: rc=$RC out=[$OUT] err=[$ERR]"; fi
 chmod 755 "$W/.milestone-config" 2>/dev/null
 
+# ---- write -> lookup round trip: what write stores is what lookup compares ---
+# entries-two.json supplies a deliberately STALE key for issue 7, so a HIT here
+# is only reachable because `write` recomputed the key from the same response
+# Step 2.5 hands `lookup` — the "one definition, not two" guard (issue #462).
+# The other three records are the rest of the observed stream: issue 9 is in the
+# response but not in the entries, so it keeps the root's `9:STALE-KEY` and
+# misses; and EDGES carries 100 alone because entry 7 was fully overwritten from
+# entries-two.json's `result.edges: [100]`, not merged with the root's [100,101].
+W="$(ws)"; cp -R "$FIX/roots/hit/." "$W/"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
+RT="$("$BASH_BIN" "$SCRIPT" lookup "$W" "$FIX/resp/ts-two.json" 2>"$ERRFILE")"; RTRC=$?
+RTERR="$(cat "$ERRFILE")"
+RTWANT="HIT${TAB}7
+MISS${TAB}9${TAB}key-mismatch
+EDGES${TAB}100
+SUMMARY${TAB}hits=1${TAB}misses=1"
+if [ "$RC" -eq 0 ] && [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ] \
+   && [ "$RTRC" -eq 0 ] && [ "$RT" = "$RTWANT" ] && [ -z "$RTERR" ]; then ok; else
+  no "write-lookup-roundtrip: rc=$RC out=[$OUT] lookup_rc=$RTRC lookup=[$RT] err=[$RTERR]"; fi
+
+# ---- write: the KEY-LESS entries object Step 6.5 actually builds -------------
+# skills/triage/SKILL.md Step 6.5 forbids the caller from computing a key, so
+# the shape production hands `write` carries NONE. Every other fixture here
+# supplies one, which exercises only the REPLACE half of the stamp; this case is
+# the only cover for the APPEND half. Issue 7 is in the response and gets a key
+# appended (and then HITs); issue 11 is not, and stays key-less rather than
+# being handed an invented one.
+W="$(ws)"; cp -R "$FIX/roots/hit/." "$W/"
+run_write "$W" "$FIX/entries-keyless.json" "$FIX/resp/ts-two.json"
+KL="$("$BASH_BIN" "$SCRIPT" lookup "$W" "$FIX/resp/ts-two.json" 2>/dev/null | head -1)"
+if [ "$RC" -eq 0 ] && [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ] && [ -z "$ERR" ] \
+   && [ "$KL" = "HIT${TAB}7" ] \
+   && jq -e '.["7"].key == "7:2026-08-01T00:00:00Z:3:alpha,zeta"
+             and (.["11"] | has("key") | not)
+             and .["11"].result.risk == "heavy"
+             and .["9"].triaged_at == "2026-08-01T01:00:00Z"' \
+        "$W/.milestone-config/triage-cache.json" >/dev/null; then ok; else
+  no "write-keyless-entries: rc=$RC out=[$OUT] err=[$ERR] first_lookup=[$KL]"; fi
+
+# ---- write with THREE arguments is usage/exit 2, never a 3-arg write ---------
+# NOT a TSV row, even though it is a pure usage case: every row runs against a
+# COMMITTED fixture root, and this one MUTATED roots/hit while it was being
+# written — the pre-fix script accepted the 3-arg form and wrote the cache. A
+# mktemp root is the only safe home for a `write` case, and it also asserts the
+# thing the table cannot: that nothing was written.
+W="$(ws)"
+"$BASH_BIN" "$SCRIPT" write "$W" "$FIX/entries-two.json" >"$OUTFILE" 2>"$ERRFILE"; RC=$?
+OUT="$(slurp_x "$OUTFILE")"; OUT="${OUT%X}"
+ERR="$(slurp_x "$ERRFILE")"; ERR="${ERR%X}"
+WANTERR="$(slurp_x "$GOLD/usage.err")"; WANTERR="${WANTERR%X}"
+WANTERR="${WANTERR//$'\r\n'/$'\n'}"; WANTERR="${WANTERR//__SCRIPT__/$SCRIPT_NAME}"
+if [ "$RC" -eq 2 ] && [ -z "$OUT" ] && [ "$ERR" = "$WANTERR" ] \
+   && [ ! -e "$W/.milestone-config" ]; then ok; else
+  no "write-wrong-argc: rc=$RC (want 2) out=[$OUT] err=[$ERR]"; fi
+
+# ---- write: an ABSENT response is the fail-open degradation, not a failure ----
+# No live key for any issue, so every entry is stored exactly as supplied — no
+# new SKIP reason, still exit 0, and no key invented from thin air.
+W="$(ws)"
+run_write "$W" "$FIX/entries-two.json" "$FIX/resp/absent.json"
+if [ "$RC" -eq 0 ] && [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ] && [ -z "$ERR" ] \
+   && jq -e '.["7"].key == "7:2026-08-02T00:00:00Z:4:alpha,zeta"' \
+        "$W/.milestone-config/triage-cache.json" >/dev/null; then ok; else
+  no "write-absent-response: rc=$RC out=[$OUT] err=[$ERR]"; fi
+
 # ---- bash-only: jq absent -> SKIP no-jq on every jq-backed subcommand --------
 # The pwsh twin has no counterpart: it needs no external tool at all, so it can
 # never reach this record. `query` is asserted to still work, because it is pure
 # text generation and must not be gated on a dependency it does not use.
+# PER-SUBCOMMAND argv, because the argc gate runs BEFORE the no-jq gate: with a
+# fixed 3-arg call `write` would exit 2 on usage and never reach the record this
+# case exists to assert. `set --` rather than a split string, so a workspace path
+# with a space cannot re-split (nothing below the loop reads $@).
 W="$(ws)"
 for subcmd in lookup check-edges write; do
-  got="$(PATH=/nonexistent "$BASH_BIN" "$SCRIPT" "$subcmd" "$W" "$FIX/entries-two.json" 2>"$ERRFILE")"; rcj=$?
+  case "$subcmd" in
+    write) set -- "$subcmd" "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json" ;;
+    *)     set -- "$subcmd" "$W" "$FIX/entries-two.json" ;;
+  esac
+  got="$(PATH=/nonexistent "$BASH_BIN" "$SCRIPT" "$@" 2>"$ERRFILE")"; rcj=$?
   errj="$(cat "$ERRFILE")"
   if [ "$rcj" -eq 0 ] && [ "$got" = "SKIP${TAB}no-jq" ] && [ -z "$errj" ]; then ok; else
     no "no-jq/$subcmd: rc=$rcj out=[$got] err=[$errj]"; fi

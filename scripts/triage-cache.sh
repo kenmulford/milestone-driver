@@ -6,13 +6,24 @@
 #   triage-cache.sh query <keys|edges> <owner> <repo> <n>...
 #   triage-cache.sh lookup      <repo-root> <graphql-response.json>
 #   triage-cache.sh check-edges <repo-root> <graphql-response.json>
-#   triage-cache.sh write       <repo-root> <entries.json>
+#   triage-cache.sh write       <repo-root> <entries.json> <graphql-response.json>
 #
 # THIS SCRIPT NEVER RUNS `gh`. `query` PRINTS the batched, aliased GraphQL text
 # and stops there; the caller runs it (`gh api graphql -f query=…`) and hands
-# the response file back to `lookup` / `check-edges`. Zero of this repo's other
-# shipped scripts shell out to `gh`, and the offline golden matrix
+# the response file back to `lookup` / `check-edges` / `write`. Zero of this
+# repo's other shipped scripts shell out to `gh`, and the offline golden matrix
 # (tests/triage-cache.cases.tsv) could not run one if they did.
+#
+# `write` COMPUTES each entry's `key` itself, from the same `query keys`
+# response the caller already handed `lookup` — one livekey definition per leg,
+# so what write stores is by construction what lookup compares against, and the
+# caller never handles a key at all (issue #462). Pass the SAVED Step 2.5 file,
+# never a fresh fetch: that file predates the Blocker comments Step 6 posts, and
+# recomputing from it is what keeps the pre-comment key semantics.
+# Pass the KEYS response, never the `query edges` one — an edges response has
+# none of the key's fields, so every key it covers computes to "<n>::0:"
+# (measured on both legs: empty timestamp, the 0 comment-count default, empty
+# label list) and misses forever at exit 0.
 #
 # Both cache-reading subcommands take the REPO ROOT rather than a cache path,
 # because resolving which of the two cache paths is live is part of the
@@ -81,7 +92,7 @@ usage() {
   err "usage: $SELF query <keys|edges> <owner> <repo> <n>..."
   err "       $SELF lookup <repo-root> <graphql-response.json>"
   err "       $SELF check-edges <repo-root> <graphql-response.json>"
-  err "       $SELF write <repo-root> <entries.json>"
+  err "       $SELF write <repo-root> <entries.json> <graphql-response.json>"
   exit 2
 }
 
@@ -111,6 +122,31 @@ def aliases: basedoc | (if type == "object" then . else {} end) | [ to_entries[]
     | { n: ($ns | tonumber),
         x: (if ((.value | type) == "object") and (((.value.issue) | type) == "object")
             then .value.issue else null end) } ];'
+
+# ONE livekey definition for this leg, shared by `lookup` (which compares it
+# against the cached key) and `write` (which stamps it). Two copies would drift
+# invisibly: the only symptom of a drifted key is a 100% cache miss at exit 0.
+# obj/arr are J-Get parity for CONTAINER access. The pwsh twin returns null
+# when it indexes a non-object, but jq ERRORS — and a jq error aborts the
+# whole program, so one wrong-typed field (`"comments": 5`) collapsed this
+# leg to SKIP bad-response while the pwsh leg kept going. Guarding only the
+# LEAF with select(...) never ran, because jq aborted one step earlier.
+JQ_LIVEKEY='def obj($v): if ($v | type) == "object" then $v else {} end;
+def arr($v): if ($v | type) == "array"  then $v else [] end;
+# select(type == …) before each // : the fallback fires when the field is
+# absent, null, OR the wrong JSON type — exactly what the pwsh twin can
+# express over a JsonElement. An EMPTY lastEditedAt IS a string, so it is
+# still kept verbatim rather than replaced by createdAt, on both legs.
+def livekey($n; $x):
+  (($x.lastEditedAt | select(type == "string"))
+   // ($x.createdAt | select(type == "string")) // "") as $ts
+  | ((obj($x.comments).totalCount | select(type == "number")) // 0) as $cc
+  # map(select(type == "string")) drops a label node with no name: the
+  # pwsh twin skips it too, and without the filter jq would fold it in as
+  # a null that sorts first and joins as an empty field. obj(.) covers a
+  # node that is not an object at all (`["str"]`), which .name would error on.
+  | (arr(obj($x.labels).nodes) | map(obj(.).name) | map(select(type == "string")) | sort | join(",")) as $lb
+  | "\($n):\($ts):\($cc):\($lb)";'
 
 sub="${1-}"
 [ -n "$sub" ] || usage
@@ -149,9 +185,17 @@ case "$sub" in
     exit 0
     ;;
 
-  lookup|check-edges|write)
+  lookup|check-edges)
     [ "$#" -eq 3 ] || usage
     root="$2"; argfile="$3"
+    ;;
+
+  # `write` alone takes FOUR: it recomputes each entry's key from the response.
+  # The response is NOT optional — an optional argument would restore exactly
+  # the "the key can be omitted" hole this signature exists to close (#462).
+  write)
+    [ "$#" -eq 4 ] || usage
+    root="$2"; argfile="$3"; respfile="$4"
     ;;
 
   *) usage ;;
@@ -181,32 +225,11 @@ case "$sub" in
     # has already written the records before it, so streaming would emit a
     # partial record set AND the SKIP line. The record set is bounded by the
     # issue count, so holding it costs nothing.
-    out="$(printf '%s' "$resp" | jq -r --argjson cache "$cache" "$JQ_BASE"'
+    out="$(printf '%s' "$resp" | jq -r --argjson cache "$cache" "$JQ_BASE$JQ_LIVEKEY"'
       def edges_of($v): if ($v | type) == "object"
                         then (($v.result?) | if type == "object" then (.edges? // []) else [] end)
                         else [] end
                         | if type == "array" then . else [] end;
-      # obj/arr are J-Get parity for CONTAINER access. The pwsh twin returns null
-      # when it indexes a non-object, but jq ERRORS — and a jq error aborts the
-      # whole program, so one wrong-typed field (`"comments": 5`) collapsed this
-      # leg to SKIP bad-response while the pwsh leg kept going. Guarding only the
-      # LEAF with select(...) never ran, because jq aborted one step earlier.
-      def obj($v): if ($v | type) == "object" then $v else {} end;
-      def arr($v): if ($v | type) == "array"  then $v else [] end;
-      # select(type == …) before each // : the fallback fires when the field is
-      # absent, null, OR the wrong JSON type — exactly what the pwsh twin can
-      # express over a JsonElement. An EMPTY lastEditedAt IS a string, so it is
-      # still kept verbatim rather than replaced by createdAt, on both legs.
-      def livekey($n; $x):
-        (($x.lastEditedAt | select(type == "string"))
-         // ($x.createdAt | select(type == "string")) // "") as $ts
-        | ((obj($x.comments).totalCount | select(type == "number")) // 0) as $cc
-        # map(select(type == "string")) drops a label node with no name: the
-        # pwsh twin skips it too, and without the filter jq would fold it in as
-        # a null that sorts first and joins as an empty field. obj(.) covers a
-        # node that is not an object at all (`["str"]`), which .name would error on.
-        | (arr(obj($x.labels).nodes) | map(obj(.).name) | map(select(type == "string")) | sort | join(",")) as $lb
-        | "\($n):\($ts):\($cc):\($lb)";
       aliases
       | sort_by(.n)
       | [ .[]
@@ -280,9 +303,25 @@ case "$sub" in
     entries="$(jq -c 'if type == "object" then . else error("not-an-object") end' "$argfile" 2>/dev/null)" || entries=""
     [ -n "$entries" ] || skip "bad-entries"
     cache="$(read_cache "$root")"
+    # Number -> live key, from the SHARED livekey definition `lookup` compares
+    # with. An absent, unreadable, or unparseable response yields an EMPTY map:
+    # entries are then stored exactly as supplied, with no new SKIP reason and
+    # still exit 0 — fail-open, the same posture as the cache read itself. The
+    # cost of that degradation is one extra re-triage next run, never a wrong key.
+    keys="$(jq -c "$JQ_BASE$JQ_LIVEKEY"'
+      aliases
+      | [ .[] | select(.x != null) | { key: (.n | tostring), value: livekey(.n; .x) } ]
+      | from_entries' "$respfile" 2>/dev/null)" || keys=""
+    [ -n "$keys" ] || keys="{}"
     # Entry-level overwrite, matching the recorded rule "write or overwrite its
     # entry" — a re-triaged issue replaces its own entry and touches no other.
-    merged="$(printf '%s' "$cache" | jq --argjson e "$entries" '. + $e' 2>/dev/null)" || merged=""
+    # The key is stamped onto the INJECTED entries only: an untouched cache entry
+    # keeps its stored key (and its byte-preserved triaged_at) verbatim, and an
+    # injected entry the response does not cover keeps whatever it was handed.
+    merged="$(printf '%s' "$cache" | jq --argjson e "$entries" --argjson k "$keys" '
+      . + ($e | with_entries(
+            if ((.value | type) == "object") and (($k[.key] // null) != null)
+            then .value += { key: $k[.key] } else . end))' 2>/dev/null)" || merged=""
     [ -n "$merged" ] || skip "bad-entries"
 
     dir="$root/.milestone-config"
