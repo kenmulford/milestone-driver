@@ -149,6 +149,15 @@ A citation is one whole token, on one line, read left to right:
    mis-splits. There is no escape syntax: write `path:line` or
    `path:start-end` for that file instead.
 
+### Same-file — write a heading form
+
+A citation **in the file it points at** reproduces its own anchor, so the citing
+line is itself an occurrence. Above its target it becomes the `PRIMARY` and the
+citation resolves to itself, at exit 0, with no error. **Never write the anchor
+form at a same-file citation.** Write a heading form: `read-doc-section.sh`
+matches an ATX heading whose text equals the anchor exactly, and a citing line
+is not a heading, so it cannot collide. If the target has no heading, add one.
+
 ## D2 — resolution, and the line forms
 
 **Resolution is a literal string search, and nothing else.** The anchor is
