@@ -34,7 +34,7 @@ The **read-only post-build coherence pass** (an optional, never-gating second op
 
    2.0.5. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Per-clone scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus the `.runtime/` and `worktrees/` dirs) must be git-invisible in the consumer repo from the first write, with zero user setup — but `.milestone-config/` also holds **tracked** config (`driver.json`, `feeder.json`), so the directory itself must not be blanket-ignored. Ensure a **committed** `.milestone-config/.gitignore` exists that ignores only those scratch names while leaving the config tracked. If the file is absent, create it (`mkdir -p .milestone-config`, then write the block below); if it already exists, do nothing. Unlike the profile `git mv` (which the orchestrator defers to the first `solve-issue`), this is a single new gitignore file that makes the orchestrator's own marker writes invisible; the first dispatched `solve-issue` commits it on its feature branch alongside the migration. (`driver.json` / `feeder.json` are intentionally NOT listed, so they stay tracked — never add a blanket `*` or `/` rule.)
 
-      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / triage, feeder setup / plan. -->
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
       # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
       # Committed so per-run scratch stays out of `git status` with zero user setup.

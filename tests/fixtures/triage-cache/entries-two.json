@@ -1,0 +1,26 @@
+{
+  "7": {
+    "key": "7:2026-08-02T00:00:00Z:4:alpha,zeta",
+    "triaged_at": "2026-08-01T01:00:00Z",
+    "result": {
+      "blockers": false,
+      "label": null,
+      "advisories": [],
+      "risk": "light",
+      "edges": [
+        100
+      ]
+    }
+  },
+  "11": {
+    "key": "11:2026-08-02T00:00:00Z:0:",
+    "triaged_at": "2026-08-01T01:00:00Z",
+    "result": {
+      "blockers": false,
+      "label": null,
+      "advisories": [],
+      "risk": "heavy",
+      "edges": []
+    }
+  }
+}

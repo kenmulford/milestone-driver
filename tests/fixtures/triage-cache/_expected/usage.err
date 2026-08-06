@@ -1,0 +1,4 @@
+usage: __SCRIPT__ query <keys|edges> <owner> <repo> <n>...
+       __SCRIPT__ lookup <repo-root> <graphql-response.json>
+       __SCRIPT__ check-edges <repo-root> <graphql-response.json>
+       __SCRIPT__ write <repo-root> <entries.json>
