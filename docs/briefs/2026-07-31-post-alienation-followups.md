@@ -43,6 +43,8 @@ The consequence of removing the barrier with no replacement is not lost time. St
 
 ## Decision 1: the concurrency cap. SETTLED.
 
+> **PARTLY SUPERSEDED 2026-08-06 (#400 implementation).** The shared-counter half below still holds and shipped as written. The **slot-preference half did not**: the shipped rule is **review-first**, not build-first. When a slot frees, the orchestrator gives it to the **oldest review-ready issue** and dispatches a new implementer **only when none is waiting** ("oldest" = the order implementer leaves returned). That is #400's acceptance criterion 2, re-ratified by the repo owner on 2026-08-06. So the second bullet under "Ken elected" and the third consequence bullet ("Build progress is preferred over review progress") are **superseded**; read them as the record of the 2026-07-30 interview, not as current behavior. The paragraph below is also now **out of date on its own terms**: `parallel-waves.md`, `docs/architecture.md` and `docs/profile-schema.md` no longer document the cap as strictly per-stage — all three were changed to the shared counter in the same pass, and its line numbers have drifted. Nothing here is deleted or rewritten; this note is the amendment.
+
 Decided by Ken, the repo owner, in an interview on 2026-07-30.
 
 Once builds and reviews overlap, `maxParallelWorkers` has to account for two kinds of agent at the same time. Today it is documented as strictly per-stage in three places, which is only safe because the stages never overlap: `skills/solve-milestone/parallel-waves.md:57`, `docs/architecture.md:117` and `:145`, and `docs/profile-schema.md:193-197`.
