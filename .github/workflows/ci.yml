@@ -41,6 +41,8 @@ jobs:
         run: bash tests/triage-cache.test.sh
       - name: check-citations (bash)
         run: bash tests/check-citations.test.sh
+      - name: classify-delta (bash)
+        run: bash tests/classify-delta.test.sh
       # The only scripts/check-* step that runs against THIS repo's real tree.
       # Every other checker is exercised through fixture roots only, which
       # proves the script works without gating a citation the repo actually
@@ -78,6 +80,8 @@ jobs:
         run: pwsh tests/triage-cache.test.ps1
       - name: check-citations (pwsh)
         run: pwsh tests/check-citations.test.ps1
+      - name: classify-delta (pwsh)
+        run: pwsh tests/classify-delta.test.ps1
       # Twin of the bash leg's real-tree step. Both legs run it because a
       # <line> that differs between the twins is the worst answer a citation
       # checker can give, and only running both catches that.

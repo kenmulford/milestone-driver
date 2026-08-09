@@ -1,0 +1,104 @@
+# Golden matrix for scripts/classify-delta.{sh,ps1} (issue #476).
+#
+# One throwaway git repo per row. `base` is committed, then `work` is written to
+# the working tree, then `ops` runs, then the classifier runs against the repo
+# root.
+#
+# Columns: name  path  base  work  untracked  ops  expected_stdout  expected_stderr
+#   path       one file, or several separated by `|`
+#   base       file content at HEAD; \n is a newline. One value per `path`.
+#   work       working-tree content; `=` leaves the file untouched, `@DEL@`
+#              deletes it. One value per `path`.
+#   untracked  a path to create as an untracked file, or `-` for none
+#   ops        one git operation applied after `work` is written, or `-`:
+#                mv:<from>:<to>   git mv
+#                chmodx:<path>    git update-index --chmod=+x
+#
+# Header shapes with no TSV-expressible input (new file mode, similarity index,
+# Binary files, \ No newline at end of file, staged deltas, a non-repo root)
+# ride as bespoke cases at the end of the runner.
+#
+# name	path	base	work	untracked	ops	expected_stdout	expected_stderr
+# --- .sh -------------------------------------------------------------------
+sh_comment_reworded	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	-	comment-only	
+sh_code_changed	a.sh	# c\nexit 0\n	# c\nexit 1\n	-	-	code-changed	code:a.sh
+sh_indented_comment	a.sh	f() {\n  # old\n}\n	f() {\n  # new\n}\n	-	-	code-changed	code:a.sh
+sh_heredoc_payload	a.sh	cat <<EOF\n  # one\nEOF\n	cat <<EOF\n  # two\nEOF\n	-	-	code-changed	code:a.sh
+sh_printf_line_is_code	a.sh	printf '# one'\n	printf '# two'\n	-	-	code-changed	code:a.sh
+sh_blank_line_added	a.sh	# c\nexit 0\n	# c\n\nexit 0\n	-	-	code-changed	code:a.sh
+sh_shebang_directive	a.sh	#!/bin/sh\nexit 0\n	#!/usr/bin/env bash\nexit 0\n	-	-	code-changed	directive:a.sh
+sh_shellcheck_directive	a.sh	# c\n	# shellcheck disable=SC2086\n	-	-	code-changed	directive:a.sh
+sh_iffy_is_not_a_directive	a.sh	# c\n	#iffy, still prose\n	-	-	comment-only	
+sh_two_hunks_one_code	a.sh	# old\nx=1\ny=2\nz=3\nexit 0\n	# new\nx=1\ny=2\nz=3\nexit 1\n	-	-	code-changed	code:a.sh
+# --- .ps1 ------------------------------------------------------------------
+ps1_comment_reworded	a.ps1	# old\nWrite-Host 1\n	# new\nWrite-Host 1\n	-	-	comment-only	
+ps1_block_tokens	a.ps1	Write-Host 1\n	<#\n#>\nWrite-Host 1\n	-	-	comment-only	
+ps1_code_changed	a.ps1	# c\nWrite-Host 1\n	# c\nWrite-Host 2\n	-	-	code-changed	code:a.ps1
+# --- .md -------------------------------------------------------------------
+md_html_comment	a.md	<!-- old -->\ntext\n	<!-- new -->\ntext\n	-	-	comment-only	
+md_prose_is_not_a_comment	a.md	<!-- c -->\nold text\n	<!-- c -->\nnew text\n	-	-	code-changed	code:a.md
+md_hr_line_is_content	a.md	<!-- c -->\n	---\n<!-- c -->\n	-	-	code-changed	code:a.md
+md_plus_line_is_content	a.md	<!-- c -->\n	+++ TOML\n<!-- c -->\n	-	-	code-changed	code:a.md
+# --- .cs -------------------------------------------------------------------
+cs_line_comment	a.cs	// old\nvar x = 1;\n	// new\nvar x = 1;\n	-	-	comment-only	
+cs_block_comment	a.cs	var x = 1;\n	/* c */\nvar x = 1;\n	-	-	comment-only	
+cs_pragma_directive	a.cs	// c\n	#pragma warning disable CS1591\n	-	-	code-changed	directive:a.cs
+cs_if_directive	a.cs	// c\n	#if DEBUG\n	-	-	code-changed	directive:a.cs
+cs_region_directive	a.cs	// c\n	#region Helpers\n	-	-	code-changed	directive:a.cs
+cs_endif_directive	a.cs	// c\n	#endif\n	-	-	code-changed	directive:a.cs
+# --- .js / .ts -------------------------------------------------------------
+js_comment_reworded	a.js	// old\nlet x = 1;\n	// new\nlet x = 1;\n	-	-	comment-only	
+js_private_field_is_not_a_comment	a.js	// c\n	// c\n#count = 0\n	-	-	code-changed	code:a.js
+js_eslint_directive	a.js	// c\n	// eslint-disable-next-line\n	-	-	code-changed	directive:a.js
+ts_comment_reworded	a.ts	// old\nlet x = 1;\n	// new\nlet x = 1;\n	-	-	comment-only	
+ts_private_field_is_not_a_comment	a.ts	// c\n	// c\n#count = 0\n	-	-	code-changed	code:a.ts
+ts_ts_directive	a.ts	// c\n	// @ts-ignore\n	-	-	code-changed	directive:a.ts
+# --- .py / .rb / .go -------------------------------------------------------
+py_comment_reworded	a.py	# old\nx = 1\n	# new\nx = 1\n	-	-	comment-only	
+py_type_directive	a.py	# c\n	# type: ignore\n	-	-	code-changed	directive:a.py
+py_noqa_directive	a.py	# c\n	# noqa\n	-	-	code-changed	directive:a.py
+rb_comment_reworded	a.rb	# old\nx = 1\n	# new\nx = 1\n	-	-	comment-only	
+rb_frozen_string_directive	a.rb	# c\n	# frozen_string_literal: true\n	-	-	code-changed	directive:a.rb
+go_comment_reworded	a.go	// old\nvar x = 1\n	// new\nvar x = 1\n	-	-	comment-only	
+go_build_directive	a.go	// c\n	//go:build linux\n	-	-	code-changed	directive:a.go
+# --- .sql ------------------------------------------------------------------
+sql_removed_comment	a.sql	-- one\nSELECT 1;\n	SELECT 1;\n	-	-	comment-only	
+sql_added_comment	a.sql	SELECT 1;\n	-- one\nSELECT 1;\n	-	-	comment-only	
+sql_code_changed	a.sql	-- c\nSELECT 1;\n	-- c\nSELECT 2;\n	-	-	code-changed	code:a.sql
+# --- extension mapping -----------------------------------------------------
+unmapped_extension	a.txt	hello\n	world\n	-	-	code-changed	unmapped-ext:a.txt
+no_extension_at_all	Makefile	all:\n	all: x\n	-	-	code-changed	unmapped-ext:Makefile
+# --- untracked and empty ---------------------------------------------------
+untracked_only	a.sh	# c\n	=	new.sh	-	code-changed	untracked:new.sh
+untracked_plus_comment_edit	a.sh	# old\n	# new\n	new.sh	-	code-changed	untracked:new.sh
+untracked_unmapped_ext	a.sh	# c\n	=	notes.txt	-	code-changed	untracked:notes.txt
+empty_delta	a.sh	# c\n	=	-	-	code-changed	empty-delta
+# --- content is counted per file, not across the delta (#476 defect 1) ------
+# A 100%-similar rename emits no content lines at all, so a comment reword in
+# ANOTHER file used to pay for it and the moved file went invisible.
+per_file_content_hides_a_move	a.sh|b.sh	# old\nexit 0\n|# one\n# two\n	# new\nexit 0\n|=	-	mv:b.sh:c.sh	code-changed	no-content:b.sh
+per_file_content_control	a.sh|b.sh	# old\nexit 0\n|# one\n# two\n	# new\nexit 0\n|=	-	-	comment-only	
+# --- a rename carrying an edit (#476 defect 2) ------------------------------
+rename_with_comment_edit	a.sh	# old\nx=1\ny=2\nz=3\nexit 0\n	# new\nx=1\ny=2\nz=3\nexit 0\n	-	mv:a.sh:b.sh	code-changed	rename:b.sh
+rename_control_same_path	a.sh	# old\nx=1\ny=2\nz=3\nexit 0\n	# new\nx=1\ny=2\nz=3\nexit 0\n	-	-	comment-only	
+# --- mode headers (#476 defect 3) -------------------------------------------
+mode_change_with_comment_edit	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	chmodx:a.sh	code-changed	mode:a.sh
+mode_control_no_chmod	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	-	comment-only	
+# --- a block comment that closes mid-line (#476 defect 4) -------------------
+cs_block_close_then_code	a.cs	var x = 1;\n	/* n */ Environment.Exit(1);\nvar x = 1;\n	-	-	code-changed	code:a.cs
+cs_block_close_then_nothing	a.cs	var x = 1;\n	/* n */\nvar x = 1;\n	-	-	comment-only	
+cs_line_comment_names_close_token	a.cs	// c\n	// see */ below\n	-	-	comment-only	
+js_block_close_then_code	a.js	let x = 1;\n	/* c */ let y = 2;\nlet x = 1;\n	-	-	code-changed	code:a.js
+ts_block_close_then_code	a.ts	let x = 1;\n	/* c */ let y = 2;\nlet x = 1;\n	-	-	code-changed	code:a.ts
+go_block_close_then_code	a.go	var x = 1\n	/* c */ os.Exit(1)\nvar x = 1\n	-	-	code-changed	code:a.go
+sql_block_close_then_code	a.sql	SELECT 1;\n	/* c */ SELECT 2;\nSELECT 1;\n	-	-	code-changed	code:a.sql
+ps1_block_close_then_code	a.ps1	Write-Host 1\n	<#\n#> Write-Host 2\nWrite-Host 1\n	-	-	code-changed	code:a.ps1
+md_block_close_then_text	a.md	<!-- c -->\ntext\n	<!-- c --> visible prose\ntext\n	-	-	code-changed	code:a.md
+# --- a column-0 heredoc body is payload (#476 defect 5) ---------------------
+sh_heredoc_col0_body	a.sh	cat <<EOF\n# one\nEOF\n	cat <<EOF\n# two\nEOF\n	-	-	code-changed	heredoc:a.sh
+sh_heredoc_control_no_heredoc	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	-	comment-only	
+# --- a deleted file is not a comment edit (#476 defect 6) -------------------
+sh_deleted_all_comment	a.sh	# one\n# two\n	@DEL@	-	-	code-changed	deleted:a.sh
+sh_deleted_with_code	a.sh	# one\nexit 0\n	@DEL@	-	-	code-changed	deleted:a.sh
+md_deleted_all_comment	a.md	<!-- one -->\n	@DEL@	-	-	code-changed	deleted:a.md
+deleted_control_file_kept	a.md	<!-- one -->\n	<!-- two -->\n	-	-	comment-only	
