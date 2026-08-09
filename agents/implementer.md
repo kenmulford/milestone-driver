@@ -121,6 +121,6 @@ BLOCKER (only if STOPPED or PAUSED-FOR-APPROVAL):
 - <the architecture conflict, scope overrun, ambiguity, or library+license question>
 ```
 
-Classify each `USER-FACING CHANGES` line honestly against its comment: an invisible internal migration is `DESTRUCTIVE_OPS: no`. The orchestrator uses `POST_REVIEW_CHANGES` as the machine-checkable trigger for the pre-commit re-review (any `sourceGlobs` change is an independent backstop).
+Classify each `USER-FACING CHANGES` line honestly against its comment: an invisible internal migration is `DESTRUCTIVE_OPS: no`. The orchestrator uses `POST_REVIEW_CHANGES` as the machine-checkable trigger for the pre-commit re-review (a `sourceGlobs` change that `scripts/classify-delta.{sh,ps1}` calls `code-changed` is an independent backstop).
 
 If you STOPPED or PAUSED, leave the working tree in a clean, explainable state and make the blocker the most prominent part of your report.
