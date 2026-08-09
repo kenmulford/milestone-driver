@@ -3,6 +3,30 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.20.2 — stop re-reviewing what cannot have broken
+
+**Theme:** A measured 1.43M-token milestone spent 895k on review cycles and fix re-dispatches. This release removes two sources of that: a fix whose whole delta is comment text no longer re-runs the suite or the review, and a `risk:light` issue no longer pays for review rounds after a clean one.
+
+### ✨ Review-cycle cost
+
+| Issue | PR | What |
+|---|---|---|
+| #476 Comment-only deltas under sourceGlobs re-trigger the full review cycle | #478 | Step 6.1's "After a fix, before committing" split now decides on delta content, not file path. The classifier ships as `scripts/classify-delta.{sh,ps1}` with a 66-row golden matrix per leg. |
+| #477 risk:light relaxes review effort but not review cycle count | #479 | Light converges after one review cycle; a second runs only when the most recent review returned a Critical or Important finding. Heavy is unchanged at two. |
+
+### Consumer notes (upgrading from v1.20.1)
+
+- **No schema changes** to `.milestone-config/driver.json`. Neither issue adds a profile key.
+- New scripts ship with the plugin: `scripts/classify-delta.{sh,ps1}`, with `tests/classify-delta.{cases.tsv,test.sh,test.ps1}`. Both legs run in CI on every PR.
+- The comment-only branch resolves every uncertainty to `code-changed`: unmapped extension, empty delta, untracked file, rename, mode change, deletion, a machine-read directive such as `#!` or `// eslint-disable` or `//go:build`, a block comment followed by code on one line, and a heredoc payload line.
+- The comment-only branch stages and commits in separate calls, because `tests-green` is a `PreToolUse` hook that reads the index before the command runs. It is not a guaranteed second suite run: it does nothing when `unitTestCmd` is absent, when the staged tree matches the last green stamp, when `jq` is absent, or when `CLAUDE_HOOK_DISABLE_TESTS_GREEN=1` is set.
+- Light's severity bar reads the reviewer template's Critical / Important / Minor. A finding carrying no severity, including any from a reviewer that scores by confidence, counts as Important, so Light degrades to Heavy rather than skipping a real defect.
+- `skills/solve-issue/SKILL.md` is now at 69478 of its 69500-byte ceiling. The next edit to that file fails the size ratchet until something is cut or the file is split.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs for this release: none
+
 ## v1.20.1 — the cache that shipped switched off
 
 **Theme:** v1.20.0 moved the triage cache's mechanics out of the skill and into a script, and in doing so left the skill asking for something it also forbade. Step 6.5 said every cache entry must carry a `key` "computed at Step 2.5"; Step 2.5 said not to compute keys; and the script never printed one. There was no legal way to fill the field, so entries were written without a usable key and every later lookup missed — the cache was inert in the release that introduced it. It is fixed here, along with three consistency defects a post-release coherence review turned up. No new features, no behavior changes beyond the fix.
