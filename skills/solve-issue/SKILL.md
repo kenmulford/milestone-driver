@@ -303,6 +303,8 @@ PR cell: show the PR number if the issue has one, else —. Gates legend: 🧪 =
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — this plugin's output contract. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR comment, Decision Log, and PR body this skill writes. The two surfaces are distinct — terminal rules never reach GitHub.
 
+Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
+
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only — never `protectedBranch`.
 - Honor the profile's `nonNegotiables` (framework versions, platform targets).

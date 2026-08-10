@@ -362,6 +362,8 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern the `🔴 Triage` comment this skill posts (Step 6). The two surfaces are distinct — the terminal rules never reach GitHub.
 
+Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
+
 ## Non-negotiables
 
 - **Authors no code.** Never edits a source file, never creates a branch, never opens a PR. Triage **performs no migration move either** — it does not `git mv` a legacy root `milestone-driver.json` to `.milestone-config/driver.json`; the config relocation is owned by `setup` and `solve-issue` (the commands with a commit path; `solve-milestone` migrates via its dispatched build). Triage does the transitional READ only (Step 1).
