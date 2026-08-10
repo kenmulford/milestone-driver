@@ -68,8 +68,14 @@
 #     plus ~5% headroom, ROUNDED UP TO A FIXED GRANULARITY so the 15 derivations
 #     stay arithmetic instead of 15 judgment calls: the next 500 BYTES on the
 #     byte axis, the next 5 LINES on the line axis, the next 100 WORDS on the
-#     word axis (issue #489 derived 100 as the byte axis's 500 scaled by this
-#     set's ~7 bytes per word, rounded to one significant figure).
+#     word axis. The word granularity is NOT the byte granularity divided by
+#     this set's density: 500 bytes over the measured 6.26-7.25 bytes per word
+#     (mean ~6.8) is ~73 words, and rounding that lands on 70, not 100. 100 is
+#     chosen instead because it is the round step at the same order of
+#     magnitude, and because it doubles as the word axis's minimum-headroom
+#     floor — the smallest allowance it grants is 90 words, on the 581-word
+#     skills/solve-issue/async-mode.md, so the word axis needs no separate
+#     `actual + N` floor rule of the kind the line axis required.
 #   - THE WORD AXIS ALSO CARRIES A HARD 5000-WORD CAP, which is
 #     superpowers:writing-skills' ceiling for one skill. A file at or under
 #     5000 words takes min(derived, 5000), so the 5% headroom can never ratchet

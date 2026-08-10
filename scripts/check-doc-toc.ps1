@@ -111,13 +111,20 @@ foreach ($f in $files) {
 
     # Level 2 or higher only. A `# ...` line — an H1, or a bash comment inside
     # a fence, which this scanner cannot tell apart — is ordinary content.
-    if (-not $line.StartsWith('##')) { continue }
+    if (-not $line.StartsWith('##', [System.StringComparison]::Ordinal)) { continue }
     $hashes = 0
     while ($hashes -lt $line.Length -and $line[$hashes] -eq '#') { $hashes++ }
     $rest = $line.Substring($hashes)
     # ATX requires a space after the #s. A bare `##` or a `##hashtag` is body
     # text, matching scripts/read-doc-section.ps1's heading rule.
-    if (-not $rest.StartsWith(' ')) { continue }
+    # ORDINAL, not culture-sensitive. .NET's default StartsWith uses ICU
+    # collation, under which zero-width characters (U+200B, U+00AD, U+FEFF)
+    # are ignorable — so `"##<U+200B> Bogus"` reports a leading space here and
+    # is read as a heading, while the bash twin compares bytes and reads it as
+    # body text. Measured: the two legs returned OK and FAIL for the same file,
+    # which is one CI leg green and the other red. Same ordinal discipline the
+    # $asciiSpace trim set above already applies, for the same reason.
+    if (-not $rest.StartsWith(' ', [System.StringComparison]::Ordinal)) { continue }
     $level = $hashes
     $text = $rest.Trim($asciiSpace)
     $found = $true
