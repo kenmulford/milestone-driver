@@ -2,7 +2,9 @@
 
 Loaded when `integrations.trello` is present in the profile. Every operation here is **best-effort — never a gate** (Convention 1) and **main-thread only** (Convention 9).
 
-**Contents.** Run-start execution order · 1 Best-effort wrapper (never a gate) · 2 Availability probe · 3 Misconfiguration guard · 4 Ensure-list (auto-create) · 5 Card resolution order · 6 Back-link format and idempotency · 7 Card content at creation/adoption · 8 Card state machine · 9 Thread safety / parallel builds · 10 Phase hooks (Phase 0 hooks · Loop hooks · Finish hooks, incl. Systemic-halt path)
+## Contents
+
+Run-start execution order · 1 Best-effort wrapper (never a gate) · 2 Availability probe · 3 Misconfiguration guard · 4 Ensure-list (auto-create) · 5 Card resolution order · 6 Back-link format and idempotency · 7 Card content at creation/adoption · 8 Card state machine · 9 Thread safety / parallel builds · 10 Phase hooks (Phase 0 hooks · Loop hooks · Finish hooks, incl. Systemic-halt path)
 
 ---
 

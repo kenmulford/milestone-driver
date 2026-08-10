@@ -16,6 +16,10 @@ The defect `path (anchor)` removes: a citation pinned to a line number is
 invalidated by any edit above that line — silently. Nothing warns, the citation
 still looks well-formed, and it sends its reader to the wrong place.
 
+## Contents
+
+The four citation forms · The base a citation path resolves from · D1 — the anchor form — What marks a citation · Parse rule · Same-file — write a heading form · D2 — resolution, and the line forms · D3 — an anchor that is not found fails closed
+
 ## The four forms
 
 | Form | Points at | Resolved by | Write it when |
@@ -189,7 +193,7 @@ heading, `scripts/read-doc-section.sh (Duplicate anchors)`, and extends it with
 the report of the extras.
 
 **`path:line` and `path:start-end` are forms you may write today — not a legacy
-tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:254`,
+tolerance.** A citation carrying no `(anchor)` — `skills/solve-issue/SKILL.md:256`,
 or a range like `skills/notices.md:9-13` — resolves exactly as it does now:
 the bare line or lines, no resolution attempted, no error, and no warning. Both
 satisfy **every** evidence and citation slot in

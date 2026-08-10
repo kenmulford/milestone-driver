@@ -9,7 +9,7 @@ Generate or repair the driver profile through a guided, inference-first flow.
 
 The canonical profile location is `<repo>/.milestone-config/driver.json`. New profiles are always written there; an existing legacy root `<repo>/milestone-driver.json` is **migrated** (moved) there by the migration preamble that runs before Phase 1.
 
-## Table of Contents
+## Contents
 
 - [When this runs](#when-this-runs)
 - [Procedure](#procedure)
@@ -267,6 +267,8 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 ## Output style
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes.
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
 
 ## Non-negotiables
 
