@@ -39,11 +39,11 @@ These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` gove
 5. **Never narrate the template.** Section headers and slot names carry the structure; the text under them carries only facts. Do not explain what a section is for or announce what is about to be listed.
 6. **Cut pass before posting.** Re-read the whole body before the `gh issue comment` / `gh pr comment` / PR-body write, and delete every sentence whose removal loses no decision, gate, evidence, or citation.
 
-**Guardrail — concision cuts prose, never content.** Every gate, decision point, degradation branch, and citation stays whole; every literal directive, label name, and issue number stays verbatim. Fewer words, same completeness. A shape that lost a slot is not concise, it is incomplete.
+**Guardrail — concision cuts prose, never content.** Every gate, decision point, degradation branch, and citation stays whole; every literal directive, label name, and issue number stays verbatim. A shape that lost a slot is not concise, it is incomplete.
 
 ## When prose is the correct form
 
-Structure is the default, not the only legal shape. What the rules above ban is a failure mode, not paragraphs as such.
+Structure is the default, not the only legal shape.
 
 Prose is the **correct** form when the content carries dependent clauses a table would fragment:
 
@@ -72,7 +72,7 @@ Citations inside those slots follow one format, defined once in `skills/citation
 | **`## Code Review` section** (PR body) | — | run + effort · finding count · per-finding resolution · **evidence** (each finding's ref per `skills/citation-format.md`, or the effort level when the count is 0) · park-trigger list |
 | **Triage comment** (`triage`) | `🔴 Triage` | a **structured gap list** — one row per Blocker: lens/type · description · **evidence** · `to_clear`. The closing line stays prose ONLY when it carries something the structure does not (the durable-async-note instruction); otherwise it is cut. |
 | **Wave PR body** (`parallel-waves`) | — | the Wave's logic issues · **evidence** (per issue: its branch and the gates it passed on the wave branch) |
-| **CHANGELOG entry** (becomes the release body) | — | per bucket, one line per issue · **evidence** (the issue number and its merged PR) · Consumer notes · the ⚖️ judgment-call PR list |
+| **CHANGELOG entry** (becomes the release body) | — | **theme** (one line — the release's net behavior change) · per bucket, one line per issue · **evidence** (the issue number and its merged PR) · **Consumer notes** (only what changes what a consumer types, configures, or must expect) · **⚖️ audit trail** (the judgment-call PR list, plus a fact list: open defects with their issue numbers, any dropped acceptance criterion as what the shipped gate does NOT verify, and any ceiling or budget state the next edit hits). **Not slots here:** how the work went (review rounds, RED-first discovery, provenance), the release's own justification, and editing history. |
 | **👁️ Visual evidence / 🤖 AI pre-filter comments** (PR) | `👁️` / `🤖` | per shot: surface × viewport × appearance · **evidence** (the embedded image and its blob link; for a verdict, the named rendered-layout defect — never a subjective judgment) |
 | **`to_clear` field** (both reviewer agents; both `triage` return blocks) | — | the decision or artifact a human must record, plus its **evidence** reference (per `skills/citation-format.md`) when one exists. **Structural constraint, not a word count:** one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
 
