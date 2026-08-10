@@ -82,13 +82,17 @@
 #   - THE WORD AXIS ALSO CARRIES A HARD 5000-WORD CAP, which is
 #     superpowers:writing-skills' ceiling for one skill. A file at or under
 #     5000 words takes min(derived, 5000), so the 5% headroom can never ratchet
-#     a compliant file PAST the cap. Four files were already over it when #489
-#     landed (skills/solve-issue/SKILL.md 9970, skills/solve-milestone/
-#     parallel-waves.md 10081, skills/solve-milestone/SKILL.md 9619,
-#     skills/triage/SKILL.md 5296, all measured 2026-08-10); each seeds at its
-#     own actual + headroom and ratchets DOWN toward the cap as it is split, in
-#     the SAME change that shrinks it. Capping them at 5000 on day one would
-#     have failed the gate on content #489 does not change.
+#     a compliant file PAST the cap. FOUR files were already over it when #489
+#     landed; each seeded at its own actual + headroom and ratchets DOWN toward
+#     the cap as it is split, in the SAME change that shrinks it. Capping them
+#     at 5000 on day one would have failed the gate on content #489 does not
+#     change. Milestone #39's splits brought TWO of the four under, and both
+#     have now taken the cap: skills/solve-milestone/SKILL.md 4976 and
+#     skills/triage/SKILL.md 4926, each ceilinged at 5000 rather than at the
+#     5300/5200 their own actuals would derive. TWO remain over and still seed
+#     from their own actuals — skills/solve-issue/SKILL.md 5703 (ceiling 6000)
+#     and skills/solve-milestone/parallel-waves.md 5647 (ceiling 6000). All
+#     four measured 2026-08-10.
 #   - BOTH AXES CARRY A MINIMUM-HEADROOM FLOOR, and the line axis needs its own
 #     because 5% of a small line count is not a usable allowance. A LINE CEILING
 #     IS NEVER LOWERED BELOW `actual + 5` ROUNDED UP TO THE NEXT 5. Without it,
@@ -210,21 +214,39 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$byte_ceiling" in ''|*[!0-9]*) ;; *) BYTE_CEILINGS[$nbytes]="$byte_ceiling"; nbytes=$((nbytes + 1)) ;; esac
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
-skills/setup/SKILL.md                             280    30000     4300
-skills/solve-issue/SKILL.md                       375    69500    10500
-skills/solve-issue/async-mode.md                   40     4500      700
-skills/solve-issue/md-epic-fanout.md               60     9000     1300
-skills/solve-milestone/SKILL.md                   635    69000    10100
-skills/solve-milestone/parallel-waves.md          205    68000    10600
-skills/solve-milestone/trello-sync.md             400    20500     3200
-skills/solve-milestone/milestone-granularity.md   165    25000     3600
-skills/triage/SKILL.md                            390    37000     5600
-skills/notices.md                                 250    11500     1600
-skills/output-style.md                             90     9500     1600
-skills/citation-format.md                         230    13000     2000
-agents/design-reviewer.md                         120    16500     2700
-agents/implementer.md                             130    15000     2300
-agents/triage-reviewer.md                         120    17000     2700
+skills/setup/SKILL.md                               280    30000     4300
+skills/solve-issue/SKILL.md                         325    43000     6000
+skills/solve-issue/async-mode.md                     40     4500      700
+skills/solve-issue/md-epic-fanout.md                 60     9000     1300
+skills/solve-issue/coherence-review.md               15     2500      300
+skills/solve-issue/milestone-clauses.md              30     6000      900
+skills/solve-issue/permission-preflight.md           35     2500      400
+skills/solve-issue/post-fix-commit.md                25     4500      700
+skills/solve-issue/preflight-github-ci.md            20     3000      400
+skills/solve-issue/resume-paths.md                   20     3000      500
+skills/solve-issue/version-bump.md                   20     4000      600
+skills/solve-issue/visual-capture.md                 20     6000      800
+skills/solve-issue/visual-review-hold.md             20     2500      400
+skills/solve-milestone/SKILL.md                     320    38000     5000
+skills/solve-milestone/parallel-waves.md            205    40500     6000
+skills/solve-milestone/trello-sync.md               400    20500     3200
+skills/solve-milestone/milestone-granularity.md     165    25000     3600
+skills/solve-milestone/abandoned-recovery.md         45     6000      900
+skills/solve-milestone/changelog-authoring.md       210    14000     2200
+skills/solve-milestone/contingencies.md              70     8500     1200
+skills/solve-milestone/db-hazard-interview.md        30     2500      400
+skills/solve-milestone/integration-granularity.md    85    15500     2400
+skills/solve-milestone/md-epic-parent-check.md       30     2500      400
+skills/solve-milestone/not-buildable.md              20     3500      500
+skills/solve-milestone/sequential-loop.md            35     7500     1100
+skills/solve-milestone/version-target.md             30     3000      400
+skills/triage/SKILL.md                              390    35500     5000
+skills/notices.md                                   250    11500     1600
+skills/output-style.md                               90     9500     1600
+skills/citation-format.md                           230    13000     2000
+agents/design-reviewer.md                           120    16500     2600
+agents/implementer.md                               130    15000     2300
+agents/triage-reviewer.md                           120    17000     2600
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each
@@ -272,6 +294,12 @@ fi
 #                             output-style.md is. Issue #497 adds the direct
 #                             directives; that changes this file's GROUNDING,
 #                             not its membership, and no row below moves.
+#   skills/solve-issue/version-bump.md
+#                             solve-issue step 4 only, and a member of that one
+#                             closure. All three modes it selects between
+#                             (version-free, fail-safe degradation, versioned)
+#                             route INTO the read, so no branch stands in front
+#                             of it.
 #
 # EXCLUDED, and each is excluded for the same reason — an OBSERVABLE branch
 # stands in front of the read, so the file is not on every run's load path:
@@ -286,6 +314,44 @@ fi
 # They stay GOVERNED as per-file rows above; they are simply not summed here.
 # tests/check-size-budgets.test.{sh,ps1}'s excluded-untouched case pins that:
 # perturbing all five leaves every CLOSURE line byte-identical.
+#
+# Milestone #39 split 18 more reference files out of the four SKILL.md files.
+# 17 are EXCLUDED on the same rule, each verified against its read directive on
+# 2026-08-10 — the branch that stands in front of the read, in brackets:
+#   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
+#   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
+#   solve-issue/permission-preflight.md  [background dispatch only; a fully
+#                                         synchronous run skips the gate outright]
+#   solve-issue/post-fix-commit.md       [>=1 in-scope review finding]
+#   solve-issue/preflight-github-ci.md   [the "github-ci" sentinel]
+#   solve-issue/resume-paths.md          [a resume, not an inline start]
+#   solve-issue/visual-capture.md        [visualCapture configured AND sequential]
+#   solve-issue/visual-review-hold.md    [UI issues]
+#   solve-milestone/abandoned-recovery.md    [non-empty `abandoned` bucket]
+#   solve-milestone/changelog-authoring.md   [clean completion, zero parked]
+#   solve-milestone/contingencies.md         [a named failure branch]
+#   solve-milestone/db-hazard-interview.md   [cascade row 4 only]
+#   solve-milestone/integration-granularity.md [non-default integrationGranularity]
+#   solve-milestone/md-epic-parent-check.md  [an `md-epic` parent]
+#   solve-milestone/not-buildable.md         [a non-buildable issue]
+#   solve-milestone/sequential-loop.md       [sequential mode only]
+#   solve-milestone/version-target.md        [versioning not false]
+#
+# THE 18th, skills/solve-issue/version-bump.md, IS A MEMBER of solve-issue's
+# closure and is summed in the row below (decision recorded 2026-08-10). It is
+# not branch-gated: solve-issue step 4 selects a mode and then reads the file in
+# every one of them, so no branch stands in front of the read. Contrast
+# version-target.md, whose directive spells out "Under `versioning: false` it is
+# **never read**"; step 4 carries no such clause.
+#
+# That membership moves solve-issue's closure ceiling 11200 -> 11700, re-derived
+# by the standing rule from the corrected sum (10607 + 513 = 11120 words;
+# 11120 * 1.05 = 11676, rounded UP to the next 100). It is a re-derivation of a
+# ceiling the previous pass computed from an understated sum, not a raise: the
+# row was seeded at 15600 when the record was added (#491), and 11700 is still
+# well under it. Gating the step-4 read would be a behavior change and is out
+# of scope —
+# the CLOSURE record exists to make an unconditional load visible.
 #
 # MUST stay in sync with scripts/check-size-budgets.ps1's $closureTable, row for
 # row, the same requirement GOVERNED_TABLE carries. Rows start at column 0; `#`
@@ -304,9 +370,9 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7800   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       15600   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/solve-milestone/SKILL.md   15200   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             9200   skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       11700   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-milestone/SKILL.md   10400   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8800   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
 # Same length-parity guard the governed table carries, for the same reason: the

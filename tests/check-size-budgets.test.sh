@@ -228,8 +228,19 @@ fi
 # has exactly one place to update and the two twins cannot drift apart. A
 # surgery that no-ops fails loud, same as the two cases above: the unmodified
 # copy's stream matches neither expectation.
-mal_refusal="$(sed 's/CEILINGS(14), BYTE_CEILINGS(15) and WORD_CEILINGS(15)/CEILINGS(15), BYTE_CEILINGS(15) and WORD_CEILINGS(14)/' "$GUARD_GOLD" | tr -d '\r')"
-wide_stream="$(sed -e 's#/30000#/99999999999#' -e 's#/4300#/99999999999#' "$GOLD/at-ceiling.txt" | tr -d '\r')"
+#
+# BOTH rewrites are ADDRESSED TO THE ROW THE SURGERY ACTUALLY HITS — the first
+# table row, skills/setup/SKILL.md — and not applied file-wide. An unaddressed
+# `s#/4300#...#` also matches the LEADING FOUR DIGITS of any other row's
+# `/43000`, and milestone #39's ratchet gave skills/solve-issue/SKILL.md a byte
+# ceiling of exactly 43000: the expectation then carried a phantom
+# `7/999999999990` for a row the surgery never touched, and the case failed on
+# a checker that was correct. Keep the address whenever these numbers are
+# retuned.
+mal_refusal="$(sed 's/CEILINGS(32), BYTE_CEILINGS(33) and WORD_CEILINGS(33)/CEILINGS(33), BYTE_CEILINGS(33) and WORD_CEILINGS(32)/' "$GUARD_GOLD" | tr -d '\r')"
+wide_stream="$(sed -e '/skills\/setup\/SKILL.md/ s#/30000#/99999999999#' \
+                   -e '/skills\/setup\/SKILL.md/ s#/4300#/99999999999#' \
+                   "$GOLD/at-ceiling.txt" | tr -d '\r')"
 for mal in short long wide; do
   case "$mal" in
     short) prog='!hit && /^(skills|agents)\// && NF == 4 { $0 = $1 " " $2 " " $3; hit = 1 } { print }'

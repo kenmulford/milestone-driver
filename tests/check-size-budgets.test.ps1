@@ -220,11 +220,22 @@ try {
   # has exactly one place to update and the two twins cannot drift apart. A
   # surgery that no-ops fails loud, same as the two cases above: the unmodified
   # copy's stream matches neither expectation.
+  #
+  # The wide rewrite is applied LINE BY LINE and ONLY to the row the surgery
+  # actually hits — the first table row, skills/setup/SKILL.md. String.Replace
+  # rewrites EVERY occurrence in the whole text, and '/4300' also matches the
+  # leading four digits of another row's '/43000'; milestone #39's ratchet gave
+  # skills/solve-issue/SKILL.md a byte ceiling of exactly 43000, so the
+  # file-wide form produced a phantom '7/999999999990' for a row the surgery
+  # never touched. The .sh twin addresses its two `sed` rewrites to the same
+  # row for the same reason — keep both addressed when these numbers are
+  # retuned.
   $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    'CEILINGS(14), BYTE_CEILINGS(15) and WORD_CEILINGS(15)', 'CEILINGS(15), BYTE_CEILINGS(15) and WORD_CEILINGS(14)')
-  $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    '/30000', '/99999999999')).Replace('/4300', '/99999999999')
+    'CEILINGS(32), BYTE_CEILINGS(33) and WORD_CEILINGS(33)', 'CEILINGS(33), BYTE_CEILINGS(33) and WORD_CEILINGS(32)')
+  $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
+    if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/30000', '/99999999999')).Replace('/4300', '/99999999999') } else { $_ }
+  }) -join "`n"
   $malCases = @(
     @{ name = 'short'; rep = '${1}';                          rc = 1; out = '';          err = $malRefusal
        rx = '(?m)^((?:skills|agents)/\S+[ \t]+\d+[ \t]+\d+)[ \t]+\d+[ \t]*\r?$' },
