@@ -74,7 +74,7 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   | What changes | Light | Heavy (default) |
   |---|---|---|
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies — never skips) | Full TDD red→green |
-  | E2E gate | Skipped when the issue touches no UI surface | Per step 5 (UI surface + e2eTestCmd) |
+  | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
   | `/code-review` effort | `low` / `medium` | `high` / `xhigh` |
 
   **Override labels.** Apply `risk:light` or `risk:heavy` to an issue to force the profile directly (bypasses the automatic rubric). When **both** labels are present, `risk:heavy` wins (safety-first). Absent both labels, the rubric decides with default-heavy-on-ambiguity.

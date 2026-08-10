@@ -82,13 +82,17 @@
 #   - THE WORD AXIS ALSO CARRIES A HARD 5000-WORD CAP, which is
 #     superpowers:writing-skills' ceiling for one skill. A file at or under
 #     5000 words takes min(derived, 5000), so the 5% headroom can never ratchet
-#     a compliant file PAST the cap. Four files were already over it when #489
-#     landed (skills/solve-issue/SKILL.md 9970, skills/solve-milestone/
-#     parallel-waves.md 10081, skills/solve-milestone/SKILL.md 9619,
-#     skills/triage/SKILL.md 5296, all measured 2026-08-10); each seeds at its
-#     own actual + headroom and ratchets DOWN toward the cap as it is split, in
-#     the SAME change that shrinks it. Capping them at 5000 on day one would
-#     have failed the gate on content #489 does not change.
+#     a compliant file PAST the cap. FOUR files were already over it when #489
+#     landed; each seeded at its own actual + headroom and ratchets DOWN toward
+#     the cap as it is split, in the SAME change that shrinks it. Capping them
+#     at 5000 on day one would have failed the gate on content #489 does not
+#     change. Milestone #39's splits brought TWO of the four under, and both
+#     have now taken the cap: skills/solve-milestone/SKILL.md 4976 and
+#     skills/triage/SKILL.md 4926, each ceilinged at 5000 rather than at the
+#     5300/5200 their own actuals would derive. TWO remain over and still seed
+#     from their own actuals — skills/solve-issue/SKILL.md 5703 (ceiling 6000)
+#     and skills/solve-milestone/parallel-waves.md 5647 (ceiling 6000). All
+#     four measured 2026-08-10.
 #   - BOTH AXES CARRY A MINIMUM-HEADROOM FLOOR, and the line axis needs its own
 #     because 5% of a small line count is not a usable allowance. A LINE CEILING
 #     IS NEVER LOWERED BELOW `actual + 5` ROUNDED UP TO THE NEXT 5. Without it,
@@ -113,20 +117,49 @@
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
+#   - CLOSURE ceilings ratchet the same way — `actual * 1.05` rounded UP to the
+#     next 100 words, down freely, up only with a recorded decision — with ONE
+#     documented difference: THE 5000-WORD CAP DOES NOT APPLY TO THEM. That cap
+#     is superpowers:writing-skills' ceiling for ONE skill file, and a closure is
+#     a sum across several; applying it would put every closure permanently over
+#     on day one and say nothing about any file. The four closures seeded at
+#     their measured actuals (2026-08-10, issue #491): setup 7413, solve-issue
+#     14820, solve-milestone 14469, triage 8682.
 #
 # Usage:   check-size-budgets.sh [REPO_ROOT]
 #   REPO_ROOT   path to a checked-out repo root (default: CWD).
 #
-# Output (stdout), one line per governed file plus a trailing summary,
-# TAB-separated (mirrors ci-preflight-steps.sh's STEP/SKIP/SUMMARY stream):
+# Output (stdout), one line per governed file, then one line per governed
+# SKILL's load closure, then a trailing summary, TAB-separated (mirrors
+# ci-preflight-steps.sh's STEP/SKIP/SUMMARY stream):
 #   OK    <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
 #   FAIL  <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
 #   FAIL  <path>  MISSING/<lineCeiling>  MISSING/<byteCeiling>  MISSING/<wordCeiling>
+#   CLOSURE <skillPath>  <wordSum>/<closureWordCeiling>
+#   CLOSURE <skillPath>  MISSING/<closureWordCeiling>
 #   SUMMARY ok=<N> failed=<M>
 # A file FAILS when ANY count is over its ceiling, and all three columns always
 # print, so the record itself shows which one moved. Exit 0 when every governed
 # file is present and at/under ALL THREE ceilings; exit 1 when any file is
 # missing or over. bash-3.2-safe (no ${var,,}, no `declare -A`, no `mapfile`).
+#
+# The CLOSURE record (issue #491) is INFORMATIONAL AND NEVER GATES. It carries
+# ONE unit, words, because words are what superpowers:writing-skills sizes a
+# skill by and the only axis with a published per-skill standard; it names the
+# skill by its SKILL.md path so it reads against the per-file rows above without
+# a second naming scheme; and it keeps the `<actual>/<ceiling>` column shape of
+# those rows so one reader parses the whole stream. Its position — after every
+# per-file row and before the trailing SUMMARY — is what makes it additive: a
+# consumer reading the first field still sees the same OK/FAIL rows in the same
+# order and the same SUMMARY last.
+#
+# NEVER GATES is the load-bearing half, and it is a MILESTONE-SCOPED CHOICE, not
+# a permanent property. A closure sum over its ceiling changes NO exit code and
+# is counted in NEITHER ok= nor failed=; only the per-file rows decide those. A
+# closure whose sum cannot be computed (any member absent from disk) prints
+# MISSING and still changes no exit code — that member is itself a governed file,
+# so its own `FAIL <path> MISSING/...` row above has already failed the run, and
+# failing twice for one deletion would double-count it in failed=.
 set -u
 export LC_ALL=C
 
@@ -181,21 +214,39 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$byte_ceiling" in ''|*[!0-9]*) ;; *) BYTE_CEILINGS[$nbytes]="$byte_ceiling"; nbytes=$((nbytes + 1)) ;; esac
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
-skills/setup/SKILL.md                             280    30000     4300
-skills/solve-issue/SKILL.md                       375    69500    10500
-skills/solve-issue/async-mode.md                   40     4500      700
-skills/solve-issue/md-epic-fanout.md               60     9000     1300
-skills/solve-milestone/SKILL.md                   635    69000    10100
-skills/solve-milestone/parallel-waves.md          205    68000    10600
-skills/solve-milestone/trello-sync.md             400    20500     3200
-skills/solve-milestone/milestone-granularity.md   165    25000     3600
-skills/triage/SKILL.md                            390    37000     5600
-skills/notices.md                                 250    11500     1600
-skills/output-style.md                             90     9500     1600
-skills/citation-format.md                         230    13000     2000
-agents/design-reviewer.md                         120    16500     2700
-agents/implementer.md                             130    15000     2300
-agents/triage-reviewer.md                         120    17000     2700
+skills/setup/SKILL.md                               280    30000     4300
+skills/solve-issue/SKILL.md                         325    43000     6000
+skills/solve-issue/async-mode.md                     40     4500      700
+skills/solve-issue/md-epic-fanout.md                 60     9000     1300
+skills/solve-issue/coherence-review.md               15     2500      300
+skills/solve-issue/milestone-clauses.md              30     6000      900
+skills/solve-issue/permission-preflight.md           35     2500      400
+skills/solve-issue/post-fix-commit.md                25     4500      700
+skills/solve-issue/preflight-github-ci.md            20     3000      400
+skills/solve-issue/resume-paths.md                   20     3000      500
+skills/solve-issue/version-bump.md                   20     4000      600
+skills/solve-issue/visual-capture.md                 20     6000      800
+skills/solve-issue/visual-review-hold.md             20     2500      400
+skills/solve-milestone/SKILL.md                     320    38000     5000
+skills/solve-milestone/parallel-waves.md            205    40500     6000
+skills/solve-milestone/trello-sync.md               400    20500     3200
+skills/solve-milestone/milestone-granularity.md     165    25000     3600
+skills/solve-milestone/abandoned-recovery.md         45     6000      900
+skills/solve-milestone/changelog-authoring.md       210    14000     2200
+skills/solve-milestone/contingencies.md              70     8500     1200
+skills/solve-milestone/db-hazard-interview.md        30     2500      400
+skills/solve-milestone/integration-granularity.md    85    15500     2400
+skills/solve-milestone/md-epic-parent-check.md       30     2500      400
+skills/solve-milestone/not-buildable.md              20     3500      500
+skills/solve-milestone/sequential-loop.md            35     7500     1100
+skills/solve-milestone/version-target.md             30     3000      400
+skills/triage/SKILL.md                              390    35500     5000
+skills/notices.md                                   250    11500     1600
+skills/output-style.md                               90     9500     1600
+skills/citation-format.md                           230    13000     2000
+agents/design-reviewer.md                           120    16500     2600
+agents/implementer.md                               130    15000     2300
+agents/triage-reviewer.md                           120    17000     2600
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each
@@ -208,6 +259,164 @@ if [ "$nfiles" -ne "$nceilings" ] || [ "$nfiles" -ne "$nbytes" ] || [ "$nfiles" 
     "$nfiles" "$nceilings" "$nbytes" "$nwords" >&2
   exit 1
 fi
+
+# The UNCONDITIONAL LOAD CLOSURE of each governed skill (issue #491), ONE ROW
+# PER SKILL:
+#
+#   <skillPath>   <closureWordCeiling>   <member> <member> ...
+#
+# Why the record exists: a per-file ceiling understates what a skill actually
+# costs, because a SKILL.md is never the whole load. Moving 2,000 words out of
+# a SKILL.md and into a file that same skill read-directs on EVERY run leaves
+# the agent reading exactly as many words as before while the per-file table
+# reports a 2,000-word improvement. The closure sum is what makes that trade
+# visible: it does not move.
+#
+# Column 1 is BOTH the record's label AND the first member of its own closure —
+# a skill's SKILL.md is counted implicitly and is never listed in the members
+# column. That is deliberate, and it is the same class of protection the
+# one-row-per-file shape gives GOVERNED_TABLE: a closure that omits its own
+# SKILL.md cannot be written.
+#
+# MEMBERSHIP RULE, and the only one: a file belongs to a closure when the skill
+# reads it on EVERY run, with no branch in front of the read. Verified against
+# the read directives on 2026-08-10:
+#   skills/notices.md         solve-issue step 1.1.1, solve-milestone step 2.1 —
+#                             both read it immediately after the profile read,
+#                             unconditionally. `setup` and `triage` do not.
+#   skills/output-style.md    all four skills' `## Output contract` sections, plus
+#                             solve-issue step 6 and triage step 5.
+#   skills/citation-format.md all four, though NOT because a SKILL.md
+#                             read-directs it: skills/output-style.md
+#                             (Citations inside those slots follow one format)
+#                             makes it a required onward read of output-style.md
+#                             itself, so it is unconditional wherever
+#                             output-style.md is. Issue #497 adds the direct
+#                             directives; that changes this file's GROUNDING,
+#                             not its membership, and no row below moves.
+#   skills/solve-issue/version-bump.md
+#                             solve-issue step 4 only, and a member of that one
+#                             closure. All three modes it selects between
+#                             (version-free, fail-safe degradation, versioned)
+#                             route INTO the read, so no branch stands in front
+#                             of it.
+#
+# EXCLUDED, and each is excluded for the same reason — an OBSERVABLE branch
+# stands in front of the read, so the file is not on every run's load path:
+#   skills/solve-milestone/parallel-waves.md          parallel mode only
+#                                                     (SKILL.md, Mode branch point)
+#   skills/solve-milestone/milestone-granularity.md   integrationGranularity:
+#                                                     "milestone" only
+#                                                     (SKILL.md, Granularity branch point)
+#   skills/solve-milestone/trello-sync.md             `integrations.trello` present only
+#   skills/solve-issue/async-mode.md                  retired, inert — read on no run
+#   skills/solve-issue/md-epic-fanout.md              `md-epic` label only
+# They stay GOVERNED as per-file rows above; they are simply not summed here.
+# tests/check-size-budgets.test.{sh,ps1}'s excluded-untouched case pins that:
+# perturbing all five leaves every CLOSURE line byte-identical.
+#
+# Milestone #39 split 18 more reference files out of the four SKILL.md files.
+# 17 are EXCLUDED on the same rule, each verified against its read directive on
+# 2026-08-10 — the branch that stands in front of the read, in brackets:
+#   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
+#   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
+#   solve-issue/permission-preflight.md  [background dispatch only; a fully
+#                                         synchronous run skips the gate outright]
+#   solve-issue/post-fix-commit.md       [>=1 in-scope review finding]
+#   solve-issue/preflight-github-ci.md   [the "github-ci" sentinel]
+#   solve-issue/resume-paths.md          [a resume, not an inline start]
+#   solve-issue/visual-capture.md        [visualCapture configured AND sequential]
+#   solve-issue/visual-review-hold.md    [UI issues]
+#   solve-milestone/abandoned-recovery.md    [non-empty `abandoned` bucket]
+#   solve-milestone/changelog-authoring.md   [clean completion, zero parked]
+#   solve-milestone/contingencies.md         [a named failure branch]
+#   solve-milestone/db-hazard-interview.md   [cascade row 4 only]
+#   solve-milestone/integration-granularity.md [non-default integrationGranularity]
+#   solve-milestone/md-epic-parent-check.md  [an `md-epic` parent]
+#   solve-milestone/not-buildable.md         [a non-buildable issue]
+#   solve-milestone/sequential-loop.md       [sequential mode only]
+#   solve-milestone/version-target.md        [versioning not false]
+#
+# THE 18th, skills/solve-issue/version-bump.md, IS A MEMBER of solve-issue's
+# closure and is summed in the row below (decision recorded 2026-08-10). It is
+# not branch-gated: solve-issue step 4 selects a mode and then reads the file in
+# every one of them, so no branch stands in front of the read. Contrast
+# version-target.md, whose directive spells out "Under `versioning: false` it is
+# **never read**"; step 4 carries no such clause.
+#
+# That membership moves solve-issue's closure ceiling 11200 -> 11700, re-derived
+# by the standing rule from the corrected sum (10607 + 513 = 11120 words;
+# 11120 * 1.05 = 11676, rounded UP to the next 100). It is a re-derivation of a
+# ceiling the previous pass computed from an understated sum, not a raise: the
+# row was seeded at 15600 when the record was added (#491), and 11700 is still
+# well under it. Gating the step-4 read would be a behavior change and is out
+# of scope —
+# the CLOSURE record exists to make an unconditional load visible.
+#
+# MUST stay in sync with scripts/check-size-budgets.ps1's $closureTable, row for
+# row, the same requirement GOVERNED_TABLE carries. Rows start at column 0; `#`
+# starts a comment row; an EMPTY table is legal and simply prints no CLOSURE
+# records (the run still exits on the per-file outcome alone).
+CLOSURE_SKILLS=()
+CLOSURE_CEILINGS=()
+CLOSURE_MEMBERS=()
+nclosures=0
+nclosureceilings=0
+while read -r skill closure_ceiling members; do
+  case "$skill" in ''|'#'*) continue ;; esac
+  CLOSURE_SKILLS[$nclosures]="$skill"
+  CLOSURE_MEMBERS[$nclosures]="$members"
+  nclosures=$((nclosures + 1))
+  case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
+done <<'CLOSURE_TABLE'
+skills/setup/SKILL.md              7800   skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       11700   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-milestone/SKILL.md   10400   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8800   skills/output-style.md skills/citation-format.md
+CLOSURE_TABLE
+
+# Same length-parity guard the governed table carries, for the same reason: the
+# parse appends a skill unconditionally and its ceiling only when that column is
+# present and all digits, so a row whose ceiling was dropped or garbled (most
+# plausibly by writing a member path where the ceiling belongs) shows up here as
+# unequal counts and refuses to run. A row with NO members is not malformed —
+# that is a one-file closure, and its sum is just the SKILL.md.
+if [ "$nclosures" -ne "$nclosureceilings" ]; then
+  printf 'ERROR check-size-budgets: CLOSURE_SKILLS(%s) and CLOSURE_CEILINGS(%s) length mismatch, fix the closure table\n' \
+    "$nclosures" "$nclosureceilings" >&2
+  exit 1
+fi
+
+# WORDS ARE COUNTED WITH `tr`+`grep`, NOT `wc -w`. `wc -w` is NOT portable for
+# this repo's content, which is dense with emoji. GNU coreutils builds its
+# single-byte whitespace table as
+#     wc_isspace[i] = isspace (i) || maybe_c32isnbspace (btoc32 (i));
+# (coreutils src/wc.c) — an extra non-breaking-space clause BSD's wc has no
+# equivalent of. MEASURED, on CI run 31426420226: the goldens generated on macOS
+# read 488 and 726 words for two fixtures whose only non-ASCII content is a
+# single 🔴 sitting alone between two spaces; GNU read 487 and 725, one fewer
+# each, because that byte run was a word to BSD and not to GNU. Bytes on disk
+# were identical on both legs, so the file was not the variable — the algorithm
+# was. That is one CI leg green and the other red on identical content, and it
+# would have silently mis-derived every word ceiling depending on which machine
+# ran the ratchet.
+#
+# `tr -s` with explicit OCTAL escapes squeezes runs of exactly the six C
+# isspace bytes — space, \t, \n, \v, \f, \r — into newlines, and `grep -c .`
+# counts the non-empty lines that remain. Both are POSIX-specified on the byte,
+# so the two tr implementations agree where the two wc implementations do not,
+# and the result is identical BY CONSTRUCTION to the pwsh twin, which scans its
+# already-read byte array for those same six values. Verified against all three
+# fixtures: 469 / 488 / 726, unchanged.
+#
+# ONE function, called by BOTH the per-file word column and the CLOSURE sums, so
+# the two can never be measured by different algorithms — a closure is a sum of
+# the very numbers the rows above print, not a second count of the same files.
+count_words() {
+  local n
+  n="$(tr -s '\040\011\012\013\014\015' '\n' < "$1" | grep -c .)"
+  printf '%s' "${n//[[:space:]]/}"
+}
 
 ok=0
 failed=0
@@ -228,29 +437,13 @@ while [ "$i" -lt "$nfiles" ]; do
     # no locale, matching the pwsh twin's $bytes.Length on the same file.
     actual_bytes="$(wc -c < "$path")"
     actual_bytes="${actual_bytes//[[:space:]]/}"
-    # WORDS ARE COUNTED WITH `tr`+`grep`, NOT `wc -w`. `wc -w` is NOT portable
-    # for this repo's content, which is dense with emoji. GNU coreutils builds
-    # its single-byte whitespace table as
-    #     wc_isspace[i] = isspace (i) || maybe_c32isnbspace (btoc32 (i));
-    # (coreutils src/wc.c) — an extra non-breaking-space clause BSD's wc has no
-    # equivalent of. MEASURED, on CI run 31426420226: the goldens generated on
-    # macOS read 488 and 726 words for two fixtures whose only non-ASCII content
-    # is a single 🔴 sitting alone between two spaces; GNU read 487 and 725,
-    # one fewer each, because that byte run was a word to BSD and not to GNU.
-    # Bytes on disk were identical on both legs, so the file was not the
-    # variable — the algorithm was. That is one CI leg green and the other red
-    # on identical content, and it would have silently mis-derived every word
-    # ceiling depending on which machine ran the ratchet.
-    #
-    # `tr -s` with explicit OCTAL escapes squeezes runs of exactly the six C
-    # isspace bytes — space, \t, \n, \v, \f, \r — into newlines, and `grep -c .`
-    # counts the non-empty lines that remain. Both are POSIX-specified on the
-    # byte, so the two tr implementations agree where the two wc implementations
-    # do not, and the result is identical BY CONSTRUCTION to the pwsh twin,
-    # which scans its already-read byte array for those same six values.
-    # Verified against all three fixtures: 469 / 488 / 726, unchanged.
-    actual_words="$(tr -s '\040\011\012\013\014\015' '\n' < "$path" | grep -c .)"
-    actual_words="${actual_words//[[:space:]]/}"
+    # Words through count_words(), the SAME function the CLOSURE sums below
+    # call — see its definition above for why `wc -w` is not portable for this
+    # content and what `tr`+`grep` counts instead. Routing both callers through
+    # one function is what makes a CLOSURE sum a sum of the very numbers this
+    # column prints, rather than a second count of the same files by a second
+    # algorithm that could drift from it.
+    actual_words="$(count_words "$path")"
     if [ "$actual" -gt "$ceiling" ] || [ "$actual_bytes" -gt "$byte_ceiling" ] || [ "$actual_words" -gt "$word_ceiling" ]; then
       printf 'FAIL\t%s\t%s/%s\t%s/%s\t%s/%s\n' "$f" "$actual" "$ceiling" "$actual_bytes" "$byte_ceiling" "$actual_words" "$word_ceiling"
       failed=$((failed + 1))
@@ -260,6 +453,46 @@ while [ "$i" -lt "$nfiles" ]; do
     fi
   fi
   i=$((i + 1))
+done
+
+# One CLOSURE record per closure row, AFTER every per-file record and BEFORE
+# the trailing SUMMARY — the position that keeps the record additive (see the
+# header). `$skill $members` is UNQUOTED on purpose: the members column is a
+# space-separated path list read as one field, and this is the split that turns
+# it back into arguments; the skill's own SKILL.md leads because column 1 is the
+# first member of its own closure and is never listed in the members column.
+#
+# NEITHER `ok` NOR `failed` IS TOUCHED HERE, and no exit code is decided here.
+# A sum over its ceiling still prints and still exits 0; a member absent from
+# disk prints MISSING and still exits on the per-file outcome alone, because
+# that member is itself a governed file whose own `FAIL <path> MISSING/...`
+# record above already failed the run.
+#
+# The absence check short-circuits before summing rather than summing what is
+# present: a partial sum reads as a real measurement of a closure that cannot be
+# measured, and would silently drop under its ceiling exactly when a member was
+# deleted. bash-3.2-safe: index-counted while loop, no `declare -A`, no
+# `mapfile`.
+j=0
+while [ "$j" -lt "$nclosures" ]; do
+  skill="${CLOSURE_SKILLS[$j]}"
+  closure_ceiling="${CLOSURE_CEILINGS[$j]}"
+  members="${CLOSURE_MEMBERS[$j]}"
+  closure_words=0
+  closure_missing=0
+  for m in $skill $members; do
+    if [ ! -f "$ROOT/$m" ]; then
+      closure_missing=1
+      break
+    fi
+    closure_words=$((closure_words + $(count_words "$ROOT/$m")))
+  done
+  if [ "$closure_missing" -eq 1 ]; then
+    printf 'CLOSURE\t%s\tMISSING/%s\n' "$skill" "$closure_ceiling"
+  else
+    printf 'CLOSURE\t%s\t%s/%s\n' "$skill" "$closure_words" "$closure_ceiling"
+  fi
+  j=$((j + 1))
 done
 
 printf 'SUMMARY\tok=%s\tfailed=%s\n' "$ok" "$failed"

@@ -16,6 +16,10 @@ The defect `path (anchor)` removes: a citation pinned to a line number is
 invalidated by any edit above that line — silently. Nothing warns, the citation
 still looks well-formed, and it sends its reader to the wrong place.
 
+## Contents
+
+The four citation forms · The base a citation path resolves from · D1 — the anchor form — What marks a citation · Parse rule · Same-file — write a heading form · D2 — resolution, and the line forms · D3 — an anchor that is not found fails closed
+
 ## The four forms
 
 | Form | Points at | Resolved by | Write it when |

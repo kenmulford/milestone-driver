@@ -45,12 +45,15 @@ jobs:
         run: bash tests/check-citations.test.sh
       - name: classify-delta (bash)
         run: bash tests/classify-delta.test.sh
-      # The only scripts/check-* step that runs against THIS repo's real tree.
+      # The two scripts/check-* steps that run against THIS repo's real tree.
       # Every other checker is exercised through fixture roots only, which
-      # proves the script works without gating a citation the repo actually
-      # broke — and a broken anchor is invisible to every other check here.
+      # proves the script works without gating a citation — or a missing
+      # contents block — the repo actually broke, and both are invisible to
+      # every other check here.
       - name: citations resolve (bash)
         run: bash scripts/check-citations.sh .
+      - name: doc TOCs present (bash)
+        run: bash scripts/check-doc-toc.sh .
 
   shell-tests-pwsh:
     name: shell-tests (pwsh)
@@ -86,11 +89,13 @@ jobs:
         run: pwsh tests/check-citations.test.ps1
       - name: classify-delta (pwsh)
         run: pwsh tests/classify-delta.test.ps1
-      # Twin of the bash leg's real-tree step. Both legs run it because a
+      # Twins of the bash leg's real-tree steps. Both legs run them because a
       # <line> that differs between the twins is the worst answer a citation
       # checker can give, and only running both catches that.
       - name: citations resolve (pwsh)
         run: pwsh scripts/check-citations.ps1 .
+      - name: doc TOCs present (pwsh)
+        run: pwsh scripts/check-doc-toc.ps1 .
 
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)

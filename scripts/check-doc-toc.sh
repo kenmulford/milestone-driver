@@ -16,12 +16,12 @@
 # THE SCAN DOES NOT LOOK FOR AN H1, and anchoring it on one would be wrong
 # twice over in this repo:
 #   - agents/design-reviewer.md, agents/implementer.md and
-#     agents/triage-reviewer.md carry NO `^# ` line at all. Their first heading
-#     is a level-2 one (implementer.md's is `## What you receive`, line 11), so
-#     an H1-anchored scan finds nothing to position `## Contents` against.
-#   - skills/solve-milestone/SKILL.md, skills/setup/SKILL.md and
-#     skills/solve-milestone/trello-sync.md each contain several `^# ` lines
-#     that are BASH COMMENTS INSIDE FENCED CODE BLOCKS. A dependency-free,
+#     agents/triage-reviewer.md carry NO `^# ` line at all. Every one of the
+#     three opens on a level-2 heading, so an H1-anchored scan finds nothing to
+#     position `## Contents` against.
+#   - skills/setup/SKILL.md, skills/solve-milestone/trello-sync.md and
+#     skills/solve-milestone/changelog-authoring.md each contain several `^# `
+#     lines that are BASH COMMENTS INSIDE FENCED CODE BLOCKS. A dependency-free,
 #     line-oriented scanner cannot tell those from a heading, so an H1-anchored
 #     scan would anchor inside a fence.
 # Requiring level 2 or higher sidesteps both: a level-1 line, fenced or not,
@@ -37,14 +37,16 @@
 # line-oriented, exactly like scripts/read-doc-section.sh's ATX heading scan,
 # which carries the same limitation on purpose. A heading-shaped line inside a
 # fence placed BEFORE the file's real first heading would therefore be read as
-# a heading. That shape does not occur in the governed set: the one fenced
-# pseudo-heading it holds, skills/solve-milestone/SKILL.md's
-# `## v<target-version> — <milestone theme>`, sits at line 459, far behind that
-# file's `## Contents` at line 18, and the scan stops at the first heading it
-# finds. tests/fixtures/check-doc-toc/fenced-pseudo-heading/ pins exactly that
-# arrangement. DO NOT ADD GENERAL FENCE PARSING to widen it — that is a
-# markdown model, and .project/library-manifest.md#Adding a dependency (the
-# gate) is the reason this whole family of checkers has none.
+# a heading. That shape does not occur in the governed set: every fenced
+# pseudo-heading it holds sits in skills/solve-milestone/changelog-authoring.md
+# — the CHANGELOG skeleton under that file's `## 6.5 Author the CHANGELOG
+# entry` (whose `## v<target-version> — <milestone theme>` is the level-2 one)
+# and the sample under its `## CHANGELOG preview`. Both sit far behind that
+# file's `## Contents`, which is its first heading, and the scan stops at the
+# first heading it finds. tests/fixtures/check-doc-toc/fenced-pseudo-heading/
+# pins exactly that arrangement. DO NOT ADD GENERAL FENCE PARSING to widen it
+# — that is a markdown model, and .project/library-manifest.md#Adding a
+# dependency (the gate) is the reason this whole family of checkers has none.
 #
 # Threshold: STRICTLY OVER 100 lines. A file at or under 100 lines passes
 # whether or not it carries the heading — a reader takes in a 100-line file
@@ -98,10 +100,28 @@ skills/setup/SKILL.md
 skills/solve-issue/SKILL.md
 skills/solve-issue/async-mode.md
 skills/solve-issue/md-epic-fanout.md
+skills/solve-issue/coherence-review.md
+skills/solve-issue/milestone-clauses.md
+skills/solve-issue/permission-preflight.md
+skills/solve-issue/post-fix-commit.md
+skills/solve-issue/preflight-github-ci.md
+skills/solve-issue/resume-paths.md
+skills/solve-issue/version-bump.md
+skills/solve-issue/visual-capture.md
+skills/solve-issue/visual-review-hold.md
 skills/solve-milestone/SKILL.md
 skills/solve-milestone/parallel-waves.md
 skills/solve-milestone/trello-sync.md
 skills/solve-milestone/milestone-granularity.md
+skills/solve-milestone/abandoned-recovery.md
+skills/solve-milestone/changelog-authoring.md
+skills/solve-milestone/contingencies.md
+skills/solve-milestone/db-hazard-interview.md
+skills/solve-milestone/integration-granularity.md
+skills/solve-milestone/md-epic-parent-check.md
+skills/solve-milestone/not-buildable.md
+skills/solve-milestone/sequential-loop.md
+skills/solve-milestone/version-target.md
 skills/triage/SKILL.md
 skills/notices.md
 skills/output-style.md

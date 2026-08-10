@@ -1,16 +1,38 @@
 OK	skills/setup/SKILL.md	1/280	7/30000	1/4300
-OK	skills/solve-issue/SKILL.md	1/375	7/69500	1/10500
+OK	skills/solve-issue/SKILL.md	1/325	7/43000	1/6000
 OK	skills/solve-issue/async-mode.md	40/40	4500/4500	469/700
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/9000	1/1300
-OK	skills/solve-milestone/SKILL.md	1/635	7/69000	1/10100
-OK	skills/solve-milestone/parallel-waves.md	1/205	7/68000	1/10600
+OK	skills/solve-issue/coherence-review.md	1/15	7/2500	1/300
+OK	skills/solve-issue/milestone-clauses.md	1/30	7/6000	1/900
+OK	skills/solve-issue/permission-preflight.md	1/35	7/2500	1/400
+OK	skills/solve-issue/post-fix-commit.md	1/25	7/4500	1/700
+OK	skills/solve-issue/preflight-github-ci.md	1/20	7/3000	1/400
+OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
+OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
+OK	skills/solve-issue/visual-capture.md	1/20	7/6000	1/800
+OK	skills/solve-issue/visual-review-hold.md	1/20	7/2500	1/400
+OK	skills/solve-milestone/SKILL.md	1/320	7/38000	1/5000
+OK	skills/solve-milestone/parallel-waves.md	1/205	7/40500	1/6000
 OK	skills/solve-milestone/trello-sync.md	1/400	7/20500	1/3200
 OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25000	1/3600
-OK	skills/triage/SKILL.md	1/390	7/37000	1/5600
+OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/6000	1/900
+OK	skills/solve-milestone/changelog-authoring.md	1/210	7/14000	1/2200
+OK	skills/solve-milestone/contingencies.md	1/70	7/8500	1/1200
+OK	skills/solve-milestone/db-hazard-interview.md	1/30	7/2500	1/400
+OK	skills/solve-milestone/integration-granularity.md	1/85	7/15500	1/2400
+OK	skills/solve-milestone/md-epic-parent-check.md	1/30	7/2500	1/400
+OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
+OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
+OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
+OK	skills/triage/SKILL.md	1/390	7/35500	1/5000
 OK	skills/notices.md	1/250	7/11500	1/1600
 OK	skills/output-style.md	1/90	7/9500	1/1600
 OK	skills/citation-format.md	1/230	7/13000	1/2000
-OK	agents/design-reviewer.md	1/120	7/16500	1/2700
+OK	agents/design-reviewer.md	1/120	7/16500	1/2600
 OK	agents/implementer.md	1/130	7/15000	1/2300
-OK	agents/triage-reviewer.md	1/120	7/17000	1/2700
-SUMMARY	ok=15	failed=0
+OK	agents/triage-reviewer.md	1/120	7/17000	1/2600
+CLOSURE	skills/setup/SKILL.md	3/7800
+CLOSURE	skills/solve-issue/SKILL.md	5/11700
+CLOSURE	skills/solve-milestone/SKILL.md	4/10400
+CLOSURE	skills/triage/SKILL.md	3/8800
+SUMMARY	ok=33	failed=0
