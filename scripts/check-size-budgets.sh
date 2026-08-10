@@ -6,11 +6,14 @@
 # files, the reviewer/implementer agents/*.md files, and the sibling reference
 # docs split out of the once-monolithic SKILL.md files) against THREE per-file
 # ceilings recorded in the table below: a LINE ceiling, a BYTE ceiling and a
-# WORD ceiling. Dependency-free: `wc -l`, `wc -c` and `wc -w` only, no
+# WORD ceiling. Dependency-free: `wc -l`, `wc -c`, `tr` and `grep` only, no
 # YAML/markdown library (mirrors ci-preflight-steps.sh's
 # line-oriented-parser posture;
 # .project/library-manifest.md#Adding a dependency (the gate), "no new tool
-# dependency").
+# dependency"). `tr` and `grep` are POSIX shell utilities already relied on
+# across scripts/, not a new dependency in the sense that gate means; they
+# replace `wc -w`, which is not portable for this content — see the word-count
+# block below.
 #
 # Which unit is authoritative (issue #399):
 #   - BYTES is authoritative for COST. Every governed file loads into context
@@ -225,14 +228,28 @@ while [ "$i" -lt "$nfiles" ]; do
     # no locale, matching the pwsh twin's $bytes.Length on the same file.
     actual_bytes="$(wc -c < "$path")"
     actual_bytes="${actual_bytes//[[:space:]]/}"
-    # `wc -w` counts maximal runs of non-whitespace. Under this script's
-    # LC_ALL=C that whitespace set is exactly C isspace(): space, \t, \n, \v,
-    # \f, \r — six BYTES, no locale table and no multibyte decoding, so a
-    # non-ASCII byte is word CONTENT here and on the pwsh twin alike. The twin
-    # scans its already-read byte array for those same six values rather than
-    # splitting a decoded .NET string, whose \s would also swallow NBSP and the
-    # other Unicode spaces and desync the two counts.
-    actual_words="$(wc -w < "$path")"
+    # WORDS ARE COUNTED WITH `tr`+`grep`, NOT `wc -w`. `wc -w` is NOT portable
+    # for this repo's content, which is dense with emoji. GNU coreutils builds
+    # its single-byte whitespace table as
+    #     wc_isspace[i] = isspace (i) || maybe_c32isnbspace (btoc32 (i));
+    # (coreutils src/wc.c) — an extra non-breaking-space clause BSD's wc has no
+    # equivalent of. MEASURED, on CI run 31426420226: the goldens generated on
+    # macOS read 488 and 726 words for two fixtures whose only non-ASCII content
+    # is a single 🔴 sitting alone between two spaces; GNU read 487 and 725,
+    # one fewer each, because that byte run was a word to BSD and not to GNU.
+    # Bytes on disk were identical on both legs, so the file was not the
+    # variable — the algorithm was. That is one CI leg green and the other red
+    # on identical content, and it would have silently mis-derived every word
+    # ceiling depending on which machine ran the ratchet.
+    #
+    # `tr -s` with explicit OCTAL escapes squeezes runs of exactly the six C
+    # isspace bytes — space, \t, \n, \v, \f, \r — into newlines, and `grep -c .`
+    # counts the non-empty lines that remain. Both are POSIX-specified on the
+    # byte, so the two tr implementations agree where the two wc implementations
+    # do not, and the result is identical BY CONSTRUCTION to the pwsh twin,
+    # which scans its already-read byte array for those same six values.
+    # Verified against all three fixtures: 469 / 488 / 726, unchanged.
+    actual_words="$(tr -s '\040\011\012\013\014\015' '\n' < "$path" | grep -c .)"
     actual_words="${actual_words//[[:space:]]/}"
     if [ "$actual" -gt "$ceiling" ] || [ "$actual_bytes" -gt "$byte_ceiling" ] || [ "$actual_words" -gt "$word_ceiling" ]; then
       printf 'FAIL\t%s\t%s/%s\t%s/%s\t%s/%s\n' "$f" "$actual" "$ceiling" "$actual_bytes" "$byte_ceiling" "$actual_words" "$word_ceiling"
