@@ -1,16 +1,16 @@
-OK	skills/setup/SKILL.md	1/280	7/30000
-OK	skills/solve-issue/SKILL.md	1/375	7/69500
-FAIL	skills/solve-issue/async-mode.md	40/40	4606/4500
-OK	skills/solve-issue/md-epic-fanout.md	1/60	7/9000
-OK	skills/solve-milestone/SKILL.md	1/635	7/69000
-OK	skills/solve-milestone/parallel-waves.md	1/205	7/68000
-OK	skills/solve-milestone/trello-sync.md	1/400	7/20500
-OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25000
-OK	skills/triage/SKILL.md	1/390	7/37000
-OK	skills/notices.md	1/250	7/11500
-OK	skills/output-style.md	1/90	7/9500
-OK	skills/citation-format.md	1/230	7/13000
-OK	agents/design-reviewer.md	1/120	7/16500
-OK	agents/implementer.md	1/130	7/15000
-OK	agents/triage-reviewer.md	1/120	7/17000
+OK	skills/setup/SKILL.md	1/280	7/30000	1/4300
+OK	skills/solve-issue/SKILL.md	1/375	7/69500	1/10500
+FAIL	skills/solve-issue/async-mode.md	40/40	4606/4500	488/700
+OK	skills/solve-issue/md-epic-fanout.md	1/60	7/9000	1/1300
+OK	skills/solve-milestone/SKILL.md	1/635	7/69000	1/10100
+OK	skills/solve-milestone/parallel-waves.md	1/205	7/68000	1/10600
+OK	skills/solve-milestone/trello-sync.md	1/400	7/20500	1/3200
+OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25000	1/3600
+OK	skills/triage/SKILL.md	1/390	7/37000	1/5600
+OK	skills/notices.md	1/250	7/11500	1/1600
+OK	skills/output-style.md	1/90	7/9500	1/1600
+OK	skills/citation-format.md	1/230	7/13000	1/2000
+OK	agents/design-reviewer.md	1/120	7/16500	1/2700
+OK	agents/implementer.md	1/130	7/15000	1/2300
+OK	agents/triage-reviewer.md	1/120	7/17000	1/2700
 SUMMARY	ok=14	failed=1

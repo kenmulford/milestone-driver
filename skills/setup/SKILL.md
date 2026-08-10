@@ -9,7 +9,7 @@ Generate or repair the driver profile through a guided, inference-first flow.
 
 The canonical profile location is `<repo>/.milestone-config/driver.json`. New profiles are always written there; an existing legacy root `<repo>/milestone-driver.json` is **migrated** (moved) there by the migration preamble that runs before Phase 1.
 
-## Table of Contents
+## Contents
 
 - [When this runs](#when-this-runs)
 - [Procedure](#procedure)

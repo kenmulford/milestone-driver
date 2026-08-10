@@ -2,7 +2,9 @@
 
 This file is loaded by solve-milestone when the run resolves to parallel mode (the *Resolve execution mode* Before-starting step, per the mode branch point at the top of `### 4. Loop over issues in dependency-graph order` in core `SKILL.md`). It holds the Wave loop's parallelizable-set selection, the two-phase concurrent-build-then-serial-merge-tail machinery, and the issue/wave integration-granularity mechanics. If this file is **missing or unreadable** at the point core `SKILL.md` needs it (mode already resolved to parallel), that is a **systemic failure** — surface it and halt the run per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run" (the same class as missing required tooling); do **not** silently degrade to sequential (which would silently skip real dispatched work), and do not fail with an uninformative crash.
 
-**Contents.** Selecting the concurrent set · Phase 1: pipelined build and review · Phase 2: the serial merge tail · Integration-granularity values.
+## Contents
+
+Selecting the concurrent set · Phase 1: pipelined build and review · Phase 2: the serial merge tail · Integration-granularity values.
 
 ---
 
