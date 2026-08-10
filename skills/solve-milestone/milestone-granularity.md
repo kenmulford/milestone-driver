@@ -2,7 +2,9 @@
 
 Loaded when the profile resolves `integrationGranularity: "milestone"` (`docs/profile-schema.md (How should built issues integrate?)`). Missing or unreadable at that point is a **systemic failure**: surface it and halt the run per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run". Do **not** silently degrade to `"issue"` granularity; that pushes a branch per issue, the CI exhaustion the key was set to remove.
 
-**Contents.** Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (The visualHold gate · Red CI on the milestone PR) · Creating the milestone branch: resume-safe pre-clean guard
+## Contents
+
+Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (The visualHold gate · Red CI on the milestone PR) · Creating the milestone branch: resume-safe pre-clean guard
 
 ---
 

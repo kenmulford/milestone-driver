@@ -9,7 +9,9 @@ Run exactly one GitHub issue through a fixed, gated pipeline. The main thread ac
 
 Orchestrate the `superpowers:*` skills for the inner loop rather than reimplementing their discipline. **Before anything else, check `#n`'s labels for `md-epic`: a parent issue takes `### Parent path` (see `skills/solve-issue/md-epic-fanout.md`) instead of the pipeline below.**
 
-**Contents.** Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
+## Contents
+
+Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
 
 ## Before starting
 

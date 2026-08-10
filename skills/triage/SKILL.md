@@ -7,7 +7,9 @@ description: This skill should be used when the user invokes "/milestone-driver:
 
 Review issues for design gaps and dependency ordering. Emit an all-clear or a gap table. Post a blocker summary on each affected issue. Return the validated dependency graph. **Authors nothing; opens no PRs.**
 
-**Contents** — [1 Profile](#step-1--read-the-profile) · [2 Gather](#step-2--gather-issues) · [2.5 Cache lookup](#step-25--cache-lookup-before-dispatching-agents) · [Resolve docs](#resolve-cited-project-docs-sections-once-per-issue-before-dispatch) · [Resolve citations](#resolve-cited-path-anchor-citations-once-per-issue-before-dispatch) · [3 Dispatch](#step-3--dispatch-triageagent-per-issue) · [4 Aggregate](#step-4--aggregate-findings) · [5 Output](#step-5--output-to-the-user) · [6 Comment](#step-6--comment-on-each-affected-issue-and-recommend-its-park-label) · [6.5 Cache write](#step-65--cache-write-best-effort) · [7 Return](#step-7--return-to-the-calling-skill)
+## Contents
+
+[1 Profile](#step-1--read-the-profile) · [2 Gather](#step-2--gather-issues) · [2.5 Cache lookup](#step-25--cache-lookup-before-dispatching-agents) · [Resolve docs](#resolve-cited-project-docs-sections-once-per-issue-before-dispatch) · [Resolve citations](#resolve-cited-path-anchor-citations-once-per-issue-before-dispatch) · [3 Dispatch](#step-3--dispatch-triageagent-per-issue) · [4 Aggregate](#step-4--aggregate-findings) · [5 Output](#step-5--output-to-the-user) · [6 Comment](#step-6--comment-on-each-affected-issue-and-recommend-its-park-label) · [6.5 Cache write](#step-65--cache-write-best-effort) · [7 Return](#step-7--return-to-the-calling-skill)
 
 ## Announce first
 

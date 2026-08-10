@@ -15,7 +15,7 @@ owner sits one level up instead.
 This is a growing list — a new one-time notice is added as another `##`
 section below, never restated inline in either SKILL.md.
 
-## Table of Contents
+## Contents
 
 - [Section fields](#section-fields)
 - [How each skill runs this file](#how-each-skill-runs-this-file)
