@@ -10,12 +10,32 @@
 # requires a recorded decision in the Decision Log of the PR body that grows
 # the file.
 #
+# CLOSURE record added by issue #491 — see the .sh sibling's header for the
+# closure-ceiling ratchet (same `actual * 1.05` rounded UP to the next 100
+# words, down freely, up only with a recorded decision, with the one documented
+# difference that superpowers:writing-skills' 5000-word cap does NOT apply to a
+# sum across several files).
+#
 # Usage:   check-size-budgets.ps1 [REPO_ROOT]
-# Output:  the same TAB-separated OK/FAIL/SUMMARY record stream as the .sh
-#          sibling, all three counts on every record:
+# Output:  the same TAB-separated record stream as the .sh sibling — one line
+#          per governed file, then one line per governed SKILL's load closure,
+#          then the trailing summary:
 #            OK/FAIL  <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
+#            CLOSURE  <skillPath>  <wordSum>/<closureWordCeiling>
+#            CLOSURE  <skillPath>  MISSING/<closureWordCeiling>
+#            SUMMARY  ok=<N>  failed=<M>
 #          Exit 0 when every governed file is present and at/under ALL THREE
 #          ceilings; exit 1 when any file is missing or over any one.
+#
+# The CLOSURE record is INFORMATIONAL AND NEVER GATES, the same
+# milestone-scoped choice the .sh sibling's header records: a sum over its
+# ceiling changes NO exit code and is counted in NEITHER ok= nor failed=, and a
+# closure whose sum cannot be computed (any member absent from disk) prints
+# MISSING and still changes no exit code — that member is itself a governed
+# file, so its own `FAIL <path> MISSING/...` row above has already failed the
+# run, and failing twice for one deletion would double-count it in failed=.
+# Its position, after every per-file row and before the trailing SUMMARY, is
+# what keeps it additive to the existing stream.
 param(
   [string]$Root = (Get-Location).Path
 )
@@ -99,6 +119,81 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
   exit 1
 }
 
+# The UNCONDITIONAL LOAD CLOSURE of each governed skill (issue #491), ONE ROW
+# PER SKILL: <skillPath> <closureWordCeiling> <member> <member> ... — see the
+# .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
+# membership rule (a file belongs to a closure when the skill reads it on EVERY
+# run, with no branch in front of the read), for the five branch-gated files
+# that are deliberately EXCLUDED, and for why column 1 is both the record's
+# label and the implicit first member of its own closure. MUST stay in sync
+# with that table, row for row, the same requirement the governed set carries.
+# An EMPTY table is legal and simply prints no CLOSURE records.
+$closureTable = @'
+skills/setup/SKILL.md              7800   skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       15600   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md   15200   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             9200   skills/output-style.md skills/citation-format.md
+'@
+
+# Parse into three index-aligned lists, by the same rule the governed parse
+# applies: the skill is appended unconditionally and its ceiling only when that
+# column is present AND all digits. Surplus columns fold into the members list
+# the way the .sh twin's `read -r skill closure_ceiling members` folds them into
+# one trailing field, so both twins read the same row the same way. Members are
+# held as ONE space-joined string, mirroring that field exactly; the emission
+# loop splits it back, mirroring the twin's unquoted `for m in $skill $members`.
+# StartsWith is Ordinal (matching scripts/check-doc-toc.ps1): a comment marker
+# is a byte, never a culture-sensitive comparison.
+$closureSkills = New-Object System.Collections.Generic.List[string]
+$closureCeilings = New-Object System.Collections.Generic.List[long]
+$closureMembers = New-Object System.Collections.Generic.List[string]
+foreach ($row in ($closureTable -split "`n")) {
+  $cols = $row.Trim() -split '\s+'
+  if ($cols[0] -eq '' -or $cols[0].StartsWith('#', [System.StringComparison]::Ordinal)) { continue }
+  $closureSkills.Add($cols[0])
+  $cc = if ($cols.Count -ge 2) { $cols[1] } else { '' }
+  $closureMembers.Add($(if ($cols.Count -ge 3) { ($cols[2..($cols.Count - 1)] -join ' ') } else { '' }))
+  if ($cc -match '^[0-9]+$') { $closureCeilings.Add([long]$cc) }
+}
+
+# Same length-parity guard the governed table carries, for the same reason: a
+# row whose ceiling was dropped or garbled (most plausibly by writing a member
+# path where the ceiling belongs) shows up here as unequal counts and refuses to
+# run. A row with NO members is not malformed — that is a one-file closure, and
+# its sum is just the SKILL.md. The refusal is emitted with the same explicit
+# "`n" the guard above uses, and for the same byte-identity reason it records —
+# do not reword that phrasing here, it is a UNIQUE citation anchor
+# (scripts/triage-cache.ps1 cites it, and a second copy of the anchor text in
+# this file fails scripts/check-citations.sh on ambiguity).
+if ($closureSkills.Count -ne $closureCeilings.Count) {
+  [Console]::Error.Write("ERROR check-size-budgets: CLOSURE_SKILLS($($closureSkills.Count)) and CLOSURE_CEILINGS($($closureCeilings.Count)) length mismatch, fix the closure table`n")
+  exit 1
+}
+
+# ONE function, called by BOTH the per-file word column and the CLOSURE sums,
+# so the two can never be measured by different algorithms — a closure is a sum
+# of the very numbers the per-file rows print, not a second count of the same
+# files. Words are counted off the raw BYTES, never a decoded string: `wc -w` is
+# not portable for this content (GNU adds a non-breaking-space clause BSD lacks,
+# measured as a one-word divergence on the emoji-bearing fixtures), so the .sh
+# twin counts maximal runs of non-whitespace with `tr`+`grep` over exactly the
+# six C isspace bytes — space (0x20), \t (0x09), \n (0x0A), \v (0x0B), \f (0x0C),
+# \r (0x0D). Counting run STARTS over those same six byte values is locale-free
+# and identical to that by construction; splitting a .NET string on `\s` instead
+# would also break on NBSP and the other Unicode spaces, which are word CONTENT
+# to the twin, and the two would disagree on non-ASCII content.
+function Get-WordCount {
+  param([byte[]]$Bytes)
+  $n = 0
+  $inWord = $false
+  foreach ($b in $Bytes) {
+    $isSpace = ($b -eq 0x20 -or ($b -ge 0x09 -and $b -le 0x0D))
+    if ($isSpace) { $inWord = $false }
+    elseif (-not $inWord) { $inWord = $true; $n++ }
+  }
+  return $n
+}
+
 $ok = 0
 $failed = 0
 $out = New-Object System.Collections.Generic.List[string]
@@ -125,27 +220,46 @@ for ($i = 0; $i -lt $files.Count; $i++) {
   # astral char (most emoji) would count 2 there against 1 character / 4 bytes
   # here, and the twins would disagree on non-ASCII content.
   $actualBytes = $bytes.Length
-  # Word count off the SAME byte array, never a decoded string: `wc -w` counts
-  # maximal runs of non-whitespace, and under the .sh twin's LC_ALL=C that
-  # whitespace set is exactly C isspace() — space (0x20), \t (0x09), \n (0x0A),
-  # \v (0x0B), \f (0x0C), \r (0x0D). Splitting a .NET string on `\s` instead
-  # would also break on NBSP and the other Unicode spaces, which are word
-  # CONTENT to `wc -w`, and the twins would disagree on non-ASCII content the
-  # same way $text.Length would on bytes. Counting run STARTS over the bytes is
-  # locale-free and identical on both sides by construction.
-  $actualWords = 0
-  $inWord = $false
-  foreach ($b in $bytes) {
-    $isSpace = ($b -eq 0x20 -or ($b -ge 0x09 -and $b -le 0x0D))
-    if ($isSpace) { $inWord = $false }
-    elseif (-not $inWord) { $inWord = $true; $actualWords++ }
-  }
+  # Word count off the SAME already-materialized byte array, through the SAME
+  # function the CLOSURE sums below call — see its definition above for what it
+  # counts and why it never decodes to a string.
+  $actualWords = Get-WordCount $bytes
   if ($actual -gt $ceiling -or $actualBytes -gt $byteCeiling -or $actualWords -gt $wordCeiling) {
     $out.Add("FAIL`t$f`t$actual/$ceiling`t$actualBytes/$byteCeiling`t$actualWords/$wordCeiling")
     $failed++
   } else {
     $out.Add("OK`t$f`t$actual/$ceiling`t$actualBytes/$byteCeiling`t$actualWords/$wordCeiling")
     $ok++
+  }
+}
+
+# One CLOSURE record per closure row, AFTER every per-file record and BEFORE
+# the trailing SUMMARY. The skill's own SKILL.md leads the member list because
+# column 1 is the first member of its own closure and is never listed in the
+# members column; the split of the joined members string mirrors the .sh twin's
+# unquoted `for m in $skill $members`.
+#
+# NEITHER $ok NOR $failed IS TOUCHED HERE, and no exit code is decided here. The
+# absence check short-circuits before summing rather than summing what is
+# present: a partial sum reads as a real measurement of a closure that cannot be
+# measured, and would silently drop under its ceiling exactly when a member was
+# deleted.
+for ($j = 0; $j -lt $closureSkills.Count; $j++) {
+  $skill = $closureSkills[$j]
+  $closureCeiling = $closureCeilings[$j]
+  $members = @($skill)
+  if ($closureMembers[$j] -ne '') { $members += ($closureMembers[$j] -split ' ') }
+  $closureWords = 0
+  $closureMissing = $false
+  foreach ($m in $members) {
+    $mp = "$Root/$m"
+    if (-not (Test-Path -LiteralPath $mp -PathType Leaf)) { $closureMissing = $true; break }
+    $closureWords += Get-WordCount ([System.IO.File]::ReadAllBytes($mp))
+  }
+  if ($closureMissing) {
+    $out.Add("CLOSURE`t$skill`tMISSING/$closureCeiling")
+  } else {
+    $out.Add("CLOSURE`t$skill`t$closureWords/$closureCeiling")
   }
 }
 

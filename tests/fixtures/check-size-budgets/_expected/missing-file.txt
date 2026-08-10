@@ -13,4 +13,8 @@ OK	skills/citation-format.md	1/230	7/13000	1/2000
 OK	agents/design-reviewer.md	1/120	7/16500	1/2700
 OK	agents/implementer.md	1/130	7/15000	1/2300
 FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/17000	MISSING/2700
+CLOSURE	skills/setup/SKILL.md	3/7800
+CLOSURE	skills/solve-issue/SKILL.md	4/15600
+CLOSURE	skills/solve-milestone/SKILL.md	4/15200
+CLOSURE	skills/triage/SKILL.md	3/9200
 SUMMARY	ok=14	failed=1

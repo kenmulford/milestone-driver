@@ -45,12 +45,29 @@
 # a byte-pinned fixture moves its totals and forces a golden regeneration for
 # no test value.
 #
-# parity-guard, positional-desync and the three malformed-row cases have no
-# fixture tree: the governed set is a table in the checker's OWN source, so no
-# fixture can reach it. Each of those cases builds an edited COPY of the
-# checker instead (garble a column, swap two rows, drop a column, add a surplus
-# column, widen a ceiling past int32 max) and asserts what the copy does. See
-# the three blocks below the loop.
+# missing-closure-member covers the CLOSURE records added by issue #491, whose
+# ceilings are PRINTED AND NEVER GATED. Its tree is the governed set with
+# skills/notices.md deleted — a file that is a closure MEMBER of solve-issue and
+# solve-milestone and of neither other closure. So the one deletion asserts both
+# halves of the missing-member rule at once: those two records print MISSING
+# while setup's and triage's still print a number (the record is per-closure,
+# never a global refusal), and the exit code still comes from notices.md's own
+# `FAIL ... MISSING` row, not from the CLOSURE lines. Its files are all
+# throwaway 1-line/7-byte/1-word filler, including async-mode.md — the
+# byte-pinned 40/4500 copy only matters to the three cases above.
+#
+# parity-guard, positional-desync, empty-closure-table and the three
+# malformed-row cases have no fixture tree: the governed set and the closure set
+# are tables in the checker's OWN source, so no fixture can reach them. Each of
+# those cases builds an edited COPY of the checker instead (garble a column,
+# swap two rows, empty the closure table, drop a column, add a surplus column,
+# widen a ceiling past int32 max) and asserts what the copy does. See the blocks
+# below the loop.
+#
+# excluded-untouched is the remaining case, and it needs neither: it perturbs a
+# COPY of the at-ceiling TREE (a fixture is input, so a committed fixture cannot
+# hold both the perturbed and unperturbed state) and asserts the CLOSURE lines
+# did not move.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -66,6 +83,7 @@ declare -a CASES=(
   "line-flat-byte-over|1"
   "byte-flat-word-over|1"
   "missing-file|1"
+  "missing-closure-member|1"
 )
 
 pass=0; fail=0
@@ -95,7 +113,10 @@ GUARD_ERR="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_guard_err.$$")"
 SWAP_SCRIPT="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_swap.$$")"
 MAL_SCRIPT="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_mal.$$")"
 MAL_ERR="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_mal_err.$$")"
-trap 'rm -f "$GUARD_SCRIPT" "$GUARD_ERR" "$SWAP_SCRIPT" "$MAL_SCRIPT" "$MAL_ERR"' EXIT
+EMPTY_SCRIPT="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_empty.$$")"
+EMPTY_ERR="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/csb_empty_err.$$")"
+EXC_TREE="$(mktemp -d 2>/dev/null || { d="${TMPDIR:-/tmp}/csb_exc.$$"; mkdir -p "$d"; echo "$d"; })"
+trap 'rm -f "$GUARD_SCRIPT" "$GUARD_ERR" "$SWAP_SCRIPT" "$MAL_SCRIPT" "$MAL_ERR" "$EMPTY_SCRIPT" "$EMPTY_ERR"; rm -rf "$EXC_TREE"' EXIT
 
 # --- parity-guard: the length-parity refusal (issue #399) ------------------
 # The checker parses its governed-set table into four index-aligned arrays,
@@ -230,6 +251,74 @@ for mal in short long wide; do
          <(printf 'STDOUT\n%s\nSTDERR\n%s\n' "$mal_out" "$mal_err") >&2 || true
   fi
 done
+
+# --- empty-closure-table: no closures is a no-op, not an error (issue #491) --
+# The CLOSURE records are driven by a second hardcoded table in the checker's
+# own source, so — like the governed set — no fixture tree can reach it. Delete
+# every row between the closure table's heredoc delimiters in a COPY of the
+# checker and the run must degrade to exactly the pre-#491 stream: the same
+# per-file records, ZERO CLOSURE records, the same trailing SUMMARY, empty
+# stderr, and an exit code still decided by the per-file outcome alone. The
+# expectation is DERIVED from the at-ceiling golden by dropping its CLOSURE
+# lines, so a retuned per-file ceiling has one place to update.
+# Fail-loud on a no-op surgery, same property parity-guard relies on: an
+# unedited copy still prints its CLOSURE lines and then does not match.
+empty_want="$(tr -d '\r' < "$GOLD/at-ceiling.txt" | grep -v '^CLOSURE	')"
+awk '/^done <<.CLOSURE_TABLE.$/ { intbl = 1; print; next }
+     /^CLOSURE_TABLE$/          { intbl = 0; print; next }
+     intbl                      { next }
+                                { print }' "$SCRIPT" > "$EMPTY_SCRIPT"
+empty_out="$(bash "$EMPTY_SCRIPT" "$FIX/at-ceiling" 2>"$EMPTY_ERR")"; erc=$?
+empty_err="$(tr -d '\r' < "$EMPTY_ERR")"
+if [ "$erc" -eq 0 ] && [ "$empty_out" = "$empty_want" ] && [ -z "$empty_err" ]; then
+  pass=$((pass+1))
+else
+  fail=$((fail+1))
+  echo "FAIL empty-closure-table: rc=$erc (want 0), stderr=[$empty_err] (want empty)" >&2
+  diff <(printf '%s\n' "$empty_want") <(printf '%s\n' "$empty_out") >&2 || true
+fi
+
+# --- excluded-untouched: the five branch-gated files are outside every closure
+# (issue #491) ---------------------------------------------------------------
+# A CLOSURE sum counts ONLY the files a skill read-directs on EVERY run. The
+# five reference docs that sit behind an observable branch — parallel-waves.md
+# (parallel mode), milestone-granularity.md (`integrationGranularity:
+# "milestone"`), trello-sync.md (`integrations.trello`), async-mode.md
+# (retired, inert) and md-epic-fanout.md (the `md-epic` label) — are NOT part of
+# any closure, and the executable statement of that is: perturb all five and
+# every CLOSURE line is byte-identical. A committed fixture cannot hold both the
+# perturbed and unperturbed state of the same tree, so this copies at-ceiling
+# and edits the copy. rc is deliberately unasserted: async-mode.md sits at
+# exactly 4500/4500 bytes there, so appending to it fails its byte column, which
+# is beside the point this case makes.
+#   CLOSURE lines == at-ceiling golden's   no excluded file reached a sum
+#   the rest       != at-ceiling golden's  the perturbation actually landed,
+#                                          so a no-op cp/append cannot pass this
+#                                          case vacuously
+cp -R "$FIX/at-ceiling/." "$EXC_TREE/"
+for x in skills/solve-milestone/parallel-waves.md \
+         skills/solve-milestone/milestone-granularity.md \
+         skills/solve-milestone/trello-sync.md \
+         skills/solve-issue/async-mode.md \
+         skills/solve-issue/md-epic-fanout.md; do
+  printf 'excluded branch gated padding words\n' >> "$EXC_TREE/$x"
+done
+exc_out="$(bash "$SCRIPT" "$EXC_TREE" 2>&1)"
+exc_gold="$(tr -d '\r' < "$GOLD/at-ceiling.txt")"
+exc_got_cl="$(printf '%s\n' "$exc_out"  | grep '^CLOSURE	' || true)"
+exc_want_cl="$(printf '%s\n' "$exc_gold" | grep '^CLOSURE	' || true)"
+exc_got_rest="$(printf '%s\n' "$exc_out"  | grep -v '^CLOSURE	' || true)"
+exc_want_rest="$(printf '%s\n' "$exc_gold" | grep -v '^CLOSURE	' || true)"
+if [ -n "$exc_want_cl" ] && [ "$exc_got_cl" = "$exc_want_cl" ] && [ "$exc_got_rest" != "$exc_want_rest" ]; then
+  pass=$((pass+1))
+else
+  fail=$((fail+1))
+  echo "FAIL excluded-untouched: editing a branch-gated file must leave every CLOSURE line unchanged" >&2
+  if [ "$exc_got_rest" = "$exc_want_rest" ]; then
+    echo "  the perturbation was a no-op — re-key it to the current fixture tree" >&2
+  fi
+  diff <(printf '%s\n' "$exc_want_cl") <(printf '%s\n' "$exc_got_cl") >&2 || true
+fi
 
 echo "check-size-budgets.sh: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
