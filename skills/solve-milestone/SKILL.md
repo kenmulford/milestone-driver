@@ -479,19 +479,25 @@ Construct the markdown block below, mirroring the v1.7.0 entry in `CHANGELOG.md`
 
 ### ⚖️ Post-run audit trail
 
-Judgment-call PRs for this release: <comma-separated list of PRs with `judgment call` label, or "none">
+Judgment-call PRs: <comma-separated list of PRs with `judgment call` label, or "none">.
+
+- <open defect with its issue number>
+- <what a shipped gate does not verify>
+- <ceiling or budget state the next edit hits>
 ```
 
 **Version-free mode entry:** the block above with exactly two lines changed — the entry heading becomes `## <milestone title>` (no version, no ` — <milestone theme>` suffix) and the Consumer notes heading becomes `### Consumer notes` (no prev-version parenthetical). Every other line, including both tables and the ⚖️ Post-run audit trail section, is identical.
 
 Rules for authoring the entry:
 
-- **Shape.** This entry becomes the GitHub release body, so it is GitHub-facing prose: author it to the CHANGELOG-entry shape in `skills/output-style.md` — one line per issue per bucket, its **evidence slot** carrying the issue number and its merged PR, plus Consumer notes and the ⚖️ judgment-call PR list. A bucket line with no issue/PR reference is an unfilled slot, not a tighter entry.
+- **Shape.** This entry becomes the GitHub release body, so it is GitHub-facing prose: author it to the CHANGELOG-entry row of `skills/output-style.md § Evidence slots`, which defines every slot — theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail — and names what is not one. That row is authoritative for both lists; the bullets below say where they apply, never what they contain. A bucket line with no issue/PR reference is an unfilled slot, not a tighter entry.
+- **The non-slot list applies hardest to the `What` cell.** That cell states what shipped and how it behaves; a fact the row excludes as a non-slot survives into it only when a reader's next action depends on it.
+- **Cut pass before writing.** Delete every sentence that changes nothing a reader would type, configure, or expect.
 - Omit the `### 🔧 Fixes` section entirely if there are no fix-bucket issues.
 - Omit the `### ✨` section entirely if there are no feature-bucket issues (unusual, but possible).
 - Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".
 - Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes — authored from what was actually built. Include the "No schema changes" line only when confirmed true.
-- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (do NOT re-query `gh pr list`; read from context); write "none" if the list is empty.
+- Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (do NOT re-query `gh pr list`; read from context); write "none" if the list is empty. Then the fact list, one bullet each: an open or unfixed defect with its issue number, a dropped acceptance criterion stated as what the shipped gate does NOT verify, a ceiling or budget state a contributor's next edit hits. Omit the fact list entirely when there are none of those facts.
 - Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. If CHANGELOG is absent or contains no `## v...` heading, use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched CHANGELOG.md, then run `git show <commit>:CHANGELOG.md | grep '^## v' | head -1` to extract the most recent version heading from history. If no prior CHANGELOG exists in history, omit the prev-version parenthetical from the Consumer notes heading and use simply `### Consumer notes`. Do NOT use `plugin.json` as a fallback — `plugin.json` holds the target version, not the previous one.
 
 **Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose that precedes the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create a new one with a standard `# Changelog` header and intro paragraph, then append the new entry below. To retrieve an existing structure as a template, find the most recent commit that touched the file with the `git log` command in the prev-version rule above, then run `git show <commit>:CHANGELOG.md` to retrieve the full content. If no prior version exists in history, use a minimal header (`# Changelog` followed by a blank line).
