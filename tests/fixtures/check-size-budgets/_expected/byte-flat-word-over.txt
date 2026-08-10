@@ -1,6 +1,6 @@
 OK	skills/setup/SKILL.md	1/280	7/30000	1/4300
 OK	skills/solve-issue/SKILL.md	1/375	7/69500	1/10500
-FAIL	skills/solve-issue/async-mode.md	40/40	4606/4500	488/700
+FAIL	skills/solve-issue/async-mode.md	40/40	4500/4500	726/700
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/9000	1/1300
 OK	skills/solve-milestone/SKILL.md	1/635	7/69000	1/10100
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/68000	1/10600
