@@ -3,6 +3,29 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.20.3 — the CHANGELOG's own prose contract
+
+**Theme:** Release notes state what shipped and what a consumer must do; the slots that generate them are defined so the next entry cannot narrate how the work went.
+
+### ✨ Prose contract
+
+| Issue | PR | What |
+|---|---|---|
+| — apply the artifact prose contract to `CHANGELOG.md` | #483 | 789 → 717 lines with every issue and PR reference, release heading, release date and consumer-actionable note intact. Theme paragraphs become one line, a `What` cell states shipped behavior rather than build provenance, and each ⚖️ audit trail becomes the judgment-call line plus a fact list. |
+| — define the CHANGELOG-entry slots in the generator | #483 | `skills/output-style.md`'s `## Evidence slots` row names four slots — theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail and its fact list — plus what is not one. `skills/solve-milestone/SKILL.md` step 6.5 reshapes its template to match and points at that row instead of restating it. |
+
+### Consumer notes (upgrading from v1.20.2)
+
+- **No schema changes** to `.milestone-config/driver.json`. No profile key added, removed or re-defaulted.
+- **Behavior change, nothing to configure.** A completed `solve-milestone` run authors its CHANGELOG entry to the defined slots — shorter entries, the same facts. No skill gains or loses a step, and no gate changes.
+- Both changed files are shipped plugin skills, so the contract governs your repo's CHANGELOG from the next completed milestone.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- `skills/output-style.md` is at 9412 of its 9500-byte ceiling and `skills/solve-issue/SKILL.md` at 69478 of 69500. The next edit to either fails the size ratchet until something is cut or the file is split.
+
 ## v1.20.2 — stop re-reviewing what cannot have broken
 
 **Theme:** Two review-cycle costs removed — a comment-only fix no longer re-runs the suite or the review, and `risk:light` no longer pays for review rounds after a clean one.
