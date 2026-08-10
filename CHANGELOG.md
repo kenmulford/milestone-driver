@@ -3,6 +3,43 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.21.0 — skill files meet the published authoring limits
+
+**Theme:** The four SKILL.md files and the largest reference file come under Anthropic's published Agent Skills limits, and the CI size gate gains the axes that measure them.
+
+### ✨ Authoring limits
+
+| Issue | PR | What |
+|---|---|---|
+| #488 Normalize the seven existing contents blocks | #498 | Seven blocks conformed to `## Contents` as the file's first `##`-or-deeper heading — two heading renames, five bold-prose-row promotions, index bodies verbatim. |
+| #489 Add a word column to the size-budget gate | #498 | `GOVERNED_TABLE` gains a fourth word-ceiling column across both `check-size-budgets` twins, both runners, every golden, and a new `byte-flat-word-over` fixture tree. |
+| #490 Add the check-doc-toc twin, its runner, and both CI legs | #498 | New `scripts/check-doc-toc.{sh,ps1}` asserts `## Contents` is the first `##`-or-deeper heading in any governed file over 100 lines, with a golden-matrix runner and a fixture step on both CI legs. |
+| #491 Print each skill's unconditional load closure | #500 | A `CLOSURE` row per governed skill sums its SKILL.md plus every file it read-directs on **every** run, by word. Informational — it never gates. |
+| #492 Reduce `skills/solve-milestone/SKILL.md` | #500 | 608 → 305 lines, 9,619 → 4,996 words. Both limits met. |
+| #493 Reduce `skills/solve-issue/SKILL.md` | #500 | 9,969 → 5,750 words. Still over 5,000. |
+| #494 Reduce `skills/solve-milestone/parallel-waves.md` | #500 | 10,080 → 5,647 words. Still over 5,000. |
+| #495 Trim `skills/triage/SKILL.md` and lower its ceilings | #500 | 5,296 → 4,938 words. Byte ceiling 37000 → 35500. |
+| #496 Add `## Contents` to the four blockless governed files | #500 | Blocks added to `skills/citation-format.md`, `agents/design-reviewer.md`, `agents/implementer.md`, `agents/triage-reviewer.md`, each paid for by an equal-or-larger prose trim. Both CI legs gain a real-tree `check-doc-toc` step; previously only fixtures were checked. |
+| #497 Add a direct citation-format read-directive to each SKILL.md | #501 | All four SKILL.md files read-direct `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` from their own `## Output style` section — one hop from every skill entry point, not only through `skills/output-style.md`. |
+
+### Consumer notes (upgrading from v1.20.3)
+
+- **No schema changes** to `.milestone-config/driver.json`. No profile key added, removed or re-defaulted.
+- **No behavior or procedure change.** Every gate, decision point, degradation branch, citation and literal directive survives verbatim. Reduction came from cutting unconditional prose or gating conditional bodies behind an observable branch whose condition stays inline in the SKILL.md.
+- 18 new shipped reference files under `skills/solve-issue/` and `skills/solve-milestone/` carry the gated bodies.
+- `check-doc-toc` and the widened `check-size-budgets` govern this repo's own files — `GOVERNED_TABLE` names milestone-driver paths and both gates run in this repo's CI. A consumer repo runs neither.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- `skills/solve-milestone/SKILL.md` is at 4,996 of its 5,000-word ceiling. The next prose addition fails the ratchet.
+- `skills/solve-issue/SKILL.md` (5,750) and `skills/solve-milestone/parallel-waves.md` (5,647) stay over the 5,000-word standard. What remains is unconditional pipeline; reaching the limit would mean gating text behind branches that do not exist.
+- `GOVERNED_TABLE` covers 33 files, up from 15. No ceiling was raised.
+- `skills/solve-issue/version-bump.md` joined `solve-issue`'s closure: step 4 read-directs it in all three `versioning` modes with no branch in front.
+- **No test asserts `check-doc-toc`'s `GOVERNED_PATHS` stays in sync with `GOVERNED_TABLE`'s path column.** A rename or deletion fails loud; adding a governed file to one table and not the other passes silently.
+- Two pre-existing defects were found and filed, not fixed: sequential runs with `integrationGranularity: "wave"` have no defined behavior (#502), and `skills/solve-issue/SKILL.md`'s step numbering skips 5 with step 6's sub-steps cited both as `6.1–6.4` and as `7/8/9` (#503).
+
 ## v1.20.3 — the CHANGELOG's own prose contract
 
 **Theme:** Release notes state what shipped and what a consumer must do; the slots that generate them are defined so the next entry cannot narrate how the work went.
