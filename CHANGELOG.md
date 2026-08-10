@@ -320,6 +320,31 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none.
 
+## v1.15.2 — solve-milestone registration fix + config cleanup
+
+_Released 2026-07-07._
+
+**Theme:** `/milestone-driver:solve-milestone` did not register under a strict YAML parser; the frontmatter is fixed and a lint keeps an invalid one from silently dropping a skill again.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #314 `solve-milestone`'s frontmatter `description:` is invalid YAML | #316 | The unquoted scalar contained `parallel: false`, and the `: ` sequence makes strict parsers (js-yaml) reject the whole frontmatter block, so the skill never registered in Claude Desktop while the lenient CLI loader masked it. `description:` is now a folded block scalar, round-tripping byte-exact with the `parallel: false` mention intact. Ships `scripts/check-skill-frontmatter.{sh,ps1}` — a dependency-free, line-oriented lint, no YAML library — wired into CI on every PR. |
+| #248 remove the now-dead `allowCrossMarketplaceDependenciesOn` from `marketplace.json` | #315 | The key lived only in `.claude-plugin/marketplace.json`, added when the repo became an installable single-plugin marketplace. The cross-marketplace dependency it permitted was already removed from `plugin.json` in v1.13.1. |
+
+### Consumer notes (upgrading from v1.15.1)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- `/milestone-driver:solve-milestone` registers in Claude Desktop once the plugin updates. The Claude Code CLI was unaffected either way.
+- **New CI step per leg:** the frontmatter lint. It governs this repo's own skills; consumers of the plugin are unaffected.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- #249 (native/non-web visual-capture seam) was parked at triage on three design blockers and is not in this release.
+
 ## v1.15.1 — audit remediation: progressive disclosure, wave checkpoint, mechanical gates
 
 Patch release — the audit-remediation milestone, 15 issues, all merged CI-green.
@@ -376,6 +401,29 @@ Judgment-call PRs: none.
 - **New key `maxParallelWorkers` (integer, optional, default 4).** How many mutually-independent issues build at once within a Wave. An absent or invalid value falls back to 4.
 - **Headless / CI runs** (`MILESTONE_DRIVER_NONINTERACTIVE=1`) never see the test-database prompt — they run sequentially with a loud note until the profile sets `"parallel": true`.
 - **Schema change:** two new optional keys. An existing profile keeps working unchanged, and the first run seeds `parallel` when a test-DB hazard is present.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+## v1.13.1 — Claude Desktop slash-command fix
+
+_Released 2026-06-26._
+
+**Theme:** The cross-marketplace `superpowers` dependency stopped Claude Desktop registering the driver's skills as slash commands; `superpowers` is now a prerequisite you install yourself.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| — drop the cross-marketplace `superpowers` dependency | #246 | The `dependencies` array is removed from `.claude-plugin/plugin.json`. Declaring `superpowers@claude-plugins-official` made Claude Desktop load the plugin but skip registering its skills as slash commands; the CLI was unaffected. Cross-plugin dependencies are an open upstream feature request ([anthropics/claude-code#9444](https://github.com/anthropics/claude-code/issues/9444)), so the declaration was dropped rather than worked around. `superpowers` is still required at runtime, documented as a prerequisite in the README and `.project/library-manifest.md`. |
+| — note the bootstrapper-owned `driver.json` keys | #245 | `docs/profile-schema.md` records that `stack` and `stackVersionFile` are owned by milestone-bootstrapper. |
+
+### Consumer notes (upgrading from v1.13.0)
+
+- 🔴 **Install `superpowers` yourself.** It is no longer auto-installed with milestone-driver: add the `claude-plugins-official` marketplace and install `superpowers` alongside the plugin. It remains a runtime requirement.
+- **Claude Desktop registers `setup`, `solve-issue` and `triage`** after upgrading and reloading. It does **not** register `solve-milestone`, which an unrelated invalid-YAML frontmatter defect kept out of the registry until v1.15.2 (#314). The CLI registered all four throughout.
+- **No skill, hook, script or profile-schema contract changed** beyond the manifest field removal and the docs note.
 
 ### ⚖️ Post-run audit trail
 
