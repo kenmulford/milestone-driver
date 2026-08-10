@@ -268,6 +268,8 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes.
 
+Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
+
 ## Non-negotiables
 
 - Never present a blank prompt. Every key shows either a detected default or an illustrative example.

@@ -177,7 +177,7 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 **Auto-deny handling.** A background leaf reporting an auto-deny it could not work around is a **park** — post a `blocked` comment naming the denied tool, apply `blocked` (+ `in progress` if the branch has commits), preserve the branch, continue. The comment and label are the durable record.
 
 ### 5. Finish
-The run ends when no buildable issues remain — never because it is waiting on a human.
+The run ends when no buildable issues remain.
 If `integrations.trello` is present, apply `## Finish hooks` from `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` (best-effort — Trello failures never block the run; skipped updates surface in the final summary).
 
 ## Autonomy
@@ -257,6 +257,8 @@ PR cell: show the PR number if the issue has one, else —.
 ## Output style
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — this plugin's output contract. `## Terminal output` governs what this skill prints (including the `## Output spec` template rule); `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` govern every issue comment, PR body, and CHANGELOG entry it writes.
+
+Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
 
 ## Final summary
 
