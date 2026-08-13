@@ -1,1 +1,1 @@
-ERROR check-size-budgets: FILES(35), CEILINGS(34), BYTE_CEILINGS(35) and WORD_CEILINGS(35) length mismatch, fix the table
+ERROR check-size-budgets: FILES(36), CEILINGS(35), BYTE_CEILINGS(36) and WORD_CEILINGS(36) length mismatch, fix the table

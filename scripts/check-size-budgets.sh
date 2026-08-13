@@ -227,6 +227,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
+skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    38000     5000
 skills/solve-milestone/parallel-waves.md            205    40500     6000
 skills/solve-milestone/trello-sync.md               400    20500     3200
@@ -307,9 +308,16 @@ fi
 # stands in front of the read, so the file is not on every run's load path:
 #   skills/solve-milestone/parallel-waves.md          parallel mode only
 #                                                     (SKILL.md, Mode branch point)
-#   skills/solve-milestone/milestone-granularity.md   integrationGranularity:
+#   skills/solve-milestone/milestone-granularity.md   loaded whole under
+#                                                     integrationGranularity:
 #                                                     "milestone" only
-#                                                     (SKILL.md, Granularity branch point)
+#                                                     (SKILL.md, Granularity branch
+#                                                     point). A "wave" run reads
+#                                                     the anchors
+#                                                     integration-granularity.md and
+#                                                     solve-issue/wave-clauses.md
+#                                                     cite, never the whole file, so
+#                                                     the exclusion still holds
 #   skills/solve-milestone/trello-sync.md             `integrations.trello` present only
 #   skills/solve-issue/async-mode.md                  retired, inert — read on no run
 #   skills/solve-issue/md-epic-fanout.md              `md-epic` label only
@@ -320,11 +328,14 @@ fi
 # tests/check-size-budgets.test.{sh,ps1}'s excluded-untouched case pins that:
 # perturbing all six leaves every CLOSURE line byte-identical.
 #
-# Milestone #39 split 18 more reference files out of the four SKILL.md files.
-# 17 are EXCLUDED on the same rule, each verified against its read directive on
-# 2026-08-10 — the branch that stands in front of the read, in brackets:
+# Milestone #39 split 18 more reference files out of the four SKILL.md files,
+# and issue #502 added solve-issue/wave-clauses.md beside its milestone twin.
+# 18 of those 19 are EXCLUDED on the same rule, each verified against its read
+# directive — the #39 set on 2026-08-10, wave-clauses.md on 2026-08-12 — with
+# the branch that stands in front of the read in brackets:
 #   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
 #   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
+#   solve-issue/wave-clauses.md          [integrationGranularity: "wave"]
 #   solve-issue/permission-preflight.md  [background dispatch only; a fully
 #                                         synchronous run skips the gate outright]
 #   solve-issue/post-fix-commit.md       [>=1 in-scope review finding]
@@ -342,7 +353,7 @@ fi
 #   solve-milestone/sequential-loop.md       [sequential mode only]
 #   solve-milestone/version-target.md        [versioning not false]
 #
-# THE 18th, skills/solve-issue/version-bump.md, IS A MEMBER of solve-issue's
+# THE ONE REMAINING, skills/solve-issue/version-bump.md, IS A MEMBER of solve-issue's
 # closure and is summed in the row below (decision recorded 2026-08-10). It is
 # not branch-gated: solve-issue step 4 selects a mode and then reads the file in
 # every one of them, so no branch stands in front of the read. Contrast
