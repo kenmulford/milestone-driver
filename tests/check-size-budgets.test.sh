@@ -237,7 +237,7 @@ fi
 # `7/999999999990` for a row the surgery never touched, and the case failed on
 # a checker that was correct. Keep the address whenever these numbers are
 # retuned.
-mal_refusal="$(sed 's/CEILINGS(34), BYTE_CEILINGS(35) and WORD_CEILINGS(35)/CEILINGS(35), BYTE_CEILINGS(35) and WORD_CEILINGS(34)/' "$GUARD_GOLD" | tr -d '\r')"
+mal_refusal="$(sed 's/CEILINGS(35), BYTE_CEILINGS(36) and WORD_CEILINGS(36)/CEILINGS(36), BYTE_CEILINGS(36) and WORD_CEILINGS(35)/' "$GUARD_GOLD" | tr -d '\r')"
 wide_stream="$(sed -e '/skills\/setup\/SKILL.md/ s#/30000#/99999999999#' \
                    -e '/skills\/setup\/SKILL.md/ s#/4300#/99999999999#' \
                    "$GOLD/at-ceiling.txt" | tr -d '\r')"

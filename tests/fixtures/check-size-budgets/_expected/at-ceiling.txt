@@ -11,6 +11,7 @@ OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/20	7/6000	1/800
 OK	skills/solve-issue/visual-review-hold.md	1/20	7/2500	1/400
+OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
 OK	skills/solve-milestone/SKILL.md	1/320	7/38000	1/5000
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/40500	1/6000
 OK	skills/solve-milestone/trello-sync.md	1/400	7/20500	1/3200
@@ -37,4 +38,4 @@ CLOSURE	skills/setup/SKILL.md	3/7800
 CLOSURE	skills/solve-issue/SKILL.md	5/11700
 CLOSURE	skills/solve-milestone/SKILL.md	4/10400
 CLOSURE	skills/triage/SKILL.md	3/8800
-SUMMARY	ok=35	failed=0
+SUMMARY	ok=36	failed=0

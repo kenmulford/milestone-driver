@@ -232,7 +232,7 @@ try {
   # retuned.
   $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    'CEILINGS(34), BYTE_CEILINGS(35) and WORD_CEILINGS(35)', 'CEILINGS(35), BYTE_CEILINGS(35) and WORD_CEILINGS(34)')
+    'CEILINGS(35), BYTE_CEILINGS(36) and WORD_CEILINGS(36)', 'CEILINGS(36), BYTE_CEILINGS(36) and WORD_CEILINGS(35)')
   $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
     if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/30000', '/99999999999')).Replace('/4300', '/99999999999') } else { $_ }
   }) -join "`n"

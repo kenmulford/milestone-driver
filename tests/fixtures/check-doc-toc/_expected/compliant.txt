@@ -11,6 +11,7 @@ OK	skills/solve-issue/resume-paths.md
 OK	skills/solve-issue/version-bump.md
 OK	skills/solve-issue/visual-capture.md
 OK	skills/solve-issue/visual-review-hold.md
+OK	skills/solve-issue/wave-clauses.md
 OK	skills/solve-milestone/SKILL.md
 OK	skills/solve-milestone/parallel-waves.md
 OK	skills/solve-milestone/trello-sync.md
@@ -33,4 +34,4 @@ OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=35	failed=0
+SUMMARY	ok=36	failed=0

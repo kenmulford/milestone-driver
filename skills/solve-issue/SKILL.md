@@ -9,7 +9,7 @@ Run exactly one GitHub issue through a fixed, gated pipeline. The main thread ac
 
 ## Contents
 
-Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
+Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Wave granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
 
 ## Before starting
 
@@ -252,7 +252,11 @@ With that union in hand, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/permissi
 
 ## Milestone granularity (`integrationGranularity: "milestone"`)
 
-**Resolved from the profile at step 1, not from an invocation token.** When `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses` — the per-step deltas that mode makes to the pipeline above — plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, the integration-commit trailer format, and the resume query. **When the key is absent or resolves to `"issue"` or `"wave"`, neither read happens, no clause applies, and the entire pipeline runs byte-unchanged.**
+**Resolved from the profile at step 1, not from an invocation token.** When `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses` — the per-step deltas that mode makes to the pipeline above — plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, the integration-commit trailer format, and the resume query. **When the key is absent or resolves to `"issue"`, neither read happens, no clause applies, and the entire pipeline runs byte-unchanged.**
+
+## Wave granularity (`integrationGranularity: "wave"`)
+
+Resolved at the same step-1 profile read the section above names, not from an invocation token. When `integrationGranularity` resolves to `"wave"` (`docs/profile-schema.md (How should built issues integrate?)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/wave-clauses.md` and apply its `### Clauses` — the per-step deltas that mode makes to the pipeline above. **They apply to a non-UI issue only:** a **UI issue** runs the pipeline byte-unchanged and is held per-issue for visual sign-off (`skills/solve-milestone/integration-granularity.md (Logic-only carve-out)`).
 
 ## Async mode (`--async`): retired
 
