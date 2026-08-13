@@ -234,7 +234,7 @@ try {
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
     'CEILINGS(35), BYTE_CEILINGS(36) and WORD_CEILINGS(36)', 'CEILINGS(36), BYTE_CEILINGS(36) and WORD_CEILINGS(35)')
   $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
-    if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/30000', '/99999999999')).Replace('/4300', '/99999999999') } else { $_ }
+    if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/28000', '/99999999999')).Replace('/4000', '/99999999999') } else { $_ }
   }) -join "`n"
   $malCases = @(
     @{ name = 'short'; rep = '${1}';                          rc = 1; out = '';          err = $malRefusal
