@@ -238,8 +238,8 @@ fi
 # a checker that was correct. Keep the address whenever these numbers are
 # retuned.
 mal_refusal="$(sed 's/CEILINGS(35), BYTE_CEILINGS(36) and WORD_CEILINGS(36)/CEILINGS(36), BYTE_CEILINGS(36) and WORD_CEILINGS(35)/' "$GUARD_GOLD" | tr -d '\r')"
-wide_stream="$(sed -e '/skills\/setup\/SKILL.md/ s#/30000#/99999999999#' \
-                   -e '/skills\/setup\/SKILL.md/ s#/4300#/99999999999#' \
+wide_stream="$(sed -e '/skills\/setup\/SKILL.md/ s#/28000#/99999999999#' \
+                   -e '/skills\/setup\/SKILL.md/ s#/4000#/99999999999#' \
                    "$GOLD/at-ceiling.txt" | tr -d '\r')"
 for mal in short long wide; do
   case "$mal" in

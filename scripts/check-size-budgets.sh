@@ -214,10 +214,10 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$byte_ceiling" in ''|*[!0-9]*) ;; *) BYTE_CEILINGS[$nbytes]="$byte_ceiling"; nbytes=$((nbytes + 1)) ;; esac
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
-skills/setup/SKILL.md                               280    30000     4300
+skills/setup/SKILL.md                               280    28000     4000
 skills/solve-issue/SKILL.md                         325    43000     6000
 skills/solve-issue/async-mode.md                     40     4500      700
-skills/solve-issue/md-epic-fanout.md                 60     9000     1300
+skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
 skills/solve-issue/permission-preflight.md           35     2500      400
@@ -228,23 +228,23 @@ skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     320    38000     5000
+skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    40500     6000
 skills/solve-milestone/trello-sync.md               400    20500     3200
 skills/solve-milestone/milestone-granularity.md     165    25000     3600
 skills/solve-milestone/abandoned-recovery.md         45     6000      900
-skills/solve-milestone/changelog-authoring.md       210    14000     2200
+skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
-skills/solve-milestone/integration-granularity.md    85    15500     2400
+skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/version-target.md             30     3000      400
-skills/triage/SKILL.md                              390    35500     5000
+skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
-skills/output-style.md                               90     9500     1600
+skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           230    13000     2000
 agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16500     2600
@@ -385,10 +385,10 @@ while read -r skill closure_ceiling members; do
   nclosures=$((nclosures + 1))
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
-skills/setup/SKILL.md              7800   skills/output-style.md skills/citation-format.md
+skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       11700   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
-skills/solve-milestone/SKILL.md   10400   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             8800   skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md    9600   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
 # Same length-parity guard the governed table carries, for the same reason: the
