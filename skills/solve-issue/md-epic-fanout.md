@@ -6,7 +6,7 @@ Detection runs before anything else and belongs to the caller, which reads `#n`'
 
 A parent issue's body carries an ordered list of milestones — the build order for a feature too large for one milestone (the read-contract in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). This path drives that list to completion; it never authors code for `#n` itself.
 
-1. **Profile read only.** Run SKILL.md's `## Before starting` step 1 (profile read) — the fan-out loop needs `integrationBranch` to re-sync between milestones. **Skip SKILL.md steps 2 and 3** (the clean-tree check and the branch-state probe) — a parent issue authors no code, so it has no feature branch and no branch state to probe.
+1. **Profile read only.** Run SKILL.md's `## Before starting` step 1 (profile read) — the fan-out loop needs `integrationBranch` to re-sync between milestones, and `integrationGranularity` for step 6. **Skip SKILL.md steps 2 and 3** (the clean-tree check and the branch-state probe) — a parent issue authors no code, so it has no feature branch and no branch state to probe.
 
 2. **Parse the ordered milestone list** from `#n`'s raw body with the #266 parser (pwsh on Windows, bash elsewhere — same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}` at SKILL.md step 6.1):
 
@@ -45,6 +45,7 @@ A parent issue's body carries an ordered list of milestones — the build order 
    - **done already** — the resume-skip in step 4 fired before driving (`open_issues == 0`, `closed_issues > 0`, never dispatched this run).
    - **built this run** — after driving, `open_issues == 0` and `closed_issues > 0`.
    - **held for visual review** — after driving, `open_issues > 0` and every remaining open issue is a UI issue with an open PR carrying `needs review`.
+   - **held for visual review**, under `integrationGranularity: "milestone"` — the milestone PR decides it. `gh pr list --head "milestone-<number>-<slug>" --label "needs review" --json number --jq '.[0].number // empty'` returning a number is the hold (`docs/profile-schema.md (Should the single milestone PR wait)`). `gh pr checks <pr-number> --json bucket --jq 'any(.bucket=="fail")'` splits the Note: `true` is a failed build; `false`, and a no-CI repo's `no checks reported` error, is a `visualHold` hold (`skills/solve-milestone/integration-granularity.md (is **vacuously green**)`).
    - **parked with opens** — after driving, `open_issues > 0` and at least one remaining open issue carries a blocker label (`needs design` / `needs decision` / `blocked`).
    - A milestone with both open `needs review` PRs and parked issues reports both facts in its Note column.
    - Each **skipped entry** from step 3 gets its own row (raw reference + why it didn't resolve, or "0 issues") rather than being silently dropped from the summary.
