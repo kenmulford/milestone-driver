@@ -9,7 +9,7 @@ Run exactly one GitHub issue through a fixed, gated pipeline. The main thread ac
 
 ## Contents
 
-Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Wave granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
+Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates — no step 5, it merged into 4 · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Wave granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
 
 ## Before starting
 
@@ -146,6 +146,8 @@ Verify the report honors the implementer contract: least-code / reuse-first, TDD
 
 ### 4. Verification gates
 
+**There is no step 5.** This step covers what were once steps 4 and 5 — the E2E gate was step 5 until it folded in here. The gap stays rather than renumber, because these headings are citation anchors (`.project/conventions.md (Keep ## headings stable)`); the next step is **6**.
+
 Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) → park**. `/code-review` is listed for visibility (always-on — hence no trailing `?` in its row), but its in-scope-fix vs park-trigger classification does not fit a "re-run the same check" loop: it keeps its own procedure in step 6.1 and is **not** iterated by the shared loop below.
 
 | Gate | Applicability | `act` | Cap | Park / escape policy |
@@ -174,7 +176,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
    - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log. **Light fixes only a Critical or Important finding**; a Minor one is accepted, not fixed. Heavy fixes every in-scope finding. Those severities are the reviewer template's (`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a finding with none — including from a reviewer scoring by confidence — counts as **Important**.
    - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** with `needs design`, `needs decision`, or `blocked` as appropriate. Do not commit.
 
-   **The orchestrator runs this review itself, dispatching the reviewers directly as leaves** (`docs/architecture.md` → `## Dispatch topology`), and **never dispatches an agent that itself runs `/code-review`** — that agent's internal fan-out would sit every reviewer at depth 2 and strand the pipeline uncommitted. Reviewing several issues **concurrently** pins the shape to exactly one reviewer leaf per issue (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`, step 7). The gate is unconditional: its `### 4. Verification gates` row carries no applicability flag, and `hooks/code-review-gate.sh` denies a `gh pr create` / `gh pr merge` whose PR body carries no `## Code Review` section. **The brief MUST also carry the step-3 scratch-hygiene rule.**
+   **The orchestrator runs this review itself, dispatching the reviewers directly as leaves** (`docs/architecture.md` → `## Dispatch topology`), and **never dispatches an agent that itself runs `/code-review`** — that agent's internal fan-out would sit every reviewer at depth 2 and strand the pipeline uncommitted. Reviewing several issues **concurrently** pins the shape to exactly one reviewer leaf per issue (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`, Stage B). The gate is unconditional: its `### 4. Verification gates` row carries no applicability flag, and `hooks/code-review-gate.sh` denies a `gh pr create` / `gh pr merge` whose PR body carries no `## Code Review` section. **The brief MUST also carry the step-3 scratch-hygiene rule.**
 
    **Omitting `/code-review` is not permitted.** Skipped under any constraint (time, token budget, tool error, self-review substitution) → treat the omission as a park trigger and **park** with `blocked`, giving the reason.
 
@@ -200,14 +202,14 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 5. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite. Review-before-commit is enforced by audit trail (the mandatory **Code Review** section), not by a commit-time hook; `hooks/code-review-gate.sh` gates `gh pr create` / `gh pr merge`, not `git commit`.
 6. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log and the **Code Review** section in the PR body. Add a `judgment call` label if any borderline autonomous call was made.
 7. **Visual-review gate (UI issues — Layer 2).** Determine whether this issue touches a UI surface: `uiSurfaceGlobs` is configured in the profile **and** the PR's changed files match one of those globs (an implementer `NEW_UI_ELEMENTS: yes` declaration reinforces this signal).
-   - **Not a UI issue** (`uiSurfaceGlobs` absent, or the diff matches no `uiSurfaceGlobs` path): no visual gate — proceed to auto-merge (step 8).
+   - **Not a UI issue** (`uiSurfaceGlobs` absent, or the diff matches no `uiSurfaceGlobs` path): no visual gate — proceed to auto-merge (step 6.8).
    - **UI issue:** do **not** auto-merge. The terminal state is *PR open, awaiting human visual sign-off* — read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/visual-review-hold.md` and follow its `### The hold`.
-8. **Auto-merge on green (non-UI issues only):** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`. **UI issues are skipped here** — they remain open per the visual-review gate (step 7) until a human merges.
+8. **Auto-merge on green (non-UI issues only):** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`. **UI issues are skipped here** — they remain open per the visual-review gate (step 6.7) until a human merges.
 9. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`). **For a UI issue held at the visual-review gate, the issue stays open** with its PR awaiting human visual sign-off — it closes when the human merges the PR.
 
 ## Run-end cost record (additive, never-gating)
 
-As the **last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-7 visual-review hold, and the step-9 close — emit one per-run cost record. Additive and **never-gating**: it never blocks, parks, or changes any merge/park/close outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
+As the **last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-6.7 visual-review hold, and the step-6.9 close — emit one per-run cost record. Additive and **never-gating**: it never blocks, parks, or changes any merge/park/close outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
 
 1. **Aggregate.** From the `<usage>` block each Agent-dispatch tool result carried this run (implementer, `/code-review`, coherence-reviewer, any direct triage dispatch — a background dispatch's completion notification carries the same block), sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
