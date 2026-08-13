@@ -9,7 +9,7 @@ Review issues for design gaps and dependency ordering. Emit an all-clear or a ga
 
 ## Contents
 
-[1 Profile](#step-1--read-the-profile) · [2 Gather](#step-2--gather-issues) · [2.5 Cache lookup](#step-25--cache-lookup-before-dispatching-agents) · [Resolve docs](#resolve-cited-project-docs-sections-once-per-issue-before-dispatch) · [Resolve citations](#resolve-cited-path-anchor-citations-once-per-issue-before-dispatch) · [3 Dispatch](#step-3--dispatch-triageagent-per-issue) · [4 Aggregate](#step-4--aggregate-findings) · [5 Output](#step-5--output-to-the-user) · [6 Comment](#step-6--comment-on-each-affected-issue-and-recommend-its-park-label) · [6.5 Cache write](#step-65--cache-write-best-effort) · [7 Return](#step-7--return-to-the-calling-skill)
+[1 Profile](#step-1--read-the-profile) · [2 Gather](#step-2--gather-issues) · [2.5 Cache lookup](#step-25--cache-lookup-before-dispatching-agents) · [Resolve docs](#resolve-cited-project-docs-sections-once-per-issue-before-dispatch) · [Resolve citations](#resolve-cited-path-anchor-citations-once-per-issue-before-dispatch) · [3 Dispatch](#step-3--dispatch-triageagent-per-issue) · [3.5 Resolve](#step-35--resolve-blockers-before-they-park) · [4 Aggregate](#step-4--aggregate-findings) · [5 Output](#step-5--output-to-the-user) · [6 Comment](#step-6--comment-on-each-affected-issue-and-recommend-its-park-label) · [6.5 Cache write](#step-65--cache-write-best-effort) · [7 Return](#step-7--return-to-the-calling-skill)
 
 ## Announce first
 
@@ -36,6 +36,7 @@ Extract:
 |---|---|
 | `triageAgent` | `milestone-driver:triage-reviewer` |
 | `designReviewAgent` | `milestone-driver:design-reviewer` |
+| `blockerResolverAgent` | `milestone-driver:blocker-resolver` |
 | `uiSurfaceGlobs` | *(absent → no design-lens review)* |
 | `sourceGlobs` | *(pass through to the agent brief in Step 3)* |
 | `nonNegotiables` | *(pass through to the agent brief in Step 3)* |
@@ -102,7 +103,7 @@ Partition issues into **HIT set** (cache-reused) and **MISS set** (fresh dispatc
 
 ### Resolve cited project-docs sections (once per issue, before dispatch)
 
-Resolve each issue's cited `.project/` sections **once, here in the triage skill**, for every issue in the **MISS set** (HIT issues skip dispatch). It is **additive grounding**: it changes no gate, no cap, no existing step's logic, the cache logic, or the five-criteria assessment — it only adds an input to the two dispatch briefs (Step 3). (Mirrors the same block in `skills/solve-issue/SKILL.md` — "Resolve cited project-docs sections (once, before dispatch)".)
+Resolve each issue's cited `.project/` sections **once, here in the triage skill**, for every issue in the **MISS set** (HIT issues skip dispatch). It is **additive grounding**: it changes no gate, no cap, no existing step's logic, the cache logic, or the five-criteria assessment — it only adds an input to the two dispatch briefs (Step 3).
 
 1. **Source the docs root.** Use `projectDocs` already resolved at Step 1 (defaults to `.project/` when the key is absent). Do **not** re-resolve the profile here.
 2. **Parse the cited anchors.** From each MISS issue's body + its acceptance criteria (gathered in Step 2), collect the `.project/<doc>#<section>` anchors the issue cites — `<doc>` is the path under the docs root, `<section>` is the heading text (an anchor like `design-system.md#data-tables`).
@@ -138,7 +139,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - The milestone description (the declared Wave/dependency order) — batch mode only; pass an empty string in single mode.
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found convention is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue (from "Resolve cited project-docs sections (once per issue, before dispatch)" above — omit this input when that block was a no-op for this issue).
-- The resolved prose contract (the `skills/output-style.md` sections resolved once per run in that same block) — the GitHub-facing prose rules and evidence-slot shapes governing the agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
+- The resolved prose contract (the `skills/output-style.md` sections resolved once per run in that same block); omit when that resolution was a no-op.
 - The resolved citations for this issue (from the `path (anchor)` block above; omit when it was a no-op).
 
 **Each agent returns:**
@@ -165,7 +166,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - Pointers to existing UI surfaces the issue neighbors — via `uiSurfaceGlobs` from the profile.
 - The profile: `uiSurfaceGlobs`, `domainSkills` (one step — after the framework's own docs, before repo patterns — in the agent's research path for verifying a found pattern is a genuine framework idiom; omit when absent from the profile).
 - The resolved `.project/` sections for this issue — the **same** sections passed to the `triageAgent` above; omit when that block was a no-op for this issue.
-- The resolved prose contract — the **same** `skills/output-style.md` sections passed to the `triageAgent` above, governing this agent's returned `description` and `to_clear` lines; omit when that resolution was a no-op.
+- The resolved prose contract — the **same** sections passed to the `triageAgent` above; omit when that resolution was a no-op.
 - The resolved citations — the **same** rows passed to the `triageAgent` above; omit when it was a no-op.
 
 **The design agent returns:**
@@ -180,6 +181,10 @@ GAPS:
     to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per skills/citation-format.md) when one exists — structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
+
+### Step 3.5 — Resolve Blockers before they park
+
+A MISS issue with ≥1 `severity: Blocker` gap → read `${CLAUDE_PLUGIN_ROOT}/skills/triage/blocker-resolver-dispatch.md` and run it. Nothing else reaches it.
 
 ### Step 4 — Aggregate findings
 
@@ -196,7 +201,7 @@ After aggregating gaps for each issue, classify it as **`light`** or **`heavy`**
 
 **Operator override labels (checked first).** If the issue carries a `risk:heavy` or `risk:light` label, that label sets the profile directly — skip the observable rubric below. When **both** labels are present, **`risk:heavy` wins** (safety-first).
 
-**Observable rubric (runs only when no override label is present).**
+**Observable rubric (runs only when no override label is present, over the pre-resolution gap set).**
 
 **Classify as `heavy` when ANY of the following is true:**
 - A triage gap of type `contradiction` or `not-buildable` is present.
@@ -224,10 +229,10 @@ Build the **validated dependency graph** from all `DEPENDS_ON` edges across the 
 Open every output block with the cache split so reuse is never silent. Example:
 
 ```
-Triage: 4 reused (cache), 2 fresh
+Triage: 4 reused (cache), 2 fresh; 3 blockers resolved, 1 needs human
 ```
 
-(Substitute the actual counts. When all issues are HIT: `Triage: N reused (cache), 0 fresh`. When all are MISS: `Triage: 0 reused (cache), N fresh`.)
+(Substitute the actual counts. When all issues are HIT: `Triage: N reused (cache), 0 fresh`. When all are MISS: `Triage: 0 reused (cache), N fresh`.) Append the resolve split only when Step 3.5 ran.
 
 When the Step 6.5 cache write was **skipped or failed this run** (jq absent on the Bash path, or any write error on either path — see Step 6.5), append a single concise clause to that same line:
 
@@ -267,19 +272,21 @@ Include the Wave-ordered dependency graph after the table (even when gaps are pr
 
 ### Step 6 — Comment on each affected issue and recommend its park label
 
-For every **freshly-triaged** (MISS) issue that has **Blocker** gaps:
+For every **freshly-triaged** (MISS) issue with surviving **Blocker** gaps or a Step 3.5 `RESOLVED` verdict:
 
 > **Cache-hit Blocker issues do NOT receive a duplicate `🔴 Triage` comment.** Their original comment from the first run persists on the issue.
 >
-> **Previously-blockered issues that get a MISS always post a fresh comment.** When a cached entry shows `blockers: true` but the cache is invalidated (key mismatch or stale-edge condition), the re-triage is treated as a full MISS. If the re-triage result still has Blockers, post a fresh `🔴 Triage` comment — do NOT guard on the stale cached `blockers: true` to skip posting. Only the fresh re-triage result governs whether a comment is posted.
+> **Previously-blockered issues that get a MISS always post a fresh comment.** When a cached entry shows `blockers: true` but the cache is invalidated (key mismatch or stale-edge condition), the re-triage is treated as a full MISS. If the re-triage result still has Blockers, post a fresh `🔴 Triage` comment — do NOT guard on the stale cached `blockers: true` to skip posting.
 >
-> **Accepted trade-off:** the `🔴 Triage` comment is posted AFTER the cache key is computed. Posting it increments the issue's comment count, which self-invalidates the cache entry on the next run — a blockered issue re-triages fresh next run, which is desirable. Do NOT add a dedup guard.
+> **Accepted trade-off:** the `🔴 Triage` comment is posted AFTER the cache key is computed. Posting it increments the issue's comment count, which self-invalidates the cache entry on the next run — a blockered issue re-triages fresh next run, which is desirable. Do NOT add a dedup guard for it; the `🟢 Resolved` comment has its own (`skills/triage/blocker-resolver-dispatch.md (Unparking)`).
 
 For each qualifying MISS issue:
 
-1. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`). The comment body must:
+1. **Post a `🟢 Resolved` comment** on ≥1 Step 3.5 `RESOLVED`, in the shape at `skills/output-style.md (Resolved comment)`.
+
+2. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`) on ≥1 surviving Blocker. The comment body must:
    - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md (Issues parked)` and probed at `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Only what FOLLOWS the opener is structured here.
-   - Render the Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. A row with an empty evidence cell is an unfilled slot, not a shorter row.
+   - Render the surviving Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. A row with an empty evidence cell is an unfilled slot, not a shorter row.
    - Close with the durable-async instruction. That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`), and it states what must be recorded before this issue can build.
 
    Example:
@@ -295,7 +302,7 @@ For each qualifying MISS issue:
    This is a durable async note — no reply needed now. Record the decision on this issue and re-run triage or solve-issue when ready.
    ```
 
-2. **Recommended-label routing** — the label triage RECOMMENDS for this gap (returned in `issueStates`; the caller applies it):
+3. **Recommended-label routing** — the label triage RECOMMENDS for this gap (returned in `issueStates`; the caller applies it):
 
    | Gap type | Recommended label |
    |---|---|
@@ -312,9 +319,9 @@ For each qualifying MISS issue:
 
 ### Step 6.5 — Cache write (best-effort)
 
-After posting Blocker comments in Step 6, write/update entries for every **freshly-triaged** (MISS) issue. This step is **best-effort: a write failure logs a warning and does not error the triage run.**
+After posting Step 6's comments, write/update entries for every **freshly-triaged** (MISS) issue. This step is **best-effort: a write failure logs a warning and does not error the triage run.**
 
-1. **Build the entries object.** One JSON object keyed by issue number; per freshly-triaged issue: `triaged_at` (this run's ISO 8601 timestamp) and `result` from the Step 4 aggregate. **No `key` field** — you never compute one; the script stamps it (see item 2). The `result` object carries: `blockers` (boolean), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
+1. **Build the entries object.** One JSON object keyed by issue number; per freshly-triaged issue: `triaged_at` (this run's ISO 8601 timestamp) and `result` from the Step 4 aggregate. **No `key` field** — you never compute one; the script stamps it (see item 2). The `result` object carries: `blockers` (boolean — `false` when Step 3.5 cleared them all; resolution text is never cached), `label` (`"needs design"` / `"needs decision"` / `null`), `advisories` (array of one-line strings), `risk` (`"light"` / `"heavy"`), and `edges` (the `dependencyGraph.edges["<n>"]` array for this issue).
 2. **Hand it to the script.** `${CLAUDE_PLUGIN_ROOT}/scripts/triage-cache.<sh|ps1> write <repo-root> <entries.json> <response.json>` stamps each entry's change-signal key from that response using the same definition `lookup` compares against, re-reads the cache under the same resolution and degradation rules as Step 2.5, merges these entries over it one entry at a time, creates `.milestone-config/`, self-heals the committed `.milestone-config/.gitignore` so the cache is git-invisible in the consumer repo from the first write, writes the canonical `.milestone-config/triage-cache.json` atomically, and removes the stale legacy root cache. **Why re-read rather than reuse the Step 2.5 parse:** it picks up a concurrent write (e.g. a parallel triage run) instead of overwriting it. `<response.json>` is the **saved Step 2.5 `query keys` response, never a fresh fetch and never the `query edges` one**: that file predates the Blocker comments Step 6 just posted, and recomputing from it is what stores the pre-comment key — so the next run re-triages a blockered issue whose comment count has since changed ("Accepted trade-off" in Step 6). An absent or unparseable response is fail-open, not an error: the entries are written as supplied and the issue re-triages next run.
 3. **Read the one record it prints.** `OK<TAB><path>` when the cache was written; `SKIP<TAB><reason>` (`no-jq`, `bad-entries`, `mkdir-failed`, `write-failed`) when it was not. It **always exits 0** — a `SKIP` sets the "cache write skipped this run" condition the Step 5 output line reports, and never aborts the run.
 
@@ -339,7 +346,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
   },
   issueStates: {
     // **`issueStates` covers all issues** — both cache-HIT issues (populated from cached `result` via the Step 4 merge) and freshly-triaged MISS issues. Do not return only MISS-derived results.
-    "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, advisories: ["<one-line advisory>", …], risk: "light" | "heavy" },
+    "<n>": { blockers: true | false, label: "needs design" | "needs decision" | null, clearLabel: true | false, advisories: ["<one-line advisory>", …], risk: "light" | "heavy" },
     …
   }
 }
@@ -347,7 +354,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 
 `dependencyGraph.edges` is the per-issue map: each key is an issue number (as a string) and its value is the array of issue numbers that issue **directly depends on** — preserved from the `triageAgent` `DEPENDS_ON` returns before wave aggregation. An issue with no dependencies has an empty array or is absent from the map. The calling skill uses `edges["<n>"]` for per-issue buildability checks (not wave-level `dependsOn`, which is shared across all wave siblings).
 
-`blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`. `blockers: false` means it is all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, uses the `label` field to apply the park label via setup Phase 4's apply-time helper, and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph.edges`.
+`blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`. `blockers: false` means it is all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, uses the `label` field to apply the park label via setup Phase 4's apply-time helper, `clearLabel` to remove one (`skills/triage/blocker-resolver-dispatch.md (Unparking)`), and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph.edges`.
 
 `risk` is the per-issue risk classification computed in Step 4: `"light"` or `"heavy"`. Default is `"heavy"` when classification is inconclusive. The calling skill (`solve-issue`) reads `issueStates["<n>"].risk` to resolve the build profile for that issue.
 
@@ -366,7 +373,6 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every 
 
 ## Non-negotiables
 
-- **Authors no code.** Never edits a source file, never creates a branch, never opens a PR. Triage **performs no migration move either** — it does not `git mv` a legacy root `milestone-driver.json` to `.milestone-config/driver.json`; the config relocation is owned by `setup` and `solve-issue` (the commands with a commit path; `solve-milestone` migrates via its dispatched build). Triage does the transitional READ only (Step 1).
-- **Opens no PRs.** The triage phase is read-only except for posting issue comments — it applies no labels, creates no branches, opens no PRs, and moves no files.
+- **Authors no code, opens no PRs.** The triage phase is read-only except for posting issue comments: it never edits a source file, creates no branch, opens no PR, applies no label, and moves no file. Triage **performs no migration move either** — it does not `git mv` a legacy root `milestone-driver.json` to `.milestone-config/driver.json`; the config relocation is owned by `setup` and `solve-issue` (the commands with a commit path; `solve-milestone` migrates via its dispatched build). Triage does the transitional READ only (Step 1).
 - **No interactive prompts.** Blocker comments are durable async handoffs on the originating issue — never a mid-run pause waiting for a human reply.
 - **No fabricated findings.** Every gap cites its grounding (the exact recorded line, or `file:line` for a dependency). A claim that cannot be grounded in the actual artifact is emitted as a Blocker ("cannot verify X from the issue/code"), never as a confident guess. If an issue cannot be retrieved, STOP — do not fabricate a stand-in.

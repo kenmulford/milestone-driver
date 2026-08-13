@@ -7,7 +7,7 @@ description: >-
 
 # solve-milestone — autonomous driver
 
-Drive a GitHub milestone to completion: order its issues, run `/milestone-driver:solve-issue` on each, integrate to `integrationBranch` between issues. This skill owns **ordering, the loop, branch re-sync, parking, and the final summary**; the per-issue pipeline — root-cause, implementer dispatch, gates, review, PR, auto-merge on green (non-UI) or visual-review hold (UI), close — is `/milestone-driver:solve-issue`'s.
+Drive a GitHub milestone to completion: order its issues, run `/milestone-driver:solve-issue` on each, integrate to `integrationBranch` between issues. This skill owns **ordering, the loop, branch re-sync, parking, and the final summary**; the per-issue pipeline is `/milestone-driver:solve-issue`'s.
 
 The **post-build coherence pass** (`coherenceReviewAgent`, read-only, optional, never-gating) is delegated too: per-issue inside `solve-issue` section 6, before that issue's `/code-review`; under **wave granularity** instead at the Phase-2 serial-merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail`), against the integrated wave. Coherence-reviewer absent → silently skipped.
 
@@ -88,7 +88,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
 
    **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set AND `parallel` absent from the profile — the **only** trigger, because per-issue unit runs are the only gate run *concurrently* (`e2eTestCmd` and any server-starting preflight are deferred to the serial merge tail and run once). Fire it **once**, here, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it — the prompt, the Yes/No branches and their `parallel: true` / `parallel: false` writes to `.milestone-config/driver.json`, the persistence rule, and the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which does not prompt, falls to sequential **with a loud note**, and persists nothing. On any other cascade row it is **never read**.
 
-      **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview, no persisted value** (per the "omit only when no decision was made" rule).
+      **Nothing-to-decide:** `parallel` absent AND `unitTestCmd` absent → row 5 → **parallel**, quiet — **no interview, no persisted value**.
 
    **Surface the resolved mode.** State it and its reason in the run output; it drives Template 1's mode line (`## Output spec`).
 
@@ -118,11 +118,12 @@ Invoke triage across the whole milestone before the build loop begins:
 
 1. **Present triage output.** Surface the all-clear or gap table in the run output; triage's output carries the Wave-ordered dependency graph whether or not there are gaps.
 
-2. **Apply triage-recommended park labels.** Triage posts the `🔴 Triage` comment on each affected issue but applies no labels — that is this skill's job. For every issue where `issueStates[n].blockers == true`, apply its `issueStates[n].label` (`"needs design"` or `"needs decision"`) with the apply-time label helper from `${CLAUDE_PLUGIN_ROOT}/skills/setup/SKILL.md` Phase 4, using that taxonomy table's hex color and description:
+2. **Apply triage-recommended park labels.** Triage posts the `🔴 Triage` comment on each affected issue but applies no labels — that is this skill's job. For every issue where `issueStates[n].blockers == true`, apply its `issueStates[n].label` (`"needs design"` or `"needs decision"`) with the apply-time label helper from `${CLAUDE_PLUGIN_ROOT}/skills/setup/SKILL.md` Phase 4, using that taxonomy table's hex color and description. Where `issueStates[n].clearLabel == true` instead, remove the one park label the issue live-carries and add none (`skills/triage/blocker-resolver-dispatch.md (Unparking)`):
 
    ```
    gh label create "<name>" --color <hex> --description "<desc>" --force
    gh issue edit <n> --add-label "<name>"
+   gh issue edit <n> --remove-label "<name>"     # clearLabel == true
    ```
 
 2.5. If `integrations.trello` is configured, run trello-sync.md `## Phase 0 hooks` (best-effort).
@@ -150,7 +151,7 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 
 ### Permission pre-flight gate
 
-**Runs once per run, at run-start mode resolution (the *Resolve execution mode* Before-starting step, row 2), before any dispatch — whenever background dispatch is about to be used** (parallel-by-default, plus the leaves the sequential loop dispatches). The mode cascade and the loop **read** its result. Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior), and a background leaf hitting an un-allowlisted tool fails outright with no interactive recovery.
+**Runs once per run, at run-start mode resolution (the *Resolve execution mode* Before-starting step, row 2), before any dispatch — whenever background dispatch is about to be used** (parallel-by-default, plus the leaves the sequential loop dispatches). The mode cascade and the loop **read** its result. Background subagents auto-deny any tool call that would otherwise prompt, and a background leaf hitting an un-allowlisted tool fails outright with no interactive recovery.
 
 **Allowlist source.** Union `permissions.allow` from all three Claude Code settings layers; absent or unreadable layers are skipped in the union, not counted as gaps:
 
@@ -189,7 +190,7 @@ If `integrations.trello` is present, apply `## Finish hooks` from `${CLAUDE_PLUG
 
 ## Output spec
 
-<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone. -->
 **Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
@@ -299,7 +300,7 @@ After presenting the final summary (Template 3), emit a `PushNotification`:
 
 **Run-end cost record (additive, never-gating).** As the **last step of this `## Run-complete notification` section**, on the clean-completion and systemic-halt paths alike, emit one per-run cost record, then finish. It never blocks, parks, or changes the run's outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
 
-1. **Aggregate its own dispatches.** From the `<usage>` block each Agent-dispatch tool result carried this run — the Phase 0 triage dispatch and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch (whose completion notification carries the same block) — sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`, plus the orchestrator's own run clock → `wallClockSeconds`. Independent of any background `solve-issue`'s record — no cross-orchestrator de-dup.
+1. **Aggregate its own dispatches.** From the `<usage>` block each Agent-dispatch tool result carried this run — Phase 0 triage's own agent dispatches (triage runs in-thread, never as a dispatched agent) and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch (whose completion notification carries the same block) — sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`, plus the orchestrator's own run clock → `wallClockSeconds`. Independent of any background `solve-issue`'s record — no cross-orchestrator de-dup.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (not surfaced per-dispatch — the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
 3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere — the host selection `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}` uses). The single-record write to `.milestone-config/.runtime/cost-records/` is #320's.
 4. **Skip cleanly.** Zero dispatches this run (e.g. a halt before Phase 0 dispatches anything) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced → silent no-op, one log line. Never fails the run.

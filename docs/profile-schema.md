@@ -65,7 +65,7 @@ every clone for the gates to behave identically for every contributor and on CI.
 
 ## Design principle
 
-Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); the agent keys `implementerAgent`, `triageAgent`, `designReviewAgent`, and `coherenceReviewAgent` are **default-filled** (they default to `milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`, and `milestone-coherence-reviewer:coherence-reviewer`) so a profile may omit them. The first three resolve to always-on bundled agents; `coherenceReviewAgent`'s default points at the separate milestone-coherence-reviewer companion plugin, so its post-build coherence pass runs only when that companion is installed (absent → silently skipped). All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
+Keep it minimal and consumer-driven. **Three keys are required** (`integrationBranch`, `protectedBranch`, `sourceGlobs`); the agent keys `implementerAgent`, `triageAgent`, `designReviewAgent`, `blockerResolverAgent`, and `coherenceReviewAgent` are **default-filled** (they default to `milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`, `milestone-driver:blocker-resolver`, and `milestone-coherence-reviewer:coherence-reviewer`) so a profile may omit them. The first four resolve to always-on bundled agents; `coherenceReviewAgent`'s default points at the separate milestone-coherence-reviewer companion plugin, so its post-build coherence pass runs only when that companion is installed (absent → silently skipped). All other keys are optional. **New keys are added only when a real second consumer needs them — never speculatively.**
 
 > **Risk classification needs no profile key.** The `light` / `heavy` build profile is computed automatically by triage from observable inputs (gap types, dependency edges, issue labels, body signals) and is label-overridable per issue (`risk:light` / `risk:heavy`). No profile key is required or introduced.
 
@@ -74,7 +74,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | Tier | Keys | Required? |
 |---|---|:---:|
 | **Core** (orchestration + safety) | `integrationBranch`, `protectedBranch`, `sourceGlobs` | ✅ required in file |
-| **Core** (default-filled) | `implementerAgent`, `triageAgent`, `designReviewAgent`, `coherenceReviewAgent` | optional in file (auto-filled) |
+| **Core** (default-filled) | `implementerAgent`, `triageAgent`, `designReviewAgent`, `blockerResolverAgent`, `coherenceReviewAgent` | optional in file (auto-filled) |
 | **Testing** | `unitTestCmd` | Optional |
 | **E2E** | `e2eTestCmd`, `e2eEnv` | Optional |
 | **Triage / Visual** | `uiSurfaceGlobs` | Optional |
@@ -86,7 +86,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | **Enrichment** | `domainSkills`, `nonNegotiables`, `projectDocs` | Optional |
 | **External integrations** | `integrations.trello` | Optional |
 
-**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, and `designReviewAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common. `coherenceReviewAgent` is also default-filled (`milestone-coherence-reviewer:coherence-reviewer`), but unlike the three above it points at a separate companion plugin: its post-build coherence pass runs only when the milestone-coherence-reviewer companion is installed, and is silently skipped otherwise (absent-means-skip).
+**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is **not** a statement of optionality — without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, `designReviewAgent`, and `blockerResolverAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`, `milestone-driver:blocker-resolver`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common. `coherenceReviewAgent` is also default-filled (`milestone-coherence-reviewer:coherence-reviewer`), but unlike the four above it points at a separate companion plugin: its post-build coherence pass runs only when the milestone-coherence-reviewer companion is installed, and is silently skipped otherwise (absent-means-skip).
 
 ## Keys
 
@@ -98,7 +98,8 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | `implementerAgent` | string | Core | Which agent authors the code? Default: `milestone-driver:implementer` (auto-filled; rarely overridden) | default-filled |
 | `triageAgent` | string | Core | Which agent reviews issues for design gaps + dependency ordering (architect lens)? Default: `milestone-driver:triage-reviewer` (auto-filled; rarely overridden) | default-filled |
 | `designReviewAgent` | string | Core | Which agent reviews UI-touching issues for UX gaps (front-end lens)? Default: `milestone-driver:design-reviewer` (auto-filled; rarely overridden) | default-filled |
-| `coherenceReviewAgent` | string | Core | Which agent runs the read-only post-build coherence pass before the final `/code-review`? Default: `milestone-coherence-reviewer:coherence-reviewer`. Default-filled; the pass runs only when the coherence-reviewer is present AND configured, and is silently skipped otherwise (absent-means-skip). **Unlike `implementerAgent` / `triageAgent` / `designReviewAgent` — always-on bundled agents — this agent ships in the separate milestone-coherence-reviewer companion plugin, so the pass runs only when that companion is installed; absent → silently skipped.** | default-filled |
+| `blockerResolverAgent` | string | Core | Which agent decides whether a triage Blocker is already answered by the record before the issue parks (Step 3.5)? Default: `milestone-driver:blocker-resolver` (auto-filled; rarely overridden) | default-filled |
+| `coherenceReviewAgent` | string | Core | Which agent runs the read-only post-build coherence pass before the final `/code-review`? Default: `milestone-coherence-reviewer:coherence-reviewer`. Default-filled; the pass runs only when the coherence-reviewer is present AND configured, and is silently skipped otherwise (absent-means-skip). **Unlike `implementerAgent` / `triageAgent` / `designReviewAgent` / `blockerResolverAgent` — always-on bundled agents — this agent ships in the separate milestone-coherence-reviewer companion plugin, so the pass runs only when that companion is installed; absent → silently skipped.** | default-filled |
 | `unitTestCmd` | string | Testing | What command runs the unit tests? Absent → no unit gate; implementer verifies behavior another way. | — |
 | `e2eTestCmd` | string | E2E | What command runs the end-to-end / UI tests? Absent → no E2E gate. | — |
 | `e2eEnv` | object | E2E | Device/endpoint for the E2E runner (Appium, Selenium, Playwright), e.g. `{ "endpoint": "127.0.0.1:4723", "device": "Android emulator (AVD)" }`. | — |
@@ -237,7 +238,7 @@ A minimal valid block supplies only the three required keys and lets the optiona
 }
 ```
 
-The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewAgent`, `coherenceReviewAgent`) are omitted here; their defaults apply automatically. The first three are bundled agents that always resolve; `coherenceReviewAgent`'s default is the milestone-coherence-reviewer companion, so its pass runs only when that companion plugin is installed (absent → silently skipped).
+The default-filled agent keys (`implementerAgent`, `triageAgent`, `designReviewAgent`, `blockerResolverAgent`, `coherenceReviewAgent`) are omitted here; their defaults apply automatically. The first four are bundled agents that always resolve; `coherenceReviewAgent`'s default is the milestone-coherence-reviewer companion, so its pass runs only when that companion plugin is installed (absent → silently skipped).
 
 ## Full example (PracticingPrayer — consumer #1)
 

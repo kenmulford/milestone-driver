@@ -237,7 +237,7 @@ fi
 # `7/999999999990` for a row the surgery never touched, and the case failed on
 # a checker that was correct. Keep the address whenever these numbers are
 # retuned.
-mal_refusal="$(sed 's/CEILINGS(32), BYTE_CEILINGS(33) and WORD_CEILINGS(33)/CEILINGS(33), BYTE_CEILINGS(33) and WORD_CEILINGS(32)/' "$GUARD_GOLD" | tr -d '\r')"
+mal_refusal="$(sed 's/CEILINGS(34), BYTE_CEILINGS(35) and WORD_CEILINGS(35)/CEILINGS(35), BYTE_CEILINGS(35) and WORD_CEILINGS(34)/' "$GUARD_GOLD" | tr -d '\r')"
 wide_stream="$(sed -e '/skills\/setup\/SKILL.md/ s#/30000#/99999999999#' \
                    -e '/skills\/setup\/SKILL.md/ s#/4300#/99999999999#' \
                    "$GOLD/at-ceiling.txt" | tr -d '\r')"
@@ -289,18 +289,19 @@ else
   diff <(printf '%s\n' "$empty_want") <(printf '%s\n' "$empty_out") >&2 || true
 fi
 
-# --- excluded-untouched: the five branch-gated files are outside every closure
+# --- excluded-untouched: the six branch-gated files are outside every closure
 # (issue #491) ---------------------------------------------------------------
 # A CLOSURE sum counts ONLY the files a skill read-directs on EVERY run. The
-# five reference docs that sit behind an observable branch — parallel-waves.md
+# six reference docs that sit behind an observable branch — parallel-waves.md
 # (parallel mode), milestone-granularity.md (`integrationGranularity:
 # "milestone"`), trello-sync.md (`integrations.trello`), async-mode.md
-# (retired, inert) and md-epic-fanout.md (the `md-epic` label) — are NOT part of
-# any closure, and the executable statement of that is: perturb all five and
-# every CLOSURE line is byte-identical. A committed fixture cannot hold both the
-# perturbed and unperturbed state of the same tree, so this copies at-ceiling
-# and edits the copy. rc is deliberately unasserted: async-mode.md sits at
-# exactly 4500/4500 bytes there, so appending to it fails its byte column, which
+# (retired, inert), md-epic-fanout.md (the `md-epic` label) and
+# blocker-resolver-dispatch.md (>=1 Blocker gap on a MISS-set issue) — are NOT
+# part of any closure, and the executable statement of that is: perturb all six
+# and every CLOSURE line is byte-identical. A committed fixture cannot hold
+# both the perturbed and unperturbed state of the same tree, so this copies
+# at-ceiling and edits the copy. rc is deliberately unasserted: async-mode.md
+# sits at exactly 4500/4500 bytes, so appending to it fails its byte column, which
 # is beside the point this case makes.
 #   CLOSURE lines == at-ceiling golden's   no excluded file reached a sum
 #   the rest       != at-ceiling golden's  the perturbation actually landed,
@@ -311,7 +312,8 @@ for x in skills/solve-milestone/parallel-waves.md \
          skills/solve-milestone/milestone-granularity.md \
          skills/solve-milestone/trello-sync.md \
          skills/solve-issue/async-mode.md \
-         skills/solve-issue/md-epic-fanout.md; do
+         skills/solve-issue/md-epic-fanout.md \
+         skills/triage/blocker-resolver-dispatch.md; do
   printf 'excluded branch gated padding words\n' >> "$EXC_TREE/$x"
 done
 exc_out="$(bash "$SCRIPT" "$EXC_TREE" 2>&1)"
