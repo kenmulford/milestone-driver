@@ -3,6 +3,41 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.22.0 — finish the granularity matrix, resolve blockers instead of parking them
+
+**Theme:** `integrationGranularity: "wave"` behaves as documented in both execution modes, and triage clears a Blocker it can resolve from the record instead of handing it back as work.
+
+### ✨ Granularity matrix and blocker resolution
+
+| Issue | PR | What |
+|---|---|---|
+| #502 Sequential runs with integrationGranularity "wave" have no defined behavior | #519 | Four shipped sites claimed `solve-issue` suppresses the per-issue PR under `"wave"`; no wave conditional existed in either execution mode. New `skills/solve-issue/wave-clauses.md` plus a `## Wave granularity` section supplies the per-step deltas, and the sequential loop is wired to them. |
+| #503 solve-issue step numbering skips 5, and step 6 sub-steps are cited two ways | #522 | 15 sub-step references across 8 files re-keyed to the dotted key, and the skipped step 5 is explained inline at both places a reader meets it. |
+| #506 Resolve a triage Blocker before parking it | #513 | A new bundled `blocker-resolver` agent runs at Step 3.5 and clears each Blocker resolvable from the record, posts a `🟢 Resolved` comment, and returns `clearLabel` so the caller removes the stale park label. The rest still park. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #384 Wave granularity closes no issues: gh issue close is given multiple #-prefixed args | #507 | `gh issue close` accepts exactly one issue argument and both call sites passed several, so a wave-granularity run closed nothing. Now one call per issue, with any failed close named in the final summary. |
+| #391 md-epic fan-out cannot classify a milestone-granularity run | #510 | Outcome classification reads the single milestone PR when no per-issue PR exists, splitting the Note between a `visualHold` hold and red CI via `gh pr checks --json bucket`. A PR with no checks reads as vacuously green. |
+| #396 solve-milestone step 6.7's CHANGELOG PR template is blocked by the code-review-gate hook | #508 | The CHANGELOG PR template and the wave PR body both carry a `## Code Review` section, so `hooks/code-review-gate.sh` no longer denies create and merge. A doc-only PR states `/code-review run: no` with its reason rather than claiming a run. |
+
+### Consumer notes (upgrading from v1.21.0)
+
+- **New default-filled Core profile key** `blockerResolverAgent`, defaulting to `milestone-driver:blocker-resolver`. Absent from `.milestone-config/driver.json` → the bundled default applies and nothing degrades.
+- **`integrationGranularity: "wave"` now integrates at the Wave boundary in both execution modes.** A consumer already running `"wave"` with `parallel: false` was silently getting per-issue integration and now gets real wave integration.
+- **Triage may clear a Blocker instead of parking it**, and removes the park label it cleared.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: #507, #510, #513, #519.
+
+- `skills/solve-milestone/SKILL.md` sits at 4,998 of 5,000 words and `skills/triage/SKILL.md` at 4,994. Both need a procedure split; another prose pass does not fit either one.
+- Four more files are within bytes or lines of their ceilings: `skills/solve-issue/wave-clauses.md` 2,987/3,000 bytes, `skills/solve-milestone/sequential-loop.md` 7,495/7,500 bytes, `skills/solve-issue/md-epic-fanout.md` 8,985/9,000 bytes, `skills/solve-milestone/changelog-authoring.md` 209/210 lines.
+- **`wave-clauses.md` states no home for a wave non-UI issue's Decision Log or `judgment call` label.** Its `6.7` and `Autonomy model` rows measured 179 and 314 bytes against 13 bytes free and were not written, so no shipped clause names where either lands. Filed as #520.
+- Ten defects were filed during the run and remain open, none blocking: #509, #511, #512, #514, #515, #516, #517, #518, #520, #521.
+
 ## v1.21.0 — skill files meet the published authoring limits
 
 **Theme:** The four SKILL.md files and the largest reference file come under Anthropic's published Agent Skills limits, and the CI size gate gains the axes that measure them.
