@@ -1,13 +1,12 @@
 # Output style and prose contract — shared reference
 
-This file is the single source of truth for milestone-driver's output
-contract. Every skill's `## Output style` section and every agent's
-`## Communication style` section points here rather than carrying its own
-copy, so that text exists exactly once.
+The single source of truth for milestone-driver's output contract. Every skill's
+`## Output style` section and every agent's `## Communication style` section points
+here rather than carrying its own copy.
 
 It sits one level up from the skill folders, for the same recorded reason as
-`skills/notices.md (It sits here — a peer of the skill)`: a reference file
-with no single owning skill is not nested inside any one skill's directory.
+`skills/notices.md (It sits here — a peer of the skill)`: a reference file with no
+single owning skill is not nested inside any one skill's directory.
 
 ## The surface split — read this first
 
@@ -24,31 +23,26 @@ Two surfaces, two rule sets.
 
 ## Terminal output
 
-Be concise — report status and outcomes flatly, no wall-of-text. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴.
+Be concise — report status and outcomes flatly. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴.
 
-**Skills that carry an `## Output spec`** (`solve-issue`, `solve-milestone`): use the templates in `## Output spec` at their prescribed trigger points. Between boards: one-line dispatch notes only — no narration paragraphs. (`setup` and `triage` carry none, so this paragraph does not apply to them.)
+**Skills that carry an `## Output spec`** (`solve-issue`, `solve-milestone`): use those templates at their prescribed trigger points. Between boards: one-line dispatch notes only, no narration paragraphs. (`setup` and `triage` carry none.)
 
 ## GitHub-facing prose
 
 These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` governs WHAT each one must contain.
 
-1. **Confidence lives in the citation, not the word count.** A grounded decision is one line plus its ref. Adding prose to make a decision *sound* more certain is a contract violation, the same tier as an ungrounded citation.
-2. **Fill the shape's slots — and nothing else.** Each shape in `## Evidence slots` names the slots it must carry. A line that fills no slot is scaffolding; cut it (see `## The two anti-criteria`).
-3. **One decision, one line.** Each Decision Log entry, each recorded gap, and each finding resolution is a single declarative sentence; its citation is the rationale — do not append a second sentence restating it.
-4. **No filler vocabulary, no hedges.** Delete on sight: "comprehensive", "robust", "seamless", "leverage", "ensure that", "in order to", "it is important to note". Hedges ("should ideally", "as appropriate") bury the decision — record the decision instead.
-5. **Never narrate the template.** Section headers and slot names carry the structure; the text under them carries only facts. Do not explain what a section is for or announce what is about to be listed.
-6. **Cut pass before posting.** Re-read the whole body before the `gh issue comment` / `gh pr comment` / PR-body write, and delete every sentence whose removal loses no decision, gate, evidence, or citation.
+1. **One decision, one line — the citation is the rationale.** Each Decision Log entry, recorded gap, and finding resolution is a single declarative sentence; never append a second sentence restating its citation. Confidence lives in the citation, not the word count: adding prose to make a decision *sound* more certain is a contract violation, the same tier as an ungrounded citation.
+2. **Fill the shape's slots — and nothing else.** Each shape in `## Evidence slots` names the slots it must carry; a line that fills no slot is scaffolding, so cut it (see `## The two anti-criteria`). That includes narrating the template — section headers and slot names carry the structure, so never explain what a section is for or announce what is about to be listed. **Cut pass before posting:** re-read the whole body before the `gh issue comment` / `gh pr comment` / PR-body write, and delete every sentence whose removal loses no decision, gate, evidence, or citation.
+3. **No filler vocabulary, no hedges.** Delete on sight: "comprehensive", "robust", "seamless", "leverage", "ensure that", "in order to", "it is important to note". Hedges ("should ideally", "as appropriate") bury the decision — record the decision instead.
 
 **Guardrail — concision cuts prose, never content.** Every gate, decision point, degradation branch, and citation stays whole; every literal directive, label name, and issue number stays verbatim. A shape that lost a slot is not concise, it is incomplete.
 
 ## When prose is the correct form
 
-Structure is the default, not the only legal shape.
-
-Prose is the **correct** form when the content carries dependent clauses a table would fragment:
+Structure is the default, not the only legal shape. Prose is the **correct** form when the content carries dependent clauses a table would fragment:
 
 - **A rationale** — why this and not that, where the "not that" is load-bearing.
-- **A tradeoff where the tension is the point** — splitting the two halves into separate cells loses the relationship that made it a tradeoff.
+- **A tradeoff where the tension is the point** — splitting the halves into separate cells loses the relationship that made it a tradeoff.
 - **A caveat qualifying several rows at once** — a condition belonging to the table as a whole has no cell to live in; it goes in a sentence below it.
 
 When in doubt, ask whether the structure preserves the dependency. If it does not, write the sentence.
@@ -57,9 +51,7 @@ When in doubt, ask whether the structure preserves the dependency. If it does no
 
 Every GitHub-facing shape carries an explicit **evidence/citation slot, not just a claim slot**. The evidence slot is what makes a bad quantifier visible — a `Scope | all 3 controllers | providers_controller.rb:201` row can be checked; a bare `14 of 15` cannot.
 
-Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots.
-
-Citations inside those slots follow one format, defined once in `skills/citation-format.md`.
+Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots. Citations inside those slots follow one format, defined once in `skills/citation-format.md`.
 
 **Openers are parsed downstream — never change them.** `🔴 Parked — `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md (Issues parked)` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
 
