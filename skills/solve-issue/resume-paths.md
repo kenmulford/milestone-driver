@@ -5,8 +5,8 @@ The branch that reaches this file belongs to the caller, which runs the probe an
 ### Resume paths
 
 **(a) A PR exists for `issue/<n>-*`.**
-- **merged** → the work is already integrated; do **not** re-implement or open a new PR; **resume at step 9** (confirm the issue is closed / close it). A merged PR means the branch was deleted; this state follows an interrupt between merge and close.
-- **open** → check out that branch; **resume at the visual-review gate / auto-merge (steps 7–8)** — do **not** re-implement and do **not** open a second PR. The open PR is the authoritative "work is built and submitted" signal.
+- **merged** → the work is already integrated; do **not** re-implement or open a new PR; **resume at step 6.9** (confirm the issue is closed / close it). A merged PR means the branch was deleted; this state follows an interrupt between merge and close.
+- **open** → check out that branch; **resume at the visual-review gate / auto-merge (steps 6.7–6.8)** — do **not** re-implement and do **not** open a second PR. The open PR is the authoritative "work is built and submitted" signal.
 
 **(b) No PR; the branch exists with commits ahead.** Check both local and remote refs (`git branch -a --list "*issue/<n>-*"` or `git ls-remote --heads origin "issue/<n>-*"`); track the remote branch if no local branch exists (`git checkout --track origin/issue/<n>-<slug>`), and compute commits ahead against the remote-tracking ref in that case. **Skip re-implementation.** **Re-verify first** — if `unitTestCmd` is defined, run it and confirm green; if absent (no test layer), confirm the branch diff is non-empty and based on `integrationBranch` (`git diff <integrationBranch>...HEAD --stat`). Then **resume at step 6.1 (`/code-review`)** and follow step 6's normal flow from there (commit only if there are uncommitted changes, push, open PR). A red re-verify, or a diff that is empty / clearly on the wrong base, falls into the normal step-4 red-suite path (re-dispatch the implementer, the "at most 2" cap; park if non-converging).
 
