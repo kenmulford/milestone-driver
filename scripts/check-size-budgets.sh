@@ -241,9 +241,11 @@ skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    35500     5000
+skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
 skills/output-style.md                               90     9500     1600
 skills/citation-format.md                           230    13000     2000
+agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16500     2600
 agents/implementer.md                               130    15000     2300
 agents/triage-reviewer.md                           120    17000     2600
@@ -311,9 +313,12 @@ fi
 #   skills/solve-milestone/trello-sync.md             `integrations.trello` present only
 #   skills/solve-issue/async-mode.md                  retired, inert — read on no run
 #   skills/solve-issue/md-epic-fanout.md              `md-epic` label only
+#   skills/triage/blocker-resolver-dispatch.md        >=1 Blocker gap on a
+#                                                     MISS-set issue (issue #506;
+#                                                     SKILL.md, Step 3.5)
 # They stay GOVERNED as per-file rows above; they are simply not summed here.
 # tests/check-size-budgets.test.{sh,ps1}'s excluded-untouched case pins that:
-# perturbing all five leaves every CLOSURE line byte-identical.
+# perturbing all six leaves every CLOSURE line byte-identical.
 #
 # Milestone #39 split 18 more reference files out of the four SKILL.md files.
 # 17 are EXCLUDED on the same rule, each verified against its read directive on

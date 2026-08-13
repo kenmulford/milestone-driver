@@ -123,9 +123,11 @@ skills/solve-milestone/not-buildable.md
 skills/solve-milestone/sequential-loop.md
 skills/solve-milestone/version-target.md
 skills/triage/SKILL.md
+skills/triage/blocker-resolver-dispatch.md
 skills/notices.md
 skills/output-style.md
 skills/citation-format.md
+agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
 agents/triage-reviewer.md

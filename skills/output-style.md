@@ -30,7 +30,7 @@ Be concise — report status and outcomes flatly, no wall-of-text. Present steps
 
 ## GitHub-facing prose
 
-These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` governs WHAT each one must contain. Adapted from `milestone-feeder`'s `## Prose style` contract (`agents/issue-author.md:120-131`, v0.12.2) to this plugin's surfaces — comments and PR bodies rather than issue bodies.
+These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` governs WHAT each one must contain.
 
 1. **Confidence lives in the citation, not the word count.** A grounded decision is one line plus its ref. Adding prose to make a decision *sound* more certain is a contract violation, the same tier as an ungrounded citation.
 2. **Fill the shape's slots — and nothing else.** Each shape in `## Evidence slots` names the slots it must carry. A line that fills no slot is scaffolding; cut it (see `## The two anti-criteria`).
@@ -74,6 +74,7 @@ Citations inside those slots follow one format, defined once in `skills/citation
 | **Wave PR body** (`parallel-waves`) | — | the Wave's logic issues · **evidence** (per issue: its branch and the gates it passed on the wave branch) · a `## Code Review` section |
 | **CHANGELOG entry** (becomes the release body) | — | **theme** (one line — the release's net behavior change) · per bucket, one line per issue · **evidence** (the issue number and its merged PR) · **Consumer notes** (only what changes what a consumer types, configures, or must expect) · **⚖️ audit trail** (the judgment-call PR list, plus a fact list: open defects with their issue numbers, any dropped acceptance criterion as what the shipped gate does NOT verify, and any ceiling or budget state the next edit hits). **Not slots here:** how the work went (review rounds, RED-first discovery, provenance), the release's own justification, and editing history. |
 | **👁️ Visual evidence / 🤖 AI pre-filter comments** (PR) | `👁️` / `🤖` | per shot: surface × viewport × appearance · **evidence** (the embedded image and its blob link; for a verdict, the named rendered-layout defect — never a subjective judgment) |
+| **Resolved comment** (`triage`) | `🟢 Resolved` | one row per resolved Blocker: **original gap** · **resolution** · **evidence** · **the edit a builder applies**; closes on **the park label to clear** |
 | **`to_clear` field** (both reviewer agents; both `triage` return blocks) | — | the decision or artifact a human must record, plus its **evidence** reference (per `skills/citation-format.md`) when one exists. **Structural constraint, not a word count:** one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
 
 ## The two anti-criteria

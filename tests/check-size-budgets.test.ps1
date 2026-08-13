@@ -232,7 +232,7 @@ try {
   # retuned.
   $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    'CEILINGS(32), BYTE_CEILINGS(33) and WORD_CEILINGS(33)', 'CEILINGS(33), BYTE_CEILINGS(33) and WORD_CEILINGS(32)')
+    'CEILINGS(34), BYTE_CEILINGS(35) and WORD_CEILINGS(35)', 'CEILINGS(35), BYTE_CEILINGS(35) and WORD_CEILINGS(34)')
   $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
     if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/30000', '/99999999999')).Replace('/4300', '/99999999999') } else { $_ }
   }) -join "`n"
@@ -305,15 +305,16 @@ try {
     Write-Host "--- got  ---"; Write-Host $emptyOut
   }
 
-  # --- excluded-untouched: the five branch-gated files are outside every
+  # --- excluded-untouched: the six branch-gated files are outside every
   # closure (#491) ----------------------------------------------------------
   # Same case the .sh runner runs. A CLOSURE sum counts ONLY the files a skill
-  # read-directs on EVERY run. The five reference docs that sit behind an
+  # read-directs on EVERY run. The six reference docs that sit behind an
   # observable branch — parallel-waves.md (parallel mode),
   # milestone-granularity.md (`integrationGranularity: "milestone"`),
-  # trello-sync.md (`integrations.trello`), async-mode.md (retired, inert) and
-  # md-epic-fanout.md (the `md-epic` label) — are NOT part of any closure, and
-  # the executable statement of that is: perturb all five and every CLOSURE line
+  # trello-sync.md (`integrations.trello`), async-mode.md (retired, inert),
+  # md-epic-fanout.md (the `md-epic` label) and blocker-resolver-dispatch.md
+  # (>=1 Blocker gap on a MISS-set issue) — are NOT part of any closure, and
+  # the executable statement of that is: perturb all six and every CLOSURE line
   # is byte-identical. A committed fixture cannot hold both the perturbed and
   # unperturbed state of the same tree, so this copies at-ceiling and edits the
   # copy. rc is deliberately unasserted: async-mode.md sits at exactly 4500/4500
@@ -330,7 +331,8 @@ try {
                    'skills/solve-milestone/milestone-granularity.md',
                    'skills/solve-milestone/trello-sync.md',
                    'skills/solve-issue/async-mode.md',
-                   'skills/solve-issue/md-epic-fanout.md')) {
+                   'skills/solve-issue/md-epic-fanout.md',
+                   'skills/triage/blocker-resolver-dispatch.md')) {
     [System.IO.File]::AppendAllText((Join-Path $excTree $x), "excluded branch gated padding words`n", $u8)
   }
   $xOut = New-TemporaryFile
