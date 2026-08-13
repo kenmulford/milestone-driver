@@ -3,6 +3,33 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.22.1 — every governed file is writable again
+
+**Theme:** Eleven governed markdown files were compressed and their ceilings ratcheted down in the same change, so no file in the repo sits at a size limit.
+
+### 🔧 Maintenance
+
+| Issue | PR | What |
+|---|---|---|
+| — eleven governed files sat at their size ceilings | #527 | Each was rewritten to state its requirements without restating the case for them — rationale, provenance and repeated cross-references cut, every gate, decision point, degradation branch, literal directive and citation kept. Headroom on the binding axis moved from 1–59 units to between 164 bytes and 1.3 KB. All three ceilings were lowered to the new actuals in the same change, per the ratchet discipline in `scripts/check-size-budgets.sh`. |
+| — `skills/output-style.md` stated one prose rule three times | #527 | Its six GitHub-facing prose rules consolidate to three: the two that both said the citation carries the weight merge, and the three that all said a line filling no slot gets cut merge. The delete-on-sight vocabulary list is verbatim; the Guardrail and both anti-criteria are byte-identical, since three other files cite them by name. |
+| #521 design-philosophy cites a solve-issue step that no longer exists | #527 | `.project/design-philosophy.md`'s Testing-philosophy section pointed at "steps 4-5"; step 5 merged into `### 4. Verification gates`. The pointer now reads `step 4`. |
+
+### Consumer notes (upgrading from v1.22.0)
+
+- **No behavior change.** Nothing a consumer types, configures, or expects has moved: no profile key added, removed or renamed, no command changed, no gate added or relaxed. Both a skill-quality review and a plugin-structure validation confirmed the diff carries no behavioral delta.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- **Six regressions were introduced by the compression pass and caught in review before merge**, three of them behavioral: `read-doc-section`'s invocation lost its `${CLAUDE_PLUGIN_ROOT}` prefix, leaving a bare basename that is not on `PATH` and diverging from its mirrored block in `skills/solve-issue/SKILL.md`; the `skills/output-style.md` degradation branch in triage narrowed from "missing, or unreadable" to "missing" inside a section headed "no error, ever"; and `skills/setup/SKILL.md`'s `preflightCmd` prompt lost its only Ruby/Rails example from a string shown verbatim to a consumer. All six were restored before commit.
+- **One citation was dropped deliberately:** `docs/profile-schema.md (each built issue opens its own PR)` in `skills/triage/SKILL.md`, a source reference on a measured regex-failure example rather than a directive. `check-citations` reads 237 ok / 0 failed.
+- **`## The two anti-criteria` was not consolidated.** It is enumerated by name in `skills/triage/SKILL.md`, `skills/solve-issue/SKILL.md` and `agents/implementer.md`, so folding it away is a four-file rename of a contract three files read, for roughly 100 bytes. Left deliberately undone.
+- **`skills/output-style.md` is the weakest result** at 174 bytes free, up from 31. It is a rules file with almost no prose fat; further headroom there needs content relocation, not another scrub.
+- Nine defects filed during milestone #40 remain open, none blocking: #509, #511, #512, #514, #515, #516, #517, #518, #520.
+
 ## v1.22.0 — finish the granularity matrix, resolve blockers instead of parking them
 
 **Theme:** `integrationGranularity: "wave"` behaves as documented in both execution modes, and triage clears a Blocker it can resolve from the record instead of handing it back as work.
