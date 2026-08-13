@@ -47,6 +47,7 @@ skills/solve-issue/resume-paths.md
 skills/solve-issue/version-bump.md
 skills/solve-issue/visual-capture.md
 skills/solve-issue/visual-review-hold.md
+skills/solve-issue/wave-clauses.md
 skills/solve-milestone/SKILL.md
 skills/solve-milestone/parallel-waves.md
 skills/solve-milestone/trello-sync.md
@@ -61,9 +62,11 @@ skills/solve-milestone/not-buildable.md
 skills/solve-milestone/sequential-loop.md
 skills/solve-milestone/version-target.md
 skills/triage/SKILL.md
+skills/triage/blocker-resolver-dispatch.md
 skills/notices.md
 skills/output-style.md
 skills/citation-format.md
+agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
 agents/triage-reviewer.md

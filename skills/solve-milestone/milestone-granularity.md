@@ -109,7 +109,7 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md (Guard — 
    for n in <each issue number>; do gh issue close "$n" --reason completed; done
    ```
 
-   `Closes #n` fires only on a merge into the repository's **default** branch, and this PR targets `integrationBranch`, which typically is not it (`skills/solve-milestone/integration-granularity.md (Explicit issue close)`). The loop form is required: `gh issue close` accepts exactly one issue, and an unquoted `#` opens a shell comment, so that line's shipped multi-issue form does not run (filed as #384; do not copy it). The list names **only** issues whose trailer is on the branch, never a parked one.
+   `Closes #n` fires only on a merge into the repository's **default** branch, and this PR targets `integrationBranch`, which typically is not it (`skills/solve-milestone/integration-granularity.md (Explicit issue close)`). The loop form is required: `gh issue close` accepts exactly one issue, and an unquoted `#` opens a shell comment. The list names **only** issues whose trailer is on the branch, never a parked one.
 6. **Delete the local milestone branch and re-sync.** `git checkout <integrationBranch>`, `git fetch`, fast-forward, then `git branch -d milestone-<number>-<slug>`, exactly as step 6.8's cleanup does for its docs branch (`skills/solve-milestone/changelog-authoring.md (git branch -d docs/changelog-<slug>)`).
 
 **Nothing merged.** Every issue parked or triage-blocked leaves the milestone branch with no commits over `integrationBranch`: no push, no PR, no close, no branch to delete. This is the all-UI-Wave precedent (`skills/solve-milestone/integration-granularity.md (All-UI wave)`).

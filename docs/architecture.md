@@ -13,6 +13,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Implementer agent | `agents/implementer.md` | Self-contained TDD implementer subagent (a project may override via its profile) |
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
+| Blocker-resolver agent | `agents/blocker-resolver.md` | Triage Step 3.5: returns `RESOLVED` or `NEEDS_HUMAN` per Blocker gap, so only a Blocker needing a human parks (read-only; profile-overridable) |
 | Hooks | `hooks/` | The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration / visual layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
@@ -88,7 +89,7 @@ This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It 
 
 ## Visual capture (optional)
 
-The Layer-2 visual gate (above) holds every UI-touching PR open for human sign-off regardless of tooling. `visualCapture` is the optional render seam that attaches convenience evidence — light/dark screenshots of the new surface — to that held-open PR, so the human reviews from the diff *plus* the rendered shots instead of from the diff alone. It is configured as a `visualCapture` block in the profile (`serverCmd`, `readyUrl`, `signInPath` required; see [`profile-schema.md`](profile-schema.md)) and consumed by `solve-issue` step 7. Capture never changes the merge decision — it only enriches the evidence on a PR that is already held.
+The Layer-2 visual gate (above) holds every UI-touching PR open for human sign-off regardless of tooling. `visualCapture` is the optional render seam that attaches convenience evidence — light/dark screenshots of the new surface — to that held-open PR, so the human reviews from the diff *plus* the rendered shots instead of from the diff alone. It is configured as a `visualCapture` block in the profile (`serverCmd`, `readyUrl`, `signInPath` required; see [`profile-schema.md`](profile-schema.md)) and consumed by `solve-issue` step 6.7. Capture never changes the merge decision — it only enriches the evidence on a PR that is already held.
 
 ### One render daemon per run
 
@@ -98,7 +99,7 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 - **State file.** Liveness is recorded in `.milestone-config/.runtime/render-daemon.json` (`port` · `token` · `pid` · `readyUrl` · `startedAt`). The `.runtime/` directory is gitignored, so nothing about the daemon lands in the repo.
 - **Ready probe.** Before any capture, readiness is confirmed by polling the `/health`-style `readyUrl` until it answers (within a bounded timeout) — the daemon never reports ready on a server that has not actually come up.
 - **Teardown.** At the end of the run the daemon is reaped (`render-daemon.<sh|ps1> stop` — idempotent SIGTERM to the recorded process group; a no-op when nothing is running).
-- **Serial inline, deferred under parallel builds (the default).** In a sequential run, capture runs inline in step 7 against the one shared daemon. Under a parallel build, render capture is **deferred to the serial merge tail** — the render daemon must **not** boot during the concurrent phase, because a single fixed-port daemon cannot safely serve concurrent worktrees. A parallel UI issue gets its PR and its `needs review` label but no screenshots; the serial tail or the human captures before merge. (A consumer can inject a per-worktree `PORT` to opt capture back into the parallel phase.) This matches the ratified parallel-phase deferral in `skills/solve-issue/SKILL.md`; no shared-fixed-port multi-worktree render model exists anywhere.
+- **Serial inline, deferred under parallel builds (the default).** In a sequential run, capture runs inline in `solve-issue` step 6.7 against the one shared daemon. Under a parallel build, render capture is **deferred to the serial merge tail** — the render daemon must **not** boot during the concurrent phase, because a single fixed-port daemon cannot safely serve concurrent worktrees. A parallel UI issue gets its PR and its `needs review` label but no screenshots; the serial tail or the human captures before merge. (A consumer can inject a per-worktree `PORT` to opt capture back into the parallel phase.) This matches the ratified parallel-phase deferral in `skills/solve-issue/SKILL.md`; no shared-fixed-port multi-worktree render model exists anywhere.
 
 ### The three invariants
 

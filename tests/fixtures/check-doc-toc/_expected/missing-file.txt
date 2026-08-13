@@ -11,6 +11,7 @@ OK	skills/solve-issue/resume-paths.md
 OK	skills/solve-issue/version-bump.md
 OK	skills/solve-issue/visual-capture.md
 OK	skills/solve-issue/visual-review-hold.md
+OK	skills/solve-issue/wave-clauses.md
 OK	skills/solve-milestone/SKILL.md
 OK	skills/solve-milestone/parallel-waves.md
 OK	skills/solve-milestone/trello-sync.md
@@ -25,10 +26,12 @@ OK	skills/solve-milestone/not-buildable.md
 OK	skills/solve-milestone/sequential-loop.md
 OK	skills/solve-milestone/version-target.md
 FAIL	skills/triage/SKILL.md	MISSING
+OK	skills/triage/blocker-resolver-dispatch.md
 OK	skills/notices.md
 OK	skills/output-style.md
 OK	skills/citation-format.md
+OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=32	failed=1
+SUMMARY	ok=35	failed=1

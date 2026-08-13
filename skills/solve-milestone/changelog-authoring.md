@@ -152,10 +152,20 @@ else
 ---
 
 _This entry doubles as the GitHub-release body for the human release step._
+
+## Code Review
+
+- /code-review run: no — doc-only CHANGELOG entry, no executable surface.
+- Findings: 0
+  - none
+- Evidence: every entry row carries its issue and its merged PR, bucketing matches each issue's label and title prefix, structure matches the prior `## v...` entry, the ⚖️ audit-trail line is present.
+- No park-triggering findings.
 EOF
 )"
 fi
 ```
+
+The `## Code Review` heading is required — without it `hooks/code-review-gate.sh` denies this `gh pr create` and step 6.8's `gh pr merge`. Confirm each evidence claim against the authored entry before pasting.
 
 Record the PR number and URL — the newly created PR, or the existing one the re-run guard found.
 

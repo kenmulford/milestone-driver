@@ -303,7 +303,7 @@ Do NOT add a new item. Continue.
 
 ### Wave granularity
 
-**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `gh issue close #a #b #c --reason completed`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
+**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
 
 **When a card handle is available:**
 

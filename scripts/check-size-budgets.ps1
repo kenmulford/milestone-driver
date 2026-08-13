@@ -64,6 +64,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
+skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    38000     5000
 skills/solve-milestone/parallel-waves.md            205    40500     6000
 skills/solve-milestone/trello-sync.md               400    20500     3200
@@ -78,9 +79,11 @@ skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    35500     5000
+skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
 skills/output-style.md                               90     9500     1600
 skills/citation-format.md                           230    13000     2000
+agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16500     2600
 agents/implementer.md                               130    15000     2300
 agents/triage-reviewer.md                           120    17000     2600
@@ -142,8 +145,8 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
 # membership rule (a file belongs to a closure when the skill reads it on EVERY
 # run, with no branch in front of the read), for the branch-gated files that are
-# deliberately EXCLUDED — the original five plus 17 of milestone #39's splits,
-# each with the branch that gates it — for the 18th split
+# deliberately EXCLUDED — the six branch-gated files plus 17 of milestone #39's
+# splits, each with the branch that gates it — for the 18th split
 # (skills/solve-issue/version-bump.md), which is NOT branch-gated and IS summed
 # into solve-issue's closure, carrying that closure's 11200 -> 11700
 # re-derivation with it, and for why column 1 is both the record's
