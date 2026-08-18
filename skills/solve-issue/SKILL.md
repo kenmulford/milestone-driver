@@ -295,6 +295,7 @@ One row per issue; emit only the row matching the actual outcome and suppress th
 | #204  | ✅ committed | 🔍✓(0 findings) | —    | committed on its branch |
 ```
 PR cell: show the PR number if the issue has one, else —. Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+Note cell: an issue the run sent through the Auto loop records its outcome there — `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged.
 
 ## Output style
 

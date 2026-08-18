@@ -234,6 +234,7 @@ Show after each Wave completes.
 ▶ Next: Wave 2 (#203 👁️, #204) — redirect or reprioritize before it lands.
 ```
 PR cell: the PR number if the issue has one, else —.
+Note cell: an issue the run sent through the Auto loop records its outcome there — `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged.
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
@@ -260,7 +261,7 @@ Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
 2. Clear park labels → re-run
 3. All merged → merge `integrationBranch` → `protectedBranch` with `--merge` (not squash), merging the release PR *before* tagging, then **back-merge `protectedBranch` → `integrationBranch`** (history-only, conflict-free) so `integrationBranch` stays tag-current and topologically even, close the milestone (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`), deploy — full ordered runbook in `docs/consumer-setup.md` § "Releasing to your protected branch"
 ```
-PR cell: the PR number if the issue has one, else —.
+PR cell: the PR number if the issue has one, else —. Follow-up cell: the same auto-remediate outcome Template 2's Note cell records.
 
 ## Output style
 
@@ -273,7 +274,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every 
 Use Template 3 as the layout. On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch`, with PR links.
-- **Issues parked** — per issue: number and title, the park label applied, the blocker reason, and the open feature branch if applicable. Take the reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent format-matching comment, possibly from a prior run: one opening with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
+- **Issues parked** — per issue: number and title, the park label applied, the blocker reason, the auto-remediate outcome when the run attempted the Auto loop, and the open feature branch if applicable. Take the reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent format-matching comment, possibly from a prior run: one opening with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
 - **Open UI PRs** awaiting human merge: those carrying `needs review`, with PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section**, flagged the same way, for review before the `integrationBranch` → `protectedBranch` merge.
