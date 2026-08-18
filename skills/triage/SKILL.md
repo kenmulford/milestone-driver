@@ -281,7 +281,7 @@ For each qualifying MISS issue:
 2. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`) on ≥1 surviving Blocker. The comment body must:
    - Open with `🔴 Triage` — byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md (Issues parked)` and probed at `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Only what FOLLOWS the opener is structured here.
    - Render the surviving Blocker gaps as a **structured table**, one row per gap — lens/type · description · **evidence** · what clears it (the agent's `to_clear`) — not as prose bullets. A row with an empty evidence cell is an unfilled slot, not a shorter row.
-   - Close with the durable-async instruction. That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`), and it states what must be recorded before this issue can build.
+   - Close with the durable-async instruction, verbatim: "This is a durable async note — no reply needed now. Record the decision on this issue — run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label — or re-run triage or solve-issue when ready." That line stays **prose** because it qualifies every row at once and so has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`), and it states what must be recorded before this issue can build. Name the remediate verb unconditionally: it reads as an optional tool, so do NOT probe whether the feeder plugin is installed, and do NOT run it from here (`skills/triage/SKILL.md#Non-negotiables`).
 
    Example:
 
@@ -293,7 +293,7 @@ For each qualifying MISS issue:
    | architect / contradiction | Recorded design is internally contradictory. | "mirror ConfirmImportPage grouping" (comment #1) vs "flat list, no collection picker" (comment #3) | Record the authoritative grouping decision before building. |
    | design / scalability | Flat 16-row list at realistic volume will produce a poor result. | Established grouped-card pattern at `Views/ConfirmImportPage.xaml` | Group under collection headers like ConfirmImportPage, or record a justified divergence. |
 
-   This is a durable async note — no reply needed now. Record the decision on this issue and re-run triage or solve-issue when ready.
+   This is a durable async note — no reply needed now. Record the decision on this issue — run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label — or re-run triage or solve-issue when ready.
    ```
 
 3. **Recommended-label routing** — the label triage RECOMMENDS for this gap (returned in `issueStates`; the caller applies it):
