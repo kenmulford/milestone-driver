@@ -215,7 +215,7 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         325    43000     6000
+skills/solve-issue/SKILL.md                         325    41500     5800
 skills/solve-issue/async-mode.md                     40     4500      700
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
@@ -229,9 +229,9 @@ skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
 skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
-skills/solve-milestone/parallel-waves.md            205    40000     6000
-skills/solve-milestone/trello-sync.md               400    20000     3100
-skills/solve-milestone/milestone-granularity.md     165    24000     3400
+skills/solve-milestone/parallel-waves.md            205    39500     5900
+skills/solve-milestone/trello-sync.md               400    19500     3000
+skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
@@ -245,11 +245,11 @@ skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
 skills/output-style.md                               85     9500     1600
-skills/citation-format.md                           205    11000     1700
+skills/citation-format.md                           190    10500     1600
 agents/blocker-resolver.md                          125    10500     1700
-agents/design-reviewer.md                           120    16500     2500
+agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    14500     2200
-agents/triage-reviewer.md                           120    16500     2600
+agents/triage-reviewer.md                           120    16000     2500
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each
@@ -386,9 +386,9 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
-skills/solve-milestone/SKILL.md    9300   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             8200   skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       11000   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
 # Same length-parity guard the governed table carries, for the same reason: the

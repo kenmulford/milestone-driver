@@ -44,15 +44,10 @@ stdout, the failure named on stderr
 (`scripts/resolve-citation.sh (a missing/unreadable file)`) — unless a file
 happens to sit at that path relative to the root (a bare filename against a
 root-level `README.md`), in which case it opens the wrong file and answers at
-exit 0 when the anchor happens to appear there too (otherwise D3 fails closed). Both runs below are from the repository root:
-
-    $ bash scripts/resolve-citation.sh "parallel-waves.md" "Parallelizable-set selection (parallel mode)"
-    resolve-citation: file not found or not readable: parallel-waves.md
-    $ echo $?
-    1
+exit 0 when the anchor happens to appear there too (otherwise D3 fails closed). From the repository root — a bare `parallel-waves.md` fails (`resolve-citation: file not found or not readable`, exit 1), the full path resolves:
 
     $ bash scripts/resolve-citation.sh "skills/solve-milestone/parallel-waves.md" "Parallelizable-set selection (parallel mode)"
-    PRIMARY	7	### Parallelizable-set selection (parallel mode)
+    PRIMARY	11	### Parallelizable-set selection (parallel mode)
     $ echo $?
     0
 
@@ -79,15 +74,13 @@ A citation in this form is `path (anchor)`:
 
 ### What marks it as a citation
 
-Unlike the other three forms, `path (anchor)` is not self-delimiting. "A file
-name, then a parenthetical aside" is ordinary prose this repo writes often —
-`.claude/settings.local.json` (project local), at
-`skills/solve-issue/SKILL.md (settings.local.json)`, is one — and read
-carelessly every such phrase is a valid citation whose anchor is absent from
-the file it names. D3 would fail closed on all of them.
+Unlike the other three forms, `path (anchor)` is not self-delimiting: "a file
+name, then a parenthetical aside" is ordinary prose this repo writes often
+(one lives at `skills/solve-issue/SKILL.md (settings.local.json)`), and D3
+would fail closed on every such phrase read as a citation.
 
-The discriminator is the **code span**. A citation is one whole
-backtick-wrapped token: the span opens before the path and closes after the
+The discriminator is the **code span**: a citation is one whole
+backtick-wrapped token — the span opens before the path and closes after the
 final `)`.
 
 | Written | Read as |
@@ -95,34 +88,27 @@ final `)`.
 | `` `skills/solve-issue/SKILL.md (settings.local.json)` `` | a citation — anchor `settings.local.json` |
 | `` `skills/solve-issue/SKILL.md` (the settings table) `` | prose — a file name, then an aside |
 
-The span test alone is not sufficient. A `path § Heading` reference whose
-heading ends in a parenthetical is one whole span and is citation-shaped; parse
-rule step 1 is what keeps those resolving as heading citations instead of
-mis-splitting at the parenthesis.
-
+The span test alone is not sufficient — a `path § Heading` span whose heading
+ends in a parenthetical is citation-shaped, and parse rule step 1 keeps it
+resolving as a heading citation instead of mis-splitting at the parenthesis.
 A citation must also stand in a **citation position**: an **evidence** or
 **citation** slot of a shape in `skills/output-style.md (Each shape is defined)`,
-or a grounding reference in a skill, an agent, or a PR body. Text that fails
-either test — the span or the position — is prose, and is never resolved.
+or a grounding reference in a skill, an agent, or a PR body. Text failing
+either test — span or position — is prose, never resolved.
 
 ### Parse rule
 
 A citation is one whole token, on one line, read left to right:
 
 1. **A `#` or a `§` appearing before any ` (` makes it a heading citation.**
-   Split on that separator: the path is the text before it, the heading is
-   **everything after it** — both trimmed, the heading's own parentheses
-   included. Two live citations depend on this, both ending in a parenthetical:
-   `.project/library-manifest.md#Adding a dependency (the gate)` names the
-   heading `Adding a dependency (the gate)`, which
-   `scripts/read-doc-section.sh` resolves today; the `§` reference at
+   Split on that separator: path before it, heading **everything after it** —
+   both trimmed, the heading's own parentheses included. Two live citations
+   depend on this: `.project/library-manifest.md#Adding a dependency (the gate)`
+   names the heading `Adding a dependency (the gate)`, and
    `skills/solve-milestone/SKILL.md (parallel-waves.md § Parallelizable-set selection)`
-   names a real heading the same way. Split at the parenthesis instead of the
-   separator and both produce a path that does not exist, so D3 would fail
-   closed on a citation that is correct:
-
-       .project/library-manifest.md#Adding a dependency  + anchor "the gate"
-       …/parallel-waves.md § Parallelizable-set selection + anchor "parallel mode"
+   names a real heading the same way. Splitting at the parenthesis instead
+   produces a path that does not exist, and D3 fails closed on a correct
+   citation.
 
 2. **Otherwise the path ends at the first ` (`** — a space followed by an open
    parenthesis. The anchor is the text between that `(` and the **final `)`**

@@ -83,7 +83,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
    After extracting the card ID, scan the three managed lists (queue, inProgress, inReview — each resolved per Convention 4) via `mcp__trello__get_cards_by_list_id` in that order to determine which list the card is currently in. If the card ID is found in a managed list, proceed to Convention 8 with that list context.
 
-   - **Card not found in managed lists:** if the card ID is NOT found in any of the three managed lists, the card may have been moved to an unmanaged list (e.g., "Done") or was deleted. Fall through to step 2 to search by name. Log one line:
+   - **Card not found in any managed list** (moved to an unmanaged list, or deleted): fall through to step 2's name search. Log one line:
      ```
      Trello: back-link card not found in managed lists — searching by name
      ```
@@ -234,8 +234,8 @@ and continue to Step 2.
 
 Evaluate the move condition using `issueStates` from triage:
 
-- **Move condition:** `issueStates` contains at least one entry where `blockers == false` (at least one issue is buildable — partial-clear counts).
-- **All-parked condition:** every entry in `issueStates` has `blockers == true` (zero buildable issues).
+- **Move condition:** at least one `issueStates` entry has `blockers == false` (partial-clear counts).
+- **All-parked condition:** every entry has `blockers == true`.
 
 **If card is already in inProgress:** the move is a no-op regardless of condition — skip silently (re-run case; card already advanced).
 
@@ -277,9 +277,9 @@ Two call sites fire checklist ticks during the solve-milestone loop. Both are ma
 2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only — titles may have been edited after checklist creation).
 3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
 
-**What is NOT ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) are never ticked at this call site — they have not been merged and closed.
+**Not ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) — not yet merged.
 
-**Parallel builds (the default):** ticks fire in the serial verified merge tail (main thread, Phase 2) as each issue's branch is squash-merged. The merge tail's per-branch squash-merge loop passes through the same on-success tick logic as the sequential step 4 path.
+**Parallel builds (the default):** ticks fire in the Phase 2 serial merge tail (main thread) as each branch squash-merges, through the same on-success tick logic as the sequential step 4 path.
 
 **Best-effort per item:** any failure logs one line and the loop continues:
 
@@ -295,7 +295,7 @@ Trello: checklist tick #<n> skipped — item not found
 
 Do NOT add a new item. Continue.
 
-**Edge case — no card handle:** if run-start card resolution failed, skip silently. The single run-start log was already emitted (Convention 2 if tools are absent, Convention 3 if boardId is missing, or Convention 1 if card resolution itself failed); no per-issue log spam.
+**Edge case — no card handle:** skip silently — the single run-start log was already emitted (Convention 2 tools absent, Convention 3 boardId missing, or the Convention 1 wrapper on a failed Convention 5 resolution); no per-issue log spam.
 
 ---
 
@@ -376,4 +376,4 @@ Moving the card to a Completed or Done list is a **manual human step** after the
 
 **Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a **closed** issue does not block the move; on an **open** issue it does, even if no code work remains — the stays-in-Progress comment surfaces it for the human to clear.
 
-**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of which list the card is currently in. The Convention 8 "any other list → leave-and-log" rule applies only at run START (to avoid overriding a human decision before the run begins), not at finish (where the run result justifies the transition).
+**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of its current list. Convention 8's "any other list → leave-and-log" rule applies only at run START, where a human decision predates the run — at finish, the run result justifies the transition.

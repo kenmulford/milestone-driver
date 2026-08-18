@@ -44,3 +44,13 @@ desktop.ini
 /.milestone-driver-trello-notice
 /.milestone-driver-triage-cache.json
 .milestone-driver-worktrees/
+
+# Historical planning artifacts (shipped-milestone plans/specs/notes). Untracked
+# 2026-08-18 to keep 30k+ words of dead prose out of the published plugin package.
+# The two specs still cited by live runtime files stay tracked via the negations.
+/docs/superpowers/plans/
+/docs/superpowers/notes/
+/docs/superpowers/specs/*
+!/docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md
+!/docs/superpowers/specs/2026-07-30-milestone-branch-granularity-design.md
+/docs/briefs/
