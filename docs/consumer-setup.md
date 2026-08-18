@@ -290,6 +290,41 @@ For the full operational spec — the card-resolution order, the card state mach
 
 4. **List-name matching is case-sensitive; missing lists are auto-created.** If your profile lists (or the defaults `Queue`, `In Progress`, `In Review`) do not exactly match the names on your board, new lists are created automatically. Check your profile's `lists` keys if you see unexpected new lists.
 
+## Remediate handoff (optional)
+
+When the sibling `milestone-feeder` plugin is installed alongside milestone-driver, the driver can send an issue it parks straight through `/milestone-feeder:remediate` instead of leaving it for you. Like Trello, the integration is **opt-in, best-effort, and never gates a run**. For where it slots into the run, see [architecture.md](architecture.md#remediate-handoff-optional).
+
+### Prerequisite
+
+The `milestone-feeder` plugin, loaded in the same Claude Code session, so that `/milestone-feeder:remediate` resolves. This is a prerequisite of the integration, NOT of milestone-driver itself.
+
+With the feeder absent you are asked nothing, no auto-loop runs, and the driver degrades silently: one log line, no prompt, no error. Parking behaves exactly as it does today, and the park comment still names `/milestone-feeder:remediate` as an optional tool you may run yourself.
+
+### What you are asked
+
+Once per run, before the first issue is worked, the driver asks one question:
+
+> Should I send blocked issues through `/milestone-feeder:remediate` automatically, or leave them for you?
+
+Your answer is held for the whole run; you are never asked again per issue.
+
+| Answer | What happens |
+|---|---|
+| **Auto** | Every issue this run parks enters the remediate loop: the driver reads that issue's `🔴 Triage` findings, invokes `/milestone-feeder:remediate <n>`, re-runs triage on the corrected body, and clears the park label when the re-triage comes back clean. Attempt cap: 1 per issue per run. |
+| **Leave them for me** | Today's behavior, unchanged: one park label, one `🔴 Parked — ` comment, and the run continues with independent clean issues. No issue body is edited. |
+
+Either answer leaves the triage comment's closing line intact, naming the verb: "run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label."
+
+Under **Auto**, two outcomes still park an issue for good with its label intact: `remediate` returns `NEEDS_HUMAN` (the findings need a decision no record answers), or the re-triage comes back dirty (the corrected body did not clear its Blockers). The driver posts its own stop-reason comment on the issue and continues the run.
+
+### The non-interactive default
+
+A non-interactive / headless run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron) cannot ask a human, so it does **not** prompt: it defaults to **Leave them for me** and parks as it does today. A question nobody can answer must not block an unattended run.
+
+### How to enable
+
+There is nothing to configure. **No profile key exists for this integration** and none is introduced: presence of the `milestone-feeder` plugin in your session is the only switch, and your answer to the run-start question lives in run state, never in `.milestone-config/driver.json`. Install the sibling plugin, answer **Auto**, and the loop runs; uninstall it, or answer **Leave them for me**, and parking is what it has always been.
+
 ## Releasing to your protected branch
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).

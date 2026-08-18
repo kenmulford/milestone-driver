@@ -81,6 +81,24 @@ Also accepted: both impls honor `continue-on-error` only at **step** scope — a
 
 This is a procedural (skill-level) gate, not a mechanical `PreToolUse` hook. It is not one of the shipped hooks in [The mechanical gates](#the-mechanical-gates). See [`profile-schema.md`](profile-schema.md) for the `preflightCmd` and `ciWorkflow` keys.
 
+## Remediate handoff (optional)
+
+With the sibling `milestone-feeder` plugin installed alongside the driver, a parked issue can be corrected and unparked without a human round trip: `solve-issue` and `solve-milestone` ask once, at run start, whether to send blocked issues through `/milestone-feeder:remediate` automatically. The integration is **opt-in, best-effort, and never gates a run**, the same soft-dependency shape as [Trello](consumer-setup.md#trello-integration-optional) and the coherence-reviewer companion.
+
+**The run-start question.** A probe runs once per run, ahead of the question: is `/milestone-feeder:remediate` resolvable in this session? When it is, the question is asked verbatim, "Should I send blocked issues through `/milestone-feeder:remediate` automatically, or leave them for you?", and the answer is held for the whole run, never re-asked per issue. **Leave them for me** keeps parking exactly what it is today (label, comment, continue) and edits no issue body. Either answer leaves the triage comment's closing line intact, naming the verb: "run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label."
+
+**Where it slots.** The question is asked once, before the run starts. The **Auto** loop is then reached at three sites: `solve-milestone` Phase 0, for issues already carrying a blocker label at run start; the per-issue park site, for parks created mid-run; and standalone `solve-issue`'s own park site. Every step runs on the orchestrator's main line, in-thread, because `/milestone-feeder:remediate` dispatches the feeder's remediator agent itself; inside a dispatched caller that agent would sit at depth 2, where its completion notification never arrives ([Dispatch topology](#dispatch-topology)).
+
+**The Auto loop.** Per parked issue, in order: read that issue's `🔴 Triage` comment for the findings to correct against (no such comment skips the issue with one log line, nothing edited); invoke `/milestone-feeder:remediate <n>`; re-run triage on the corrected body; and clear the park label when the re-triage comes back clean, never a label the issue does not carry. That re-triage is a genuine cache miss rather than a stale replay, because remediate's body edit moves `lastEditedAt`. **Attempt cap: 1 per issue per run.** An issue that parks a second time in the same run re-enters no loop and gets no second remediation.
+
+**Park for good.** Two branches end the loop for an issue, both leaving its one park label intact: `remediate` returns `NEEDS_HUMAN`, or the re-triage still comes back dirty. The driver posts the stop reason itself, never `remediate`, in the park-comment shape with the byte-fixed `🔴 Parked — ` opener, its evidence slot carrying the `NEEDS_HUMAN` line or the surviving Blocker and its unblocks slot the decision a human must record. The run then continues with independent clean issues.
+
+**Feeder absent.** No question is asked, no auto-loop runs, and the driver degrades silently: one log line, no prompt, no error, and no park of its own. The park comment is unchanged either way, still naming `/milestone-feeder:remediate` as an optional tool the human may run, and asking for nothing.
+
+> **No profile key is required.** Presence of the `milestone-feeder` plugin in the session is the only switch, and the answer to the run-start question lives in run state, never in the profile. See [`profile-schema.md`](profile-schema.md#design-principle).
+
+For the full procedure (the feeder-installed gate, the question's verbatim text, the loop's ordered steps, the attempt cap, and the two park-for-good branches) see [remediate-handoff.md](../skills/remediate-handoff.md), the single copy both skills read at run time.
+
 ## The skills
 
 - `/milestone-driver:solve-milestone <name>`: triages the whole milestone for design gaps plus dependency order (Phase 0), then iterates the buildable issues by the validated dependency graph, running `/milestone-driver:solve-issue` on each; auto-merges logic-only issues to the integration branch on green (UI issues open a PR for your visual sign-off), and re-syncs before the next dependent issue. Runs unattended; parks blocked/gapped issues and continues with clean ones. Only a systemic failure ends the run early.
