@@ -30,6 +30,7 @@ OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
 FAIL	skills/notices.md	MISSING/250	MISSING/11500	MISSING/1600
 OK	skills/output-style.md	1/85	7/9500	1/1600
 OK	skills/citation-format.md	1/190	7/10500	1/1600
+OK	skills/remediate-handoff.md	1/90	7/5000	1/800
 OK	agents/blocker-resolver.md	1/125	7/10500	1/1700
 OK	agents/design-reviewer.md	1/120	7/16000	1/2400
 OK	agents/implementer.md	1/130	7/14500	1/2200
@@ -38,4 +39,4 @@ CLOSURE	skills/setup/SKILL.md	3/7200
 CLOSURE	skills/solve-issue/SKILL.md	MISSING/11000
 CLOSURE	skills/solve-milestone/SKILL.md	MISSING/9200
 CLOSURE	skills/triage/SKILL.md	3/8100
-SUMMARY	ok=35	failed=1
+SUMMARY	ok=36	failed=1
