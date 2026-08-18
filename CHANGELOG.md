@@ -3,6 +3,36 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.23.0 — wire the driver's triage park to the feeder's remediate verb
+
+**Theme:** The driver's triage park gains a hand-off to `/milestone-feeder:remediate`: solve-issue and solve-milestone ask once at run start whether to auto-remediate blocked issues, and the triage comment names the verb in every branch.
+
+### ✨ Remediate handoff
+
+| Issue | PR | What |
+|---|---|---|
+| #533 Add the shared remediate-handoff reference and register it in the governance tables | #541 | New `skills/remediate-handoff.md` carries the whole procedure once (gate, question, Auto loop with cap 1, park-for-good branches); registered on all four governance legs, excluded from every load closure. |
+| #534 Name the remediate verb in the triage comment's closing line on both branches | #540 | The `🔴 Triage` closing line now names `/milestone-feeder:remediate <n>` at both Step-6 sites, byte-identical, with the literal embedded in the instruction bullet. |
+| #535 Wire the remediate handoff into solve-issue's run start and Blocker park | #543 | Sub-step 1.1.2 asks the run-start question behind a feeder-resolvable probe (caller answers reused, never re-asked); a held Auto answer routes the step-0 Blocker park through the Auto loop. |
+| #536 Wire the remediate handoff into solve-milestone's run start, Phase 0, and the not-buildable park | #544 | Before-starting sub-step 5.1 asks once (probe before read; `MILESTONE_DRIVER_NONINTERACTIVE=1` defaults to Leave-them-for-me; `--driven` does not gate it); Phase 0 parks and the not-buildable triage-park bullet route through the Auto loop, scoped to unspent `needs design`/`needs decision` parks. |
+| #537 Document the remediate handoff as an optional integration in the architecture and consumer docs | #542 | `## Remediate handoff (optional)` sections in `docs/architecture.md` and `docs/consumer-setup.md`; installing the feeder is the only switch. |
+| #538 Wire the remediate handoff into the parallel-mode per-issue park site | #546 | A held-Auto step-0 Blocker park in parallel mode enters the Auto loop before the drop; a clean re-triage keeps the issue in the parallelizable set, dispatching into Stage A on its existing worktree. |
+| #539 Report auto-remediate outcomes on the run boards and the final summary | #545 | Note/Follow-up cells carry `remediated, cleared` / `remediated, still parked` / `NEEDS_HUMAN, parked`; icon legends untouched. |
+
+### Consumer notes (upgrading from v1.22.1)
+
+- With milestone-feeder installed, `solve-issue` and `solve-milestone` ask one new run-start question: auto-remediate blocked issues, or leave them for you. Feeder absent → no question, no behavior change; unattended runs default to Leave-them-for-me.
+- The `🔴 Triage` comment's closing line now names `/milestone-feeder:remediate <n>` as the tool that applies its findings.
+- **No schema changes** to `.milestone-config/driver.json` — feeder presence is the only switch.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: #541.
+
+- Note-cell precedence is unstated for a milestone/wave-granularity commit-only issue that also took the Auto loop: `skills/solve-issue/milestone-clauses.md` / `wave-clauses.md` and the new outcome vocabulary both claim the cell (follow-up; word-level fix in the two clause files).
+- The Auto loop does not refresh `dependencyGraph.edges` after a remediation that adds an intra-set edge; the Phase 2 serial merge tail is the backstop in parallel mode.
+- Ceiling state a contributor's next edit hits: `skills/solve-milestone/SKILL.md` has 43 words free; `skills/solve-milestone/not-buildable.md` has 2 words free.
+
 ## v1.22.1 — every governed file is writable again
 
 **Theme:** Eleven governed markdown files were compressed and their ceilings ratcheted down in the same change, so no file in the repo sits at a size limit.
