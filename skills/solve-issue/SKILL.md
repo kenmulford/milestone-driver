@@ -26,7 +26,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/` when absent. Their steps are skipped cleanly when absent. |
 
-   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch. (`driver.json` / `feeder.json` are intentionally NOT listed — never add a blanket `*` or `/` rule.)
+   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -98,7 +98,7 @@ Read `issueStates["<n>"].risk` from the step-0 result (held Phase 0 result in a 
 | **Light** | Include a `risk:light` token in the brief | Skip when the issue touches no UI surface | `low` or `medium` | 1; a 2nd only on a Critical or Important finding |
 | **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 4's E2E row (UI surface + e2eTestCmd) | `high` or `xhigh` | 2 |
 
-The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run. Light relaxes ceremony only — it never skips verification. (A parent issue carrying `md-epic` never enters this pipeline — see `skills/solve-issue/md-epic-fanout.md`.)
+The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run. Light relaxes ceremony only — it never skips verification.
 
 ### Resolve cited project-docs sections (once, before dispatch)
 
@@ -106,9 +106,9 @@ Resolve the issue's cited `.project/` sections **once, here in the orchestrator*
 
 1. **Source the docs root.** Use `projectDocs` already resolved at step 1 (defaults to `.project/`). Do **not** re-resolve the profile here.
 2. **Parse the cited anchors.** From the issue body + acceptance criteria (read at step 1), collect the `.project/<doc>#<section>` anchors the issue cites — `<doc>` is the path under the docs root, `<section>` the heading text (e.g. `design-system.md#data-tables`).
-3. **Pull a superset via the primitive.** Per cited anchor, plus its plausibly-relevant **sibling** sections, invoke the retrieval primitive `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}` once: `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<anchor-text>` the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion** — **under-retrieval is the real risk**; the implementer keeps its own `Read`/grep tools for any **additional** on-demand anchor. Never whole-file inlining; resolve **once**, and do **not** have the implementer re-read whole files.
+3. **Pull a superset via the primitive.** Per cited anchor, plus its plausibly-relevant **sibling** sections, invoke the retrieval primitive `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}` once: `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<anchor-text>` the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion** — **under-retrieval is the real risk**; the implementer keeps its own `Read`/grep tools for any **additional** on-demand anchor. Never whole-file inlining.
 4. **Feed the result into the dispatch brief** as **the resolved `.project/` sections**.
-5. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` **once per run**, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as **the resolved file index** — #318's `build-file-index` output format, consumed, not re-derived.
+5. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` **once per run**, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as **the resolved file index** — the `build-file-index` output format, consumed, not re-derived.
 6. **Resolve the prose contract (once).** Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` **once per run**, never per-issue inside a milestone loop; pass its `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, and `## The two anti-criteria` sections into the ### 3 brief as **the resolved prose contract**. It governs the implementer's Decision Log and every other GitHub-facing shape its report feeds; the agent's own `## Communication style` may specialize it, never replace it. Sub-steps 5 and 6 apply **identically under both the `light` and `heavy` build profiles** — never skipped or altered for `risk:light`.
 
 **Degradation (no error, ever):**
@@ -122,7 +122,7 @@ Resolve the issue's cited `.project/` sections **once, here in the orchestrator*
 
 Resolve the issue's `path (anchor)` citations (`skills/citation-format.md`) **once, here in the orchestrator**, and thread the resolved table into **every** subagent brief this run composes — no subagent re-derives it. Runs with the block above, before **### 3. Dispatch the implementer**. Paths are repo-root-relative: an issue has no directory, so there is no multi-base fallback.
 
-1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply `skills/citation-format.md`'s span and position tests to the issue body + acceptance criteria. A parenthetical following a path is **not** automatically a citation; both failure modes were measured here. `docs/superpowers/plans/2026-06-01-proactive-triage.md § New agent contract — `agents/triage-reviewer.md` (architect lens)` writes `` `agents/triage-reviewer.md` (architect lens) ``: the span closes before the parenthesis, so it is prose — resolving it anyway exits 1, a **false drift report**. `docs/profile-schema.md (each built issue opens its own PR)` writes `` `skills/setup/SKILL.md` (Phase 2) ``: also prose — resolving it anyway returns `PRIMARY 54` plus `MATCH 197`, a **confident wrong answer**. A regex produces both.
+1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply `skills/citation-format.md`'s span and position tests to the issue body + acceptance criteria. A parenthetical following a path is **not** automatically a citation: resolving prose anyway yields either a **false drift report** (anchor absent, exit 1) or a **confident wrong answer** (the anchor happens to match), and a regex produces both.
 2. **Resolve each citation once.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` once per citation: `resolve-citation.<sh|ps1> <file-path> <anchor-text>`. Exit 0 prints `PRIMARY <line> <text>` then zero or more `MATCH <line> <text>`, TAB-delimited, in file order; matching is literal, case-sensitive, and line-scoped.
 3. **Feed the printed rows into the ### 3 briefs** as **the resolved citations**, in the same printed-output shape as the `read-doc-section` and `build-file-index` results above. Invent no new format.
 
@@ -146,7 +146,7 @@ Verify the report honors the implementer contract: least-code / reuse-first, TDD
 
 ### 4. Verification gates
 
-**There is no step 5.** This step covers what were once steps 4 and 5 — the E2E gate was step 5 until it folded in here. The gap stays rather than renumber, because these headings are citation anchors (`.project/conventions.md (Keep ## headings stable)`); the next step is **6**.
+**There is no step 5** — the E2E gate folded into this step, and the gap stays rather than renumber because these headings are citation anchors (`.project/conventions.md (Keep ## headings stable)`); the next step is **6**.
 
 Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) → park**. `/code-review` is listed for visibility (always-on — hence no trailing `?` in its row), but its in-scope-fix vs park-trigger classification does not fit a "re-run the same check" loop: it keeps its own procedure in step 6.1 and is **not** iterated by the shared loop below.
 
@@ -212,8 +212,8 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 As the **last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-6.7 visual-review hold, and the step-6.9 close — emit one per-run cost record. Additive and **never-gating**: it never blocks, parks, or changes any merge/park/close outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
 
 1. **Aggregate.** From the `<usage>` block each Agent-dispatch tool result carried this run (implementer, `/code-review`, coherence-reviewer, any direct triage dispatch — a background dispatch's completion notification carries the same block), sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
-2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
-3. **Emit.** Pipe `{"runId":"<issue branch / run id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}`. The single-record write to `.milestone-config/.runtime/cost-records/` is #320's.
+2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
+3. **Emit.** Pipe `{"runId":"<issue branch / run id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}`, which writes the single record to `.milestone-config/.runtime/cost-records/`.
 4. **Skip cleanly.** Zero dispatches this run (e.g. a triage-blocker park before any dispatch) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced → silent no-op, one log line. Never fails the run.
 
 ## Autonomy model (Balanced)

@@ -63,9 +63,7 @@ Resolve each needed list by **case-sensitive name** on the configured board:
 
 1. Call `mcp__trello__get_lists` with the configured `boardId`.
 2. Match by exact name (case-sensitive).
-3. If the list is absent, create it via `mcp__trello__add_list_to_board`.
-
-This is idempotent provisioning — the same spirit as setup Phase 4's `gh label create --force`.
+3. If the list is absent, create it via `mcp__trello__add_list_to_board` (idempotent provisioning).
 
 The three list names resolve from the profile's `integrations.trello.lists` object:
 
@@ -91,7 +89,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
      ```
      When step 2 or step 3 resolves a new card, call Convention 6 in **replace mode**: remove any existing `<!-- trello: ... -->` line from the description before appending the new back-link (replace, not append).
 
-2. **Name-match adoption.** Call `mcp__trello__get_cards_by_list_id` on the *queue*, *inProgress*, and *inReview* lists in order (each resolved per Convention 4), stopping at the first match. Search each list for a card whose name exactly matches the milestone name. If found in any list, adopt it, write the back-link via Convention 6 (use replace mode if arriving here from the step-1 fallthrough — step 1's not-found sub-bullet sets replace mode for this path), then run Convention 7 (adoption path), then apply Convention 8 (state machine).
+2. **Name-match adoption.** Call `mcp__trello__get_cards_by_list_id` on the *queue*, *inProgress*, and *inReview* lists in order (each resolved per Convention 4), stopping at the first card whose name exactly matches the milestone name. Adopt it, write the back-link via Convention 6 (replace mode when arriving from the step-1 fallthrough), then run Convention 7 (adoption path), then apply Convention 8 (state machine).
 
    - **Ambiguity edge case:** if two or more cards in the matched list share the milestone name, adopt the first returned and log:
      ```
@@ -106,7 +104,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
 ## Convention 6 — Back-link format and idempotency
 
-**Format:** append `<!-- trello: <card-url> -->` as the **final line, on its own line** of the milestone description. This is an HTML comment, invisible in GitHub's rendered description, placed trailing so it does not interfere with Wave-order parsing.
+**Format:** append `<!-- trello: <card-url> -->` as the **final line, on its own line** of the milestone description — trailing so it cannot interfere with Wave-order parsing.
 
 **Idempotency:** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH — the back-link is already present. Never insert inside or above the Wave block. Never append a second back-link.
 
@@ -135,7 +133,7 @@ Populate the card as follows (best-effort on each sub-step). The create and adop
 
 **Card description:**
 - **Creation path:** set the card description (via the `mcp__trello__add_card_to_list` content parameter) to the GitHub milestone URL followed by the milestone description text.
-- **Adoption path:** do NOT update the existing card's Trello description — no `update_card_details` call is made. The adopted card's description is left as-is. This is a known limitation: the existing card's description may be stale if the milestone description changed since the card was created.
+- **Adoption path:** do NOT update the existing card's Trello description — no `update_card_details` call is made; the description is left as-is (recorded limitation: it may be stale).
 
 **On CREATION (new card via step 3 of Convention 5):**
 
@@ -147,7 +145,7 @@ Populate the card as follows (best-effort on each sub-step). The create and adop
 
 Skip checklist creation and population entirely. The existing checklist from the original creation run is preserved as-is — no reconciliation is performed.
 
-**Recorded limitation (no reconciliation on re-runs):** issues added to the milestone after card creation do not appear in the checklist automatically. Manually closed issues are not auto-ticked. Reconciliation is deferred to a future wave.
+**Recorded limitation (no reconciliation on re-runs):** issues added to the milestone after card creation do not appear in the checklist automatically, and manually closed issues are not auto-ticked.
 
 ---
 
@@ -166,7 +164,7 @@ When a card is resolved at run start, apply the following state transition:
 
 ## Convention 9 — Thread safety / parallel builds
 
-ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes **any** Trello call, in sequential or parallel runs. This is enforced by placement: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
+ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes **any** Trello call, in sequential or parallel runs: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
 
 ---
 
@@ -313,7 +311,7 @@ For each issue `#<n>` closed in the wave:
 2. Find the item whose text starts with `#<n>`.
 3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
 
-Execute as a sequence of calls — one tick per closed issue. (The checklist items call may be shared/cached across the sequence if the implementation prefers, but each item update is a separate call.)
+Execute as a sequence — one tick per closed issue; the checklist-items fetch may be cached across the sequence, but each item update is a separate call.
 
 **Best-effort per item:** each tick failure logs one line and the sequence continues to the next issue:
 
@@ -325,7 +323,7 @@ Trello: checklist tick #<n> skipped — <error>
 
 ## Finish hooks
 
-Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`): fire the summary card comment and move evaluation immediately after the loop, so the comment content matches the final run state. On the clean-completion path the `## Final summary` Template 3 output is deferred to step 6.9; the Finish hooks fire before step 6 (the CHANGELOG step). On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
+Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), immediately after the loop and before step 6 (the CHANGELOG step), so the comment content matches the final run state; the clean-completion `## Final summary` Template 3 output stays deferred to step 6.9. On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
 
 If no card was resolved at run start (Convention 5 found or created no card), skip all Finish hooks.
 
@@ -376,6 +374,6 @@ Moving the card to a Completed or Done list is a **manual human step** after the
 
 ### Edge cases
 
-**Stale blocked label.** The move condition checks `--state open` issues only — a closed (merged) issue's labels are not visible to the check. A stale `blocked` label on a **closed** issue does not block the move. A stale `blocked` label on an **open** issue (e.g., an issue not built this run) does block the move, even if no code work remains — the stays-in-Progress comment surfaces it for the human to clear.
+**Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a **closed** issue does not block the move; on an **open** issue it does, even if no code work remains — the stays-in-Progress comment surfaces it for the human to clear.
 
 **Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of which list the card is currently in. The Convention 8 "any other list → leave-and-log" rule applies only at run START (to avoid overriding a human decision before the run begins), not at finish (where the run result justifies the transition).

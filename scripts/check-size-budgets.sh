@@ -229,10 +229,10 @@ skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
 skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
-skills/solve-milestone/parallel-waves.md            205    40500     6000
-skills/solve-milestone/trello-sync.md               400    20500     3200
-skills/solve-milestone/milestone-granularity.md     165    25000     3600
-skills/solve-milestone/abandoned-recovery.md         45     6000      900
+skills/solve-milestone/parallel-waves.md            205    40000     6000
+skills/solve-milestone/trello-sync.md               400    20000     3100
+skills/solve-milestone/milestone-granularity.md     165    24000     3400
+skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
@@ -245,11 +245,11 @@ skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
 skills/output-style.md                               85     9500     1600
-skills/citation-format.md                           230    13000     2000
+skills/citation-format.md                           205    11000     1700
 agents/blocker-resolver.md                          125    10500     1700
-agents/design-reviewer.md                           120    16500     2600
-agents/implementer.md                               130    15000     2300
-agents/triage-reviewer.md                           120    17000     2600
+agents/design-reviewer.md                           120    16500     2500
+agents/implementer.md                               130    14500     2200
+agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each
@@ -385,10 +385,10 @@ while read -r skill closure_ceiling members; do
   nclosures=$((nclosures + 1))
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
-skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11700   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
-skills/solve-milestone/SKILL.md    9600   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
+skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       11400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-milestone/SKILL.md    9300   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8200   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
 # Same length-parity guard the governed table carries, for the same reason: the
