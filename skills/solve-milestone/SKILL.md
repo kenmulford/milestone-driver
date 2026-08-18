@@ -92,6 +92,8 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
 
    **Surface the resolved mode** and its reason; it drives Template 1's mode line.
 
+   **5.1 Remediate handoff — the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? **Not resolvable** → no question, one log line, silent degrade; the file is **never read**. **Resolvable** → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run its `## The run-start question` verbatim — asked ONCE here, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` does not gate this). Never copy that file's procedure here.
+
 ## The procedure
 
 ### 1. List the milestone's open issues
@@ -128,6 +130,8 @@ Invoke triage across the milestone before the build loop:
    gh issue edit <n> --remove-label "<name>"     # clearLabel == true
    ```
 
+   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 — same gated read-direct, on this main line, cap 1 per issue per run; a `NEEDS_HUMAN` return or a still-dirty re-triage parks for good (`skills/remediate-handoff.md (Park for good)`).
+
 2.5. `integrations.trello` configured → run trello-sync.md `## Phase 0 hooks` (best-effort).
 
 3. **Seed the build queue.** Carry triage's full `dependencyGraph` and `issueStates` into the loop; the loop drives from the validated graph, not the raw declared order.
@@ -140,10 +144,10 @@ Invoke triage across the milestone before the build loop:
 Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave, mutually independent issues may be taken in any order. For each issue, determine whether it is **buildable this pass** — iff ALL THREE hold:
 
 - **(a)** every issue in `dependencyGraph.edges["<n>"]` (those this issue directly DEPENDS_ON) is already merged to `integrationBranch`, or, under `integrationGranularity: "milestone"`, carries its `Issue: #<n>` trailer on the milestone branch (`milestone-granularity.md § Resume and buildability from the trailer`); **AND**
-- **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`, confirming none of `needs design`, `needs decision`, `blocked` is present. This live check is the **authoritative park-state**. A labeled issue must not be rebuilt until a human clears the label; **AND**
+- **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`, confirming none of `needs design`, `needs decision`, `blocked` is present. This live check is the **authoritative park-state**. A labeled issue must not be rebuilt until a human (or Phase 0's Auto remediate loop) clears the label; **AND**
 - **(c)** `issueStates[n].blockers == false`.
 
-**If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with both held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is **never read**.
+**If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with the held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is **never read**.
 
 **If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it — the park-label back-fill and `in progress` marking for a triage/prior-run park (with the one-blocker-label-per-issue rule), and, for a dependency hold, the `blocked` label plus the byte-fixed `🔴 Blocked` comment and the transitive-dependent holds. Both modes read it when an issue is not buildable.
 
