@@ -246,6 +246,7 @@ skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   250    11500     1600
 skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           190    10500     1600
+skills/remediate-handoff.md                          90     5000      800
 agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    14500     2200
