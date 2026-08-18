@@ -24,7 +24,7 @@ The number leads the branch name because the title-derived slug can go stale mid
 
 ## Folding an issue into the milestone branch
 
-**One description, two callers.** The **sequential loop** (core `SKILL.md` `### 4. Loop over issues in dependency-graph order`, run inline once an issue's `solve-issue` returns) and the **parallel Phase 2 serial verified merge tail** (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail`) both run the steps below. Phase 2's integration target is already parameterized (its step 1: `<target>` is `integrationBranch` in issue granularity, the wave branch in wave granularity); milestone granularity adds the **milestone branch** as that parameter's third value.
+**One description, two callers:** the **sequential loop** (core `SKILL.md` `### 4. Loop over issues in dependency-graph order`) and the **parallel Phase 2 serial verified merge tail** (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 2: serial verified merge tail`) both run the steps below. Phase 2's `<target>` parameter is already `integrationBranch` (issue granularity) or the wave branch (wave granularity); milestone granularity adds the **milestone branch** as its third value.
 
 On the milestone branch, for one built issue `<n>`:
 
@@ -61,7 +61,7 @@ Code-Review:
 Issue: #<n>
 ```
 
-**The Code Review block is copied, not re-derived.** Its five lines are the PR-body Code Review template (`skills/solve-issue/SKILL.md (/code-review run: yes)`) with their relative nesting intact and each indented two further spaces, under a `Code-Review:` opener. The block ends at the blank line before `Issue: #<n>`. Those five lines carry every slot of the `## Code Review` shape (`skills/output-style.md (run + effort · finding count)`), evidence included (the ref each finding named, per `skills/citation-format.md`). A **zero-finding run keeps the same shape**: its per-finding line reads `none`, and the run's effort level stands as the evidence slot. Dropping a slot to shorten the commit message is incomplete, not concise (`skills/output-style.md (Guardrail — concision cuts prose)`).
+**The Code Review block is copied, not re-derived.** Its five lines are the PR-body Code Review template (`skills/solve-issue/SKILL.md (/code-review run: yes)`), relative nesting intact, each indented two further spaces under a `Code-Review:` opener; the block ends at the blank line before `Issue: #<n>`. The five lines carry every slot of the `## Code Review` shape (`skills/output-style.md (run + effort · finding count)`), evidence included. A **zero-finding run keeps the shape**: per-finding line `none`, effort level as the evidence slot. Dropping a slot to shorten the commit message is incomplete, not concise (`skills/output-style.md (Guardrail — concision cuts prose)`).
 
 Two rules make the block safe to carry in a commit message:
 
@@ -80,9 +80,9 @@ git log <milestone-branch> --grep='^Issue: #<n>$'
 
 Non-empty output means that issue's commit is on the milestone branch. Empty means it is not.
 
-**What it replaces.** The step-3 branch-state probe (`skills/solve-issue/SKILL.md (Branch-state probe)`) derives resume state from `gh pr list` and `git ls-remote`. Under milestone granularity nothing is pushed until milestone end, so both find nothing and every issue looks like a cold start on a resumed run. The trailer query reads the one artifact that does exist locally at that point, and keeps resume state derived from git with no checkpoint file to maintain (`skills/solve-issue/SKILL.md (This derives resume-state entirely)`).
+**What it replaces.** The step-3 branch-state probe (`skills/solve-issue/SKILL.md (Branch-state probe)`) reads `gh pr list` and `git ls-remote`; nothing is pushed until milestone end, so both find nothing and every issue looks like a cold start on a resumed run. The trailer query reads the one artifact that exists locally, keeping resume state derived from git with no checkpoint file (`skills/solve-issue/SKILL.md (This derives resume-state entirely)`).
 
-**What it re-grounds.** Buildability condition (a) (`skills/solve-milestone/SKILL.md (For each issue, determine whether)`) asks whether every issue in `dependencyGraph.edges["<n>"]` is already merged to `integrationBranch`. Nothing merges to `integrationBranch` until milestone end, so condition (a) reads the milestone branch instead: a dependency is satisfied when the query above finds its trailer. Conditions (b) (live blocker label) and (c) (`issueStates[n].blockers == false`) are untouched.
+**What it re-grounds.** Buildability condition (a) (`skills/solve-milestone/SKILL.md (For each issue, determine whether)`) reads the milestone branch instead of `integrationBranch` (where nothing merges until milestone end): a dependency is satisfied when the query above finds its trailer. Conditions (b) (live blocker label) and (c) (`issueStates[n].blockers == false`) are untouched.
 
 **Empty state.** A trailer the query does not find is the normal unmet-dependency state, not an error: condition (a) stays false for the issues that depend on `<n>` until the trailer appears, nothing is logged or surfaced, and a fresh run's first pass — no trailer for any issue — is an empty milestone branch read correctly.
 
@@ -128,7 +128,7 @@ Step 4's precondition, green CI only, this granularity only (`docs/profile-schem
 
 ### Red CI on the milestone PR
 
-**Run-scoped, not issue-scoped.** A park is per-issue and the loop continues past it (`skills/solve-issue/SKILL.md (PARK & continue)`); a systemic halt ends the run (`skills/solve-milestone/SKILL.md (conditions where no further issue can make progress)`). This is neither: the loop is already over, and no single issue owns a failure that N issues share. It therefore takes the CHANGELOG-PR-red shape (`skills/solve-milestone/changelog-authoring.md (CI red:)`), which labels the **PR** rather than parking anything.
+**Run-scoped, not issue-scoped.** Not a park (`skills/solve-issue/SKILL.md (PARK & continue)` is per-issue; the loop is already over) and not a systemic halt (`skills/solve-milestone/SKILL.md (conditions where no further issue can make progress)`): no single issue owns a failure N issues share. Take the CHANGELOG-PR-red shape (`skills/solve-milestone/changelog-authoring.md (CI red:)`), which labels the **PR** rather than parking anything.
 
 - Apply `needs review` to the milestone PR: `gh pr edit <pr-number> --add-label "needs review"`.
 - Emit one 🔴 line into the Template 3 final summary's `🔴 Your move:` section (`skills/solve-milestone/changelog-authoring.md § 6.9 Surface in the final summary "Your move" section`) naming **every issue on the branch**, not just the PR — a line naming only the PR leaves the human to reconstruct its contents from the diff.
@@ -141,7 +141,7 @@ A later re-invocation over the preserved branch re-enters at step 2, and step 3'
 
 ## Creating the milestone branch: resume-safe pre-clean guard
 
-Runs in Before-starting, after the clean-tree and current-`integrationBranch` precondition (`skills/solve-milestone/SKILL.md (Confirm the working tree is clean)`) and before Phase 0 triage (`skills/solve-milestone/SKILL.md § Phase 0 — Triage`). It adds no numbered Before-starting step, so step 5 stays the last of those (`skills/solve-milestone/SKILL.md (Resolve execution mode (the LAST Before-starting step).**)`); running ahead of step 5 also puts the branch in place before that step's DB-hazard profile write and before either loop cuts from it (`skills/solve-milestone/parallel-waves.md (Create the worktree fleet)`). Step 4 leaves `HEAD` on `integrationBranch`, so the milestone branch is never the checked-out branch here and clearing one needs no branch switch.
+Runs in Before-starting, after the clean-tree and current-`integrationBranch` precondition (`skills/solve-milestone/SKILL.md (Confirm the working tree is clean)`) and before Phase 0 triage (`skills/solve-milestone/SKILL.md § Phase 0 — Triage`). Adds no numbered step — step 5 stays the last Before-starting step (`skills/solve-milestone/SKILL.md (Resolve execution mode (the LAST Before-starting step).**)`) — and puts the branch in place before step 5's DB-hazard profile write and before either loop cuts from it (`skills/solve-milestone/parallel-waves.md (Create the worktree fleet)`). Step 4 leaves `HEAD` on `integrationBranch`, so clearing a leftover needs no branch switch.
 
 **The discard-safe set is smaller than an issue branch's.** Until the milestone-end push, the milestone branch is the only copy of every folded issue, so a naive re-cut (`git branch -D`, then recreate) on a resumed run destroys work that exists nowhere else. The posture is `skills/solve-milestone/parallel-waves.md (Pre-clean guard)`'s preserve-don't-clobber: clear only a provably-safe leftover, attach to any leftover that carries work. Of the three discard-safe conditions listed for an issue branch (`skills/solve-milestone/contingencies.md (Leftover is provably safe to)`), **already pushed does not transfer**: a pushed-but-unmerged milestone branch can carry completed issues' commits absent from `integrationBranch`.
 
