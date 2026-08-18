@@ -1,6 +1,6 @@
 # Abandoned-issue recovery — solve-milestone reference
 
-Loaded when `parallel-waves.md` Phase 1 step 9's partition put **at least one** dispatched issue in the `abandoned` bucket. A Wave whose partition yields an empty `abandoned` set **never reads this file**, and step 9 proceeds straight to its wave-state checkpoint write. The condition is fully observable before the read: step 9 partitions from git + gh ground truth first, and only a non-empty bucket reaches here.
+Loaded when `parallel-waves.md` Phase 1 step 9's partition put **at least one** dispatched issue in the `abandoned` bucket. An empty `abandoned` set **never reads this file**; step 9 proceeds straight to its wave-state checkpoint write.
 
 **Missing or unreadable** with a non-empty `abandoned` bucket is a **systemic failure** — surface it and halt the run per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run". Do **not** skip the ladder and do **not** park the issues instead: step 9 requires every dispatched issue to leave it as `built-green` or `parked`, and this file is the only path from `abandoned` to either.
 
@@ -24,13 +24,13 @@ Otherwise dispatch **ONE** `implementerAgent` leaf into that issue's **existing 
 
 **The cap counts every leaf this ladder causes, not the recovery leaves alone, and the refill trigger is a SLOT FREEING, never a recovery leaf returning:** a returning recovery leaf **HOLDS its slot** for the step-7 leaf its resume dispatches (step 6's carve-out shape), and the skip-the-recovery-leaf branch above **takes a slot from the same cap** before dispatching its step-7 leaf. The slot frees when that **step-7** leaf returns, and **that** is when the next abandoned issue is dispatched, so a set wider than the cap still drains.
 
-Brief the recovery leaf exactly as step 5 briefs an implementer leaf — including the **expected file scope** and the **`risk:light` token** when step 4 resolved this issue's build profile to light, neither of which this ladder may drop — plus an **implementation-only finish-list** naming what is left to build. **Scope that finish-list to implementation only:** it must not name step 8's tail (version bump, commit, push, PR), a leaf returning an uncommitted diff and dispatching nothing (step 5). **The leaf dispatches nothing, and the cap is 1, not 2** (unlike step 6's unit-retry loop): this is a dropped baton, not a non-converging loop.
+Brief the recovery leaf exactly as step 5 briefs an implementer leaf — including the **expected file scope** and the **`risk:light` token** when step 4 resolved this issue's build profile to light, neither of which this ladder may drop — plus an **implementation-only finish-list** naming what is left to build. **Scope that finish-list to implementation only:** it must not name step 8's tail (version bump, commit, push, PR), a leaf returning an uncommitted diff and dispatching nothing (step 5). **The leaf dispatches nothing, and the cap is 1, not 2** (unlike step 6's unit-retry loop).
 
 ## On return
 
 Confirm from **ground truth, never from its report**, that the worktree now carries an uncommitted diff (`git -C .milestone-config/worktrees/issue-<n> status --porcelain` non-empty), then resume Stage B review (step 7) and the per-issue tail (step 8) for that issue; step 9 then re-derives that issue's terminal state after step 8, as for every other issue.
 
-**Do not re-run step 9's partition at this point** — a just-returned leaf holds an uncommitted diff and zero commits, the `abandoned` bucket's own shape, so re-partitioning would classify a **successful** recovery as `abandoned` again with its cap already spent.
+**Do not re-run step 9's partition at this point** — a just-returned leaf holds an uncommitted diff and zero commits, the `abandoned` bucket's own shape, so re-partitioning would re-classify a successful recovery as `abandoned` with its cap already spent.
 
 ## Park path
 

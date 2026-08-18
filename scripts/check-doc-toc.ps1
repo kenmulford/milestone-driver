@@ -66,6 +66,7 @@ skills/triage/blocker-resolver-dispatch.md
 skills/notices.md
 skills/output-style.md
 skills/citation-format.md
+skills/remediate-handoff.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md

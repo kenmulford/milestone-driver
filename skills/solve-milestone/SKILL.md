@@ -92,6 +92,8 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
 
    **Surface the resolved mode** and its reason; it drives Template 1's mode line.
 
+   **5.1 Remediate handoff — the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? **Not resolvable** → no question, one log line, silent degrade; the file is **never read**. **Resolvable** → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run its `## The run-start question` verbatim — asked ONCE here, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` does not gate this). Never copy that file's procedure here.
+
 ## The procedure
 
 ### 1. List the milestone's open issues
@@ -128,6 +130,8 @@ Invoke triage across the milestone before the build loop:
    gh issue edit <n> --remove-label "<name>"     # clearLabel == true
    ```
 
+   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 — same gated read-direct, on this main line, cap 1 per issue per run; a `NEEDS_HUMAN` return or a still-dirty re-triage parks for good (`skills/remediate-handoff.md (Park for good)`).
+
 2.5. `integrations.trello` configured → run trello-sync.md `## Phase 0 hooks` (best-effort).
 
 3. **Seed the build queue.** Carry triage's full `dependencyGraph` and `issueStates` into the loop; the loop drives from the validated graph, not the raw declared order.
@@ -140,10 +144,10 @@ Invoke triage across the milestone before the build loop:
 Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave, mutually independent issues may be taken in any order. For each issue, determine whether it is **buildable this pass** — iff ALL THREE hold:
 
 - **(a)** every issue in `dependencyGraph.edges["<n>"]` (those this issue directly DEPENDS_ON) is already merged to `integrationBranch`, or, under `integrationGranularity: "milestone"`, carries its `Issue: #<n>` trailer on the milestone branch (`milestone-granularity.md § Resume and buildability from the trailer`); **AND**
-- **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`, confirming none of `needs design`, `needs decision`, `blocked` is present. This live check is the **authoritative park-state**. A labeled issue must not be rebuilt until a human clears the label; **AND**
+- **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`, confirming none of `needs design`, `needs decision`, `blocked` is present. This live check is the **authoritative park-state**. A labeled issue must not be rebuilt until a human (or Phase 0's Auto remediate loop) clears the label; **AND**
 - **(c)** `issueStates[n].blockers == false`.
 
-**If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with both held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is **never read**.
+**If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with the held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is **never read**.
 
 **If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it — the park-label back-fill and `in progress` marking for a triage/prior-run park (with the one-blocker-label-per-issue rule), and, for a dependency hold, the `blocked` label plus the byte-fixed `🔴 Blocked` comment and the transitive-dependent holds. Both modes read it when an issue is not buildable.
 
@@ -230,6 +234,7 @@ Show after each Wave completes.
 ▶ Next: Wave 2 (#203 👁️, #204) — redirect or reprioritize before it lands.
 ```
 PR cell: the PR number if the issue has one, else —.
+Note cell: an issue the run sent through the Auto loop records its outcome there — `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged.
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
@@ -256,7 +261,7 @@ Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
 2. Clear park labels → re-run
 3. All merged → merge `integrationBranch` → `protectedBranch` with `--merge` (not squash), merging the release PR *before* tagging, then **back-merge `protectedBranch` → `integrationBranch`** (history-only, conflict-free) so `integrationBranch` stays tag-current and topologically even, close the milestone (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`), deploy — full ordered runbook in `docs/consumer-setup.md` § "Releasing to your protected branch"
 ```
-PR cell: the PR number if the issue has one, else —.
+PR cell: the PR number if the issue has one, else —. Follow-up cell: the same auto-remediate outcome Template 2's Note cell records.
 
 ## Output style
 
@@ -269,7 +274,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every 
 Use Template 3 as the layout. On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch`, with PR links.
-- **Issues parked** — per issue: number and title, the park label applied, the blocker reason, and the open feature branch if applicable. Take the reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent format-matching comment, possibly from a prior run: one opening with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
+- **Issues parked** — per issue: number and title, the park label applied, the blocker reason, the auto-remediate outcome when the run attempted the Auto loop, and the open feature branch if applicable. Take the reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent format-matching comment, possibly from a prior run: one opening with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
 - **Open UI PRs** awaiting human merge: those carrying `needs review`, with PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section**, flagged the same way, for review before the `integrationBranch` → `protectedBranch` merge.

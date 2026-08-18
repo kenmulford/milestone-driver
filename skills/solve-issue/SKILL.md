@@ -26,7 +26,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/` when absent. Their steps are skipped cleanly when absent. |
 
-   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch. (`driver.json` / `feeder.json` are intentionally NOT listed — never add a blanket `*` or `/` rule.)
+   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -49,6 +49,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
       ```
 
    1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record, uisurfaceglobs), applying that section's `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics. Never evaluate a section scoped only to `solve-milestone` (today: trello, parallel-default).
+   1.1.2. **Remediate handoff (feeder only).** Probe once: is `/milestone-feeder:remediate` resolvable in this session? **Not resolvable → skip this sub-step**: no question, no read, no error. Resolvable, and the caller supplied no answer → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The feeder-installed gate` and `## The run-start question`; hold the answer for the whole run. A caller-supplied answer (a `solve-milestone` run's own run-start question) is reused, **never re-asked** — the held-value shape step 0's Branch A already uses for the triage result.
 2. **Require a clean working tree** (cold-start precondition) **and a current local `integrationBranch`** (`git fetch`, fast-forward). One exception, never stashed or discarded: step 3's probe finding an existing `issue/<n>-*` branch (committed or uncommitted prior work) skips this enforcement. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** `git fetch` first, then classify prior progress from git + gh before cutting anything; first match wins:
    - **(a) A PR exists for `issue/<n>-*`**, merged or open (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`).
@@ -60,7 +61,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 
    This derives resume-state entirely from git + gh; there is no checkpoint file. **Never skip `/code-review`** on a resumed path; a fix it triggers runs step 6's normal re-review and push cycle.
 
-   **3.5. Profile migration (run once, on the feature branch).** With step 2 passed and the branch established: if `<repo>/.milestone-config/driver.json` exists, use it. Else if a legacy root `<repo>/milestone-driver.json` exists, migrate it — `mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` (when git-tracked, else plain `mv`). Else it is a new project (setup creates the canonical file; the other skills auto-invoke setup; hooks fail-open). Idempotent: a no-op once `.milestone-config/driver.json` exists. When both exist, `.milestone-config/driver.json` wins — no move, no overwrite, no deletion of the leftover root file. The move rides the issue's PR, not a separate commit.
+   **3.5. Profile migration (run once, on the feature branch).** `.milestone-config/driver.json` exists → use it. Else a legacy root `milestone-driver.json` exists → `mkdir -p .milestone-config`; `git mv` it to `.milestone-config/driver.json` (plain `mv` when untracked). Else: new project — setup creates the canonical file; hooks fail-open. Idempotent; both present → `.milestone-config/driver.json` wins, no move, no deletion. The move rides the issue's PR, not a separate commit.
 4. Create one TodoWrite item per numbered step below. Work them in order — do not skip or reorder.
 
 ## The procedure
@@ -71,11 +72,13 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 
 **Two branches — always run one:**
 
-**Branch A — Explicit-supply path (reuse).** Fires **iff the caller explicitly supplied this issue's triage result at invocation time** — an inline restatement carrying named fields with ACTUAL VALUES (e.g. "step-0 result for #N: `issueStates["N"] = { blockers: false, label: null, advisories: [...], risk: "light" }`, `edges["N"] = [...]`"). Fields absent, label-only, or partial is not an explicit supply and falls to Branch B. Use it directly — do **NOT** re-invoke `milestone-driver:triage <n>` — and proceed to the **Blocker check**. It IS this run's verified Phase 0 triage result, not a skip.
+**Branch A — Explicit supply (reuse).** Fires **iff** the caller supplied this issue's triage result at invocation time as named fields with ACTUAL VALUES (e.g. `issueStates["N"] = { blockers: false, label: null, advisories: [...], risk: "light" }`, `edges["N"] = [...]`). Absent, label-only, or partial → Branch B. Use it directly — do **NOT** re-invoke `milestone-driver:triage <n>` — and proceed to the **Blocker check**.
 
-**Branch B — Standalone / fallback path.** No explicit supply — absent, partial, or merely recalled from earlier context — invoke `milestone-driver:triage <n>` (single-issue mode) and use the returned result for the **Blocker check**. Branch B is the safe default, never an error.
+**Branch B — Standalone / fallback (the safe default, never an error).** No explicit supply — including a result merely recalled from earlier context → invoke `milestone-driver:triage <n>` (single-issue mode) and use its return for the **Blocker check**.
 
 **Blocker check (both branches).** A Blocker for this issue → **park**: triage has already posted the `🔴 Triage` comment; VERIFY it exists (`gh issue view <n> --comments`) and post it if missing (idempotent); apply the recommended label from `issueStates["<n>"].label` — `needs design` for a design gap, `needs decision` for a non-design decision; do **not** proceed to step 1. All-clear or Advisory-only → proceed to step 1.
+
+**Held remediate answer is Auto** (sub-step 1.1.2) → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The Auto loop` instead of parking now: invoke `/milestone-feeder:remediate <n>`, re-run triage on the corrected body, and clear the park label when the re-triage comes back clean, then proceed to step 1. **Attempt cap: 1 per issue per run.** Its `## Park for good` branches — `remediate` returns `NEEDS_HUMAN`, the re-triage is still dirty, the cap is spent, or the issue has no `🔴 Triage` comment — run the park action above unchanged, comment opening `🔴 Parked — `, label intact. No held answer, an answer of Leave-them-for-me, or the feeder absent → park immediately, exactly as above.
 
 ### 1. Read the issue
 Run `gh issue view <n>` with comments. Restate the acceptance criteria plainly before continuing.
@@ -98,7 +101,7 @@ Read `issueStates["<n>"].risk` from the step-0 result (held Phase 0 result in a 
 | **Light** | Include a `risk:light` token in the brief | Skip when the issue touches no UI surface | `low` or `medium` | 1; a 2nd only on a Critical or Important finding |
 | **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 4's E2E row (UI surface + e2eTestCmd) | `high` or `xhigh` | 2 |
 
-The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run. Light relaxes ceremony only — it never skips verification. (A parent issue carrying `md-epic` never enters this pipeline — see `skills/solve-issue/md-epic-fanout.md`.)
+The safety floor is **unconditional for both profiles**: triage (step 0), the `tests-green` hook, and `force-subagent` always run. Light relaxes ceremony only — it never skips verification.
 
 ### Resolve cited project-docs sections (once, before dispatch)
 
@@ -106,23 +109,23 @@ Resolve the issue's cited `.project/` sections **once, here in the orchestrator*
 
 1. **Source the docs root.** Use `projectDocs` already resolved at step 1 (defaults to `.project/`). Do **not** re-resolve the profile here.
 2. **Parse the cited anchors.** From the issue body + acceptance criteria (read at step 1), collect the `.project/<doc>#<section>` anchors the issue cites — `<doc>` is the path under the docs root, `<section>` the heading text (e.g. `design-system.md#data-tables`).
-3. **Pull a superset via the primitive.** Per cited anchor, plus its plausibly-relevant **sibling** sections, invoke the retrieval primitive `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}` once: `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<anchor-text>` the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion** — **under-retrieval is the real risk**; the implementer keeps its own `Read`/grep tools for any **additional** on-demand anchor. Never whole-file inlining; resolve **once**, and do **not** have the implementer re-read whole files.
+3. **Pull a superset via the primitive.** Per cited anchor, plus its plausibly-relevant **sibling** sections, invoke the retrieval primitive `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}` once: `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<anchor-text>` the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion** — **under-retrieval is the real risk**; the implementer keeps its own `Read`/grep tools for any **additional** on-demand anchor. Never whole-file inlining.
 4. **Feed the result into the dispatch brief** as **the resolved `.project/` sections**.
-5. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` **once per run**, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as **the resolved file index** — #318's `build-file-index` output format, consumed, not re-derived.
+5. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` **once per run**, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as **the resolved file index** — the `build-file-index` output format, consumed, not re-derived.
 6. **Resolve the prose contract (once).** Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` **once per run**, never per-issue inside a milestone loop; pass its `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, and `## The two anti-criteria` sections into the ### 3 brief as **the resolved prose contract**. It governs the implementer's Decision Log and every other GitHub-facing shape its report feeds; the agent's own `## Communication style` may specialize it, never replace it. Sub-steps 5 and 6 apply **identically under both the `light` and `heavy` build profiles** — never skipped or altered for `risk:light`.
 
 **Degradation (no error, ever):**
 - **Absent `projectDocs`** → `.project/` (step 1).
 - **Absent `.project/` directory**, or no cited anchors → **no-op**: no project grounding, **no error**, skipped cleanly like `unitTestCmd`/`preflightCmd`.
 - **Missing/renamed cited anchor** → the primitive **fails loud** (non-zero exit, naming the anchor + file on stderr) rather than returning silent empty grounding. Do not swallow it.
-- **Absent/failed file-index resolver** (`${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` missing, or the invocation fails / emits no usable output) → **no-op**: **no file index**, **no error** — the absent-`.project/` shape, **not** fail-loud, because nothing cites the index by name.
-- **Absent `skills/output-style.md`** (missing or unreadable) → **no-op**: **no prose contract**, **no error**, leaving each agent's own `## Communication style` as its only prose rule — again absent-`.project/`, **not** fail-loud.
+- **Absent/failed file-index resolver** → **no-op**: no file index, no error — **not** fail-loud; nothing cites the index by name.
+- **Absent or unreadable `skills/output-style.md`** → **no-op**: no prose contract, no error; each agent's own `## Communication style` is its only prose rule.
 
 ### Resolve cited `path (anchor)` citations (once, before dispatch)
 
 Resolve the issue's `path (anchor)` citations (`skills/citation-format.md`) **once, here in the orchestrator**, and thread the resolved table into **every** subagent brief this run composes — no subagent re-derives it. Runs with the block above, before **### 3. Dispatch the implementer**. Paths are repo-root-relative: an issue has no directory, so there is no multi-base fallback.
 
-1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply `skills/citation-format.md`'s span and position tests to the issue body + acceptance criteria. A parenthetical following a path is **not** automatically a citation; both failure modes were measured here. `docs/superpowers/plans/2026-06-01-proactive-triage.md § New agent contract — `agents/triage-reviewer.md` (architect lens)` writes `` `agents/triage-reviewer.md` (architect lens) ``: the span closes before the parenthesis, so it is prose — resolving it anyway exits 1, a **false drift report**. `docs/profile-schema.md (each built issue opens its own PR)` writes `` `skills/setup/SKILL.md` (Phase 2) ``: also prose — resolving it anyway returns `PRIMARY 54` plus `MATCH 197`, a **confident wrong answer**. A regex produces both.
+1. **Extract by model judgment over the `path (anchor)` shape — never a regex.** Apply `skills/citation-format.md`'s span and position tests to the issue body + acceptance criteria. A parenthetical following a path is **not** automatically a citation: resolving prose anyway yields either a **false drift report** (anchor absent, exit 1) or a **confident wrong answer** (the anchor happens to match), and a regex produces both.
 2. **Resolve each citation once.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` once per citation: `resolve-citation.<sh|ps1> <file-path> <anchor-text>`. Exit 0 prints `PRIMARY <line> <text>` then zero or more `MATCH <line> <text>`, TAB-delimited, in file order; matching is literal, case-sensitive, and line-scoped.
 3. **Feed the printed rows into the ### 3 briefs** as **the resolved citations**, in the same printed-output shape as the `read-doc-section` and `build-file-index` results above. Invent no new format.
 
@@ -131,7 +134,7 @@ Resolve the issue's `path (anchor)` citations (`skills/citation-format.md`) **on
 - **A cited anchor not found**, or an unreadable file → `resolve-citation` **fails loud** (nonzero exit, naming the anchor and file on stderr, stdout empty). Surface it; never swallow it. Exit 2 is a wrong argument count or an empty anchor.
 
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, the expected file scope, the resolved `.project/` sections, the resolved file index, the resolved prose contract, and the resolved citations (omit any whose resolution was a no-op); under the `light` profile the brief MUST include a `risk:light` token. Extract/rename issues touching a widely-shared symbol carry ~2–3× the call-site-migration surface and more often consume both allowed re-dispatches; the cap still applies, and an issue that cannot converge parks like any other. **The brief MUST also carry this scratch-hygiene rule:** write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan, the profile, the expected file scope, the resolved `.project/` sections, the resolved file index, the resolved prose contract, and the resolved citations (omit any whose resolution was a no-op); under the `light` profile the brief MUST include a `risk:light` token. Extract/rename issues touching a widely-shared symbol often consume both allowed re-dispatches; the cap still applies — a non-converging issue parks like any other. **The brief MUST also carry this scratch-hygiene rule:** write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later.
 
 **The implementer is a leaf.** It returns an uncommitted diff plus its report and dispatches no subagent of its own (`docs/architecture.md` → `## Dispatch topology`). Every fan-out in this pipeline is the orchestrator's.
 
@@ -146,9 +149,9 @@ Verify the report honors the implementer contract: least-code / reuse-first, TDD
 
 ### 4. Verification gates
 
-**There is no step 5.** This step covers what were once steps 4 and 5 — the E2E gate was step 5 until it folded in here. The gap stays rather than renumber, because these headings are citation anchors (`.project/conventions.md (Keep ## headings stable)`); the next step is **6**.
+**There is no step 5** — the E2E gate folded into this step, and the gap stays rather than renumber because these headings are citation anchors (`.project/conventions.md (Keep ## headings stable)`); the next step is **6**.
 
-Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) → park**. `/code-review` is listed for visibility (always-on — hence no trailing `?` in its row), but its in-scope-fix vs park-trigger classification does not fit a "re-run the same check" loop: it keeps its own procedure in step 6.1 and is **not** iterated by the shared loop below.
+Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) → park**. `/code-review` is listed for visibility only (always-on, hence no trailing `?` in its row): it keeps its own step-6.1 procedure and is **not** iterated by the shared loop below.
 
 | Gate | Applicability | `act` | Cap | Park / escape policy |
 |---|---|---|---|---|
@@ -170,7 +173,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 
 ### 6. Review → integrate → close
 
-**Coherence review (before the final `/code-review`).** An optional read-only pass over the implementer's **uncommitted** diff. Run it **only** when the `coherenceReviewAgent` — profile key, default-filled to `milestone-coherence-reviewer:coherence-reviewer` — is **both** present (dispatchable in this session) **and** configured; absent/unavailable OR explicitly unconfigured → **silently skip**: no error, no block, no park, no prompt, at most one log line. When it runs, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/coherence-review.md` and follow its `### The pass`.
+**Coherence review (before the final `/code-review`).** An optional read-only pass over the implementer's **uncommitted** diff. Run it **only** when the `coherenceReviewAgent` — profile key, default-filled to `milestone-coherence-reviewer:coherence-reviewer` — is **both** present (dispatchable in this session) **and** configured; absent/unavailable OR explicitly unconfigured → **silently skip**: no error, no prompt, at most one log line. When it runs, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/coherence-review.md` and follow its `### The pass`.
 
 1. **Review and resolve.** Run `/code-review` (`superpowers:requesting-code-review`) on the implementer's **uncommitted** changes, then resolve findings autonomously per the Autonomy model — never pause to ask the operator about an in-scope finding:
    - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log. **Light fixes only a Critical or Important finding**; a Minor one is accepted, not fixed. Heavy fixes every in-scope finding. Those severities are the reviewer template's (`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a finding with none — including from a reviewer scoring by confidence — counts as **Important**.
@@ -184,7 +187,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 
    **Preflight gate (concluding action of 6.1).** Once the `/code-review` loop has converged, before version bump/commit, run the preflight gate — its applicability, `act`, cap, verify step, and park/escape policy are the **Preflight** row of `### 4. Verification gates` and its shared loop.
 2. Assemble the **Decision Log** from the implementer's report for the PR body, and post the citations on the issue for review (`gh issue comment <n>`). Its slots are the Decision Log entry shape in `skills/output-style.md` — choice · rationale · citation · rejected alternatives, one entry per line.
-3. **Assemble the Code Review section** for the PR body. Record whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered park). Its slots are the `## Code Review` section shape in `skills/output-style.md`; the **evidence slot** is the ref each finding named (per `skills/citation-format.md`; or, at zero findings, the effort level used). **Absence of this section on a PR is a visible defect on PR review.** Template:
+3. **Assemble the Code Review section** for the PR body. Record whether `/code-review` ran, the finding count and severity per run (the 1st, and the 2nd if a re-review occurred), and each finding's resolution (re-dispatched and resolved / accepted with rationale / triggered park). Its slots are the `## Code Review` section shape in `skills/output-style.md`; the **evidence slot** is the ref each finding named (per `skills/citation-format.md`; at zero findings, the effort level used). Template:
 
    ```text
    ## Code Review
@@ -209,20 +212,20 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 
 ## Run-end cost record (additive, never-gating)
 
-As the **last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-6.7 visual-review hold, and the step-6.9 close — emit one per-run cost record. Additive and **never-gating**: it never blocks, parks, or changes any merge/park/close outcome (`.project/design-philosophy.md#Error & failure philosophy` — optional integrations never gate; absent means skip with one log line).
+**Last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-6.7 visual-review hold, and the step-6.9 close — emit one per-run cost record. Additive, **never-gating**: it never blocks, parks, or changes any outcome (`.project/design-philosophy.md#Error & failure philosophy`).
 
-1. **Aggregate.** From the `<usage>` block each Agent-dispatch tool result carried this run (implementer, `/code-review`, coherence-reviewer, any direct triage dispatch — a background dispatch's completion notification carries the same block), sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
-2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel per #320, never fabricated). Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
-3. **Emit.** Pipe `{"runId":"<issue branch / run id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}`. The single-record write to `.milestone-config/.runtime/cost-records/` is #320's.
+1. **Aggregate.** Sum every Agent-dispatch `<usage>` block this run (implementer, `/code-review`, coherence-reviewer, direct triage; background completion notifications carry the same block): `subagent_tokens` per model tier (`opus` / `sonnet`, by the dispatched agent's tier), `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
+2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel, never fabricated); `provenanceNote: "unsplit-total-as-input"` marks the cost a lower-bound.
+3. **Emit.** Pipe `{"runId":"<issue branch / run id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}`, which writes the single record to `.milestone-config/.runtime/cost-records/`.
 4. **Skip cleanly.** Zero dispatches this run (e.g. a triage-blocker park before any dispatch) → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced → silent no-op, one log line. Never fails the run.
 
 ## Autonomy model (Balanced)
 
 **Proceed autonomously (log on the PR):** implementation choices within the approved architecture; reuse of existing helpers, styles, and conventions; test design; local reversible refactors; resolving in-scope `/code-review` findings (step 6.1).
 
-**PARK & continue (the autonomous runtime parks; it does not interactively wait):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent; `/code-review` omission or substitution — skipping `/code-review` for any reason (time, token budget, tool error, self-review substitution) is **not** an in-scope autonomous decision; budget pressure is not a permitted exception.
+**PARK & continue (the autonomous runtime parks; it does not interactively wait):** deviation from the approved architecture; any change to a shared contract, interface, base class, or DB schema used beyond this issue; a new dependency; edits outside the issue's expected file scope; a gate that cannot be met without a design change; material ambiguity in the issue's intent; `/code-review` omission or substitution for any reason (time, token budget, tool error, self-review); budget pressure is not an exception.
 
-The park itself is `## The procedure`'s park action, its comment opening `🔴 Parked — <reason>` (e.g. `🔴 Parked — architecture conflict: shared interface change required`) and its `in progress` label the open-WIP signal the milestone loop relies on; that loop then continues with independent, clean issues. **Only a systemic failure** (auth/`gh` failure, broken `integrationBranch`, missing tooling) halts the whole run. A standalone interactive `solve-issue` still parks durably; it may additionally narrate to the watching operator.
+The park is `## The procedure`'s park action, comment opening `🔴 Parked — <reason>`; its `in progress` label is the open-WIP signal the milestone loop reads, and that loop continues with independent, clean issues. **Only a systemic failure** (auth/`gh` failure, broken `integrationBranch`, missing tooling) halts the whole run. A standalone interactive `solve-issue` still parks durably; it may additionally narrate to the watching operator.
 
 **Additional park triggers** (each a park, **not** silent resolution and **not** an interactive prompt):
 - The recorded/locked design is internally contradictory → park with `needs design`.
@@ -236,41 +239,29 @@ A change is **architecture** (→ park) if it touches any of: a component or dat
 
 ## Permission pre-flight gate
 
-**Runs once per run, before the first background dispatch. Scope: this gate applies only when background dispatch is about to be used (a leaf dispatched as `Agent(run_in_background: true)`). A fully synchronous run SKIPS it entirely — not executed at all, no gate evaluation.**
+**Runs once per run, before the first background dispatch — only when a leaf is about to be dispatched as `Agent(run_in_background: true)`. A fully synchronous run SKIPS it entirely.**
 
-Background subagents auto-deny any tool call that would otherwise prompt (documented Claude Code behavior), and a background leaf hitting an un-allowlisted tool fails outright with no interactive recovery. Before dispatching any leaf in the background, verify the session's permission allowlist is complete.
-
-**Allowlist source — merged settings read.** Read `permissions.allow` from all three Claude Code settings layers and union them:
-
-| Priority | File |
-|---|---|
-| 1 | `~/.claude/settings.json` (user global) |
-| 2 | `.claude/settings.json` (project) |
-| 3 | `.claude/settings.local.json` (project local) |
-
-Absent or unreadable layers are skipped in the union, not treated as gaps. Synchronous fallback fires only when (1) the union fails to cover the required tool surface, or (2) no layer is readable.
-
-With that union in hand, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/permission-preflight.md` and follow its `### Tool surface and response`.
+Background subagents auto-deny any tool call that would otherwise prompt, and a background leaf hitting an un-allowlisted tool fails outright with no interactive recovery. Before the first background dispatch: union `permissions.allow` across `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json` — absent or unreadable layers are skipped in the union, not treated as gaps. Synchronous fallback fires only when the union misses the required tool surface, or no layer is readable. With that union in hand, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/permission-preflight.md` and follow its `### Tool surface and response`.
 
 ## Milestone granularity (`integrationGranularity: "milestone"`)
 
-**Resolved from the profile at step 1, not from an invocation token.** When `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses` — the per-step deltas that mode makes to the pipeline above — plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, the integration-commit trailer format, and the resume query. **When the key is absent or resolves to `"issue"`, neither read happens, no clause applies, and the entire pipeline runs byte-unchanged.**
+**Resolved from the profile at step 1, not from an invocation token.** `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses`, plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, integration-commit trailer, and resume query. **Absent or `"issue"` → neither read happens; the pipeline runs byte-unchanged.**
 
 ## Wave granularity (`integrationGranularity: "wave"`)
 
-Resolved at the same step-1 profile read the section above names, not from an invocation token. When `integrationGranularity` resolves to `"wave"` (`docs/profile-schema.md (How should built issues integrate?)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/wave-clauses.md` and apply its `### Clauses` — the per-step deltas that mode makes to the pipeline above. **They apply to a non-UI issue only:** a **UI issue** runs the pipeline byte-unchanged and is held per-issue for visual sign-off (`skills/solve-milestone/integration-granularity.md (Logic-only carve-out)`).
+Resolved at the same step-1 profile read, not from an invocation token. `integrationGranularity` resolves to `"wave"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/wave-clauses.md` and apply its `### Clauses`. **Non-UI issues only:** a **UI issue** runs the pipeline byte-unchanged, held per-issue for visual sign-off (`skills/solve-milestone/integration-granularity.md (Logic-only carve-out)`).
 
 ## Async mode (`--async`): retired
 
-**`--async` is an interpreted token, not a parsed CLI flag.** Claude Code does no argument parsing — `$ARGUMENTS` is string-substituted — so the token is **recognized** by string presence in the invocation text. It is now **inert**: the pipeline above runs on the caller's own main line. A habit-typed or stale `--async` is a no-op, never an error (the same treatment a habit-typed `--parallel` gets in `solve-milestone`). **No run reads `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/async-mode.md`** — not with an `--async` token, not without one; this skill's size closure excludes it on exactly that ground (`scripts/check-size-budgets.sh (retired, inert — read on no run)`). It is a see-also for a human: the retirement record, its dispatch-topology reason, and what replaces it.
+**`--async` is an interpreted token, not a parsed CLI flag** — recognized by string presence in the invocation text — and now **inert**: the pipeline runs on the caller's own main line, and a habit-typed or stale token is a no-op, never an error (the same treatment a habit-typed `--parallel` gets in `solve-milestone`). **No run reads `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/async-mode.md`** — it is the human-read retirement record, excluded from this skill's size closure on exactly that ground (`scripts/check-size-budgets.sh (retired, inert — read on no run)`).
 
 ## Parent-issue detection (`md-epic`)
 
-**Runs before anything else** — before `## Before starting` step 1 (profile read) and before `### 0. Triage`. Read `#n`'s labels: `gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`. **When `md-epic` is absent, none of this section applies and the entire pipeline runs byte-unchanged, starting at `## Before starting` step 1.** When present, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/md-epic-fanout.md` and follow its `### Parent path` — it replaces the rest of this skill's pipeline for this invocation.
+**Runs before anything else** — before `## Before starting` step 1 and before `### 0. Triage`. Read `#n`'s labels (`gh issue view <n> --json labels`, exact match against `.labels[].name` for the literal `md-epic`). Absent → this section does not apply; the pipeline runs byte-unchanged from `## Before starting` step 1. Present → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/md-epic-fanout.md` and follow its `### Parent path`, which replaces the rest of this pipeline for this invocation.
 
 ## Output spec
 
-<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone (see plan 2026-06-04 verification model). -->
+<!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone. -->
 **Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
@@ -304,10 +295,11 @@ One row per issue; emit only the row matching the actual outcome and suppress th
 | #204  | ✅ committed | 🔍✓(0 findings) | —    | committed on its branch |
 ```
 PR cell: show the PR number if the issue has one, else —. Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+Note cell: an issue the run sent through the Auto loop records its outcome there — `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged.
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — this plugin's output contract. Its `## Terminal output` section governs what this skill prints (including the `## Output spec` template rule); its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern every issue comment, PR comment, Decision Log, and PR body this skill writes. The two surfaces are distinct — terminal rules never reach GitHub.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` — this plugin's output contract. `## Terminal output` governs what this skill prints (including the `## Output spec` template rule); `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` govern every issue comment, PR comment, Decision Log, and PR body. The two surfaces are distinct — terminal rules never reach GitHub.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` — the one format every citation in those slots takes.
 

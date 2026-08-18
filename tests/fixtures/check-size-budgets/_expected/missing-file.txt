@@ -1,5 +1,5 @@
 OK	skills/setup/SKILL.md	1/280	7/28000	1/4000
-OK	skills/solve-issue/SKILL.md	1/325	7/43000	1/6000
+OK	skills/solve-issue/SKILL.md	1/325	7/41500	1/5800
 OK	skills/solve-issue/async-mode.md	40/40	200/4500	40/700
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/8500	1/1200
 OK	skills/solve-issue/coherence-review.md	1/15	7/2500	1/300
@@ -13,10 +13,10 @@ OK	skills/solve-issue/visual-capture.md	1/20	7/6000	1/800
 OK	skills/solve-issue/visual-review-hold.md	1/20	7/2500	1/400
 OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
 OK	skills/solve-milestone/SKILL.md	1/320	7/32500	1/4500
-OK	skills/solve-milestone/parallel-waves.md	1/205	7/40500	1/6000
-OK	skills/solve-milestone/trello-sync.md	1/400	7/20500	1/3200
-OK	skills/solve-milestone/milestone-granularity.md	1/165	7/25000	1/3600
-OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/6000	1/900
+OK	skills/solve-milestone/parallel-waves.md	1/205	7/39500	1/5900
+OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
+OK	skills/solve-milestone/milestone-granularity.md	1/165	7/23500	1/3300
+OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/5500	1/900
 OK	skills/solve-milestone/changelog-authoring.md	1/205	7/14000	1/2200
 OK	skills/solve-milestone/contingencies.md	1/70	7/8500	1/1200
 OK	skills/solve-milestone/db-hazard-interview.md	1/30	7/2500	1/400
@@ -29,13 +29,14 @@ OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
 OK	skills/notices.md	1/250	7/11500	1/1600
 OK	skills/output-style.md	1/85	7/9500	1/1600
-OK	skills/citation-format.md	1/230	7/13000	1/2000
+OK	skills/citation-format.md	1/190	7/10500	1/1600
+OK	skills/remediate-handoff.md	1/90	7/5000	1/800
 OK	agents/blocker-resolver.md	1/125	7/10500	1/1700
-OK	agents/design-reviewer.md	1/120	7/16500	1/2600
-OK	agents/implementer.md	1/130	7/15000	1/2300
-FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/17000	MISSING/2600
-CLOSURE	skills/setup/SKILL.md	3/7600
-CLOSURE	skills/solve-issue/SKILL.md	5/11700
-CLOSURE	skills/solve-milestone/SKILL.md	4/9600
-CLOSURE	skills/triage/SKILL.md	3/8600
-SUMMARY	ok=35	failed=1
+OK	agents/design-reviewer.md	1/120	7/16000	1/2400
+OK	agents/implementer.md	1/130	7/14500	1/2200
+FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/16000	MISSING/2500
+CLOSURE	skills/setup/SKILL.md	3/7200
+CLOSURE	skills/solve-issue/SKILL.md	5/11000
+CLOSURE	skills/solve-milestone/SKILL.md	4/9200
+CLOSURE	skills/triage/SKILL.md	3/8100
+SUMMARY	ok=36	failed=1
