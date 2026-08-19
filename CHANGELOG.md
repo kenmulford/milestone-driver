@@ -3,6 +3,45 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.23.2 — hook gate integrity, CI venue closure, margin restoration
+
+**Theme:** The two bash hooks gate again under the `/bin/bash` macOS ships and now cover `scripts/` and `tests/`, the size-budget twins warn before a CRLF checkout fails a row, both shell-test legs run the same 17 runners, and the Blocked comment, CHANGELOG step 6.2, and the conventions table state what the shipped code actually does.
+
+### ✨ Gate scope, margin, and recorded contracts
+
+| Issue | PR | What |
+|---|---|---|
+| #573 sourceGlobs omits `scripts/**` and `tests/**`, so first-class source is ungated | #579 | This repo's tracked `.milestone-config/driver.json` listed three globs while `.project/conventions.md#File & folder layout` treats `scripts/` and `tests/` as first-class source, so `force-subagent` never gated a direct main-thread edit to either tree. The profile now carries five globs: a main-thread Write/Edit under `scripts/` or `tests/` denies at exit 2, while subagent writes and the `docs/` + `.claude/` exemptions are unchanged. The coded fallback in `scripts/build-file-index.{sh,ps1}` still ships three, so no consumer's behavior moves. |
+| #574 md-epic-fanout has 13 bytes of headroom against a 52-byte CRLF cost, and nothing warns | #581 | `skills/solve-issue/md-epic-fanout.md` sat at 8487/8500 bytes over 52 lines, so a `core.autocrlf` clone read roughly 8539 and failed the gate on a fresh Windows checkout. Two cuts of provenance and restatement bring it to 8386/8500, headroom 114 against 52 lines. Both `check-size-budgets` twins now emit `WARN <path> <free> bytes free < <lines> lines (a CRLF checkout would FAIL this row)` after any OK row in that state; the row is advisory, and SUMMARY counts and exit codes are untouched. |
+| #575 The 🔴 Blocked comment still instructs the manual label removal #516 automated | #578 | The Blocked comment's unblock line said "remove this `blocked` label and re-run" at three sites, though `skills/solve-milestone/blocked-label-clear.md` clears the label automatically on the next run once every upstream merges. All three sites now state the self-clear: `not-buildable.md`'s byte-fixed comment body, its transitive-dependent restatement, and `output-style.md`'s Blocked-comment row slot. The `🔴 Blocked — ` opener is byte-unchanged, so the downstream literal matches still hold. |
+| #576 changelog 6.2 extracts a problem-only What; the shipped half lives in the Decision Log | #580 | Step 6.2 of `skills/solve-milestone/changelog-authoring.md` reads the PR body's opening prose block, which on 5 of milestone #40's 6 merged PRs states only the problem, leaving the shipped-behavior half in the PR's `## Decision Log`. 6.2 gains one conditional clause: where the block carries no shipped-behavior half, complete it from that Decision Log's choices, never their rationale. |
+| #577 conventions.md lacks the pwsh byte-domain collation idiom #471 shipped at four sites | #583 | #471's byte-order collation idiom (respell each string as `Latin1.GetString(UTF8.GetBytes(s))`, then compare with `StringComparer.Ordinal`) shipped at four pwsh sites with nothing recording it, so the next twin author re-derives or diverges. One row appended to `## Canonical exemplars (mirror these)` names `scripts/check-citations.ps1 (function ToByteChars)` as the exemplar, its three sibling sites, and the two banned near-idioms: bare `Ordinal` is UTF-16 code-unit order, `Sort-Object` is culture order. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #571 hooks fail open under macOS /bin/bash 3.2: `**` sourceGlobs match nothing | #582 | Under the `/bin/bash` 3.2.57 macOS ships, `pat="${g//\*\*/\*}"` kept the backslash, so every `**` sourceGlob flattened to a literal `\*` and matched nothing: `hooks/force-subagent.sh` exited 0 on a main-thread source edit that must exit 2, and `hooks/tests-green.sh` never ran `unitTestCmd`. Both hooks now flatten through quoted variables, byte-identical on 3.2.57 and 5.3.15. A new `tests/force-subagent.test.{sh,ps1}` runner pair covers the deny path, both bash hook runners pin the hook child to `/bin/bash` on Darwin, and three CI steps register the pair. The pwsh hooks never carried the defect. |
+| #572 shell-tests-pwsh runs every pwsh runner except read-doc-section | #584 | `tests/read-doc-section.test.ps1` was the one runner the pwsh job never ran, while the bash leg has carried its mirror step since #551. One step, `read-doc-section (pwsh)`, now sits between classify-delta and tests-green as it does on the bash leg; both legs run the same 17 runners in the same order. |
+
+### Consumer notes (upgrading from v1.23.1)
+
+- **The hooks gate again on stock macOS bash.** Under `/bin/bash` 3.2, `hooks/force-subagent.sh` now denies main-thread edits to paths matched by a `**` sourceGlob that it previously allowed, and `hooks/tests-green.sh` now runs `unitTestCmd`. A Mac repo that appeared to have no gate starts enforcing both on the next edit.
+- **`check-size-budgets.{sh,ps1}` emit a new `WARN` line** for any governed file whose free bytes are fewer than its line count. Exit codes and the `SUMMARY ok=/failed=` counts are unchanged, but a parser assuming every non-`FAIL` row starts `OK` now sees a third first field.
+- **`sourceGlobs` is unchanged for consumers.** The five-glob set is this repo's own profile; the coded fallback still ships `skills/**`, `agents/**`, `hooks/**`. Add `scripts/**` and `tests/**` to your `.milestone-config/driver.json` to gate those trees.
+- A dependency-hold 🔴 Blocked comment no longer asks you to remove the `blocked` label by hand; re-running `solve-milestone` clears it.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Both defects the v1.23.1 trail recorded as unfiled are now fixed: the bash 3.2 hooks fail-open (#571, here) and `tests/render-daemon.test.sh` on the macOS runner (#570, before this milestone). #582 merged on a green board, its new force-subagent deny step passing its first `/bin/bash` 3.2 CI outing.
+- Triage did not run for this milestone by recorded decision: all seven issues were authored and fact-verified in one session with citations pre-resolved, so no issue was gap-checked by the triage lens before build.
+- The new `WARN` row is advisory, so no gate fails on a thin margin: a CRLF checkout still discovers the overflow at `FAIL` time, and the three files below stay unrepaid by design.
+- Ceiling state a contributor's next edit hits: no ceiling was raised on any axis this release, and both files that needed room (#576, #574) paid for it with byte trades. The advisory `WARN` fires today for exactly three files: `skills/solve-milestone/SKILL.md` 15 bytes free, `skills/solve-milestone/changelog-authoring.md` 11, `skills/output-style.md` 43. `skills/solve-issue/md-epic-fanout.md` is CRLF-safe again at 114.
+- Open, no issue number: `skills/setup/SKILL.md`'s inference table still infers three sourceGlobs for "a Claude Code plugin", so a future bootstrap reproduces the gap #573 fixed (recorded as a candidate follow-up in #579's coherence pass).
+
 ## v1.23.1 — twin collation, gitignore self-heal, wave-PR review aggregation
 
 **Theme:** The pwsh legs collate in byte order like their bash twins, every runner executes under the bash macOS ships, the tests-green self-heal writes the committed 12-entry set, and each wave, fan-out, and triage contract that previously left a run with no defined answer now states one.
