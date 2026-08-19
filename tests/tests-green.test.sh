@@ -28,7 +28,15 @@ REPO_GITIGNORE="$ROOT/.milestone-config/.gitignore"
 [ -f "$REPO_GITIGNORE" ] || { echo "FATAL: missing $REPO_GITIGNORE" >&2; exit 3; }
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 command -v git >/dev/null 2>&1 || { echo "FATAL: git required" >&2; exit 3; }
+# Hook child interpreter, resolved once. The hooks ship for whatever bash the
+# consumer has, and on macOS that is /bin/bash 3.2 — a live venue this runner
+# must keep covering. PATH bash is NOT that venue on the macOS CI job:
+# .github/workflows/ci.yml (Put a modern bash on PATH for runner children)
+# deliberately puts a modern bash ahead of it for the runners' script children
+# (#557), which masked the 3.2 hook child here. So on Darwin the hook child is
+# named outright; elsewhere PATH bash is the venue.
 BASH_BIN="$(command -v bash)"
+if [ "$(uname -s)" = "Darwin" ] && [ -x /bin/bash ]; then BASH_BIN=/bin/bash; fi
 
 pass=0; fail=0
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/tg.$$")"; mkdir -p "$TMP"

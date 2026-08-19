@@ -49,6 +49,8 @@ jobs:
         run: bash tests/read-doc-section.test.sh
       - name: tests-green (bash)
         run: bash tests/tests-green.test.sh
+      - name: force-subagent (bash)
+        run: bash tests/force-subagent.test.sh
       # The two scripts/check-* steps that run against THIS repo's real tree.
       # Every other checker is exercised through fixture roots only, which
       # proves the script works without gating a citation — or a missing
@@ -95,6 +97,8 @@ jobs:
         run: pwsh tests/classify-delta.test.ps1
       - name: tests-green (pwsh)
         run: pwsh tests/tests-green.test.ps1
+      - name: force-subagent (pwsh)
+        run: pwsh tests/force-subagent.test.ps1
       # Twins of the bash leg's real-tree steps. Both legs run them because a
       # <line> that differs between the twins is the worst answer a citation
       # checker can give, and only running both catches that.
@@ -213,3 +217,5 @@ jobs:
         run: /bin/bash tests/read-doc-section.test.sh
       - name: tests-green (/bin/bash 3.2)
         run: /bin/bash tests/tests-green.test.sh
+      - name: force-subagent (/bin/bash 3.2)
+        run: /bin/bash tests/force-subagent.test.sh
