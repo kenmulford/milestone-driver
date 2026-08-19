@@ -33,7 +33,15 @@ cleanup() {
 trap cleanup EXIT
 
 STATE="$TMP/.milestone-config/.runtime/render-daemon.json"
-HAVE_PY=0; command -v python3 >/dev/null 2>&1 && HAVE_PY=1
+# Stub interpreter, resolved once. On macOS prefer /usr/bin/python3: the Homebrew
+# python3 is a framework app bundle (Python.app/Contents/MacOS/Python) that stays
+# alive but NEVER binds a loopback socket on the headless macOS CI runner
+# (app-bundle local-network privacy swallows it), so the stub never becomes
+# ready; the CLT binary at /usr/bin/python3 binds and serves instantly
+# (PR #568 diagnostic).
+PY=python3
+if [ "$(uname -s)" = "Darwin" ] && [ -x /usr/bin/python3 ]; then PY=/usr/bin/python3; fi
+HAVE_PY=0; command -v "$PY" >/dev/null 2>&1 && HAVE_PY=1
 
 # Pick a port unlikely to collide; bind to loopback only.
 PORT=8731
@@ -127,7 +135,7 @@ done
 # ---- stub-backed sub-cases (skip cleanly if python3 absent) ----------------
 
 if [ "$HAVE_PY" -eq 1 ]; then
-  write_profile "python3 -m http.server $PORT --bind 127.0.0.1" "$READY_URL"
+  write_profile "$PY -m http.server $PORT --bind 127.0.0.1" "$READY_URL"
 
   # Happy autostart: spawns detached, polls readyUrl, exits 0 when ready, writes
   # a well-formed state file (port parsed from readyUrl, token, pid, readyUrl,
@@ -216,7 +224,7 @@ if [ "$HAVE_PY" -eq 1 ]; then
   # a single-command serverCmd would exec-optimize and hide this bug.)
   PORT2=8733
   READY_URL2="http://127.0.0.1:$PORT2/"
-  write_profile "python3 -m http.server $PORT2 --bind 127.0.0.1 & wait" "$READY_URL2"
+  write_profile "$PY -m http.server $PORT2 --bind 127.0.0.1 & wait" "$READY_URL2"
   out="$(RENDER_DAEMON_TIMEOUT=15 bash "$SCRIPT" start "$TMP" 2>&1)"; rc=$?
   wpid="$(jq -r '.pid' "$STATE" 2>/dev/null)"
   if [ "$rc" -eq 0 ] && curl -fsS -o /dev/null --max-time 3 "$READY_URL2" >/dev/null 2>&1; then
@@ -239,7 +247,7 @@ if [ "$HAVE_PY" -eq 1 ]; then
   pkill -f "http.server $PORT2" >/dev/null 2>&1 || true
 
   # restore the single-command profile for the stale-state case below.
-  write_profile "python3 -m http.server $PORT --bind 127.0.0.1" "$READY_URL"
+  write_profile "$PY -m http.server $PORT --bind 127.0.0.1" "$READY_URL"
 
   # Stale state file: a state file whose recorded pid is dead and whose probe
   # fails -> treated as down, cleaned, falls through to autostart (new pid, exit 0).

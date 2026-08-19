@@ -20,7 +20,14 @@ function Skip-T([string]$m) { $script:skipped++; Write-Host "SKIP $m (python3 ab
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("rd_" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 $state = Join-Path $tmp '.milestone-config/.runtime/render-daemon.json'
-$havePy = [bool](Get-Command python3 -ErrorAction SilentlyContinue)
+# Stub interpreter, resolved once. On macOS prefer /usr/bin/python3: the Homebrew
+# python3 is a framework app bundle (Python.app/Contents/MacOS/Python) that stays
+# alive but NEVER binds a loopback socket on the headless macOS CI runner
+# (app-bundle local-network privacy swallows it), so the stub never becomes
+# ready; the CLT binary at /usr/bin/python3 binds and serves instantly
+# (PR #568 diagnostic).
+$py = if ($IsMacOS -and (Test-Path -LiteralPath '/usr/bin/python3')) { '/usr/bin/python3' } else { 'python3' }
+$havePy = [bool](Get-Command $py -ErrorAction SilentlyContinue)
 $port = 8732
 $readyUrl = "http://127.0.0.1:$port/"
 
@@ -102,7 +109,7 @@ try {
   # ---- stub-backed sub-cases (skip cleanly if python3 absent) -------------
 
   if ($havePy) {
-    Write-Profile "python3 -m http.server $port --bind 127.0.0.1" $readyUrl
+    Write-Profile "$py -m http.server $port --bind 127.0.0.1" $readyUrl
 
     # Happy autostart: exit 0, well-formed state file, port parsed from readyUrl.
     $r = Run-Daemon @('start', $tmp) @{ RENDER_DAEMON_TIMEOUT = '15' }
@@ -177,7 +184,7 @@ try {
     # longer answer. Uses a 2nd port so it never collides with the autostart case.
     $port2 = 8734
     $readyUrl2 = "http://127.0.0.1:$port2/"
-    Write-Profile "python3 -m http.server $port2 --bind 127.0.0.1 & wait" $readyUrl2
+    Write-Profile "$py -m http.server $port2 --bind 127.0.0.1 & wait" $readyUrl2
     $r = Run-Daemon @('start', $tmp) @{ RENDER_DAEMON_TIMEOUT = '15' }
     $upBefore = $false
     try { $null = Invoke-WebRequest -Uri $readyUrl2 -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop; $upBefore = $true } catch {}
@@ -197,7 +204,7 @@ try {
     Run-Daemon @('stop', $tmp) | Out-Null
 
     # restore the single-command profile for the stale-state case below.
-    Write-Profile "python3 -m http.server $port --bind 127.0.0.1" $readyUrl
+    Write-Profile "$py -m http.server $port --bind 127.0.0.1" $readyUrl
 
     # Stale state file: dead recorded pid + failing probe -> cleaned, autostart (fresh pid).
     New-Item -ItemType Directory -Force -Path (Join-Path $tmp '.milestone-config/.runtime') | Out-Null
