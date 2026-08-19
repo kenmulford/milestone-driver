@@ -18,7 +18,7 @@ RESOLUTIONS:
   - gap: <the Blocker's `description` line, verbatim>
     verdict: RESOLVED | NEEDS_HUMAN
     resolution: <one line>
-    evidence: <citation, recorded line, or command output — REQUIRED for RESOLVED>
+    evidence: <citation, recorded line, sibling issue number, or command output — REQUIRED for RESOLVED>
     edit: <the exact edit a builder applies — RESOLVED only>
   - …
 ```
@@ -30,7 +30,7 @@ RESOLUTIONS:
 | Return | Effect |
 |---|---|
 | `RESOLVED` with a filled `evidence` slot | Drop that Blocker from the issue's gap set; carry its `resolution`, `evidence`, and `edit` to Step 6. |
-| `RESOLVED` whose `evidence` slot is empty, **or carries no citation, recorded line, or command output** — a restatement of the `resolution` line included | Treat as `NEEDS_HUMAN` — an unsourced resolution is a guess. |
+| `RESOLVED` whose `evidence` slot is empty, **or carries nothing from the admissible evidence set** (`agents/blocker-resolver.md (## Rigor gate)`) — a restatement of the `resolution` line included | Treat as `NEEDS_HUMAN` — an unsourced resolution is a guess. |
 | `NEEDS_HUMAN` | Keep the Blocker exactly as the `triageAgent` returned it. |
 | A Blocker the return omits | Treat as `NEEDS_HUMAN`. Silence is not a resolution. |
 
