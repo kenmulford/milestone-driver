@@ -4,7 +4,7 @@ Reaching this file means the caller read `#n`'s labels and found `md-epic` (`ski
 
 ### Parent path
 
-A parent issue's body carries an ordered list of milestones — the build order for a feature too large for one milestone (the read-contract in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). This path drives that list to completion; it never authors code for `#n` itself.
+A parent issue's body carries an ordered list of milestones — the build order for a feature too large for one milestone (the read-contract in `docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md`). This path drives that list to completion.
 
 1. **Profile read only.** Run SKILL.md's `## Before starting` step 1 (profile read) — the fan-out loop needs `integrationBranch` to re-sync between milestones, and `integrationGranularity` for step 6. **Skip SKILL.md steps 2 and 3** (the clean-tree check and the branch-state probe): a parent issue authors no code, so it has no feature branch and no branch state to probe.
 
@@ -36,7 +36,7 @@ A parent issue's body carries an ordered list of milestones — the build order 
 
 5. **`#n` itself is never built.** It carries no code, so it never goes through SKILL.md's `### 0. Triage`, root-cause-or-park, or implementer dispatch. Its label state changes only via the park path in step 2.
 
-6. **Aggregate summary**, one row per milestone — mirroring `solve-milestone`'s own run-complete reporting shape (Template 3, `skills/solve-milestone/SKILL.md § Template 3 — Final results`; the content requirements, `skills/solve-milestone/SKILL.md § Final summary`). Classify each driven milestone from ground truth after driving, never from the driven run's own narrative (the same derive-from-artifacts posture the Wave barrier uses, `skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`):
+6. **Aggregate summary**, one row per milestone — mirroring `solve-milestone`'s own run-complete reporting shape (Template 3, `skills/solve-milestone/SKILL.md § Template 3 — Final results`; the content requirements, `skills/solve-milestone/SKILL.md § Final summary`). Classify each driven milestone from ground truth after driving, never from the driven run's own narrative (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`):
 
    | Milestone | Outcome | Note |
    |---|---|---|
