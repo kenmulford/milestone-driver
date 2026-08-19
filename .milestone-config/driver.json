@@ -1,7 +1,7 @@
 {
   "integrationBranch": "develop",
   "protectedBranch": "main",
-  "sourceGlobs": ["skills/**", "agents/**", "hooks/**"],
+  "sourceGlobs": ["skills/**", "agents/**", "hooks/**", "scripts/**", "tests/**"],
   "implementerAgent": "milestone-driver:implementer",
   "domainSkills": ["plugin-dev:*", "superpowers:writing-skills"],
   "nonNegotiables": [
