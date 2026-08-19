@@ -114,6 +114,14 @@
 #     lockstep. That authorization is spent on that issue's three fixes and
 #     covers nothing else: the next edit to either row re-derives normally, and
 #     both go down again from there.
+#     RECORDED RAISE, issue #520 (decision 2026-08-18):
+#     skills/solve-issue/wave-clauses.md BYTE 3000 -> 3500. The two rows that
+#     issue requires (`6.7`, `Autonomy model`) measure 227 + 229 = 456 bytes
+#     against 193 free (2807/3000), so 263 bytes cannot be found without
+#     rewriting the shipping clause rows that issue lists as a non-goal.
+#     New actual 3263; 3263 * 1.05 = 3426.15, rounded UP to the next 500 =
+#     3500. LINE 18/25 and WORD 471/500 still hold, so neither moves.
+#     Spent on this issue's two rows: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -227,12 +235,13 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
-skills/solve-issue/wave-clauses.md                   25     3000      500
+skills/solve-issue/wave-clauses.md                   25     3500      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    39500     5900
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
+skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
@@ -330,10 +339,11 @@ fi
 # perturbing all six leaves every CLOSURE line byte-identical.
 #
 # Milestone #39 split 18 more reference files out of the four SKILL.md files,
-# and issue #502 added solve-issue/wave-clauses.md beside its milestone twin.
-# 18 of those 19 are EXCLUDED on the same rule, each verified against its read
-# directive — the #39 set on 2026-08-10, wave-clauses.md on 2026-08-12 — with
-# the branch that stands in front of the read in brackets:
+# issue #502 added solve-issue/wave-clauses.md beside its milestone twin, and
+# issue #516 added solve-milestone/blocked-label-clear.md. 19 of those 20 are
+# EXCLUDED on the same rule, each verified against its read directive — the #39
+# set on 2026-08-10, wave-clauses.md on 2026-08-12, blocked-label-clear.md on
+# 2026-08-18 — with the branch that stands in front of the read in brackets:
 #   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
 #   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
 #   solve-issue/wave-clauses.md          [integrationGranularity: "wave"]
@@ -345,6 +355,7 @@ fi
 #   solve-issue/visual-capture.md        [visualCapture configured AND sequential]
 #   solve-issue/visual-review-hold.md    [UI issues]
 #   solve-milestone/abandoned-recovery.md    [non-empty `abandoned` bucket]
+#   solve-milestone/blocked-label-clear.md   [(a) held with a non-empty edge set]
 #   solve-milestone/changelog-authoring.md   [clean completion, zero parked]
 #   solve-milestone/contingencies.md         [a named failure branch]
 #   solve-milestone/db-hazard-interview.md   [cascade row 4 only]

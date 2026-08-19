@@ -53,6 +53,7 @@ skills/solve-milestone/parallel-waves.md
 skills/solve-milestone/trello-sync.md
 skills/solve-milestone/milestone-granularity.md
 skills/solve-milestone/abandoned-recovery.md
+skills/solve-milestone/blocked-label-clear.md
 skills/solve-milestone/changelog-authoring.md
 skills/solve-milestone/contingencies.md
 skills/solve-milestone/db-hazard-interview.md

@@ -84,6 +84,13 @@ if ($null -ne $key) {
         # is git-invisible in the consumer repo from the first write, while tracked config
         # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
         # only created when absent, so a user-edited file is never clobbered.
+        # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
+        # this repo and with solve-issue / solve-milestone / scripts/triage-cache.{sh,ps1},
+        # feeder setup / plan. tests/tests-green.test.{sh,ps1} pin the EMITTED bytes
+        # against that file, so a name added there and not here fails CI. Joined
+        # with an explicit LF rather than a here-string, so a CRLF checkout of THIS
+        # file cannot leak CRLF into the emitted .gitignore and make it differ from
+        # the one the .sh twin writes.
         $ignorePath = Join-Path $projectDir '.milestone-config' '.gitignore'
         if (-not (Test-Path $ignorePath)) {
             $ignoreBody = @(
@@ -91,8 +98,10 @@ if ($null -ne $key) {
                 '# Committed so per-run scratch stays out of `git status` with zero user setup.'
                 '# Patterns are relative to this .milestone-config/ directory. Tracked config'
                 '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.'
-                'preflight-notice'; 'trello-notice'; 'triage-cache.json'; 'tests-stamp'
-                '.runtime/'; 'worktrees/'
+                'preflight-notice'; 'trello-notice'; 'visualcapture-notice'
+                'parallel-default-notice'; 'code-review-gate-notice'; 'aiprefilter-notice'
+                'cost-record-notice'; 'uisurfaceglobs-notice'; 'triage-cache.json'
+                'tests-stamp'; '.runtime/'; 'worktrees/'
             ) -join "`n"
             [System.IO.File]::WriteAllText($ignorePath, $ignoreBody + "`n", [System.Text.UTF8Encoding]::new($false))
         }

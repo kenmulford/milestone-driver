@@ -333,7 +333,8 @@ case "$sub" in
     # Create only when absent; never rewrite an existing file. Best-effort, on
     # the same fail-open footing as the write itself.
     # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
-    # this repo and with solve-issue / solve-milestone, feeder setup / plan.
+    # this repo and with solve-issue / solve-milestone / hooks/tests-green.{sh,ps1},
+    # feeder setup / plan.
     # The redirect sits INSIDE a group whose 2>/dev/null covers it: a plain
     # `cat > file 2>/dev/null` silences cat but NOT the redirect's own
     # open-failure, which bash reports on real fd2 — a stray diagnostic line

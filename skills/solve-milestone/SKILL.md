@@ -35,7 +35,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
 
    2.0.5. **Self-heal the scratch-ignore** — always, before any `.milestone-config/` scratch write. That directory also holds **tracked** config (`driver.json`, `feeder.json`): never blanket-ignore it, never add a `*` or `/` rule. Ensure a **committed** `.milestone-config/.gitignore` carrying the block below — absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 
-      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
       # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
       # Committed so per-run scratch stays out of `git status` with zero user setup.
@@ -144,6 +144,7 @@ Invoke triage across the milestone before the build loop:
 Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave, mutually independent issues may be taken in any order. For each issue, determine whether it is **buildable this pass** — iff ALL THREE hold:
 
 - **(a)** every issue in `dependencyGraph.edges["<n>"]` (those this issue directly DEPENDS_ON) is already merged to `integrationBranch`, or, under `integrationGranularity: "milestone"`, carries its `Issue: #<n>` trailer on the milestone branch (`milestone-granularity.md § Resume and buildability from the trailer`); **AND**
+  - Before (b): where (a) holds and `edges["<n>"]` is non-empty, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/blocked-label-clear.md` and run it.
 - **(b)** the issue currently carries **no blocker label** — check live: `gh issue view <n> --json labels --jq '[.labels[].name]'`, confirming none of `needs design`, `needs decision`, `blocked` is present. This live check is the **authoritative park-state**. A labeled issue must not be rebuilt until a human (or Phase 0's Auto remediate loop) clears the label; **AND**
 - **(c)** `issueStates[n].blockers == false`.
 
@@ -191,7 +192,7 @@ The run ends when no buildable issues remain.
 ## Autonomy
 
 - **Unattended between systemic failures.** Operate autonomously within an explicit `/milestone-driver:solve-milestone` run. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and **any reference file this skill read-directs being missing or unreadable once its condition has fired** — `parallel-waves.md`, `milestone-granularity.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`. Best-effort integrations (`trello-sync.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the working tree clean and all in-flight issues parked, present the final summary and stop — `## Run-complete notification` emits `🚨 Run halted — <reason>`.
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and **any reference file this skill read-directs being missing or unreadable once its condition has fired** — `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`. Best-effort integrations (`trello-sync.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the working tree clean and all in-flight issues parked, present the final summary and stop — `## Run-complete notification` emits `🚨 Run halted — <reason>`.
 - **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For architecture vs implementation detail, see `solve-issue`'s Autonomy model.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch`.
 

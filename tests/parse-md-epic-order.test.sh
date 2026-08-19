@@ -16,20 +16,24 @@ pass=0; fail=0
 # under concurrent runs and is portable across hosts; trap removes it on exit.
 ERRFILE="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/pmeo_err.$$")"
 trap 'rm -f "$ERRFILE"' EXIT
-# Split on TAB preserving empty fields ("IFS=$'\t' read" collapses adjacent tabs,
-# silently dropping empty expected_stdout/expected_stderr columns — parity-critical
-# to avoid; mirrors tests/extract-version.test.sh's split_tab).
 TAB=$'\t'
+# split_tab <row> — bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
+# read" collapses adjacent tabs, silently dropping empty expected_stdout /
+# expected_stderr columns — parity-critical to avoid). NO `local -n`: that is a
+# bash-4.3 nameref, and under the /bin/bash 3.2 macOS ships it is an invalid
+# option to `local`, so the array never populates and every case fails. Sets the
+# GLOBAL `cols` array directly. Copied from tests/code-review-gate.test.sh (split_tab() {).
 split_tab() {
-  local rest="$1$TAB"; local -n _arr="$2"; _arr=()
-  while [ -n "$rest" ]; do _arr+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
+  local rest="$1$TAB"
+  cols=()
+  while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 decode() { printf '%b' "$1"; }
 
 while IFS= read -r row || [ -n "$row" ]; do
   case "$row" in ''|\#*) continue;; esac
   row="${row%$'\r'}"
-  split_tab "$row" cols
+  split_tab "$row"
   name="${cols[0]:-}"; body_enc="${cols[1]:-}"
   exp_out_enc="${cols[2]:-}"; exp_err_enc="${cols[3]:-}"; exp_exit="${cols[4]:-0}"
   body="$(decode "$body_enc")"

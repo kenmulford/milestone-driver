@@ -1,0 +1,26 @@
+{
+  "data": {
+    "issue_7": {
+      "issue": {
+        "lastEditedAt": "2026-08-01T00:00:00Z",
+        "createdAt": "2026-07-01T00:00:00Z",
+        "comments": {
+          "totalCount": 0
+        },
+        "labels": {
+          "nodes": [
+            {
+              "name": "😀"
+            },
+            {
+              "name": "Ａ"
+            },
+            {
+              "name": "zzz"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
