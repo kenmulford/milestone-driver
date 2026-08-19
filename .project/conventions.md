@@ -32,6 +32,7 @@ The reference implementations to copy when building something similar. Point at 
 | Its test | `tests/extract-version.test.sh` + `.ps1` driving `tests/extract-version.cases.tsv` | Golden-matrix runner asserting stdout + stderr. |
 | A new skill | `skills/solve-issue/SKILL.md` (gated per-issue procedure) | Frontmatter `name`/`description`; numbered, gated procedure; tabular output with 🔴 markers. |
 | A reviewer subagent | `agents/triage-reviewer.md` | Read-only; returns a structured findings block; never writes code or posts comments. |
+| Sorting or comparing strings in a pwsh twin | `scripts/check-citations.ps1 (function ToByteChars)` | Byte-domain collation: respell each string as the byte-chars of its UTF-8 encoding (`Latin1.GetString(UTF8.GetBytes(s))`), then compare with `StringComparer.Ordinal`, which is then a byte comparison matching the bash leg's `LC_ALL=C` order. Never bare `Ordinal` (UTF-16 code-unit order) or `Sort-Object` (culture order). Same idiom: `scripts/build-file-index.ps1 (function Get-ByteKey)`, `scripts/triage-cache.ps1 (function Get-ByteKey)`, `scripts/ci-preflight-steps.ps1 (IS a byte comparison)`. |
 
 ## Commits & PRs
 Message format and PR expectations.
