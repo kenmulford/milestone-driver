@@ -35,7 +35,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
 
    2.0.5. **Self-heal the scratch-ignore** — always, before any `.milestone-config/` scratch write. That directory also holds **tracked** config (`driver.json`, `feeder.json`): never blanket-ignore it, never add a `*` or `/` rule. Ensure a **committed** `.milestone-config/.gitignore` carrying the block below — absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 
-      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
       # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
       # Committed so per-run scratch stays out of `git status` with zero user setup.

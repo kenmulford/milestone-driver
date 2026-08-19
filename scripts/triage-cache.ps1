@@ -352,7 +352,8 @@ if (-not (Test-Path -LiteralPath $dir -PathType Container)) { Skip 'mkdir-failed
 # checkout of THIS file cannot leak CRLF into the emitted .gitignore and make it
 # differ from the one the .sh twin writes.
 # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
-# this repo and with solve-issue / solve-milestone, feeder setup / plan.
+# this repo and with solve-issue / solve-milestone / hooks/tests-green.{sh,ps1},
+# feeder setup / plan.
 $gitignore = @(
   '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.',
   '# Committed so per-run scratch stays out of `git status` with zero user setup.',
