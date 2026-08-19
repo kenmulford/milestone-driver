@@ -22,6 +22,10 @@ declare -a CASES=(
   "block-scalar"
   "inline-comment"
   "multi-workflow"
+  # COLLATION (issue #471): alpha.yml + Zeta.yml rank differently under culture
+  # order and codepoint order. multi-workflow cannot catch it — alpha.yml/zeta.yml
+  # rank identically under both, and ASCII agreement is not evidence of parity.
+  "sort-order"
   "services"
   "no-workflows-dir"
   "multi-workflow|zeta.yml|multi-workflow__zeta"

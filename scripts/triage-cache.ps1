@@ -132,12 +132,31 @@ function Get-Aliases($resp) {
   return ($list.ToArray() | Sort-Object -Property n)
 }
 
+# The two encodings the label sort's byte keys are built on. Latin1 is the
+# byte<->char bijection: every byte 0x00-0xFF maps to the char of the same value
+# and back, losslessly (scripts/check-citations.ps1 (Latin1 is the byte<->char)).
+$LKU8 = [System.Text.Encoding]::UTF8
+$LKL1 = [System.Text.Encoding]::Latin1
+# Get-ByteKey — a name respelled as the byte-chars of its UTF-8 encoding, so
+# StringComparer.Ordinal over the result compares BYTES.
+function Get-ByteKey([string]$s) { return $LKL1.GetString($LKU8.GetBytes($s)) }
+
 # Get-LiveKey — "<n>:<lastEditedAt // createdAt>:<comments>:<labels>".
 # The fallback fires when lastEditedAt is absent, null, or not a string,
-# matching the .sh twin's `select(type == "string") // …` chain. Labels sort
-# ORDINAL: Sort-Object is culture-sensitive, so it can order two names
-# differently from the .sh twin's `sort` under LC_ALL=C, which would silently
-# change the key on one leg only.
+# matching the .sh twin's `select(type == "string") // …` chain.
+#
+# LABELS SORT IN CODEPOINT ORDER, matching the .sh twin's jq `sort` under
+# LC_ALL=C. The keys are the names' UTF-8 BYTES as byte-chars, so Ordinal over
+# them IS a byte sort, and UTF-8 byte order IS codepoint order — the byte-domain
+# model scripts/check-citations.ps1 (THE SORT) already ships. Neither of the
+# obvious alternatives works: Sort-Object is culture-sensitive, and Ordinal over
+# the DECODED names is UTF-16 code-unit order, which ranks an astral name (lead
+# surrogate U+D800-DBFF) BEFORE every U+E000-FFFF name where codepoint order
+# ranks it after. Getting this wrong changes the key on ONE leg only, and the
+# sole symptom is a `MISS … key-mismatch` at exit 0 — indistinguishable from a
+# genuinely edited issue. ASCII-only label sets agree under all three orders, so
+# ASCII agreement is NOT evidence of parity: the pin is
+# tests/triage-cache.cases.tsv (lookup-astral-vs-bmp-labels).
 function Get-LiveKey([long]$n, $x) {
   $ts = J-Str (J-Get $x 'lastEditedAt')
   if ($null -eq $ts) { $ts = J-Str (J-Get $x 'createdAt') }
@@ -157,7 +176,9 @@ function Get-LiveKey([long]$n, $x) {
     }
   }
   $arr = $names.ToArray()
-  [array]::Sort($arr, [System.StringComparer]::Ordinal)
+  $bk = New-Object string[] $arr.Length
+  for ($i = 0; $i -lt $arr.Length; $i++) { $bk[$i] = Get-ByteKey $arr[$i] }
+  [array]::Sort($bk, $arr, [System.StringComparer]::Ordinal)
   return "${n}:${ts}:${cc}:" + ($arr -join ',')
 }
 
