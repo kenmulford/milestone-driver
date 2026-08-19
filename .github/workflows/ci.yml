@@ -161,6 +161,20 @@ jobs:
           set +e
           out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      # Venue split, deliberate. The steps below name `/bin/bash` explicitly,
+      # so every runner itself executes on this job's 3.2 venue. Each runner
+      # then launches the script under test through PATH (`bash "$SCRIPT"`, or
+      # `BASH_BIN="$(command -v bash)"`), and the scripts under test are
+      # allowed to need bash 4+ (`mapfile`, in extract-version.sh and
+      # build-file-index.sh today). PATH `bash` on macOS is 3.2 as well, so
+      # those children died on "mapfile: command not found"; PATH therefore
+      # carries a modern bash, for the children only. Only the RUNNERS are the
+      # 3.2 surface. The hook smoke steps above are unaffected: they name
+      # `/bin/bash hooks/...` outright.
+      - name: Put a modern bash on PATH for runner children
+        run: |
+          brew list bash >/dev/null 2>&1 || brew install bash
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       # The golden-matrix runners, under the SAME 3.2 interpreter. The hook
       # smoke steps above cover hooks/ only; the runners themselves are shell
       # too, and a bash-4-only construct in one (a `local -n` nameref, say)
