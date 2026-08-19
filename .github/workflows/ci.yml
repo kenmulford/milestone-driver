@@ -95,6 +95,8 @@ jobs:
         run: pwsh tests/check-citations.test.ps1
       - name: classify-delta (pwsh)
         run: pwsh tests/classify-delta.test.ps1
+      - name: read-doc-section (pwsh)
+        run: pwsh tests/read-doc-section.test.ps1
       - name: tests-green (pwsh)
         run: pwsh tests/tests-green.test.ps1
       - name: force-subagent (pwsh)
