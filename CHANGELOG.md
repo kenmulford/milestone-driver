@@ -3,6 +3,51 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.23.1 — twin collation, gitignore self-heal, wave-PR review aggregation
+
+**Theme:** The pwsh legs collate in byte order like their bash twins, every runner executes under the bash macOS ships, the tests-green self-heal writes the committed 12-entry set, and each wave, fan-out, and triage contract that previously left a run with no defined answer now states one.
+
+### ✨ Wave, fan-out, and triage contracts
+
+| Issue | PR | What |
+|---|---|---|
+| #518 resume-paths has no wave note, so a resumed run re-verifies an already-integrated issue | #553 | Under `"wave"` granularity step 6.6 opens no per-issue PR, so path (a) matched nothing and a resumed run fell to path (b), re-verifying shipped work and ending by opening a PR 6.6 forbids. A new note evaluated before (b) makes a non-empty `git ls-remote --heads origin "issue/<n>-*"` the terminal exit. |
+| #509 Wave PR body names a Code Review section but not how per-issue reviews aggregate into it | #555 | The `Wave PR body` row now states the shape: exactly one anchored `## Code Review` heading, one `### #<n>` sub-entry per logic issue, a one-logic-issue Wave included, no special case. `integration-granularity.md` names each sub-entry's source and `wave-clauses.md` cites the row instead of restating it. |
+| #520 wave-clauses states no home for a non-UI issue's Decision Log or judgment-call label | #556 | Two rows mirroring the milestone clauses: the Decision Log and Code Review section ride the step-6.5 commit trailer, the `judgment call` label goes on the issue, the post-run review is the single wave PR's. 6.7's visual-review gate is a no-op for these issues and defers nothing upward. |
+| #511 md-epic fan-out: a held milestone PR plus a parked issue matches two Outcome bullets | #558 | A milestone PR held for visual review together with an issue carrying a blocker label left the single-valued Outcome cell undecided. `parked with opens` now wins, since a blocker label is the root block; the Note column still reports both facts. |
+| #514 blocker-resolver: the agent and its enforcement row admit different evidence | #560 | The agent's Rigor gate permitted a sibling issue number that the dispatch table's per-verdict rows did not, so a compliant `RESOLVED` verdict was demoted to `NEEDS_HUMAN`. The Rigor gate now states the admissible set once (citation, recorded line, sibling issue number, or command output), and the dispatch table plus both `evidence:` templates cite it. |
+| #515 clearLabel has no unconditional default in the contract that defines it | #559 | `clearLabel` defaults to `false` when a return omits it and only an explicit `true` removes a label. The default sits in the Step 7 `issueStates` contract rather than only in a branch-gated dispatch file unread on runs where no MISS issue carries a Blocker. |
+| #516 A dependency hold never clears its own blocked label once the upstream merges | #561 | New governed `skills/solve-milestone/blocked-label-clear.md`, hooked from step 4 under condition (a) ahead of (b)'s live-label read: where every issue in `dependencyGraph.edges["<n>"]` passes the merged/trailer check and `blocked` is that issue's only blocker label, the run removes it. Clearing derives from the graph, never the comment text; an unmerged upstream keeps both label and 🔴 Blocked comment, and the one hook covers both execution modes. |
+| #524 changelog-authoring's PR-summary and theme extraction do not match the artifacts this repo produces | #562 | Step 6.2 reads the PR body's opening prose block between the `Closes #N.` line and the first `##` heading, never looking for or adding a `## Summary` heading no merged PR carries. Step 6.4's no-`Theme:` fallback derives the theme sentence from the milestone description's own prose instead of restating the entry heading, and pins the heading theme to title-minus-version-prefix. |
+| #512 md-epic fan-out: pending milestone-PR CI reports green, with no Note leg of its own | #563 | The milestone-PR Note probe returns the bucket list and reads three legs: any `fail` is red, else any `pending` is CI in flight with the Outcome staying **held for visual review**, otherwise green. A still-running CI no longer reports green; the no-CI vacuous-green case is unchanged. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #468 Three test runners use bash 4.3 namerefs and report 0 passed under the bash macOS ships | #551 | The `local -n` nameref in `split_tab()` made `extract-version`, `build-file-index` and `parse-md-epic-order` report 0 passed under the `/bin/bash` 3.2.57 macOS ships. Each now carries the global-`cols` shape four other runners already hold. CI closes the venue gap: `hook-smoke-macos` gains one explicit `/bin/bash` step per runner, all 15, and `shell-tests-bash` gains its missing `read-doc-section` step. |
+| #471 The pwsh legs collate strings differently from the bash legs, so twin output diverges | #554 | `triage-cache.ps1`, `build-file-index.ps1` and `ci-preflight-steps.ps1` sorted in UTF-16 code-unit and culture order, both of which diverge from the bash legs' `LC_ALL=C`: astral characters sorted before `U+E000`–`FFFF`, and plain ASCII case was re-ranked. All three now sort a parallel UTF-8 byte-key array, the idiom `check-citations.ps1` already ships. Three new fixtures pin the parity on both legs. |
+| #499 tests-green's .gitignore self-heal writes 6 entries where the committed authority carries 12 | #552 | The self-heal is create-only, so a consumer repo whose `.milestone-config/.gitignore` was written by tests-green never gained the six notice-marker names and those markers surfaced in `git status`. Both twins now emit the full set byte-identical to the committed authority, covered by a new `tests/tests-green.test.{sh,ps1}` pair registered in both shell-test CI jobs. |
+| #517 check-citations.ps1 takes its root positionally while its two sibling checkers take -Root | #550 | `scripts/check-citations.ps1` now takes its root through `param([string]$Root = (Get-Location).Path)`, the shape `check-size-budgets.ps1` and `check-doc-toc.ps1` already use. `-Root .` works and the positional call sites, CI included, are byte-unchanged. |
+| — `hook-smoke-macos` went red when #468's per-runner steps landed | #557 | The runners execute on the explicit `/bin/bash` 3.2 that is the job's venue, but launch the scripts under test through a PATH lookup that also resolves 3.2, and `scripts/extract-version.sh` and `scripts/build-file-index.sh` need bash 4+ for `mapfile`. One step after the hook-smoke fixtures prepends `$(brew --prefix)/bin` via `GITHUB_PATH`: runners keep executing on 3.2, their children resolve a modern bash. |
+
+### Consumer notes (upgrading from v1.23.0)
+
+- **A `.milestone-config/.gitignore` written by an earlier `tests-green` keeps its 6 entries.** The self-heal is create-only, so it will not repair an existing file: add the six notice-marker names by hand, or delete the file and let the hook rewrite the full 12.
+- **A dependency hold now clears its own `blocked` label** once every upstream in `dependencyGraph.edges` has merged and `blocked` is the issue's only blocker label. An issue that previously stayed unbuildable until a human removed the label re-enters the build set on the next run.
+- **pwsh script output ordering changes.** `triage-cache.ps1`, `build-file-index.ps1` and `ci-preflight-steps.ps1` now collate in byte order, matching their bash twins; output diffed against a pre-1.23.1 run reorders for non-ASCII and mixed-case names.
+- `scripts/check-citations.ps1` accepts `-Root <path>`; positional invocation still works.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: #556 (recorded ceiling raise, `skills/solve-issue/wave-clauses.md` byte axis 3000 → 3500, arithmetic in the PR body), #561 (registered the new governed file in `check-doc-toc.{sh,ps1}` beyond the brief's named twins, per the one-governed-set definition).
+
+- Unfiled defect, no issue number yet: `hooks/tests-green.sh:25` and `hooks/force-subagent.sh:50` fail open under bash 3.2, where `${g//\*\*/\*}` keeps the backslash, so every `**` sourceGlob matches nothing: force-subagent allows source edits it should block, and tests-green never fires. #557's PATH pin also masks the accidental 3.2-child coverage `tests-green.test.sh` had.
+- Unfiled defect, no issue number yet: `tests/render-daemon.test.sh` is 8 passed / 5 failed on the macOS CI runner, its stub `python3 http.server` never becoming ready on 127.0.0.1. #557 unmasked it; the step had never executed there because the job died earlier at `extract-version`.
+- Ceiling state a contributor's next edit hits: `skills/output-style.md` 48 bytes free, `skills/solve-milestone/changelog-authoring.md` 16 bytes free, `skills/solve-issue/md-epic-fanout.md` 13 bytes free, `skills/solve-milestone/SKILL.md` 15 bytes free. A Windows autocrlf clone measures md-epic-fanout at roughly 8539/8500, a known CRLF-margin exposure.
+- The new governed `skills/solve-milestone/blocked-label-clear.md` ceilings 25/2500/400 were derived arithmetically per the documented discipline, not raised; #556's byte raise above is the run's only ceiling change.
+
 ## v1.23.0 — wire the driver's triage park to the feeder's remediate verb
 
 **Theme:** The driver's triage park gains a hand-off to `/milestone-feeder:remediate`: solve-issue and solve-milestone ask once at run start whether to auto-remediate blocked issues, and the triage comment names the verb in every branch.
