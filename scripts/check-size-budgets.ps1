@@ -21,11 +21,20 @@
 #          per governed file, then one line per governed SKILL's load closure,
 #          then the trailing summary:
 #            OK/FAIL  <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
+#            WARN     <path>  <free> bytes free < <lines> lines (a CRLF checkout would FAIL this row)
 #            CLOSURE  <skillPath>  <wordSum>/<closureWordCeiling>
 #            CLOSURE  <skillPath>  MISSING/<closureWordCeiling>
 #            SUMMARY  ok=<N>  failed=<M>
 #          Exit 0 when every governed file is present and at/under ALL THREE
 #          ceilings; exit 1 when any file is missing or over any one.
+#
+# The WARN record (issue #574) is ADVISORY, the same shape the .sh sibling's
+# header records: it FOLLOWS the OK record of a file whose BYTE HEADROOM IS
+# SMALLER THAN ITS LINE COUNT, the one condition under which a file passes here
+# and fails on a core.autocrlf clone, which reads one extra byte per line. It
+# changes no exit code, is counted in NEITHER ok= NOR failed=, and is emitted
+# only after an OK record, never after a FAIL. Repay it by trading bytes inside
+# the file, not by raising the ceiling.
 #
 # The CLOSURE record is INFORMATIONAL AND NEVER GATES, the same
 # milestone-scoped choice the .sh sibling's header records: a sum over its
@@ -257,6 +266,16 @@ for ($i = 0; $i -lt $files.Count; $i++) {
   } else {
     $out.Add("OK`t$f`t$actual/$ceiling`t$actualBytes/$byteCeiling`t$actualWords/$wordCeiling")
     $ok++
+    # CRLF-margin advisory (issue #574), mirroring the .sh twin line for line:
+    # emitted ONLY after an OK record, never touching $ok, $failed or the exit
+    # code, and positioned immediately after the record it annotates. Both
+    # operands are already whole numbers ([long] ceiling minus an array length),
+    # so the subtraction and the comparison are integer arithmetic on both
+    # twins and the two streams stay byte-identical.
+    $byteHeadroom = $byteCeiling - $actualBytes
+    if ($byteHeadroom -lt $actual) {
+      $out.Add("WARN`t$f`t$byteHeadroom bytes free < $actual lines (a CRLF checkout would FAIL this row)")
+    }
   }
 }
 

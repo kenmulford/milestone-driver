@@ -63,7 +63,10 @@
 #     .gitattributes, alongside the pins already held by *.sh, *.ps1, *.tsv,
 #     *.txt, *.yml and tests/fixtures/**. Do not remove it, and do not size a
 #     ceiling to tolerate CRLF instead. The LINE count stays CRLF-proof either
-#     way (the pwsh twin counts 0x0A bytes).
+#     way (the pwsh twin counts 0x0A bytes). The WARN record in the output
+#     stream below is the standing guard against a file drifting back into that
+#     state unseen: it fires the moment byte headroom drops under the line
+#     count, which is exactly the CRLF cost.
 #
 # Ceiling discipline (documented, not machine-enforced):
 #   - CEILINGS ONLY GO DOWN, NEVER UP. Each ceiling starts at the governed
@@ -141,6 +144,7 @@
 # SKILL's load closure, then a trailing summary, TAB-separated (mirrors
 # ci-preflight-steps.sh's STEP/SKIP/SUMMARY stream):
 #   OK    <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
+#   WARN  <path>  <free> bytes free < <lines> lines (a CRLF checkout would FAIL this row)
 #   FAIL  <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
 #   FAIL  <path>  MISSING/<lineCeiling>  MISSING/<byteCeiling>  MISSING/<wordCeiling>
 #   CLOSURE <skillPath>  <wordSum>/<closureWordCeiling>
@@ -150,6 +154,14 @@
 # print, so the record itself shows which one moved. Exit 0 when every governed
 # file is present and at/under ALL THREE ceilings; exit 1 when any file is
 # missing or over. bash-3.2-safe (no ${var,,}, no `declare -A`, no `mapfile`).
+#
+# A WARN record (issue #574) FOLLOWS the OK record of a file whose BYTE HEADROOM
+# IS SMALLER THAN ITS LINE COUNT, the one condition under which a file passes
+# here and fails on a core.autocrlf clone, which reads one extra byte per line.
+# It is ADVISORY: it changes no exit code, is counted in NEITHER ok= NOR
+# failed=, and is emitted only after an OK record, never after a FAIL (a FAIL is
+# already the louder signal on that file). Repay a WARN by trading bytes inside
+# the file; raising the ceiling to silence it is the move the ratchet forbids.
 #
 # The CLOSURE record (issue #491) is INFORMATIONAL AND NEVER GATES. It carries
 # ONE unit, words, because words are what superpowers:writing-skills sizes a
@@ -478,6 +490,21 @@ while [ "$i" -lt "$nfiles" ]; do
     else
       printf 'OK\t%s\t%s/%s\t%s/%s\t%s/%s\n' "$f" "$actual" "$ceiling" "$actual_bytes" "$byte_ceiling" "$actual_words" "$word_ceiling"
       ok=$((ok + 1))
+      # CRLF-MARGIN ADVISORY (issue #574). A passing file whose byte headroom is
+      # smaller than its LINE count passes here and FAILS on a Windows
+      # core.autocrlf clone, which reads one extra byte per line: the exact
+      # shape the header's CRLF paragraph describes, on a file the contributor
+      # never touched. Emitted ONLY after an OK record (a FAIL row is already
+      # the louder signal on that file), and it never touches `ok`, `failed` or
+      # the exit code. Its position, immediately after the record it annotates,
+      # keeps a consumer reading the first field seeing the same OK/FAIL rows in
+      # the same order and the same SUMMARY last, the same additive property the
+      # CLOSURE records hold. Repay it by trading bytes inside the file, NOT by
+      # raising the ceiling.
+      byte_headroom=$((byte_ceiling - actual_bytes))
+      if [ "$byte_headroom" -lt "$actual" ]; then
+        printf 'WARN\t%s\t%s bytes free < %s lines (a CRLF checkout would FAIL this row)\n' "$f" "$byte_headroom" "$actual"
+      fi
     fi
   fi
   i=$((i + 1))

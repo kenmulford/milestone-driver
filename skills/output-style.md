@@ -58,7 +58,7 @@ Each shape is defined **once, here**. Its call sites point at this section; they
 | Shape | Opener | Required slots |
 |---|---|---|
 | **Park comment** (`solve-issue`, `md-epic-fanout`) | `🔴 Parked — ` | **reason** (what blocked it, one line) · **evidence** (the citation per `skills/citation-format.md`, command output, gate name, or parser stderr that shows it) · **what unblocks it** (the decision or artifact a human must supply) |
-| **Blocked comment** (dependency hold, `solve-milestone`) | `🔴 Blocked — ` | the same three: **reason** · **evidence** (the unmerged upstream issue numbers) · **what unblocks it** (merge the upstream, remove the `blocked` label, re-run) |
+| **Blocked comment** (dependency hold, `solve-milestone`) | `🔴 Blocked — ` | the same three: **reason** · **evidence** (the unmerged upstream issue numbers) · **what unblocks it** (merge the upstream, re-run; the `blocked` label self-clears) |
 | **STOP/PAUSE reason** (`solve-milestone` park step) | `🔴 Parked — ` | the same three, sourced from the implementer's or `solve-issue`'s own return — confirm all three are present before accepting the existing comment |
 | **Decision Log entry** (PR body) | — | **choice** · **rationale** · **citation** (doc URL, repo ref per `skills/citation-format.md`, or skill — never fabricated) · **rejected alternatives** |
 | **`## Code Review` section** (PR body) | — | run + effort · finding count · per-finding resolution · **evidence** (each finding's ref per `skills/citation-format.md`, or the effort level when the count is 0) · park-trigger list |
