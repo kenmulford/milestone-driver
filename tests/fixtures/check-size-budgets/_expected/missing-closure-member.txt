@@ -17,6 +17,7 @@ OK	skills/solve-milestone/parallel-waves.md	1/205	7/39500	1/5900
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
 OK	skills/solve-milestone/milestone-granularity.md	1/165	7/23500	1/3300
 OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/5500	1/900
+OK	skills/solve-milestone/blocked-label-clear.md	1/25	7/2500	1/400
 OK	skills/solve-milestone/changelog-authoring.md	1/205	7/14000	1/2200
 OK	skills/solve-milestone/contingencies.md	1/70	7/8500	1/1200
 OK	skills/solve-milestone/db-hazard-interview.md	1/30	7/2500	1/400
@@ -39,4 +40,4 @@ CLOSURE	skills/setup/SKILL.md	3/7200
 CLOSURE	skills/solve-issue/SKILL.md	MISSING/11000
 CLOSURE	skills/solve-milestone/SKILL.md	MISSING/9200
 CLOSURE	skills/triage/SKILL.md	3/8100
-SUMMARY	ok=36	failed=1
+SUMMARY	ok=37	failed=1

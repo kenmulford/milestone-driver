@@ -70,6 +70,7 @@ skills/solve-milestone/parallel-waves.md            205    39500     5900
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
+skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
@@ -146,8 +147,8 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
 # membership rule (a file belongs to a closure when the skill reads it on EVERY
 # run, with no branch in front of the read), for the branch-gated files that are
-# deliberately EXCLUDED — the six branch-gated files plus 17 of milestone #39's
-# splits, each with the branch that gates it — for the 18th split
+# deliberately EXCLUDED — the six branch-gated files plus 19 of the 20 files
+# later split out, each with the branch that gates it — for the one remaining
 # (skills/solve-issue/version-bump.md), which is NOT branch-gated and IS summed
 # into solve-issue's closure, carrying that closure's 11200 -> 11700
 # re-derivation with it, and for why column 1 is both the record's
