@@ -241,6 +241,7 @@ skills/solve-milestone/parallel-waves.md            205    39500     5900
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
+skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    14000     2200
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
@@ -338,10 +339,11 @@ fi
 # perturbing all six leaves every CLOSURE line byte-identical.
 #
 # Milestone #39 split 18 more reference files out of the four SKILL.md files,
-# and issue #502 added solve-issue/wave-clauses.md beside its milestone twin.
-# 18 of those 19 are EXCLUDED on the same rule, each verified against its read
-# directive — the #39 set on 2026-08-10, wave-clauses.md on 2026-08-12 — with
-# the branch that stands in front of the read in brackets:
+# issue #502 added solve-issue/wave-clauses.md beside its milestone twin, and
+# issue #516 added solve-milestone/blocked-label-clear.md. 19 of those 20 are
+# EXCLUDED on the same rule, each verified against its read directive — the #39
+# set on 2026-08-10, wave-clauses.md on 2026-08-12, blocked-label-clear.md on
+# 2026-08-18 — with the branch that stands in front of the read in brackets:
 #   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
 #   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
 #   solve-issue/wave-clauses.md          [integrationGranularity: "wave"]
@@ -353,6 +355,7 @@ fi
 #   solve-issue/visual-capture.md        [visualCapture configured AND sequential]
 #   solve-issue/visual-review-hold.md    [UI issues]
 #   solve-milestone/abandoned-recovery.md    [non-empty `abandoned` bucket]
+#   solve-milestone/blocked-label-clear.md   [(a) held with a non-empty edge set]
 #   solve-milestone/changelog-authoring.md   [clean completion, zero parked]
 #   solve-milestone/contingencies.md         [a named failure branch]
 #   solve-milestone/db-hazard-interview.md   [cascade row 4 only]
