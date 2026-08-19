@@ -68,6 +68,10 @@ if [ -n "$stamp_key" ]; then
   # is git-invisible in the consumer repo from the first write, while tracked config
   # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
   # only created when absent, so a user-edited file is never clobbered.
+  # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
+  # this repo and with solve-issue / solve-milestone / scripts/triage-cache.{sh,ps1},
+  # feeder setup / plan. tests/tests-green.test.{sh,ps1} pin the EMITTED bytes
+  # against that file, so a name added there and not here fails CI.
   ignore_path="$project_dir/.milestone-config/.gitignore"
   if [ ! -f "$ignore_path" ]; then
     printf '%s\n' \
@@ -75,8 +79,10 @@ if [ -n "$stamp_key" ]; then
       '# Committed so per-run scratch stays out of `git status` with zero user setup.' \
       '# Patterns are relative to this .milestone-config/ directory. Tracked config' \
       '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.' \
-      'preflight-notice' 'trello-notice' 'triage-cache.json' 'tests-stamp' \
-      '.runtime/' 'worktrees/' > "$ignore_path" 2>/dev/null || true
+      'preflight-notice' 'trello-notice' 'visualcapture-notice' \
+      'parallel-default-notice' 'code-review-gate-notice' 'aiprefilter-notice' \
+      'cost-record-notice' 'uisurfaceglobs-notice' 'triage-cache.json' \
+      'tests-stamp' '.runtime/' 'worktrees/' > "$ignore_path" 2>/dev/null || true
   fi
   if printf '%s' "$stamp_key" > "$stamp_path" 2>/dev/null; then
     [ -f "$old_stamp_path" ] && rm -f "$old_stamp_path" 2>/dev/null || true
