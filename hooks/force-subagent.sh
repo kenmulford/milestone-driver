@@ -44,10 +44,17 @@ case "$norm" in
   "$project_dir"/*) rel="${norm#"$project_dir"/}" ;;
 esac
 
+# ** -> * ('*' in a case glob matches across '/'). Both operands of the //
+# replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
+# backslash in the replacement, so `${g//\*\*/\*}` yields `skills/\*` there and
+# `skills/*` on 5.x — a pattern matching a literal star, so every `**` glob
+# stopped matching and this gate silently allowed source edits (#571). Quoting
+# through $STARSTAR/$STAR is byte-identical on 3.2.57 and 5.3.15.
+STARSTAR='**'; STAR='*'
 while IFS= read -r g; do
   g="${g%$'\r'}"          # strip trailing CR (jq on Windows/msys emits CRLF)
   [ -z "$g" ] && continue
-  pat="${g//\*\*/\*}"     # ** -> * ('*' in a case glob matches across '/')
+  pat="${g//"$STARSTAR"/$STAR}"
   blocked=0
   # shellcheck disable=SC2254
   case "$rel"  in $pat)    blocked=1 ;; esac

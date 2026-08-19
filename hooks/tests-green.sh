@@ -20,9 +20,16 @@ unit_cmd="$(jq -r '.unitTestCmd // empty' "$profile" 2>/dev/null)"; unit_cmd="${
 globs=(); while IFS= read -r g; do g="${g%$'\r'}"; [ -n "$g" ] && globs+=("$g"); done \
   < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
 touched=0; [ ${#globs[@]} -eq 0 ] && touched=1
+# ** -> * ('*' in a case glob matches across '/'). Both operands of the //
+# replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
+# backslash in the replacement, so `${g//\*\*/\*}` yields `src/\*` there and
+# `src/*` on 5.x — a pattern matching a literal star, so no staged file ever
+# matched and this gate never ran the suite (#571). Quoting through
+# $STARSTAR/$STAR is byte-identical on 3.2.57 and 5.3.15.
+STARSTAR='**'; STAR='*'
 while IFS= read -r f; do
   [ -z "$f" ] && continue
-  for g in "${globs[@]}"; do pat="${g//\*\*/\*}"; case "$f" in $pat) touched=1; break;; esac; done
+  for g in "${globs[@]}"; do pat="${g//"$STARSTAR"/$STAR}"; case "$f" in $pat) touched=1; break;; esac; done
   [ "$touched" = "1" ] && break
 done < <(git -C "$project_dir" diff --cached --name-only 2>/dev/null)
 [ "$touched" = "0" ] && exit 0
