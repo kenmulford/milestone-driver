@@ -45,6 +45,8 @@ jobs:
         run: bash tests/check-citations.test.sh
       - name: classify-delta (bash)
         run: bash tests/classify-delta.test.sh
+      - name: read-doc-section (bash)
+        run: bash tests/read-doc-section.test.sh
       - name: tests-green (bash)
         run: bash tests/tests-green.test.sh
       # The two scripts/check-* steps that run against THIS repo's real tree.
@@ -159,3 +161,41 @@ jobs:
           set +e
           out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      # The golden-matrix runners, under the SAME 3.2 interpreter. The hook
+      # smoke steps above cover hooks/ only; the runners themselves are shell
+      # too, and a bash-4-only construct in one (a `local -n` nameref, say)
+      # reports 0 passed here while shell-tests-bash stays green on
+      # ubuntu-latest's bash 5 — issue #468. `bash` on this runner resolves to
+      # 3.2 anyway; `/bin/bash` is explicit so the venue can never drift.
+      - name: extract-version (/bin/bash 3.2)
+        run: /bin/bash tests/extract-version.test.sh
+      - name: ci-preflight-steps (/bin/bash 3.2)
+        run: /bin/bash tests/ci-preflight-steps.test.sh
+      - name: parse-md-epic-order (/bin/bash 3.2)
+        run: /bin/bash tests/parse-md-epic-order.test.sh
+      - name: render-daemon (/bin/bash 3.2)
+        run: /bin/bash tests/render-daemon.test.sh
+      - name: check-size-budgets (/bin/bash 3.2)
+        run: /bin/bash tests/check-size-budgets.test.sh
+      - name: check-doc-toc (/bin/bash 3.2)
+        run: /bin/bash tests/check-doc-toc.test.sh
+      - name: check-skill-frontmatter (/bin/bash 3.2)
+        run: /bin/bash tests/check-skill-frontmatter.test.sh
+      - name: code-review-gate (/bin/bash 3.2)
+        run: /bin/bash tests/code-review-gate.test.sh
+      - name: build-file-index (/bin/bash 3.2)
+        run: /bin/bash tests/build-file-index.test.sh
+      - name: write-cost-record (/bin/bash 3.2)
+        run: /bin/bash tests/write-cost-record.test.sh
+      - name: resolve-citation (/bin/bash 3.2)
+        run: /bin/bash tests/resolve-citation.test.sh
+      - name: triage-cache (/bin/bash 3.2)
+        run: /bin/bash tests/triage-cache.test.sh
+      - name: check-citations (/bin/bash 3.2)
+        run: /bin/bash tests/check-citations.test.sh
+      - name: classify-delta (/bin/bash 3.2)
+        run: /bin/bash tests/classify-delta.test.sh
+      - name: read-doc-section (/bin/bash 3.2)
+        run: /bin/bash tests/read-doc-section.test.sh
+      - name: tests-green (/bin/bash 3.2)
+        run: /bin/bash tests/tests-green.test.sh
