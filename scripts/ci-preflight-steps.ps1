@@ -40,10 +40,39 @@ if (-not (Test-Path -LiteralPath $wfdir -PathType Container)) {
   Flush; exit 0
 }
 
-# Collect *.yml + *.yaml, sorted by basename ascending for determinism.
-$wfiles = @(Get-ChildItem -LiteralPath $wfdir -File -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -match '\.(yml|yaml)$' } |
-  Sort-Object Name)
+# Collect *.yml + *.yaml, then sort the basenames in CODEPOINT ORDER ascending,
+# matching the .sh sibling's `sort` under the LC_ALL=C it exports. `solve-issue`
+# runs the emitted STEP records in stream order, and both legs assert against the
+# same golden, so the order is contract, not cosmetics.
+#
+# The keys are each basename's UTF-8 BYTES respelled as Latin-1 byte-chars, so
+# StringComparer.Ordinal over them IS a byte comparison, and UTF-8 byte order IS
+# codepoint order — the byte-domain model scripts/check-citations.ps1 (THE SORT)
+# already ships (Latin1 is the lossless byte<->char bijection). `Sort-Object Name`
+# would NOT do: it is culture-sensitive, ranking `alpha.yml` before `Zeta.yml`
+# where codepoint order ranks `Zeta.yml` first, so it diverged on PLAIN ASCII
+# basenames. Ordinal over the decoded names would not do either: that is UTF-16
+# code-unit order, which ranks an astral char (lead surrogate U+D800-DBFF) before
+# every U+E000-FFFF char where codepoint order ranks it after. ASCII-only
+# basenames agree under codepoint and Ordinal alike, so ASCII agreement is NOT
+# evidence of parity: the pin is tests/fixtures/ci-preflight/sort-order/.
+#
+# [System.IO.FileInfo[]], not the @() object[] every other collection here uses.
+# Probed on pwsh 7.6.3: Array.Sort(keys, items, comparer) handed an OBJECT[] as
+# items sorts the keys and leaves items in discovery order — the binder converts
+# object[] to the overload's element type and permutes that conversion, not the
+# variable. Any concretely-typed items array (int[], string[], FileInfo[]) needs
+# no conversion and sorts in place. Silent when it goes wrong, so the typed cast
+# is load-bearing, not decoration.
+$u8 = [System.Text.Encoding]::UTF8
+$l1 = [System.Text.Encoding]::Latin1
+$wfiles = [System.IO.FileInfo[]]@(Get-ChildItem -LiteralPath $wfdir -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -match '\.(yml|yaml)$' })
+if ($wfiles.Count -gt 1) {
+  $bk = New-Object string[] $wfiles.Count
+  for ($i = 0; $i -lt $wfiles.Count; $i++) { $bk[$i] = $l1.GetString($u8.GetBytes($wfiles[$i].Name)) }
+  [array]::Sort($bk, $wfiles, [System.StringComparer]::Ordinal)
+}
 if ($wfiles.Count -eq 0) {
   Emit "WARN`tno workflow files in $wfdir — nothing to mirror"
   Flush; exit 0

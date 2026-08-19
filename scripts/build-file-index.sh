@@ -8,7 +8,7 @@
 # resolve outside the repo root (cwd) are skipped, not fatal.
 set -u
 # Force a deterministic byte model: LC_ALL=C makes every string op and `sort`
-# byte-indexed, keeping this leg in lockstep with the pwsh twin's ordinal model
+# byte-indexed, keeping this leg in lockstep with the pwsh twin's byte model
 # — same rationale as scripts/extract-version.sh (a deterministic).
 export LC_ALL=C
 
