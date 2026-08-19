@@ -53,6 +53,13 @@ lookup-missing-response	lookup roots/hit resp/absent.json	skip-bad-response.out	
 # HIT. The cached keys ARE the degraded keys, so a HIT proves both legs built the
 # same key text, not merely the same record shape.
 lookup-wrong-typed-fields	lookup roots/wrong-types resp/ts-wrong-types.json	lookup-wrong-types.out	0	
+# COLLATION (issue #471). The label set holds an astral name (U+1F600) beside a
+# U+E000-FFFF one (U+FF21). UTF-16 code-unit order puts the astral name FIRST (its
+# lead surrogate is U+D83D); codepoint / UTF-8 byte order puts it LAST. The cached
+# key is the codepoint order the .sh leg's jq `sort` yields, so a HIT on both legs
+# is the parity proof. Every other row here is ASCII, and ASCII agrees under both
+# orders, so no other row can catch this.
+lookup-astral-vs-bmp-labels	lookup roots/sort-order resp/ts-sort-order.json	lookup-sort-order.out	0	
 # Edge 100 is CLOSED/NOT_PLANNED, so both cached entries that reference it are
 # downgraded. Edge 101 is CLOSED/COMPLETED — merged, and never a downgrade.
 check-edges-closed-not-merged	check-edges roots/hit resp/edges-closed.json	check-edges-two.out	0	

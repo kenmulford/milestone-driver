@@ -1,0 +1,13 @@
+{
+  "7": {
+    "key": "7:2026-08-01T00:00:00Z:0:zzz,Ａ,😀",
+    "triaged_at": "2026-08-01T01:00:00Z",
+    "result": {
+      "blockers": false,
+      "label": null,
+      "advisories": [],
+      "risk": "light",
+      "edges": []
+    }
+  }
+}
