@@ -114,6 +114,14 @@
 #     lockstep. That authorization is spent on that issue's three fixes and
 #     covers nothing else: the next edit to either row re-derives normally, and
 #     both go down again from there.
+#     RECORDED RAISE, issue #520 (decision 2026-08-18):
+#     skills/solve-issue/wave-clauses.md BYTE 3000 -> 3500. The two rows that
+#     issue requires (`6.7`, `Autonomy model`) measure 227 + 229 = 456 bytes
+#     against 193 free (2807/3000), so 263 bytes cannot be found without
+#     rewriting the shipping clause rows that issue lists as a non-goal.
+#     New actual 3263; 3263 * 1.05 = 3426.15, rounded UP to the next 500 =
+#     3500. LINE 18/25 and WORD 471/500 still hold, so neither moves.
+#     Spent on this issue's two rows: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -227,7 +235,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
-skills/solve-issue/wave-clauses.md                   25     3000      500
+skills/solve-issue/wave-clauses.md                   25     3500      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    39500     5900
 skills/solve-milestone/trello-sync.md               400    19500     3000

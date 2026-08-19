@@ -64,7 +64,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
 skills/solve-issue/visual-review-hold.md             20     2500      400
-skills/solve-issue/wave-clauses.md                   25     3000      500
+skills/solve-issue/wave-clauses.md                   25     3500      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    39500     5900
 skills/solve-milestone/trello-sync.md               400    19500     3000
