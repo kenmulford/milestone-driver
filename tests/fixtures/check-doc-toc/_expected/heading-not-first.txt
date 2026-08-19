@@ -17,6 +17,7 @@ OK	skills/solve-milestone/parallel-waves.md
 OK	skills/solve-milestone/trello-sync.md
 OK	skills/solve-milestone/milestone-granularity.md
 OK	skills/solve-milestone/abandoned-recovery.md
+OK	skills/solve-milestone/blocked-label-clear.md
 OK	skills/solve-milestone/changelog-authoring.md
 OK	skills/solve-milestone/contingencies.md
 OK	skills/solve-milestone/db-hazard-interview.md
@@ -35,4 +36,4 @@ OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=36	failed=1
+SUMMARY	ok=37	failed=1
