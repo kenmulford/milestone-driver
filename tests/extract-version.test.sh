@@ -12,17 +12,22 @@ pass=0; fail=0
 # under concurrent runs and is portable across hosts; trap removes it on exit.
 ERRFILE="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ev_err.$$")"
 trap 'rm -f "$ERRFILE"' EXIT
-# Split on TAB preserving empty fields ("IFS=$'\t' read" collapses adjacent tabs,
-# silently dropping empty description / expected columns — parity-critical to avoid).
 TAB=$'\t'
+# split_tab <row> — bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
+# read" collapses adjacent tabs, silently dropping empty description / expected
+# columns — parity-critical to avoid). NO `local -n`: that is a bash-4.3
+# nameref, and under the /bin/bash 3.2 macOS ships it is an invalid option to
+# `local`, so the array never populates and every case fails. Sets the GLOBAL
+# `cols` array directly. Copied from tests/code-review-gate.test.sh (split_tab() {).
 split_tab() {
-  local rest="$1$TAB"; local -n _arr="$2"; _arr=()
-  while [ -n "$rest" ]; do _arr+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
+  local rest="$1$TAB"
+  cols=()
+  while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 while IFS= read -r row || [ -n "$row" ]; do
   case "$row" in ''|\#*) continue;; esac
   row="${row%$'\r'}"
-  split_tab "$row" cols
+  split_tab "$row"
   name="${cols[0]:-}"; title="${cols[1]:-}"; desc="${cols[2]:-}"
   exp_out="${cols[3]:-}"; exp_err="${cols[4]:-}"
   json="$(jq -n --arg t "$title" --arg d "$desc" '{title:$t, description:$d}')"

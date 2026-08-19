@@ -55,12 +55,32 @@ function Leaf([string]$path) { return $path.Substring($path.LastIndexOfAny([char
 
 function Is-BlockIndicator([string]$v) { return @('>-', '>', '|', '|-') -contains $v }
 
-# Ordinal-sorted, de-duplicated string list (parity with LC_ALL=C `sort -u`).
+# The two encodings Sort-Uniq's byte keys are built on. Latin1 is the
+# byte<->char bijection: every byte 0x00-0xFF maps to the char of the same value
+# and back, losslessly (scripts/check-citations.ps1 (Latin1 is the byte<->char)).
+$SUU8 = [System.Text.Encoding]::UTF8
+$SUL1 = [System.Text.Encoding]::Latin1
+# Get-ByteKey — a path respelled as the byte-chars of its UTF-8 encoding, so
+# StringComparer.Ordinal over the result compares BYTES.
+function Get-ByteKey([string]$s) { return $SUL1.GetString($SUU8.GetBytes($s)) }
+
+# De-duplicated string list in CODEPOINT ORDER, parity with the .sh twin's
+# `LC_ALL=C sort -u`. The keys are each item's UTF-8 BYTES as byte-chars, so
+# Ordinal over them IS a byte sort, and UTF-8 byte order IS codepoint order — the
+# byte-domain model scripts/check-citations.ps1 (THE SORT) already ships. Ordinal
+# over the DECODED strings would NOT do: that is UTF-16 code-unit order, which
+# ranks an astral char (lead surrogate U+D800-DBFF) BEFORE every U+E000-FFFF char
+# where codepoint order ranks it after, so a `(callers: …)` list holding both
+# would come out in a different order on each leg. ASCII-only input agrees under
+# both orders, so ASCII agreement is NOT evidence of parity: the pin is
+# tests/build-file-index.cases.tsv (sort-order).
 function Sort-Uniq([string[]]$items) {
   $set = [System.Collections.Generic.List[string]]::new()
   foreach ($x in $items) { if (-not $set.Contains($x)) { $set.Add($x) } }
   $arr = $set.ToArray()
-  [Array]::Sort($arr, [System.StringComparer]::Ordinal)
+  $bk = New-Object string[] $arr.Length
+  for ($i = 0; $i -lt $arr.Length; $i++) { $bk[$i] = Get-ByteKey $arr[$i] }
+  [Array]::Sort($bk, $arr, [System.StringComparer]::Ordinal)
   return , $arr
 }
 
@@ -113,7 +133,7 @@ function Purpose-Header([string]$path) {
 }
 
 # Top-level function names in a .sh/.ps1 — BOTH bash shape `name() {` AND pwsh
-# shape `function Name` matched in this leg. Deduped + ordinal-sorted.
+# shape `function Name` matched in this leg. Deduped + byte-sorted.
 function Extract-Symbols([string]$path) {
   $names = [System.Collections.Generic.List[string]]::new()
   foreach ($line in [System.IO.File]::ReadAllLines($path)) {
@@ -123,7 +143,7 @@ function Extract-Symbols([string]$path) {
   return Sort-Uniq $names.ToArray()
 }
 
-# Combined callers UNION callees (see the .sh twin), deduped + ordinal-sorted.
+# Combined callers UNION callees (see the .sh twin), deduped + byte-sorted.
 function File-Relations([string]$p, [string]$pFull) {
   $pbase = Leaf $p
   $pContent = [System.IO.File]::ReadAllText($pFull)

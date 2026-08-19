@@ -7,3 +7,9 @@ nonexistent	happy	{"files":["skills/nope/SKILL.md"]}		none
 escape_root	escape/root	{"files":["../outside.sh"]}		none
 unclassified	unclassified	{"files":["notes/thing.txt"]}	unclassified.out	
 truncation	trunc	{"files":["hooks/beta.sh","skills/tr/SKILL.md"]}	truncation.out	
+# COLLATION (issue #471). hooks/main.sh names two neighbours whose basenames hold
+# an astral char (U+1F600) and a U+E000-FFFF char (U+FF21). UTF-16 code-unit order
+# puts the astral one FIRST (lead surrogate U+D83D); codepoint / UTF-8 byte order
+# puts it LAST, which is what `LC_ALL=C sort -u` yields. Every other row is ASCII,
+# and ASCII agrees under both orders, so no other row can catch this.
+sort-order	sort-order	{"files":["hooks/main.sh"]}	sort-order.out	

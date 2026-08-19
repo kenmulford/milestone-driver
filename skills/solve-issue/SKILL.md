@@ -28,7 +28,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 
    1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
 
-      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1}, feeder setup / plan. -->
+      <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
       # milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
       # Committed so per-run scratch stays out of `git status` with zero user setup.
