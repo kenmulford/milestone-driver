@@ -27,7 +27,7 @@ gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullReque
 
 Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. Null or empty (no linked PR) → use the issue title as that issue's What-column content, skip `gh pr view`, and record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
 
-With a valid PR number confirmed, run `gh pr view <pr-number> --json title,body` and extract the summary line: the **first non-blank line** following a `## Summary` heading in the body (case-insensitive match on the heading text), falling back to the PR title when there is no such heading. Record a triple per issue: `{ issue: #N, pr: #P, summary: "<extracted line>" }`.
+With a valid PR number confirmed, run `gh pr view <pr-number> --json title,body` and read the body's **opening prose block** — the text between the `Closes #<n>.` opener and the first `##` heading (line 1 if absent). Never look for or add a `## Summary` heading: a PR body here carries the Decision Log and `## Code Review` (`skills/solve-issue/SKILL.md (Put the Decision Log)`). Condense it to one line under step 6.5's `What`-cell rule; empty block → the PR title. Record a triple per issue: `{ issue: #N, pr: #P, summary: "<condensed>" }`.
 
 ## 6.3 Categorize issues
 
@@ -38,7 +38,9 @@ Group the merged issues into two buckets by label and title prefix:
 
 ## 6.4 Determine the milestone theme
 
-Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`) and look for a dedicated theme line starting `Theme:` or `**Theme:**`; the text after the prefix is the one-sentence theme description. No theme line → use the milestone title as both the heading theme and the theme description.
+Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`) and look for a theme line starting `Theme:` or `**Theme:**`; the text after it is the one-sentence theme description. The heading theme is the milestone title minus any version prefix.
+
+**No theme line**: derive it from the description's own **prose**, never its title — the release's net behavior change (`skills/output-style.md (CHANGELOG entry)`) minus what the entry already carries (build order, Waves, `#N` list), never a restatement of the entry heading. No description → the milestone title.
 
 ## 6.5 Author the CHANGELOG entry
 
