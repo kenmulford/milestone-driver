@@ -350,6 +350,8 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 
 `blockers: true` means the issue has at least one Blocker gap and is parked. `label` is the triage-recommended park label (`"needs design"` or `"needs decision"`) when `blockers: true`; `null` when `blockers: false`, which means all-clear (Advisories are logged but not gating). The calling skill uses `issueStates` to decide which issues to build and which to hold, the `label` field to apply the park label via setup Phase 4's apply-time helper, `clearLabel` to remove one (`skills/triage/blocker-resolver-dispatch.md (Unparking)`), and separately derives `blocked` (and any transitive-dependent holds) from `dependencyGraph.edges`.
 
+**`clearLabel` defaults to `false` when a return omits it** — only an explicit `true` removes a label, so an absent field is never an instruction to remove one.
+
 `risk` is the per-issue classification computed in Step 4: `"light"` or `"heavy"`, defaulting to `"heavy"` when inconclusive. `solve-issue` reads `issueStates["<n>"].risk` to resolve the build profile for that issue.
 
 ## Severity → effect
