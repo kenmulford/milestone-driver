@@ -187,6 +187,43 @@ jobs:
         run: /bin/bash tests/ci-preflight-steps.test.sh
       - name: parse-md-epic-order (/bin/bash 3.2)
         run: /bin/bash tests/parse-md-epic-order.test.sh
+      - name: DIAG render-daemon stub (temporary, remove before merge)
+        run: |
+          echo "== PATH =="; echo "$PATH"
+          echo "== resolutions =="
+          command -v python3; python3 --version
+          command -v bash; bash --version | sed -n 1p
+          command -v curl; curl --version | sed -n 1p
+          echo "== A: plain background python3 =="
+          python3 -m http.server 8799 --bind 127.0.0.1 > /tmp/stubA.log 2>&1 &
+          SPA=$!
+          sleep 4
+          echo "-- stubA.log:"; cat /tmp/stubA.log || true
+          echo "-- proc:"; ps -p "$SPA" || true
+          echo "-- listeners:"; lsof -nP -iTCP:8799 -sTCP:LISTEN || echo "none"
+          curl -v --max-time 5 http://127.0.0.1:8799/ -o /dev/null || echo "CURL-A FAILED rc=$?"
+          kill "$SPA" 2>/dev/null || true
+          echo "== B: daemon-shaped spawn (set -m, nohup bash -c, detached stdio) =="
+          set -m
+          nohup bash -c "python3 -m http.server 8798 --bind 127.0.0.1" </dev/null >/tmp/stubB.log 2>&1 &
+          SPB=$!
+          set +m
+          sleep 4
+          echo "-- stubB.log:"; cat /tmp/stubB.log || true
+          echo "-- group procs:"; ps -g "$SPB" 2>/dev/null || ps -p "$SPB" || true
+          echo "-- listeners:"; lsof -nP -iTCP:8798 -sTCP:LISTEN || echo "none"
+          curl -v --max-time 5 http://127.0.0.1:8798/ -o /dev/null || echo "CURL-B FAILED rc=$?"
+          kill -- -"$SPB" 2>/dev/null || true
+          echo "== C: /usr/bin/python3 variant =="
+          /usr/bin/python3 --version || true
+          /usr/bin/python3 -m http.server 8797 --bind 127.0.0.1 > /tmp/stubC.log 2>&1 &
+          SPC=$!
+          sleep 4
+          echo "-- stubC.log:"; cat /tmp/stubC.log || true
+          lsof -nP -iTCP:8797 -sTCP:LISTEN || echo "none"
+          curl -sS --max-time 5 http://127.0.0.1:8797/ -o /dev/null && echo "CURL-C OK" || echo "CURL-C FAILED rc=$?"
+          kill "$SPC" 2>/dev/null || true
+          exit 0
       - name: render-daemon (/bin/bash 3.2)
         run: /bin/bash tests/render-daemon.test.sh
       - name: check-size-budgets (/bin/bash 3.2)
