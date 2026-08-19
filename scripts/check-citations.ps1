@@ -96,6 +96,9 @@
 # Dependency-free: PowerShell 7+ built-ins only — no jq, no yq, no python, no
 # YAML or markdown parser
 # (.project/library-manifest.md#Adding a dependency (the gate)).
+param(
+  [string]$Root = (Get-Location).Path
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -130,7 +133,6 @@ $NV_HASH  = ToByteChars 'path#Heading — not verified'
 $NV_SECT  = ToByteChars 'path § Heading — not verified'
 $NV_LINE  = ToByteChars 'path:line — not verified'
 
-$Root = if ($args.Count -ge 1) { [string]$args[0] } else { (Get-Location).Path }
 if ($Root.EndsWith('/')) { $Root = $Root.Substring(0, $Root.Length - 1) }
 if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
   Err ('ERROR check-citations: not a directory: ' + (ToByteChars $Root))
