@@ -11,25 +11,25 @@ The point is quality. The bigger the ask of AI, the worse the quality is. By kee
 UI issues stop for your visual sign-off. Anything risky, like a design gap or a one-way-door decision, parks with a label instead of guessing. Your release branch is never touched. That stays your call, behind your manual deploy.
 
 ```mermaid
-%%{init: {"flowchart": {"wrappingWidth": 900}} }%%
+%%{init: {"flowchart": {"wrappingWidth": 280, "nodeSpacing": 30, "rankSpacing": 32, "padding": 8}} }%%
 flowchart TD
-    cfg(["reads your .milestone-config/ profile &amp; .project/ docs — written by milestone-bootstrapper"])
+    cfg(["reads your .milestone-config/ profile<br/>&amp; .project/ docs — from milestone-bootstrapper"])
 
-    input[/"a milestone — or a single issue #"/]
+    input[/"a milestone — or<br/>a single issue #"/]
 
-    subgraph loop [each issue — the same gates every time · repeats in dependency order]
+    subgraph loop [each issue · the same gates · in dependency order]
         direction TB
         subgraph sgU [understand]
             direction LR
-            u1["triage the design<br/>for gaps"] --> u2["find the root cause<br/>(or park — never guess)"]
+            u1["triage the design<br/>for gaps"] --> u2["find the root cause<br/>(or park, not guess)"]
         end
         subgraph sgB [build — test-first]
             direction LR
-            b1["failing test first"] --> b2["subagent implements<br/>to green"] --> b3["review the diff"]
+            b1["failing test first"] --> b2["subagent builds<br/>to green"] --> b3["review the diff"]
         end
         subgraph sgL [land]
             direction LR
-            l1["PR to your<br/>integration branch"] --> l2["auto-merge on green CI<br/>UI issues wait for your eyes"]
+            l1["PR to your<br/>integration branch"] --> l2["merge on green CI ·<br/>UI waits for your eyes"]
         end
 
         sgU -->|root cause in hand| sgB
