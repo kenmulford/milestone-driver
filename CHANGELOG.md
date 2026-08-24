@@ -3,6 +3,40 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.23.3 — agent brief read scope, domainSkills invocation
+
+**Theme:** A dispatched agent is now handed the absolute path of every plugin file it must read and a rule forbidding it to search above the repo root, and `domainSkills` finally resolves to names the Skill tool can invoke, with each agent reporting which it used.
+
+### ✨ domainSkills becomes invocable and observable
+
+| Issue | PR | What |
+|---|---|---|
+| #589 `domainSkills` is never invoked: wildcard values are not invocable and no return slot records consultation | #594 | The profile's `domainSkills` was briefed to every agent but never invoked: `plugin-dev:*` has no Skill-tool invocation, and no return block recorded whether the research-path step ran, so an agent that wanted the grounding walked the plugin cache on disk instead. A new `scripts/expand-domain-skills.{sh,ps1}` twin expands `<plugin>:*` against the cache, selecting the highest name matching `^[0-9]+(\.[0-9]+)+$` by component-wise numeric compare and falling back to the byte-last name, so a plugin whose only cache directory is `unknown` still resolves. `skills/triage/SKILL.md`, `skills/solve-issue/SKILL.md`, and `skills/setup/SKILL.md` expand at profile read and brief the expanded list; an expansion returning nothing is treated exactly as an absent key, and every dropped entry is named as `domainSkills unresolved: <entry>`. Setup takes and records exact names. All four agent briefs now mandate Skill-tool invocation and never a disk lookup, and `triage-reviewer`, `design-reviewer`, `implementer`, and `blocker-resolver` each return `DOMAIN_SKILLS_INVOKED`, which the orchestrator copies into the triage comment and the PR Decision Log. Ungated: a `none` value blocks nothing. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #588 Agent briefs give no read scope and cite `skills/citation-format.md` by a path that does not resolve; agents `find /` | #590 | Six sites across the four agent briefs cited `skills/citation-format.md` by a repo-relative path, which resolves against the consumer repo where the file does not exist, and no brief bounded reads, so a dispatched agent resolved the name by walking the filesystem: one recorded triage-reviewer ran `find / -iname "hook-development*"` and hit the 2-minute Bash timeout at exit 143. Orchestrators now hand in `citationFormatPath`, the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md`, at every site that composes an agent brief, and all four agent briefs carry a verbatim read-scope rule: the worktree or repo root named in the brief plus the handed-in absolute paths, never a search against `/`, `/c`, `~`, `$HOME`, `~/.claude`, or any directory above the repo root, and a file not found inside the scope is reported as not found. `skills/output-style.md`'s evidence-slot rows moved with them, since that section is threaded verbatim into every brief and each agent's `## Communication style` gives the contract precedence on conflict. |
+
+### Consumer notes (upgrading from v1.23.2)
+
+- **`domainSkills` now takes exact `plugin:skill` names.** A wildcard already in your `.milestone-config/driver.json` keeps working: the three profile-read callers expand it before briefing, and a setup re-run expands a pre-filled or inferred wildcard rather than rejecting it. A wildcard you type at the setup prompt is refused with `domainSkills entries are exact plugin:skill names; "<entry>" is not invocable`.
+- **A `<plugin>:*` whose plugin is not installed locally expands to nothing and is currently refused by setup as a shape error.** Install the plugin before recording it, or write exact names. Tracked as #593.
+- **Agents no longer search outside the repo.** A reviewer or implementer that cannot find a file inside its scope reports it as not found rather than locating it elsewhere, so an agent relying on a plugin file it was not handed will say so instead of walking the cache.
+- New gitignored artifact: none. New profile keys: none.
+- **`domainSkills` value semantics changed**; every other key in `.milestone-config/driver.json` is unchanged.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: #590, #594.
+
+- #588's acceptance criterion 4 requires transcripts from `/milestone-driver:triage` and `/milestone-driver:solve-issue` runs in a consumer repo. No gate in this repo evaluates it: the shipped checks verify that no `agents/` file cites `skills/citation-format.md` and that each of the four carries the read-scope rule, not that a dispatched agent obeys it.
+- #588 requirement 1 also named `skills/solve-milestone/sequential-loop.md` as a leaf dispatch site. It was deliberately not edited: it runs `solve-issue` in-thread on the main line, so the brief it would amend is the one `skills/solve-issue/SKILL.md` composes, and its row has 48 free bytes with no trim authorization.
+- Open defects with issue numbers: #591, the read-scope rule's closing sentence instructing three read-only agents to run `npm ci`, and the rule never reaching the reviewer and coherence leaf briefs, which are `general-purpose` and third-party agents this plugin does not own; #593, a cache miss reported as a shape error, the unbounded invoke-every-name mandate against a whole-plugin expansion (41 names for `maui-skills:*`), `docs/profile-schema.md`'s claim against this repo's own profile, and exact entries getting no existence check.
+- Both issues' PRs were reviewed three times each. #589's third review found two defects that CI could not: `[long]::Parse` on an over-Int64 version component threw under StrictMode, exiting 1 with empty stdout against the script's fail-open contract, and the two legs picked different directories on a magnitude tie because `Directory.GetDirectories` order is unspecified. Both are fixed and pinned by golden rows.
+- Ceiling state a contributor's next edit hits: no ceiling was raised on any axis this release. The advisory CRLF `WARN` fires for three files, all untouched here: `skills/solve-milestone/SKILL.md` 15 bytes free, `skills/solve-milestone/changelog-authoring.md` 11, `skills/output-style.md` 57. `agents/design-reviewer.md` sits at 119/120 lines, so the next edit there must trade a line.
+
 ## v1.23.2 — hook gate integrity, CI venue closure, margin restoration
 
 **Theme:** The two bash hooks gate again under the `/bin/bash` macOS ships and now cover `scripts/` and `tests/`, the size-budget twins warn before a CRLF checkout fails a row, both shell-test legs run the same 17 runners, and the Blocked comment, CHANGELOG step 6.2, and the conventions table state what the shipped code actually does.
