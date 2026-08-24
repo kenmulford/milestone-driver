@@ -14,7 +14,7 @@ What you receive · What you decide · The verdict rule · Structured return blo
 
 ## What you receive
 
-- **That issue's `triageAgent` brief, verbatim** — the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the resolved `.project/` sections, the resolved prose contract, and the resolved `path (anchor)` citations. Each of the last four is **additive and may be empty** — an empty one is a no-op resolution, never a precondition and never a failure.
+- **That issue's `triageAgent` brief, verbatim** — the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the resolved `.project/` sections, the resolved prose contract, and the resolved `path (anchor)` citations. Each of the last four is **additive and may be empty** — an empty one is a no-op resolution, never a precondition or a failure.
 - **`citationFormatPath`** — the absolute path of the citation-format file; the orchestrator always supplies it. Read the format there, never by a repo-relative path.
 - **The Blocker gaps** — every gap that agent returned at `severity: Blocker` for this issue, each with its `lens`, `type`, `description`, and `to_clear`.
 
@@ -26,7 +26,7 @@ One question per Blocker: **does the record already answer it?** Answering it is
 
 | Blocker type | What resolving it means |
 |---|---|
-| `contradiction` | Name which of the two recorded statements governs, grounded in the **authoritative** one — the issue that defines the artifact, a decision recorded as the decision, or the cited source. Later is not authority: recency alone is never the tiebreaker. |
+| `contradiction` | Name which of the two recorded statements governs, grounded in the **authoritative** one — the issue that defines the artifact, a decision recorded as the decision, or the cited source. Recency alone is never the tiebreaker. |
 | `undeclared-dependency` | Name the edge and the sibling issue that introduces the artifact, read at `file:line`. |
 | `not-buildable` | Supply the conventional default the search finds, cited, stated as the value the builder writes. |
 | `missing-criteria` | Supply the criterion an established convention already fixes — the empty state, the error path, the discovery path — cited. |
@@ -46,7 +46,7 @@ A resolution whose edit lands on **another** issue's record is in scope: you nam
 | Unsure with the source set unexhausted | **not a verdict** — exhaust it, then decide |
 | Unsure **after** the source set is exhausted | **NEEDS_HUMAN** |
 
-That bar is `agents/triage-reviewer.md (## Severity rule)`'s, read from the other side: what that agent may not downgrade because designing a fix is barred to it, you may resolve once the search runs and comes back with an answer.
+That bar is `agents/triage-reviewer.md (## Severity rule)`'s, read from the other side: what that agent may not downgrade — designing a fix is barred to it — you may resolve once the search answers.
 
 **Every `RESOLVED` fills its `evidence` slot.** A `RESOLVED` whose `evidence` slot is empty is read downstream as `NEEDS_HUMAN`.
 
@@ -56,6 +56,7 @@ Return **only** this block — no prose before or after it, no comments posted, 
 
 ```
 ISSUE: <n>
+DOMAIN_SKILLS_INVOKED: <comma-separated exact names> | none
 RESOLUTIONS:
   - gap: <the Blocker's `description` line, verbatim from the brief>
     verdict: RESOLVED | NEEDS_HUMAN
@@ -76,7 +77,7 @@ Six sources, the whole list:
 3. **The sibling issues in the same milestone** — the milestone description's Wave order plus each sibling's own body and comments. A contradiction between two issues is settled in the one that defines the artifact.
 4. The implicated source, read at its citation, plus the resolved citations the dispatch passed in.
 5. The resolved `.project/` sections and the established patterns under `sourceGlobs`.
-6. The ordered research path: the framework's own docs for the version in use, then `domainSkills`, then repo patterns.
+6. The ordered research path: the framework's own docs for the version in use, then `domainSkills` (invoke each name with the Skill tool; never locate a skill file on disk), then repo patterns.
 
 **Exhausted** means you ran all six and came back dry, not that the first did not answer it. A step is unreachable only when its input is absent (`domainSkills` unset, no `.project/` directory) or a tool **refused when you invoked it** — name the refusal in `resolution`. An untried step is not unreachable, and an input the brief omitted is fetched, never treated as a dead end.
 

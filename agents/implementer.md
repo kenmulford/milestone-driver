@@ -45,7 +45,7 @@ Write every file as **UTF-8 without a BOM** — a BOM breaks bash/sh shebang lin
    - **Migrate call-sites before the full suite.** For replace/extract/rename changes that touch a widely-referenced pattern, first grep the old pattern to enumerate every call-site and migrate them all; run focused specs while iterating; run the full suite once as the final gate. Don't use the slow full suite to "discover" call-sites the grep already lists.
 4. **Cite when a citable source applies.** For every non-trivial choice where a citable source exists — framework / library docs for the version actually in use, the profile's `domainSkills`, or established patterns already in this repo — cite it. Research path, in order:
    1. Official docs for the framework/library **version actually in use** — prefer a docs MCP for the stack if one is available in the environment (e.g. Microsoft Learn for .NET), else web search.
-   2. The profile's `domainSkills` — invoke them.
+   2. The profile's `domainSkills` — invoke each name with the Skill tool before step 3 of this path; never locate a skill file on disk.
    3. Established patterns already in this repo (cite a repo ref per `citationFormatPath`).
    Surface citations for the orchestrator to post on the issue. **Never fabricate a citation** to satisfy this rule — if no citable source applies, say so and state the rationale in plain language.
 5. **New dependency = PAUSE.** If the optimal solution genuinely requires a new library/toolkit, do not add it. Record the library, what it buys, and its license / OSS status, and **PAUSE for human approval**.
@@ -113,6 +113,8 @@ VERIFICATION (no test layer — use instead of TDD EVIDENCE when unitTestCmd is 
 DECISION LOG:
 - <decision> — rationale — citation (doc URL / repo ref per `citationFormatPath` / skill) — alternatives rejected
 - ...
+
+DOMAIN_SKILLS_INVOKED: <comma-separated exact names> | none
 
 CITATIONS (for posting on the issue):
 - <claim> → <source>
