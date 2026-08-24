@@ -38,16 +38,18 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 | Preflight (fast pre-PR checks) command | `.pre-commit-config.yaml` present → `pre-commit run --all-files`; `package.json` `.scripts.lint` → `npm run lint`; `Makefile` `lint`/`check` target → `make lint` / `make check` |
 | Stack signals | Language/framework files for `domainSkills` mapping (see table below) |
 | Versioning target | Presence of `.claude-plugin/plugin.json` — present → default to versioned; absent → suggest `versioning: false` |
-| Existing profile | Read `.milestone-config/driver.json` if present, else the legacy root `milestone-driver.json` — pre-fill any already-set keys |
+| Existing profile | Read `.milestone-config/driver.json` if present, else the legacy root `milestone-driver.json` — pre-fill any already-set keys; a pre-filled `domainSkills` runs through **The expansion** below before it is offered |
 
 | Detected file | Inferred domainSkills candidate |
 |---|---|
-| `*.csproj` / `*.sln` with `Maui` | `["maui-skills:*", "maui-current-apis"]` |
+| `*.csproj` / `*.sln` with `Maui` | the expansion of `maui-skills:*` |
 | `*.csproj` / `*.sln` (non-MAUI) | omit (no bundled domain skill) |
 | `package.json` with Angular | `["angular-skills:angular-developer"]` |
-| `skills/**` + `agents/**` + `hooks/**` | `["plugin-dev:*", "superpowers:writing-skills"]` |
+| `skills/**` + `agents/**` + `hooks/**` | the expansion of `plugin-dev:*`, plus `superpowers:writing-skills` |
 | `package.json` (generic Node) | omit |
 | Python project | omit |
+
+**The expansion** is `${CLAUDE_PLUGIN_ROOT}/scripts/expand-domain-skills.{sh,ps1} ~/.claude/plugins/cache <entry>…` (pwsh on Windows, bash elsewhere); its stdout is the value offered in Phase 2, for an inferred candidate and for a value pre-filled from the existing profile alike. An entry it names on stderr as `unresolved:` is dropped, never offered — it resolves to no invocable name. An expansion returning nothing records no `domainSkills` key at all: an empty expansion is an absent key, and the dropped entries are still named to the user.
 
 ### Phase 2 — Tier-by-tier confirmation
 
@@ -145,8 +147,10 @@ See the Phase 3 write rule for why a Yes/No answer records an explicit boolean.
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `domainSkills` | "Any stack-specific skills the implementer and reviewers should consult for citations? (e.g. `[\"maui-skills:*\"]` for MAUI)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
+| `domainSkills` | "Any stack-specific skills the implementer and reviewers should invoke for citations? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
+
+Every `domainSkills` value — inferred, pre-filled, or **typed** — runs through **The expansion** (above), and the expansion is what setup records, so a wildcard is never rejected for being one. Reject only an entry the expansion returns as `unresolved:` — the Skill tool takes one exact name, so an unexpandable wildcard has no invocation — with exactly: `domainSkills entries are exact plugin:skill names; "<entry>" is not invocable`.
 
 **Tier: External integrations** (optional; presented **only on direct `/milestone-driver:setup` invocations**. When setup is auto-invoked as a bootstrap sub-step, skip this tier entirely — never an interactive Trello question mid-run.)
 

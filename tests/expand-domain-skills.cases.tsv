@@ -1,0 +1,56 @@
+# name	root	entries	want_stdout	want_stderr
+exact_passthrough	cache1	superpowers:writing-skills	superpowers:writing-skills
+exact_dedup	cache1	superpowers:writing-skills superpowers:writing-skills	superpowers:writing-skills
+no_entries	cache1
+nonversion_only_child	cache1	nonver-only:*	nonver-only:alpha\nnonver-only:beta
+numeric_beats_lexical	cache1	numeric:*	numeric:new
+version_beats_nonversion	cache1	mixed:*	mixed:versioned
+nonversion_byte_last	cache1	nonver-multi:*	nonver-multi:second
+# BIG COMPONENT + LEADING ZERO (issue #589). `overflow` holds
+# 1.99999999999999999999 and 1.100000000000000000000: each second component
+# exceeds Int64, so any integer conversion throws or errors, and byte order picks
+# the 9s where numeric order picks the 1-and-20-zeros. `zeropad` holds 1.08.0 and
+# 1.9.0: 08 must lose its zero BEFORE the compare, or a length-first rule selects
+# 1.08.0. Both rows assert exit 0 and an EMPTY stderr — the script is fail-open,
+# and its stderr carries `unresolved:` records and nothing else. The exact name
+# riding along in `overflow_component` is what a throwing leg loses.
+overflow_component	cache1	overflow:* superpowers:writing-skills	overflow:higher\nsuperpowers:writing-skills
+leading_zero_component	cache1	zeropad:*	zeropad:higher
+# MAGNITUDE TIE (issue #589). A missing component counts as 0, so `1.0` ties
+# `1.0.0` and `1.0` ties `01.0`: on a tie the winner is whichever directory the
+# selection loop saw FIRST, which makes the answer the enumeration order rather
+# than the rule. The bash glob key carries the trailing `/` (`1.0.0/` sorts
+# before `1.0/`, `01.0/` before `1.0/`), so that order is the canonical one and
+# the .ps1 leg sorts its child-directory names by the same key. .NET's
+# Directory.GetDirectories order is unspecified and selected the OTHER directory
+# on both rows, so the two legs answered differently on the same tree.
+tie_equal_magnitude	cache1	tie-len:*	tie-len:three-comp
+tie_leading_zero_dir	cache1	tie-zero:*	tie-zero:from-01-0
+wildcard_dedup	cache1	numeric:* numeric:*	numeric:new
+expands_to_nothing	cache1	empty:*		unresolved: empty:*
+unknown_plugin	cache1	nosuch:*		unresolved: nosuch:*
+bare_star	cache1	*		unresolved: *
+star_in_plugin	cache1	maui-*:foo		unresolved: maui-*:foo
+star_not_whole_skill	cache1	numeric:*x		unresolved: numeric:*x
+extra_colon	cache1	mkt-a:numeric:*		unresolved: mkt-a:numeric:*
+absent_root	__MISSING__	numeric:* superpowers:writing-skills	superpowers:writing-skills	unresolved: numeric:*
+unreadable_root	not-a-dir	numeric:* superpowers:writing-skills	superpowers:writing-skills	unresolved: numeric:*
+sorted_and_batched	cache1	numeric:* nonver-only:* superpowers:writing-skills empty:* nosuch:*	nonver-only:alpha\nnonver-only:beta\nnumeric:new\nsuperpowers:writing-skills	unresolved: empty:*\nunresolved: nosuch:*
+# COLLATION (the issue #471 idiom). `collation` holds two NON-version children
+# whose names differ only in an astral char (U+1F600) vs a U+E000-FFFF char
+# (U+FF21), so the byte-last branch decides. UTF-8 byte order puts the astral one
+# LAST; UTF-16 code-unit order (bare `Ordinal`) and culture order (`Sort-Object`)
+# both put it FIRST. Every other row is ASCII, which agrees under all three, so no
+# other row can catch a pwsh leg that drops the byte-domain respelling.
+nonascii_byte_collation	cache1	collation:*	collation:astral-selected
+# ROOT SPELLING (issue #589). Two sentinels in the root column, both handled
+# identically by the two runners: `__EMPTY__` drives the EMPTY root, and a
+# `~/`-prefixed value is passed VERBATIM with the child's HOME faked to the
+# fixture directory. Without the tilde row the whole feature is dead on
+# Windows and nothing here notices: the bash leg only ever worked because the
+# shell expanded `~` before exec, which no shell does for the .ps1 leg. The
+# empty row pins the guard against `""/*/`, which globs `/` and walks every
+# top-level directory once per wildcard entry. Both rows carry an exact name
+# alongside: fail-open means the wildcard drops and the exact name survives.
+tilde_root	~/cache1	numeric:* superpowers:writing-skills	numeric:new\nsuperpowers:writing-skills
+empty_root	__EMPTY__	numeric:* superpowers:writing-skills	superpowers:writing-skills	unresolved: numeric:*

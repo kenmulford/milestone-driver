@@ -19,6 +19,8 @@ jobs:
         uses: actions/checkout@v7
       - name: extract-version (bash)
         run: bash tests/extract-version.test.sh
+      - name: expand-domain-skills (bash)
+        run: bash tests/expand-domain-skills.test.sh
       - name: ci-preflight-steps (bash)
         run: bash tests/ci-preflight-steps.test.sh
       - name: parse-md-epic-order (bash)
@@ -69,6 +71,8 @@ jobs:
         uses: actions/checkout@v7
       - name: extract-version (pwsh)
         run: pwsh tests/extract-version.test.ps1
+      - name: expand-domain-skills (pwsh)
+        run: pwsh tests/expand-domain-skills.test.ps1
       - name: ci-preflight-steps (pwsh)
         run: pwsh tests/ci-preflight-steps.test.ps1
       - name: parse-md-epic-order (pwsh)
@@ -189,6 +193,8 @@ jobs:
       # 3.2 anyway; `/bin/bash` is explicit so the venue can never drift.
       - name: extract-version (/bin/bash 3.2)
         run: /bin/bash tests/extract-version.test.sh
+      - name: expand-domain-skills (/bin/bash 3.2)
+        run: /bin/bash tests/expand-domain-skills.test.sh
       - name: ci-preflight-steps (/bin/bash 3.2)
         run: /bin/bash tests/ci-preflight-steps.test.sh
       - name: parse-md-epic-order (/bin/bash 3.2)

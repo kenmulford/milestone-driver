@@ -4,7 +4,7 @@ The branch that reaches this file belongs to the caller, which reads it only for
 
 ### The dispatch
 
-- **Agent resolution.** `blockerResolverAgent` is a **default-filled** Core key defaulting to `milestone-driver:blocker-resolver` — the same default-fill pattern as `triageAgent` and `designReviewAgent`, and an always-on bundled agent like both (`docs/profile-schema.md (Which agent decides whether a triage Blocker)`).
+- **Agent resolution.** `blockerResolverAgent` is a **default-filled** Core key defaulting to `milestone-driver:blocker-resolver` — the same default-fill pattern as `triageAgent` and `designReviewAgent` (`docs/profile-schema.md (Which agent decides whether a triage Blocker)`).
 - **One dispatch per issue, never one per gap.** Every Blocker gap on that issue rides in a single brief, and the agent returns one verdict per gap.
 - **Concurrent across issues.** Dispatch the qualifying issues in parallel when the tool environment supports it, exactly as Step 3 does.
 
@@ -14,6 +14,7 @@ The branch that reaches this file belongs to the caller, which reads it only for
 
 ```
 ISSUE: <n>
+DOMAIN_SKILLS_INVOKED: <comma-separated exact names> | none
 RESOLUTIONS:
   - gap: <the Blocker's `description` line, verbatim>
     verdict: RESOLVED | NEEDS_HUMAN
@@ -36,7 +37,7 @@ RESOLUTIONS:
 
 An issue whose Blockers are **all** dropped reaches Step 4 carrying no Blocker gap and aggregates to `issueStates[n].blockers == false`, `label: null` — unparked. An issue with at least one survivor parks on the survivors alone. Advisory gaps pass through untouched: they never gate, so this pass neither reads nor resolves them.
 
-Step 6 posts the outcome — one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)`, and a `🔴 Triage` comment covering the survivors only.
+Step 6 posts the outcome — one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)` and carrying the return's `DOMAIN_SKILLS_INVOKED` on its own line (**ungated**: `none` never blocks, parks, or fails anything), and a `🔴 Triage` comment covering the survivors only.
 
 ### Unparking
 
