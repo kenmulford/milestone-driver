@@ -47,6 +47,8 @@ jobs:
         run: bash tests/check-citations.test.sh
       - name: classify-delta (bash)
         run: bash tests/classify-delta.test.sh
+      - name: classify-review-depth (bash)
+        run: bash tests/classify-review-depth.test.sh
       - name: read-doc-section (bash)
         run: bash tests/read-doc-section.test.sh
       - name: tests-green (bash)
@@ -99,6 +101,8 @@ jobs:
         run: pwsh tests/check-citations.test.ps1
       - name: classify-delta (pwsh)
         run: pwsh tests/classify-delta.test.ps1
+      - name: classify-review-depth (pwsh)
+        run: pwsh tests/classify-review-depth.test.ps1
       - name: read-doc-section (pwsh)
         run: pwsh tests/read-doc-section.test.ps1
       - name: tests-green (pwsh)
@@ -221,6 +225,8 @@ jobs:
         run: /bin/bash tests/check-citations.test.sh
       - name: classify-delta (/bin/bash 3.2)
         run: /bin/bash tests/classify-delta.test.sh
+      - name: classify-review-depth (/bin/bash 3.2)
+        run: /bin/bash tests/classify-review-depth.test.sh
       - name: read-doc-section (/bin/bash 3.2)
         run: /bin/bash tests/read-doc-section.test.sh
       - name: tests-green (/bin/bash 3.2)
