@@ -269,6 +269,6 @@ Examples:
 ▶ New in 1.24.0: the code-review gate now reads the verdict (one-time notice)
 
 | What | code-review-gate no longer stops at the '## Code Review' heading. It parses that section's "/code-review run:" value and DENIES `gh pr create` / `gh pr merge` when the value reads "no", is empty, or is missing entirely.
-| OK   | Accepted values, matched EXACTLY and case-sensitively: "yes", "deferred (<reason token>)", and "n/a - <reason>" for a PR carrying no sourceGlobs change. Any other value denies, "Yes" and "YES" included.
+| OK   | Accepted values, matched EXACTLY and case-sensitively: "yes", and "n/a - <reason>" for a PR carrying no sourceGlobs change. Any other value denies, "Yes" and "YES" included.
 | Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 is unchanged. A missing jq or gh, an unreadable --body-file, and a failed `gh pr view` all still fail open.
 ```

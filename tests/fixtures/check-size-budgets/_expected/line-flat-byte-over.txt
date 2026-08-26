@@ -1,5 +1,5 @@
 OK	skills/setup/SKILL.md	1/280	7/28000	1/4000
-OK	skills/solve-issue/SKILL.md	1/325	7/45500	1/6300
+OK	skills/solve-issue/SKILL.md	1/320	7/45000	1/6300
 FAIL	skills/solve-issue/async-mode.md	40/40	4606/4500	488/700
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/8500	1/1200
 OK	skills/solve-issue/coherence-review.md	1/15	7/2500	1/300
@@ -10,7 +10,7 @@ OK	skills/solve-issue/preflight-github-ci.md	1/20	7/3000	1/400
 OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/20	7/6000	1/800
-OK	skills/solve-issue/wave-clauses.md	1/25	7/3500	1/500
+OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
 OK	skills/solve-milestone/SKILL.md	1/320	7/32500	1/4500
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/43000	1/6400
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
@@ -24,7 +24,7 @@ OK	skills/solve-milestone/integration-granularity.md	1/85	7/15000	1/2300
 OK	skills/solve-milestone/md-epic-parent-check.md	1/30	7/2500	1/400
 OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
 OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
-OK	skills/solve-milestone/simplify-pass.md	1/125	7/14000	1/2100
+OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1700
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
 OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800

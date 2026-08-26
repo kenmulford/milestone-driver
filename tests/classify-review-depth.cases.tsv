@@ -10,6 +10,9 @@
 #            @EMPTY@   write `{}` — a config carrying no sourceGlobs key
 #            @SCALAR@  write `{"sourceGlobs":"scripts/**"}` — the key as a JSON
 #                      scalar where the schema says array
+#            @LEGACY@  write `{"sourceGlobs":["scripts/**"]}` to the LEGACY root
+#                      `milestone-driver.json` and no `.milestone-config/`
+#                      config at all
 #   base   files to create and commit at HEAD, `|`-separated, or `-` for none.
 #          Every repo also gets a committed README.md seed so HEAD exists.
 #   ops    working-tree operations applied after the base commit, `|`-separated,
@@ -61,6 +64,11 @@ standard_empty_candidate_set	scripts/**	scripts/a.sh	-	standard	empty-candidates
 standard_missing_config	-	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-config
 standard_config_without_source_globs	@EMPTY@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
 standard_scalar_source_globs	@SCALAR@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+# --- the legacy root profile layout ---------------------------------------
+# Same ops as deep_twin_sh_only above, config at the legacy root instead. The
+# verdicts must match, or a repo mid-migration silently loses every
+# sourceGlobs-scoped trigger.
+deep_legacy_profile_twin_sh_only	@LEGACY@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh	deep	twin:scripts/a.sh
 # --- rejected path shapes, candidate side and glob side --------------------
 glob_absolute_rejected	/scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
 glob_drive_letter_rejected	C:/scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs

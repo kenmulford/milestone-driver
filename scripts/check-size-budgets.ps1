@@ -61,7 +61,7 @@ $Root = ($Root -replace '[\\/]+$', '')
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         325    45500     6300
+skills/solve-issue/SKILL.md                         320    45000     6300
 skills/solve-issue/async-mode.md                     40     4500      700
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
@@ -72,7 +72,7 @@ skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
-skills/solve-issue/wave-clauses.md                   25     3500      500
+skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    43000     6400
 skills/solve-milestone/trello-sync.md               400    19500     3000
@@ -86,7 +86,7 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
-skills/solve-milestone/simplify-pass.md             125    14000     2100
+skills/solve-milestone/simplify-pass.md             110    11000     1700
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800

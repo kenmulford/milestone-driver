@@ -33,7 +33,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, `nonNegotiables` | Their steps skip cleanly when absent. |
    | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"issue"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`. A valid value logs nothing. Every later read uses the resolved value. |
 
-   2.0.5. **Self-heal the scratch-ignore** — always, before any `.milestone-config/` scratch write. That directory also holds **tracked** config (`driver.json`, `feeder.json`): never blanket-ignore it, never add a `*` or `/` rule. Ensure a **committed** `.milestone-config/.gitignore` carrying the block below — absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
+   2.0.5. **Self-heal the scratch-ignore**, always, before any `.milestone-config/` scratch write. That directory also holds **tracked** config (`driver.json`, `feeder.json`): never add a bare `*` or `/` rule, which swallows both. The suffix-scoped `*-notice` does not. Ensure a **committed** `.milestone-config/.gitignore` carrying the block below: absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -41,16 +41,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
       # Committed so per-run scratch stays out of `git status` with zero user setup.
       # Patterns are relative to this .milestone-config/ directory. Tracked config
       # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
-      preflight-notice
-      trello-notice
-      visualcapture-notice
-      parallel-default-notice
-      code-review-gate-notice
-      aiprefilter-notice
-      cost-record-notice
-      uisurfaceglobs-notice
-      visual-hold-removed-notice
-      code-review-run-no-notice
+      *-notice
       triage-cache.json
       tests-stamp
       .runtime/

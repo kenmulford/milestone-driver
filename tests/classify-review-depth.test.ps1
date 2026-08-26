@@ -56,6 +56,12 @@ function Write-Config([string]$repo, [string]$cell) {
   # A JSON scalar where the schema says array. Spelled as a sentinel because the
   # cell's `|` split can only ever build an array.
   if ($cell -ceq '@SCALAR@') { Write-Fixture $target "{`"sourceGlobs`":`"scripts/**`"}`n"; return }
+  # The legacy root layout, with NO .milestone-config/driver.json beside it, so
+  # the row exercises the fallback and not the canonical read.
+  if ($cell -ceq '@LEGACY@') {
+    Write-Fixture (Join-Path $repo 'milestone-driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
+    return
+  }
   $quoted = @()
   foreach ($g in ($cell -split '\|')) { $quoted += ('"' + $g + '"') }
   Write-Fixture $target ('{"sourceGlobs":[' + ($quoted -join ',') + "]}`n")

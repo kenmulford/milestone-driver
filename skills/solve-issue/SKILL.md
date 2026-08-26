@@ -26,7 +26,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/`; every other step is skipped cleanly when absent. `domainSkills` is expanded first (`${CLAUDE_PLUGIN_ROOT}/scripts/expand-domain-skills.<sh|ps1> ~/.claude/plugins/cache <entry>…`): its **stdout** is what the ### 3 brief carries, never the raw profile value, and each `unresolved: <entry>` on stderr is named there as `domainSkills unresolved: <entry>`. Empty stdout is an **absent** key: the brief omits `domainSkills` and still names those entries. |
 
-   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` exists ignoring only the scratch names below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never blanket-ignore it. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
+   1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a **committed** `.milestone-config/.gitignore` carrying exactly the block below; the directory also holds **tracked** config (`driver.json`, `feeder.json`), so never add a bare `*` or `/` rule, which swallows both. The suffix-scoped `*-notice` does not. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-milestone / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -34,16 +34,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
       # Committed so per-run scratch stays out of `git status` with zero user setup.
       # Patterns are relative to this .milestone-config/ directory. Tracked config
       # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
-      preflight-notice
-      trello-notice
-      visualcapture-notice
-      parallel-default-notice
-      code-review-gate-notice
-      aiprefilter-notice
-      cost-record-notice
-      uisurfaceglobs-notice
-      visual-hold-removed-notice
-      code-review-run-no-notice
+      *-notice
       triage-cache.json
       tests-stamp
       .runtime/
@@ -116,7 +107,7 @@ Resolve the issue's cited `.project/` sections **once, here in the orchestrator*
 5. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` **once per run**, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as **the resolved file index** — the `build-file-index` output format, consumed, not re-derived.
 6. **Resolve the prose contract (once).** Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` once, never per-issue inside a milestone loop; pass its `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, and `## The two anti-criteria` sections into the ### 3 brief as **the resolved prose contract**. It governs the implementer's Decision Log and every other GitHub-facing shape its report feeds; the agent's own `## Communication style` may specialize it, never replace it. Sub-steps 5 and 6 apply **identically under both the `light` and `heavy` build profiles** — never skipped or altered for `risk:light`.
 
-   **The same brief carries the code-comment rule verbatim** (`.project/conventions.md#Code comments`), under the both-profiles rule above: "a comment earns its place only by recording a non-obvious *why* - a constraint, an OS-specific hazard, an ordering requirement, or a rejected alternative. Comments that restate the code, narrate a change, carry editing history, or label a section are prohibited. Match the surrounding file's existing density."
+   **The same brief carries the code-comment rule verbatim** (`.project/conventions.md#Code comments`), under the both-profiles rule above: "a comment earns its place only by recording a non-obvious *why*: a constraint, an OS-specific hazard, an ordering requirement, or a rejected alternative. Comments that restate the code, narrate a change, carry editing history, or label a section are prohibited. Match the surrounding file's existing density."
 
 **Degradation (no error, ever):**
 - **Absent `projectDocs`** → `.project/` (step 1).
@@ -179,7 +170,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 
 **Coherence review (before the final `/code-review`).** An optional read-only pass over the implementer's **uncommitted** diff. Run it **only** when the `coherenceReviewAgent` — profile key, default-filled to `milestone-coherence-reviewer:coherence-reviewer` — is **both** present (dispatchable in this session) **and** configured; absent/unavailable OR explicitly unconfigured → **silently skip**: no error, no prompt, at most one log line. When it runs, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/coherence-review.md` and follow its `### The pass`.
 
-1. **Resolve review depth, then review and resolve.** Immediately before each `/code-review` dispatch and never earlier, since the classifier reads the diff step 3 returns, run `${CLAUDE_PLUGIN_ROOT}/scripts/classify-review-depth.<sh|ps1> <repo-root>` (pwsh on Windows, bash elsewhere) and take its printed verdict verbatim, never re-derived and never overridden (`skills/solve-issue/post-fix-commit.md (The verdict is the script's, never the agent's)`): `deep` and `standard` set `medium` effort, `shallow` sets `low`, and each verdict's cycle cap is the `/code-review` row's Cap cell in `### 4. Verification gates`. `medium` is the ceiling, and nothing above it remains on the ladder. Its fail-open path prints `standard` with a reason token on stderr at exit 0, and `standard`'s effort and cap then apply unchanged, no crash and no manual override. Then run `/code-review` (`superpowers:requesting-code-review`) at that effort on the implementer's **uncommitted** changes, resolving findings autonomously per the Autonomy model, never pausing to ask the operator about an in-scope finding:
+1. **Resolve review depth, then review and resolve.** Immediately before each `/code-review` dispatch and never earlier, since the classifier reads the diff step 3 returns, run `${CLAUDE_PLUGIN_ROOT}/scripts/classify-review-depth.<sh|ps1> <repo-root>` (pwsh on Windows, bash elsewhere) and take its printed verdict verbatim, never re-derived and never overridden: `deep` and `standard` set `medium` effort, `shallow` sets `low`, and each verdict's cycle cap is the `/code-review` row's Cap cell in `### 4. Verification gates`. `medium` is the ceiling, and nothing above it remains on the ladder. Its fail-open path prints `standard` with a reason token on stderr at exit 0, and `standard`'s effort and cap then apply unchanged, no crash and no manual override. Then run `/code-review` (`superpowers:requesting-code-review`) at that effort on the implementer's **uncommitted** changes, resolving findings autonomously per the Autonomy model, never pausing to ask the operator about an in-scope finding:
    - **In-scope** (cosmetic, naming, style, local reversible refactor, missing/weak test): re-dispatch the implementer to fix it (the main thread cannot edit `sourceGlobs` — `force-subagent`); log it in the Decision Log. **Light fixes only a Critical or Important finding**; a Minor one is accepted, not fixed. Heavy fixes every in-scope finding. Those severities are the reviewer template's (`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a finding with none — including from a reviewer scoring by confidence — counts as **Important**.
    - **Park trigger** (architecture deviation; a shared contract/interface/schema change; a new dependency; edits outside the issue's file scope; an unmetable gate; material ambiguity): **park** with `needs design`, `needs decision`, or `blocked` as appropriate. Do not commit.
 
@@ -198,7 +189,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
    ```text
    ## Code Review
 
-   - /code-review run: yes | deferred (<reason>) | n/a - <reason> (`n/a` only for a PR carrying no `sourceGlobs` change; omission is a park trigger: a submitted PR always carries a real review; a parked run opens no PR)
+   - /code-review run: yes | n/a - <reason> (`n/a` only for a PR carrying no `sourceGlobs` change; omission is a park trigger: a submitted PR always carries a real review; a parked run opens no PR)
    - Findings: <count> in-scope finding(s) at <effort> effort
      - <finding> — <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
      - … (one line per finding, or "none" when count is 0)
@@ -210,7 +201,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 4. **Version bump.** Read `versioning` from the profile and select the mode: **Version-free mode** (`versioning: false`), **Fail-safe degradation** (versioned mode — `versioning` `true` or absent — but `.claude-plugin/plugin.json` does **not** exist), or **Versioned mode** (`versioning` `true` or absent, and `.claude-plugin/plugin.json` exists). Read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/version-bump.md` and follow its `### Modes` for that mode's mechanics, its **Code Review** annotation, and — under Versioned mode — the milestone-run vs standalone-run split.
 5. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite. Review-before-commit is enforced by audit trail (the mandatory **Code Review** section), not by a commit-time hook; `hooks/code-review-gate.sh` gates `gh pr create` / `gh pr merge`, not `git commit`.
 6. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log and the **Code Review** section in the PR body. Add a `judgment call` label if any borderline autonomous call was made.
-8. **Auto-merge on green.** **There is no step 7** — the visual-review hold is gone, and its gap stays rather than renumber for the reason step 5's does. Once CI is green, run `gh pr merge --squash --delete-branch` for **every** issue, no UI/non-UI branch in front of it. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
+8. **Auto-merge on green.** Once CI is green, run `gh pr merge --squash --delete-branch` for **every** issue, no UI/non-UI branch in front of it. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
 
    **Visual evidence (optional, never-gating), before that merge.** Runs **only when the PR's diff matches `uiSurfaceGlobs`**: a logic-only issue has no surface to shoot, and would boot a server to publish an empty comment. Then, with a `visualCapture` block carrying all three required keys — `serverCmd`, `readyUrl`, `signInPath` — on a **sequential** run (a parallel run defers the capture to the serial merge tail: `skills/solve-milestone/parallel-waves.md (Deferred to the serial tail)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/visual-capture.md` and follow its `### Capture flow`. No UI surface, `visualCapture` absent or incomplete, **or any failure in it** → skip with **one log line**: no capture, no PR comment, no hold. The merge proceeds regardless of the pre-filter. `uiSurfaceGlobs` still decides the E2E gate row (step 4), this capture, the step-0 triage's `design-reviewer` dispatch, and `NEW_UI_ELEMENTS` handling (step 3) — keep the key; just nothing about the merge.
 9. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`) — unconditionally.
