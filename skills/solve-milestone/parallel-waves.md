@@ -50,7 +50,7 @@ After Phase 0 triage, process the milestone **Wave by Wave** (the sequential loo
 
    | Block | What it resolves |
    |---|---|
-   | `solve-issue` `### Build profile resolution` | this issue's `risk` value, which decides the `risk:light` token step 5 puts in the brief and the E2E gate decision. Review effort and the review→fix cycle cap are not resolved here: step 7 classifies both from that issue's built diff |
+   | `solve-issue` `### Build profile resolution` | this issue's `risk` value, which decides the `risk:light` token step 5 puts in the brief and the E2E gate decision. Review effort and the review→fix cycle cap come from step 7 |
    | `solve-issue` step 3.5's profile-migration preamble | idempotent; run per issue **inside that issue's worktree**, as that step states it - a no-op on a repo already using `.milestone-config/driver.json` |
    | `### Resolve cited project-docs sections (once, before dispatch)` | the `.project/` sections, the repo file index, and the prose contract |
 
