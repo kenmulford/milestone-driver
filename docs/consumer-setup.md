@@ -75,7 +75,16 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   |---|---|---|
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies — never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
-  | `/code-review` effort | `low` / `medium` | `high` / `xhigh` |
+
+  **Review depth is not the risk profile.** `/code-review` effort and the review→fix cycle cap come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling:
+
+  | Verdict | Fires when the diff | Review |
+  |---|---|---|
+  | `deep` | touches `hooks/**`, changes only one leg of a `*.sh` / `*.ps1` twin pair, or adds a new file under `sourceGlobs` | `medium`, 2 cycles |
+  | `standard` | touches any other path under `sourceGlobs` | `medium`, 1 cycle; a 2nd only on a Critical or Important finding |
+  | `shallow` | touches no path under `sourceGlobs` | `low`, 1 cycle, a 2nd impossible |
+
+  An unresolvable root, absent git, or an empty candidate set fails open to `standard`, never to `shallow`: the safe direction is more review.
 
   **Override labels.** Apply `risk:light` or `risk:heavy` to an issue to force the profile directly (bypasses the automatic rubric). When **both** labels are present, `risk:heavy` wins (safety-first). Absent both labels, the rubric decides with default-heavy-on-ambiguity.
 
