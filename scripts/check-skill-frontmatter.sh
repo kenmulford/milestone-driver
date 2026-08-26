@@ -11,8 +11,8 @@
 # Dependency-free by mandate: a LINE-ORIENTED heuristic, shell-only, NO YAML
 # library and NO new tool dependency - the same posture check-size-budgets.sh
 # and the CI-preflight parser take over their narrow YAML surface
-# (.project/library-manifest.md#Adding a dependency (the gate) - "no YAML
-# library and no new tool dependency"; docs/architecture.md#preflight-optional).
+# (`.project/library-manifest.md#Adding a dependency (the gate)` - "no YAML
+# library and no new tool dependency"; `docs/architecture.md#Preflight (optional)`).
 # A strict-YAML-parser library is explicitly OUT OF SCOPE for this plugin.
 #
 # Heuristic (narrow, false-positive-averse):

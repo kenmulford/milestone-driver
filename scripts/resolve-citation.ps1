@@ -52,7 +52,7 @@
 #   is "no new tool dependency" - the same posture check-size-budgets.ps1 and
 #   the CI-preflight parser take over their own narrow surfaces
 #   (.project/library-manifest.md#Adding a dependency (the gate);
-#   docs/architecture.md#preflight-optional).
+#   docs/architecture.md#Preflight (optional)).
 # Exit codes: 0 at least one match · 1 missing/unreadable file, or anchor not
 #   found · 2 bad usage - an argument count other than 2, or a present-but-EMPTY
 #   anchor (an empty substring matches every line, so it is a usage error rather

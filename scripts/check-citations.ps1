@@ -7,16 +7,24 @@
 # rules and the measurements behind them, the edge cases and the choice made for
 # each, why an anchor is resolved only against the walked file set, and why
 # docs/superpowers/**, docs/briefs/**, CHANGELOG.md, tests/fixtures/**,
-# .milestone-config/worktrees/** and .milestone-feeder/** are excluded from the
-# walk. This header records only what is specific to THIS leg.
+# .milestone-config/worktrees/**, .milestone-feeder/** and everything git
+# reports as ignored are excluded from the walk. This header records only what
+# is specific to THIS leg.
 #
 # Usage:   check-citations.ps1 [REPO_ROOT]
 #   REPO_ROOT   path to a checked-out repo root (default: CWD).
 #
-# A GREEN RUN VERIFIES ONLY `path (anchor)` CITATIONS. `path:line`,
-# `path:start-end`, `path#Heading` and `path § Heading` are counted and reported
-# as UNVERIFIED records, never resolved - `failed=0` means "every anchor still
-# points at its string", NOT "every citation in this repo is good".
+# A GREEN RUN VERIFIES `path (anchor)`, `path#Heading` and `path § Heading`.
+# `path:line` and `path:start-end` are counted and reported as UNVERIFIED
+# records, never resolved - `failed=0` means "every anchor still points at its
+# string and every cited heading still exists, exactly once", NOT "every
+# citation in this repo is good".
+#
+# ONE THING IN THIS LEG IS NOT PURE .NET: the ignored-file set comes from
+# `git ls-files`, run as a child process whose stdout is decoded with Latin-1
+# like every file read here, so a non-ASCII path arrives as the same byte-chars
+# the bash leg's `grep -qxF` compares. git absent, or any nonzero exit, yields
+# an EMPTY set - the same fail-open the bash leg's `2>/dev/null` gives.
 #
 # ── THE BYTE DOMAIN, AND WHY IT IS LATIN-1 ────────────────────────────────────
 # The bash leg runs under LC_ALL=C and `grep -a -c -F`: it compares BYTES, with
@@ -128,8 +136,6 @@ function Err([string]$msg) { Write-ByteChars $StdErr ($msg + "`n") }
 
 # Non-ASCII literals, converted once.
 $SECT     = ToByteChars ' § '
-$NV_HASH  = ToByteChars 'path#Heading - not verified'
-$NV_SECT  = ToByteChars 'path § Heading - not verified'
 $NV_LINE  = ToByteChars 'path:line - not verified'
 
 if ($Root.EndsWith('/')) { $Root = $Root.Substring(0, $Root.Length - 1) }
@@ -150,6 +156,8 @@ $Ex3 = 'CHANGELOG.md';      $ExN3 = 0
 $Ex4 = 'tests/fixtures/';   $ExN4 = 0
 $Ex5 = '.milestone-config/worktrees/'; $ExN5 = 0
 $Ex6 = '.milestone-feeder/';           $ExN6 = 0
+# Ex7 is not a path pattern but a SET - see the .sh leg's exclusion note.
+$Ex7 = '(gitignored)';                 $ExN7 = 0
 
 $ok = 0
 $failed = 0
@@ -162,6 +170,10 @@ $out = [System.Collections.Generic.List[string]]::new()
 # so a multibyte sequence is several non-matching bytes exactly as it is to the
 # bash leg.
 $RunRx = [regex]::new('[A-Za-z0-9._/-]+', [System.Text.RegularExpressions.RegexOptions]::Compiled)
+
+# The whitespace class a heading's text is trimmed with: LC_ALL=C's [:space:]
+# minus LF, which the line split has already consumed.
+$HWS = [char[]]@(' ', "`t", "`v", "`f", "`r")
 
 # Test-CitablePath - discriminator rules 2 and 3 (see the .sh header).
 function Test-CitablePath([string]$p) {
@@ -201,6 +213,8 @@ function Get-BalancedEnd([string]$t) {
 # there is no exact bound, so the stop is conservative and there are FIVE of
 # them: backtick, unmatched ')', comma, semicolon, double quote. A spaced
 # hyphen is not one, in either mode - keep this list identical to the .sh leg's.
+# A bare bound is a guess; wrap the citation in a code span when a sentence
+# continues past the heading with none of the five stops in between.
 function Get-HeadingEnd([string]$t, [string]$mode) {
   $d = 0
   for ($i = 0; $i -lt $t.Length; $i++) {
@@ -252,6 +266,74 @@ function Get-MatchCount([string]$path, [string]$anchor) {
   return $n
 }
 
+# Get-IgnoredSet - the paths under $root git reports as ignored, as a byte-char
+# set. The bash leg's twin is one `git ls-files --others --ignored
+# --exclude-standard` piped to `grep -qxF`. Started through ProcessStartInfo
+# rather than the call operator so stdout is decoded with Latin-1: PowerShell's
+# own redirection decodes with [Console]::OutputEncoding, which would re-spell a
+# non-ASCII path and desync this leg's EXCLUDED count from the bash leg's. Any
+# failure - git absent, $root outside a work tree, a nonzero exit - returns an
+# EMPTY set, which excludes nothing and scans MORE rather than less.
+# Every return is `,$set`, never `$set`: PowerShell UNROLLS a collection on
+# return, so an empty HashSet comes back as $null and the caller's membership
+# test then dies on a null-valued expression. The comma wraps it.
+function Get-IgnoredSet([string]$root) {
+  $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+  try {
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'git'
+    foreach ($a in @('-C', $root, '-c', 'core.quotePath=false', 'ls-files',
+                     '--others', '--ignored', '--exclude-standard')) {
+      [void]$psi.ArgumentList.Add($a)
+    }
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.StandardOutputEncoding = $L1
+    $psi.StandardErrorEncoding = $L1
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    # BOTH pipes are drained CONCURRENTLY, stderr asynchronously. Reading
+    # stdout to completion FIRST deadlocks the moment git writes more than the
+    # stderr pipe buffer - one `warning: could not open directory ...` per
+    # unreadable directory does it - because the child then blocks on its
+    # stderr write while this side blocks on stdout. A HUNG gate is worse than
+    # a failed-open one, and the bash leg cannot reach it at all (`2>/dev/null`).
+    $errTask = $proc.StandardError.ReadToEndAsync()
+    $stdout = $proc.StandardOutput.ReadToEnd()
+    [void]$errTask.GetAwaiter().GetResult()
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0) { return ,$set }
+  } catch { return ,$set }
+  foreach ($raw in $stdout.Split([char]10)) {
+    $line = if ($raw.EndsWith("`r")) { $raw.Substring(0, $raw.Length - 1) } else { $raw }
+    if ($line.Length -gt 0) { [void]$set.Add($line) }
+  }
+  return ,$set
+}
+
+# Get-HeadingCount - the number of ATX HEADING LINES in $path whose text equals
+# $want exactly. scripts/read-doc-section.ps1's match rule, and the bash leg's
+# heading_count byte for byte: count the leading '#'s, require a space or
+# end-of-line after them, trim whitespace at both ends, compare Ordinal. The
+# trailing CR is stripped first so a CRLF checkout answers the same as an LF
+# one. A duplicate heading is `<n> matches` and FAILS - see the .sh leg.
+function Get-HeadingCount([string]$path, [string]$want) {
+  $raw = Read-AllByteChars $path
+  if ($null -eq $raw -or $raw.Length -eq 0) { return 0 }
+  $n = 0
+  foreach ($rawLine in $raw.Split([char]10)) {
+    $l = if ($rawLine.EndsWith("`r")) { $rawLine.Substring(0, $rawLine.Length - 1) } else { $rawLine }
+    if (-not $l.StartsWith('#', [System.StringComparison]::Ordinal)) { continue }
+    $i = 0
+    while ($i -lt $l.Length -and $l[$i] -eq '#') { $i++ }
+    $rest = $l.Substring($i)
+    if ($rest.Length -ne 0 -and -not $rest.StartsWith(' ', [System.StringComparison]::Ordinal)) { continue }
+    $text = $rest.Trim($HWS)
+    if ($text -ceq $want) { $n++ }
+  }
+  return $n
+}
+
 # Get-TreeFiles - the record-stream equivalent of
 # `find <root> -name .git -prune -o -type f -print`. Fills $relKeys with the
 # byte-char relative path and $fullVals with the real path to open. See the
@@ -296,6 +378,8 @@ for ($i = 0; $i -lt $keys.Length; $i++) {
   if (-not $inTree.ContainsKey($keys[$i])) { $inTree.Add($keys[$i], $vals[$i]) }
 }
 
+$ignored = Get-IgnoredSet $RootFull
+
 $keptRel = [System.Collections.Generic.List[string]]::new()
 $keptFull = [System.Collections.Generic.List[string]]::new()
 for ($i = 0; $i -lt $keys.Length; $i++) {
@@ -306,6 +390,7 @@ for ($i = 0; $i -lt $keys.Length; $i++) {
   if ($rel.StartsWith($Ex4, [System.StringComparison]::Ordinal)) { $ExN4++; continue }
   if ($rel.StartsWith($Ex5, [System.StringComparison]::Ordinal)) { $ExN5++; continue }
   if ($rel.StartsWith($Ex6, [System.StringComparison]::Ordinal)) { $ExN6++; continue }
+  if ($ignored.Contains($rel)) { $ExN7++; continue }
   $keptRel.Add($rel)
   $keptFull.Add($vals[$i])
 }
@@ -316,6 +401,7 @@ $out.Add("EXCLUDED`t$Ex3`tskipped=$ExN3")
 $out.Add("EXCLUDED`t$Ex4`tskipped=$ExN4")
 $out.Add("EXCLUDED`t$Ex5`tskipped=$ExN5")
 $out.Add("EXCLUDED`t$Ex6`tskipped=$ExN6")
+$out.Add("EXCLUDED`t$Ex7`tskipped=$ExN7")
 
 # ---------------------------------------------------------------------------
 # Scan. One pass per line, left to right: take the next path-class run, test it
@@ -337,6 +423,9 @@ for ($f = 0; $f -lt $keptRel.Count; $f++) {
       if ($m.Index -lt $consumedTo) { continue }
       $run = $m.Value
       if (-not (Test-CitablePath $run)) { continue }
+      # Discriminator rule 5: `](` immediately before the run makes this a
+      # MARKDOWN LINK TARGET, which is never a citation - see the .sh header.
+      if ($m.Index -ge 2 -and $line.Substring($m.Index - 2, 2) -eq '](') { continue }
       # A backtick immediately before the run opens a code span, which is the
       # only exact bound a heading citation ever has (see Get-HeadingEnd).
       $hmode = if ($m.Index -gt 0 -and $line[$m.Index - 1] -eq '`') { 'span' } else { 'bare' }
@@ -362,16 +451,28 @@ for ($f = 0; $f -lt $keptRel.Count; $f++) {
         $end = Get-HeadingEnd $h $hmode
         $head = $h.Substring(0, $end).TrimEnd(' ', "`t")
         $consumedTo = $after + 1 + $end
-        $out.Add("UNVERIFIED`t${rel}:${lno}`t$run#$head`t$NV_HASH")
-        $unverified++
+        $n = if ($inTree.ContainsKey($run)) { Get-HeadingCount $inTree[$run] $head } else { 0 }
+        if ($n -eq 1) {
+          $out.Add("OK`t${rel}:${lno}`t$run#$head")
+          $ok++
+        } else {
+          $out.Add("FAIL`t${rel}:${lno}`t$run#$head`t$n matches")
+          $failed++
+        }
       }
       elseif ($rest.StartsWith($SECT, [System.StringComparison]::Ordinal)) {
         $h = $rest.Substring($SECT.Length)
         $end = Get-HeadingEnd $h $hmode
         $head = $h.Substring(0, $end).TrimEnd(' ', "`t")
         $consumedTo = $after + $SECT.Length + $end
-        $out.Add("UNVERIFIED`t${rel}:${lno}`t$run$SECT$head`t$NV_SECT")
-        $unverified++
+        $n = if ($inTree.ContainsKey($run)) { Get-HeadingCount $inTree[$run] $head } else { 0 }
+        if ($n -eq 1) {
+          $out.Add("OK`t${rel}:${lno}`t$run$SECT$head")
+          $ok++
+        } else {
+          $out.Add("FAIL`t${rel}:${lno}`t$run$SECT$head`t$n matches")
+          $failed++
+        }
       }
       elseif ($rest.Length -ge 2 -and $rest[0] -eq ':' -and $rest[1] -ge '0' -and $rest[1] -le '9') {
         $j = 1
@@ -391,7 +492,7 @@ for ($f = 0; $f -lt $keptRel.Count; $f++) {
   }
 }
 
-$out.Add("TOTALS`tunverified=$unverified`texcluded-files=$($ExN1 + $ExN2 + $ExN3 + $ExN4 + $ExN5 + $ExN6)")
+$out.Add("TOTALS`tunverified=$unverified`texcluded-files=$($ExN1 + $ExN2 + $ExN3 + $ExN4 + $ExN5 + $ExN6 + $ExN7)")
 $out.Add("SUMMARY`tok=$ok`tfailed=$failed")
 
 # Join with LF and append a single trailing newline - byte-parity with the .sh

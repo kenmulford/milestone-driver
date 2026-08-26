@@ -4,7 +4,7 @@
 # table and asserts against the SAME fixtures/check-citations/_expected/*.txt
 # golden files, so the bash and pwsh legs of the gate stay byte-identical. See
 # that runner's header for what each column means and what each of the nine
-# cases plus two bespoke cases proves.
+# cases plus the bespoke cases prove.
 #
 # RAW vs NORMALIZED - same rule as the bash leg:
 #   * ACTUAL stdout/stderr is captured RAW, via ProcessStartInfo +
@@ -22,6 +22,21 @@ $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
 $Script = Join-Path $Root 'scripts' 'check-citations.ps1'
 $Cases = Join-Path $Here 'check-citations.cases.tsv'
+
+# HERMETIC GIT EXCLUDES, for every case below - the twin of the .sh runner's
+# block, and it must stay identical to it. `--exclude-standard` inside the gate
+# under test honors the developer's personal excludes, so a `docs/` line in
+# ~/.config/git/ignore reddened gen-ignored locally while CI stayed green.
+# GIT_CONFIG_GLOBAL and GIT_CONFIG_NOSYSTEM alone do NOT close it: they drop the
+# config FILES, while `core.excludesFile` defaults to $XDG_CONFIG_HOME/git/ignore
+# exactly when no config sets it, so the third layer overrides that key outright.
+# Neither path is ever created, and git ignores a missing excludes file. The
+# tree's own .gitignore and .git/info/exclude are untouched.
+$env:GIT_CONFIG_GLOBAL = Join-Path ([System.IO.Path]::GetTempPath()) 'absent-global-gitconfig'
+$env:GIT_CONFIG_NOSYSTEM = '1'
+$env:GIT_CONFIG_COUNT = '1'
+$env:GIT_CONFIG_KEY_0 = 'core.excludesFile'
+$env:GIT_CONFIG_VALUE_0 = Join-Path ([System.IO.Path]::GetTempPath()) 'absent-global-gitexcludes'
 $Fix = 'tests/fixtures/check-citations'
 $Gold = Join-Path $Root $Fix '_expected'
 if (-not (Test-Path $Script)) { Write-Error "FATAL: missing $Script"; exit 3 }
@@ -192,6 +207,28 @@ function Build-GenBytes([string]$b) {
   Write-Raw (Join-Path $b 'gen' 'src' 'utf16.md') $u16
 }
 
+# Build-GenIgnored - a REAL git work tree, the only place the gitignore
+# exclusion can be exercised: `git ls-files --others --ignored` reports UNTRACKED
+# ignored files only, so a committed fixture is never ignored however its own
+# .gitignore reads. `scratch.md` is ignored AND carries an anchor that resolves
+# nowhere, so the run is green only because the exclusion holds. Returns $false
+# when `git init` fails, and the case then reports SKIPPED.
+function Build-GenIgnored([string]$b) {
+  New-Item -ItemType Directory -Path (Join-Path $b 'gen' 'docs') -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $b 'gen' 'src') -Force | Out-Null
+  $git = Get-Command git -ErrorAction SilentlyContinue
+  if ($null -eq $git) { return $false }
+  & $git.Source 'init' '-q' (Join-Path $b 'gen') 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { return $false }
+  Write-Raw (Join-Path $b 'gen' '.gitignore') "scratch.md`n"
+  Write-Raw (Join-Path $b 'gen' 'docs' 'citing.md') (
+    "# Citing`n`n" + (Cite 1 'src/target.md' 'live anchor'))
+  Write-Raw (Join-Path $b 'gen' 'scratch.md') (
+    "# Scratch`n`n" + (Cite 1 'src/target.md' 'anchor that was reworded away'))
+  Write-Raw (Join-Path $b 'gen' 'src' 'target.md') "# Target`nlive anchor lives here`n"
+  return $true
+}
+
 # Unix-only: a FIFO and an unprivileged symlink do not exist on Windows, so the
 # case reports SKIPPED there rather than failing. CI runs both legs on Linux.
 function Build-GenUnix([string]$b) {
@@ -240,6 +277,13 @@ $genUnixRan = Build-GenUnix $unixTmp
 if ($genUnixRan) {
   Invoke-Generated 'gen-unix' (Join-Path $unixTmp 'gen') 'gen-unix.txt' 1
 }
+$ignTmp = Join-Path $Tmp 'i'
+New-Item -ItemType Directory -Path $ignTmp -Force | Out-Null
+$genIgnoredRan = Build-GenIgnored $ignTmp
+if ($genIgnoredRan) {
+  Invoke-Generated 'gen-ignored' (Join-Path $ignTmp 'gen') 'gen-ignored.txt' 0
+}
+
 # Restore the locked directory so the temp tree can be removed.
 try {
   $lk = Join-Path $unixTmp 'gen' 'locked'
@@ -249,9 +293,9 @@ try {
 } catch { }
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
 
-if ($genUnixRan) {
-  Write-Host "check-citations.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 4 bespoke)"
-} else {
-  Write-Host "check-citations.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 3 bespoke, gen-unix SKIPPED on this platform)"
-}
+$bespoke = 5
+$skipNote = ''
+if (-not $genUnixRan) { $bespoke--; $skipNote += ', gen-unix SKIPPED on this platform' }
+if (-not $genIgnoredRan) { $bespoke--; $skipNote += ', gen-ignored SKIPPED (no usable git)' }
+Write-Host "check-citations.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke$skipNote)"
 if ($fail -ne 0) { exit 1 }

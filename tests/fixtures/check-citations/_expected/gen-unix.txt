@@ -4,6 +4,7 @@ EXCLUDED	CHANGELOG.md	skipped=0
 EXCLUDED	tests/fixtures/	skipped=0
 EXCLUDED	.milestone-config/worktrees/	skipped=0
 EXCLUDED	.milestone-feeder/	skipped=0
+EXCLUDED	(gitignored)	skipped=0
 OK	docs/citing.md:3	src/real.md (real anchor)
 FAIL	docs/citing.md:4	src/link.md (real anchor)	0 matches
 FAIL	docs/citing.md:5	src/pipe.md (any anchor)	0 matches

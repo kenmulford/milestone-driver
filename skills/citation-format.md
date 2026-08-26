@@ -14,9 +14,16 @@ The four citation forms · The base a citation path resolves from · D1 - the an
 | Form | Points at | Resolved by | Write it when |
 |---|---|---|---|
 | `path#Heading` | a markdown heading section | `scripts/read-doc-section.{sh,ps1}` - shipped and wired | a tool must fetch the section - the `.project/` anchors an issue cites |
-| `path § Heading` | a markdown heading section | nothing; the reader opens the file | prose in a skill or agent body sends a reader to a section |
+| `path § Heading` | a markdown heading section | nothing at run time; the reader opens the file | prose in a skill or agent body sends a reader to a section |
 | `path (anchor)` | any region of any file, keyed to a literal string | `scripts/resolve-citation.{sh,ps1}` - shipped and wired | the target is not a heading - a function, a comment block, a table row, a line of prose, or anything in a non-markdown file |
 | `path:line`, `path:start-end` | one line, or a line range, as written | nothing; the reader opens the file | you mean those exact lines, or no form above fits |
+
+**Both heading forms name the heading's TEXT, never its markdown anchor slug.**
+Write `docs/architecture.md#Preflight (optional)`, not that heading's
+lowercase-hyphen slug. `scripts/check-citations.{sh,ps1}` gate both forms
+repo-wide against the target's ATX headings, so a renamed heading, a slug, or a
+heading that appears twice fails CI. A markdown link is not a citation and is
+not gated; the `](` before its path is what separates them.
 
 **Where a heading exists, a heading form remains the form to write.**
 `path#Heading` is resolved by `scripts/read-doc-section.{sh,ps1}`, which fails
@@ -170,7 +177,8 @@ writes **the anchor and the file** to stderr.
 
 It does not fall back to the whole file, to a fuzzy match, or to silence.
 `scripts/read-doc-section.sh (Fail-loud (fail-CLOSED))` makes the same call for
-a missing heading anchor.
+a missing heading anchor. A heading appearing twice fails the gate at
+`2 matches`, where `read-doc-section` takes the first and succeeds.
 
 This applies only to text that passed D1's citation test. Prose that names a
 file and adds a parenthetical aside is never resolved, so it can never trip
