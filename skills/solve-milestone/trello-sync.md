@@ -321,7 +321,7 @@ Trello: checklist tick #<n> skipped — <error>
 
 ## Finish hooks
 
-Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), immediately after the loop and before step 6 (the CHANGELOG step), so the comment content matches the final run state; the clean-completion `## Final summary` Template 3 output stays deferred to step 6.9. On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
+Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), after the loop's `### Simplify pass` and before step 6 (the CHANGELOG step), so the comment content matches the final run state; the clean-completion `## Final summary` Template 3 output stays deferred to step 6.9. On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
 
 If no card was resolved at run start (Convention 5 found or created no card), skip all Finish hooks.
 
