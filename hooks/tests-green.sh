@@ -20,6 +20,17 @@ unit_cmd="$(jq -r '.unitTestCmd // empty' "$profile" 2>/dev/null)"; unit_cmd="${
 globs=(); while IFS= read -r g; do g="${g%$'\r'}"; [ -n "$g" ] && globs+=("$g"); done \
   < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
 touched=0; [ ${#globs[@]} -eq 0 ] && touched=1
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/force-subagent.sh` collapse `**` to `*` and match with a shell
+# `case`; `scripts/classify-review-depth.sh` translates the same glob to an ERE,
+# `**/` to `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs
+# entry in this repo takes. They part on `**/*.ext`: the ERE matches a ROOT-level
+# `x.md` and the collapsed `*/*.md` does not, while force-subagent lands on the
+# ERE's answer anyway through its SECOND test, of the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment. Pinned as behavior, not endorsed
+# as a contract:
+# `tests/tests-green.test.sh (a globstar-prefix glob does not match a root-level staged path)`.
+# Aligning the three is its own issue: this gate decides whether the suite runs.
 # ** -> * ('*' in a case glob matches across '/'). Both operands of the //
 # replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
 # backslash in the replacement, so `${g//\*\*/\*}` yields `src/\*` there and

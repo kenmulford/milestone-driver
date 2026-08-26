@@ -21,6 +21,17 @@ if (-not $unitCmd) { exit 0 }
 $globs = $cfg.sourceGlobs
 $staged = @(git -C $projectDir diff --cached --name-only)
 $touched = $false
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/force-subagent.ps1` collapse `**` to `*` and match with `-like`;
+# `scripts/classify-review-depth.ps1` translates the same glob to a regex, `**/`
+# to `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs entry in
+# this repo takes. They part on `**/*.ext`: the regex matches a ROOT-level
+# `x.md` and the collapsed `*/*.md` does not, while force-subagent lands on the
+# regex's answer anyway through its SECOND test, of the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment. Pinned as behavior, not endorsed
+# as a contract:
+# `tests/tests-green.test.ps1 (a globstar-prefix glob does not match a root-level staged path)`.
+# Aligning the three is its own issue: this gate decides whether the suite runs.
 if (-not $globs) { $touched = $true } else {
     foreach ($f in $staged) {
         $rel = ([string]$f) -replace '\\', '/'

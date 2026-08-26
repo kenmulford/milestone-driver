@@ -114,6 +114,19 @@
 # metacharacter. Character classes are NOT supported - a `[` in a glob is a
 # literal `[`. The pwsh twin translates to the identical pattern and matches it
 # with .NET's regex engine, which agrees with POSIX ERE on exactly this subset.
+#
+# THIS IS NOT THE REPO'S ONLY sourceGlobs MATCHER, and the three do not agree
+# everywhere. `hooks/tests-green.sh` and `hooks/force-subagent.sh` collapse `**`
+# to `*` and match with a shell `case` instead. All three agree on `dir/**`, the
+# shape every sourceGlobs entry in this repo takes. They part on `**/*.ext`: the
+# `(.*/)?` above matches a ROOT-level `x.md`, and tests-green's collapsed
+# `*/*.md` does not - while force-subagent lands back on this file's answer
+# through a second test, of the ABSOLUTE path against `*/<pat>`. Pinned as
+# behavior, not endorsed as a contract:
+# `tests/classify-review-depth.cases.tsv (standard_globstar_prefix_optional)`.
+# Aligning the three is its own issue: the two hooks decide whether the unit
+# suite runs and whether a source edit is blocked, and this one only decides how
+# hard the diff is reviewed.
 set -u
 # Byte-indexed string ops and byte-range bracket expressions, so this leg and
 # the pwsh twin's byte model agree on every boundary test - `?` and `[^/]` are

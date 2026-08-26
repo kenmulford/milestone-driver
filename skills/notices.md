@@ -24,7 +24,6 @@ section below, never restated inline in either SKILL.md.
 - [visualcapture](#visualcapture)
 - [parallel-default](#parallel-default)
 - [code-review-gate](#code-review-gate)
-- [aiprefilter](#aiprefilter)
 - [cost-record](#cost-record)
 - [uisurfaceglobs](#uisurfaceglobs)
 - [visual-hold-removed](#visual-hold-removed)
@@ -189,26 +188,6 @@ Examples:
 
 | What | Blocks `gh pr create`/`gh pr merge` when the PR body lacks the required '## Code Review' section (protectedBranch is exempt).
 | Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1; missing jq/gh, or a failed `gh pr view`, fail open.
-```
-
-## aiprefilter
-
-- **Marker:** `.milestone-config/aiprefilter-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** `visualCapture` present with all three required keys (`serverCmd`, `readyUrl`, `signInPath`) AND `uiSurfaceGlobs` present AND `visualCapture.aiPrefilter` absent AND marker absent - silent if any fails. **Legacy fallback:** none - born on the new path.
-
-**Text:**
-
-```text
-▶ New in 1.16.0 - optional AI screenshot pre-filter (one-time notice)
-
-| What | An AI pass reads the screenshots visual capture already took and
-|      | posts a per-surface pass / suspected-issue verdict on the PR,
-|      | alongside the Visual evidence comment.
-| Why  | Obvious rendered-layout breakage (overflow, overlap, blank or
-|      | broken surfaces) is flagged on the PR before a human looks.
-|      | Never a merge gate.
-| How  | Add "aiPrefilter": true inside the visualCapture block in
-|      | .milestone-config/driver.json. Optional - skip and nothing changes.
 ```
 
 ## cost-record

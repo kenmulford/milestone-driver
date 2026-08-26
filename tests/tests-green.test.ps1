@@ -43,18 +43,21 @@ function Show-Escaped([string]$s) {
 # self-heal block). `git --version` is the unitTestCmd on BOTH legs: it is a
 # native command, so it sets $LASTEXITCODE to 0 under Invoke-Expression here
 # and exits 0 under the bash twin's `eval`.
-function New-Workspace {
+# New-Workspace [globsJson] [stagedPath] - both default to the shape above; the
+# globstar case below is the only caller that overrides them.
+function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 'src/a.txt') {
   $w = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $w | Out-Null
   git -C $w init -q
   git -C $w config user.email tests-green@example.invalid
   git -C $w config user.name tests-green
   New-Item -ItemType Directory -Path (Join-Path $w '.milestone-config') | Out-Null
-  New-Item -ItemType Directory -Path (Join-Path $w 'src') | Out-Null
+  $staged = Join-Path $w $stagedPath
+  New-Item -ItemType Directory -Path (Split-Path -Parent $staged) -Force | Out-Null
   [System.IO.File]::WriteAllText((Join-Path $w '.milestone-config' 'driver.json'),
-    '{"unitTestCmd":"git --version","sourceGlobs":["src/**"]}' + "`n", $utf8)
-  [System.IO.File]::WriteAllText((Join-Path $w 'src' 'a.txt'), "x`n", $utf8)
-  git -C $w add src/a.txt
+    '{"unitTestCmd":"git --version","sourceGlobs":' + $globsJson + '}' + "`n", $utf8)
+  [System.IO.File]::WriteAllText($staged, "x`n", $utf8)
+  git -C $w add $stagedPath
   return $w
 }
 
@@ -117,6 +120,17 @@ $r = Invoke-Hook $W
 $kept = [System.IO.File]::ReadAllText((Join-Path $W '.milestone-config' '.gitignore'), $utf8)
 if ($r.rc -eq 0 -and [string]::Equals($kept, "sentinel`n", [System.StringComparison]::Ordinal)) { Ok }
 else { No "gitignore-preserved: rc=$($r.rc) content=[$(Show-Escaped $kept)] err=[$(Show-Escaped $r.err)]" }
+
+# ---- a globstar-prefix glob does not match a root-level staged path --------
+# Pinned as behavior, not endorsed as a contract - `hooks/tests-green.ps1 (GLOB
+# DIALECT, and where the repo)` records why this gate and the repo's two other
+# sourceGlobs matchers answer `**/*.ext` differently at the repo root. The hook
+# returns before its post-green write, so an absent .gitignore is the observable
+# that no suite ran; the first case above is the control that it can be written.
+$W = New-Workspace '["**/*.md"]' 'x.md'
+$r = Invoke-Hook $W
+if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
+else { No "globstar-root: rc=$($r.rc) (want 0) and the hook must not reach its post-green write, err=[$(Show-Escaped $r.err)]" }
 
 if (-not $IsWindows) { chmod -R u+w $Tmp 2>$null }
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
