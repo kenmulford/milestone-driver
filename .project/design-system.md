@@ -15,7 +15,7 @@ Captured by milestone-bootstrapper (dogfood #235).
 milestone-driver is a Claude Code plugin with **no UI surface** — it ships markdown
 skills, markdown agents, and shell hooks/scripts, and renders nothing. There is no
 `uiSurfaceGlobs` key in `.milestone-config/driver.json`, so the engine raises no UI
-issues here and the Layer-2 visual gate never fires.
+issues here and no design-lens review runs.
 
 This file is recorded **None** (a captured decision, not a gap): the design-lens
 reviewers — `design-reviewer`, `coherence-reviewer`'s design checks, and any
