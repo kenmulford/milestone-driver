@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for resolve-citation.sh (issue #417).
+# milestone-driver - golden-matrix runner for resolve-citation.sh (issue #417).
 # Each row of resolve-citation.cases.tsv is: name<TAB>file<TAB>nargs<TAB>anchor
 # <TAB>stdout_file<TAB>want_exit<TAB>want_stderr. The runner cd's into
 # tests/fixtures/resolve-citation/ and passes <file> as a RELATIVE path, so the
@@ -8,7 +8,7 @@
 # and tests/check-skill-frontmatter.test.ps1's run-from-a-fixed-root rationale).
 # It asserts the exit code, stdout, AND stderr exactly.
 #   nargs        how many arguments to pass: 0, 1 (<file> only), 2 (<file>
-#                <anchor> — <anchor> may be the empty string), or 3 (a trailing
+#                <anchor> - <anchor> may be the empty string), or 3 (a trailing
 #                junk argument). This is how the bad-usage exits are driven.
 #   anchor       \n and \t are unescaped to a real newline / TAB (same TSV
 #                escape convention as tests/code-review-gate.cases.tsv); a
@@ -23,7 +23,7 @@
 #                __BODYFILE_REL__). A non-empty value is compared WITH its
 #                single trailing newline.
 #
-# RAW vs NORMALIZED — the distinction this runner turns on:
+# RAW vs NORMALIZED - the distinction this runner turns on:
 #   * The ACTUAL stdout/stderr of the script under test is captured RAW and
 #     compared byte-for-byte. It is never CR-stripped and never rebuilt from a
 #     line array: doing either would make the runner blind to CRLF creep and to
@@ -36,7 +36,7 @@
 #     it.
 # The .sh and .ps1 runners assert against the SAME cases table and the SAME
 # golden files (cross-impl parity). A trailing, non-TSV case proves the CRLF
-# parity path, which no committed fixture can express — see its comment below.
+# parity path, which no committed fixture can express - see its comment below.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="$HERE/../scripts/resolve-citation.sh"
@@ -50,7 +50,7 @@ SCRIPT_NAME="resolve-citation.sh"
 BASH_BIN="$(command -v bash)"
 
 pass=0; fail=0
-# Per-run temp dir for the captured streams + the generated CRLF fixture —
+# Per-run temp dir for the captured streams + the generated CRLF fixture -
 # mktemp -d avoids fixed-path collisions under concurrent runs; trap cleans up.
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/rc.$$")"; mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
@@ -59,7 +59,7 @@ ERRFILE="$TMP/err"
 
 TAB=$'\t'
 EXPECT_COLS=7
-# split_tab <row> — bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
+# split_tab <row> - bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
 # read" collapses adjacent tabs, silently dropping the empty anchor / stdout_file
 # / stderr columns). NO mapfile/readarray (bash-4+ builtins; macOS ships 3.2).
 # Sets the GLOBAL `cols` array directly. Copied from tests/code-review-gate.test.sh (split_tab() {).
@@ -69,12 +69,12 @@ split_tab() {
   while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 
-# unescape <str> — turns the TSV's literal \n / \t 2-char sequences into real
+# unescape <str> - turns the TSV's literal \n / \t 2-char sequences into real
 # characters, mirroring tests/code-review-gate.test.sh (unescape() {).
 unescape() { printf '%b' "$1"; }
 
-# slurp_x <path> — a file's contents with a literal 'X' sentinel appended.
-# Callers do out="$(slurp_x f)"; out="${out%X}" — the sentinel is what survives
+# slurp_x <path> - a file's contents with a literal 'X' sentinel appended.
+# Callers do out="$(slurp_x f)"; out="${out%X}" - the sentinel is what survives
 # command substitution's trailing-newline stripping, so the capture stays RAW
 # down to the final byte. (Appending it INSIDE the function would not work: the
 # caller's own $(...) would strip the newline right back off.)
@@ -140,10 +140,10 @@ while IFS= read -r row || [ -n "$row" ]; do
 done < "$CASES"
 
 # Self-guard: zero parsed cases means every row was skipped or the table is
-# empty — the suite would otherwise report "0 passed, 0 failed" as a clean,
+# empty - the suite would otherwise report "0 passed, 0 failed" as a clean,
 # misleadingly-green exit.
 if [ "$case_count" -eq 0 ]; then
-  echo "FATAL: parsed 0 cases from $CASES — this run tested nothing" >&2
+  echo "FATAL: parsed 0 cases from $CASES - this run tested nothing" >&2
   exit 1
 fi
 

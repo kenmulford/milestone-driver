@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# milestone-driver — code-review-gate (Claude PreToolUse: Bash,
+# milestone-driver - code-review-gate (Claude PreToolUse: Bash,
 # if: Bash(gh pr create *) / Bash(gh pr merge *)).
 #
 # Deterministic backstop for solve-issue's self-policed review-before-commit
 # rule: checks for a literal, ANCHORED `## Code Review` heading before a PR
 # is created or merged, and blocks when it's missing (docs/profile-schema.md's
-# enforcement table — the plugin previously shipped no PreToolUse hook for
+# enforcement table - the plugin previously shipped no PreToolUse hook for
 # code review at all; this is the sixth gate, alongside force-subagent,
 # no-bom, tests-green, no-push, no-pr-to-protected).
 #
-# create: detects a --body/-b or --body-file/-F SIGNAL (presence only — NOT a
+# create: detects a --body/-b or --body-file/-F SIGNAL (presence only - NOT a
 # precisely delimited value) and checks the heading against the WIDEST
 # available surface: the entire decoded command string for an inline
 # --body/-b, and the referenced file's full content for --body-file/-F. This
@@ -21,10 +21,10 @@
 # produced a false BLOCK on the repo's own documented PR shape. Checking the
 # wider surface instead accepts a vanishingly unlikely contrived false ALLOW
 # (some other flag's value coincidentally containing the heading) in exchange
-# for never false-blocking a real PR body — see tests/code-review-gate.cases.tsv
+# for never false-blocking a real PR body - see tests/code-review-gate.cases.tsv
 # create_escaped_quote_before_heading / create_heredoc_pattern.
 # merge: `gh pr merge` has its own -b/--body/-F flags, but those set the
-# MERGE COMMIT message, not the PR body — every real invocation in this repo
+# MERGE COMMIT message, not the PR body - every real invocation in this repo
 # (skills/solve-issue/SKILL.md, skills/solve-milestone/SKILL.md,
 # .project/conventions.md) is a bare `gh pr merge [<n>] --squash
 # --delete-branch` with no body flag at all. So the merge path always fetches
@@ -70,13 +70,13 @@
 # must deny even when the first reads `yes`.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
-# merge whose fetched baseRefName is protectedBranch) is exempt — Ken's manual
+# merge whose fetched baseRefName is protectedBranch) is exempt - Ken's manual
 # release-PR flow must never fight this gate.
 #
 # Deny: exit 2 + stderr. Requires jq (to decode the PreToolUse JSON and read
 # the profile). Escape: CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1.
 # Fail-open: missing jq/gh, unparsed stdin, an unreadable --body-file, or a
-# failed `gh pr view` all exit 0 — a hook that crashes is a hook that (silently)
+# failed `gh pr view` all exit 0 - a hook that crashes is a hook that (silently)
 # allows, so every unexpected condition here falls through to allow, not deny.
 
 [ "${CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE:-}" = "1" ] && exit 0
@@ -112,7 +112,7 @@ deny() {
   exit 2
 }
 
-# heading_match <text> — true iff <text> contains an ANCHORED `## Code
+# heading_match <text> - true iff <text> contains an ANCHORED `## Code
 # Review` (not immediately followed by a letter/digit, so "## Code Reviewer"
 # does not match; end-of-string also satisfies the anchor).
 heading_match() {
@@ -173,13 +173,13 @@ check_verdict() {
 
 # ---- gh pr create -----------------------------------------------------------
 if [ "$is_create" = "1" ]; then
-  # Exemption: --base/-B <protectedBranch> — single-token regex is fine here
+  # Exemption: --base/-B <protectedBranch> - single-token regex is fine here
   # (branch names never contain spaces), mirrors hooks/no-pr-to-protected.sh (--base[=[:space:]]+).
   if [ -n "$protected" ] && [[ "$cmd" =~ (--base[=[:space:]]+|-B[[:space:]]+)\"?\'?([^[:space:]\"\']+) ]]; then
     [ "${BASH_REMATCH[2]}" = "$protected" ] && exit 0
   fi
 
-  # Presence-only signal detection (NOT value extraction — see header note).
+  # Presence-only signal detection (NOT value extraction - see header note).
   has_body=0; has_file=0
   [[ "$cmd" =~ (^|[[:space:]])(--body|-b)([=[:space:]]|$) ]] && has_body=1
   [[ "$cmd" =~ (^|[[:space:]])(--body-file|-F)([=[:space:]]|$) ]] && has_file=1
@@ -212,7 +212,7 @@ if [ "$is_create" = "1" ]; then
   fi
 
   # Wide-surface check: the whole command string for inline --body/-b (never
-  # a narrowly extracted substring — see header note), the whole file content
+  # a narrowly extracted substring - see header note), the whole file content
   # for --body-file/-F. Either surface matching is enough to allow.
   if [ "$has_body" = "1" ] && heading_match "$cmd"; then
     check_verdict "$cmd" "opening the PR"; exit 0

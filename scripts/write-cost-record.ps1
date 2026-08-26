@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
-# milestone-driver — cache-aware cost-record helper (issue #320).
+# milestone-driver - cache-aware cost-record helper (issue #320).
 #
-# Behavior-identical pwsh twin of scripts/write-cost-record.sh (native JSON — no
+# Behavior-identical pwsh twin of scripts/write-cost-record.sh (native JSON - no
 # jq). Writes ONE JSON cost record per invocation to the gitignored per-clone
 # scratch dir .milestone-config/.runtime/cost-records/ (relative to the CURRENT
 # WORKING DIRECTORY). Deterministic, cross-platform, NON-GATING; #322 wires it in.
@@ -13,7 +13,7 @@
 #   Any OMITTED (or null) token/wallClock field defaults to 0; absent tiers -> {}.
 #   A PRESENT-but-non-numeric token/wallClock value is MALFORMED (fail-open).
 #
-# Rate snapshot (hardcoded — NOT read from disk; source: kenmulford/milestone-suite
+# Rate snapshot (hardcoded - NOT read from disk; source: kenmulford/milestone-suite
 #   benchmarks/after/RESULTS.md ~lines 100-111, as-of 2026-07):
 #     Opus 4.8  $5 in / $25 out per MTok ; Sonnet 4.6 $3 / $15.
 #     cache-write rate = 1.25 x tier input rate ; cache-read = 0.1 x tier input rate.
@@ -22,14 +22,16 @@
 #   only (rate-table keys: exactly opus + sonnet). Unknown tiers -> unpricedTiers,
 #   excluded from costUsd, one stderr note each.
 #
-# Fail-open (mirrors the .sh twin / scripts/read-doc-section.ps1 fail path — always
+# Fail-open (mirrors the .sh twin / scripts/read-doc-section.ps1 fail path - always
 #   exit 0; .project/design-philosophy.md#Error & failure philosophy): on empty/
 #   malformed stdin, present-but-non-numeric token/wallClock, empty/missing/non-
 #   string runId, or an uncreatable/unwritable cost-records/ dir -> write NO
 #   record, print EXACTLY ONE stderr diagnostic, exit 0. NEVER a non-zero exit.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-# Force UTF-8 stdout so the printed path / em-dash notes match the .sh byte output.
+# Force UTF-8 stdout so a non-ASCII record path or runId matches the .sh byte
+# output. The script's own literals are all ASCII today; the forcing guards the
+# interpolated content.
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 # fail-open: one stderr line, no record, exit 0.
@@ -40,7 +42,7 @@ function Fail([string]$msg) { [Console]::Error.WriteLine("write-cost-record: $ms
 $rateBase = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
 
 $raw = [Console]::In.ReadToEnd()
-if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin — no record written' }
+if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin - no record written' }
 
 # Rate table: exactly opus + sonnet are priced (parity with the .sh $rates).
 $rates = @{ opus = @{ inr = 5.0; outr = 25.0 }; sonnet = @{ inr = 3.0; outr = 15.0 } }
@@ -71,10 +73,10 @@ try {
 
   # runId: must be a present, non-empty JSON string (parity with the .sh
   # (.runId|type)=="string" and length>0 guard).
-  if (-not $o.PSObject.Properties['runId']) { Fail 'missing runId — no record written' }
+  if (-not $o.PSObject.Properties['runId']) { Fail 'missing runId - no record written' }
   $runId = $o.runId
   if ($null -eq $runId -or $runId -isnot [string] -or $runId.Length -eq 0) {
-    Fail 'empty or non-string runId — no record written'
+    Fail 'empty or non-string runId - no record written'
   }
 
   # tiers -> ordered list of [name, valueObject]; absent/null tiers -> empty.
@@ -83,7 +85,7 @@ try {
   # matching the .sh jq path where `(.tiers // {}) | to_entries` errors on a
   # non-object tiers and numify errors on a non-object tier value. Without this,
   # pwsh would Numify a scalar tier to 0 (silent zeroed record) or fabricate bogus
-  # tiers from a scalar's PSObject.Properties (e.g. Length) — diverging from bash.
+  # tiers from a scalar's PSObject.Properties (e.g. Length) - diverging from bash.
   $entries = @()
   if ($o.PSObject.Properties['tiers'] -and $null -ne $o.tiers) {
     if ($o.tiers -isnot [System.Management.Automation.PSCustomObject]) { throw 'nonobject-tiers' }
@@ -147,7 +149,7 @@ try {
     rateSnapshot     = $snapshot
   }
 } catch {
-  Fail 'malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) — no record written'
+  Fail 'malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written'
 }
 
 # Sanitize runId for the FILENAME only (raw runId stays verbatim in the body).
@@ -185,34 +187,34 @@ $abs = Join-Path $base $rel
 # detached serverCmd spawn. Uncreatable /
 # unwritable -> fail-open.
 try { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null } catch {
-  Fail "cannot create $dir — no record written"
+  Fail "cannot create $dir - no record written"
 }
 
 try {
   # Depth covers record -> tiers -> per-tier token object.
   $json = $record | ConvertTo-Json -Depth 10
-  # Normalize to jq's on-disk bytes — LF-only line endings (ConvertTo-Json emits
+  # Normalize to jq's on-disk bytes - LF-only line endings (ConvertTo-Json emits
   # CRLF on Windows) and EXACTLY ONE trailing newline. utf8NoBOM + -NoNewline writes
   # the string verbatim (no BOM, no added terminator), byte-parity with the .sh twin's
   # `jq '.record' | tr -d '\r' > file`.
   #
   # Float representation is deliberately NOT forced to a specific form: jq's numeric
   # serialization is version-dependent (jq 1.8 emits `0.00005` where 1.7 emitted
-  # `5e-05`; ConvertTo-Json emits `5E-05`) — all valid JSON for the same value. Both
+  # `5e-05`; ConvertTo-Json emits `5E-05`) - all valid JSON for the same value. Both
   # twins assert costUsd by NUMERIC VALUE, never on-disk float bytes, so no exponent
   # rewrite is done here (an earlier `-replace ...E...` variant also corrupted any
   # string field containing `<digit>E<digit>`, e.g. a runId "1E2").
   $json = ($json -replace "`r`n", "`n").TrimEnd("`n") + "`n"
   Set-Content -LiteralPath $abs -Value $json -Encoding utf8NoBOM -NoNewline -ErrorAction Stop
 } catch {
-  Fail "cannot write record to $rel — no record written"
+  Fail "cannot write record to $rel - no record written"
 }
 
-# Record is written — NOW emit one stderr note per unpriced tier. Emitting AFTER the
+# Record is written - NOW emit one stderr note per unpriced tier. Emitting AFTER the
 # write (not before) guarantees a write fail-open above stays a SINGLE stderr line,
 # never note(s) + the fail line (parity with the .sh twin's ordering).
 foreach ($t in $unpriced) {
-  [Console]::Error.WriteLine("write-cost-record: tier '$t' has no rate table entry — recorded under unpricedTiers, excluded from costUsd")
+  [Console]::Error.WriteLine("write-cost-record: tier '$t' has no rate table entry - recorded under unpricedTiers, excluded from costUsd")
 }
 
 [Console]::Out.Write($rel + "`n")

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — no-push gate (Claude PreToolUse: Bash, if: Bash(git push *)).
+# milestone-driver - no-push gate (Claude PreToolUse: Bash, if: Bash(git push *)).
 # Blocks a push targeting protectedBranch. Deny: exit 2. Requires jq.
 # Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_NO_PUSH:-}" = "1" ] && exit 0

@@ -1,17 +1,17 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for check-citations.ps1 (issue #432).
+# milestone-driver - golden-matrix runner for check-citations.ps1 (issue #432).
 # Twin of check-citations.test.sh: drives the SAME check-citations.cases.tsv
 # table and asserts against the SAME fixtures/check-citations/_expected/*.txt
 # golden files, so the bash and pwsh legs of the gate stay byte-identical. See
 # that runner's header for what each column means and what each of the nine
 # cases plus two bespoke cases proves.
 #
-# RAW vs NORMALIZED — same rule as the bash leg:
+# RAW vs NORMALIZED - same rule as the bash leg:
 #   * ACTUAL stdout/stderr is captured RAW, via ProcessStartInfo +
 #     StreamReader.ReadToEnd, which performs NO newline translation. Load-
 #     bearing: joining PowerShell's line-split array (or piping through `>`)
 #     normalizes line endings, and a runner that does so cannot observe CRLF
-#     creep or a missing trailing newline AT ALL — on the very leg that runs on
+#     creep or a missing trailing newline AT ALL - on the very leg that runs on
 #     Windows, where CRLF creep is the natural failure mode.
 #   * The GOLDEN gets ONE normalization, CRLF -> LF, for a CRLF checkout.
 # ProcessStartInfo also gives EXACT argument passing (ArgumentList, no shell
@@ -33,7 +33,7 @@ $utf8 = [System.Text.UTF8Encoding]::new($false)
 $pass = 0; $fail = 0
 $ExpectCols = 3
 
-# Eq-Exact — BYTE-EXACT comparison, the assertion this runner's contract
+# Eq-Exact - BYTE-EXACT comparison, the assertion this runner's contract
 # requires. PowerShell's `-eq` on strings is case-INSENSITIVE and
 # culture-sensitive, so it is not that assertion; StringComparison.Ordinal is.
 # Same call as tests/resolve-citation.test.ps1 (function Eq-Exact).
@@ -41,7 +41,7 @@ function Eq-Exact([string]$a, [string]$b) {
   return [string]::Equals($a, $b, [System.StringComparison]::Ordinal)
 }
 
-# Show-Escaped — render CR / LF / TAB visibly in a failure report, so a
+# Show-Escaped - render CR / LF / TAB visibly in a failure report, so a
 # line-ending or missing-newline mismatch does not print identically to what it
 # was compared against.
 function Show-Escaped([string]$s) {
@@ -49,7 +49,7 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-# Read-Golden — a NAMED-BUT-MISSING golden is FATAL. Returning '' would silently
+# Read-Golden - a NAMED-BUT-MISSING golden is FATAL. Returning '' would silently
 # turn such a case into "expect empty stdout", i.e. a green run that asserts
 # nothing. CRLF -> LF only; never a blanket \r strip.
 function Read-Golden([string]$name) {
@@ -61,7 +61,7 @@ function Read-Golden([string]$name) {
   return ([System.IO.File]::ReadAllText($path, $utf8) -replace "`r`n", "`n")
 }
 
-# Invoke-Checker — run the script under test with exact arguments and an
+# Invoke-Checker - run the script under test with exact arguments and an
 # explicit working directory, returning RAW stdout/stderr text plus the exit
 # code. Both streams are read asynchronously BEFORE WaitForExit so a full pipe
 # buffer cannot deadlock the child.
@@ -115,7 +115,7 @@ foreach ($rawRow in Get-Content -LiteralPath $Cases) {
 }
 
 if ($caseCount -eq 0) {
-  Write-Error "FATAL: parsed 0 cases from $Cases — this run tested nothing"
+  Write-Error "FATAL: parsed 0 cases from $Cases - this run tested nothing"
   exit 1
 }
 
@@ -135,7 +135,7 @@ else {
 
 # ---- bespoke: NO argument at all, run from inside the fixture root. The table
 # always passes a root explicitly, so this is the only exercise of the default
-# root — `(Get-Location).Path` here, `${1:-$PWD}` on the bash leg.
+# root - `(Get-Location).Path` here, `${1:-$PWD}` on the bash leg.
 $expOut = Read-Golden 'resolves-once.txt'
 $r = Invoke-Checker @() (Join-Path $Root $Fix 'resolves-once')
 if ($r.rc -eq 0 -and (Eq-Exact $r.out $expOut) -and (Eq-Exact $r.err '')) { $pass++ }
@@ -158,13 +158,13 @@ $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToS
 New-Item -ItemType Directory -Path $Tmp -Force | Out-Null
 $Latin1 = [System.Text.Encoding]::Latin1
 
-# Write-Raw — exact bytes, via the Latin-1 byte<->char bijection the script
+# Write-Raw - exact bytes, via the Latin-1 byte<->char bijection the script
 # under test uses. Never Set-Content: it would re-encode and add a newline.
 function Write-Raw([string]$path, [string]$byteChars) {
   [System.IO.File]::WriteAllBytes($path, $Latin1.GetBytes($byteChars))
 }
 
-# Cite — assembles "<n> `<path> (<anchor>)`" plus a newline. Never spelled out
+# Cite - assembles "<n> `<path> (<anchor>)`" plus a newline. Never spelled out
 # literally: see the .sh runner's cite_line for why (tests/ is scanned by the
 # gate under test, and a literal citation here fails the repo-wide run).
 function Cite([int]$n, [string]$path, [string]$anchor) { return "$n ``$path ($anchor)```n" }

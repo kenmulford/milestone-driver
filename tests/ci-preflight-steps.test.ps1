@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for ci-preflight-steps.ps1 (issue #162).
+# milestone-driver - golden-matrix runner for ci-preflight-steps.ps1 (issue #162).
 # Asserts the pwsh discovery against the SAME tests/fixtures/ci-preflight/_expected/*.txt
-# golden files the .sh runner uses — cross-impl parity.
+# golden files the .sh runner uses - cross-impl parity.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = (Resolve-Path (Join-Path $here '..')).Path
 $script = Join-Path $root 'scripts/ci-preflight-steps.ps1'
@@ -20,7 +20,7 @@ $cases = @(
   'inline-comment||',
   'multi-workflow||',
   # COLLATION (issue #471): alpha.yml + Zeta.yml rank differently under culture
-  # order and codepoint order. multi-workflow cannot catch it — alpha.yml/zeta.yml
+  # order and codepoint order. multi-workflow cannot catch it - alpha.yml/zeta.yml
   # rank identically under both, and ASCII agreement is not evidence of parity.
   'sort-order||',
   'services||',
@@ -39,8 +39,11 @@ try {
     $exp = Join-Path $gold "$goldName.txt"
     if (-not (Test-Path $exp)) { Write-Host "FAIL ${name}: missing golden $exp"; $fail++; continue }
     # Capture stdout to a temp file and read it back as UTF-8 bytes so a multibyte
-    # char (the em-dash in WARN messages) survives byte-exact — the console-pipeline
-    # capture (`| Out-String`) re-encodes it and breaks parity on some hosts.
+    # char echoed from the workflow YAML survives byte-exact - the console-pipeline
+    # capture (`| Out-String`) re-encodes it and breaks parity on some hosts. The
+    # working-dir fixture's third step carries U+00B7 in its run: text and is the
+    # only case that exercises this; narrowing the script's OutputEncoding reddens
+    # that case alone.
     $tmp = New-TemporaryFile
     if ($only -ne '') {
       Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, "$fix/$name", $only) -NoNewWindow -Wait -RedirectStandardOutput $tmp.FullName | Out-Null

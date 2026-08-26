@@ -4,7 +4,7 @@ EXCLUDED	CHANGELOG.md	skipped=0
 EXCLUDED	tests/fixtures/	skipped=0
 EXCLUDED	.milestone-config/worktrees/	skipped=0
 EXCLUDED	.milestone-feeder/	skipped=0
-UNVERIFIED	docs/citing.md:3	src/target.md:12	path:line — not verified
-UNVERIFIED	docs/citing.md:3	src/target.md:3-9	path:line — not verified
+UNVERIFIED	docs/citing.md:3	src/target.md:12	path:line - not verified
+UNVERIFIED	docs/citing.md:3	src/target.md:3-9	path:line - not verified
 TOTALS	unverified=2	excluded-files=0
 SUMMARY	ok=0	failed=0

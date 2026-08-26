@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — runner for the tests-green.ps1 hook (issue #499).
+# milestone-driver - runner for the tests-green.ps1 hook (issue #499).
 # The pwsh twin of tests/tests-green.test.sh: same two cases, same workspace
 # recipe, same authority file. The hook takes no arguments and emits no stdout
-# record, so there is no case table to drive — every assertion is bespoke,
+# record, so there is no case table to drive - every assertion is bespoke,
 # against a fresh temp workspace, exactly like the `write` blocks below the
 # loop in tests/triage-cache.test.ps1 (write: self-healed .gitignore is byte-identical to the committed one).
 #
@@ -36,7 +36,7 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-# New-Workspace — staged so the hook reaches its post-green write. Every
+# New-Workspace - staged so the hook reaches its post-green write. Every
 # ingredient is load-bearing: a driver.json with a unitTestCmd (absent → exit
 # 0), a staged path matching sourceGlobs (no match → exit 0), and a real git
 # repo (`git write-tree` failing leaves $key null, which gates the whole
@@ -58,7 +58,7 @@ function New-Workspace {
   return $w
 }
 
-# Invoke-Hook — feed the hook the PreToolUse payload a `git commit` carries and
+# Invoke-Hook - feed the hook the PreToolUse payload a `git commit` carries and
 # capture its exit code. Both streams are read asynchronously BEFORE WaitForExit
 # so a full pipe buffer cannot deadlock the child (same idiom as
 # tests/triage-cache.test.ps1 (function Invoke-Tc)). The hook writes only to
@@ -91,7 +91,7 @@ function Invoke-Hook([string]$root) {
 
 # ---- self-healed .gitignore is byte-identical to the committed one ----------
 # The block lives in the hook, so this is what keeps it in sync with
-# .milestone-config/.gitignore in this repo — and with the bash twin's copy,
+# .milestone-config/.gitignore in this repo - and with the bash twin's copy,
 # which the sibling runner asserts against the same file.
 $W = New-Workspace
 $r = Invoke-Hook $W
@@ -109,7 +109,7 @@ else {
 
 # ---- an EXISTING .gitignore is never rewritten ------------------------------
 # The self-heal is create-only at every site, so a user-edited file must survive
-# untouched — not overwritten, not appended to, not truncated. Precedent:
+# untouched - not overwritten, not appended to, not truncated. Precedent:
 # tests/triage-cache.test.ps1 (write: an EXISTING .gitignore is never rewritten).
 $W = New-Workspace
 [System.IO.File]::WriteAllBytes((Join-Path $W '.milestone-config' '.gitignore'), $utf8.GetBytes("sentinel`n"))

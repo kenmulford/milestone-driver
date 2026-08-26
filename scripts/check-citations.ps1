@@ -1,9 +1,9 @@
 #!/usr/bin/env pwsh
-# milestone-driver — repo-wide citation gate (issue #432).
+# milestone-driver - repo-wide citation gate (issue #432).
 #
 # Twin of check-citations.sh: SAME walk, SAME discriminator, SAME resolution
 # model, BYTE-IDENTICAL stdout and stderr. See that file's header for the full
-# contract — what a green run does and does not verify, the four discriminator
+# contract - what a green run does and does not verify, the four discriminator
 # rules and the measurements behind them, the edge cases and the choice made for
 # each, why an anchor is resolved only against the walked file set, and why
 # docs/superpowers/**, docs/briefs/**, CHANGELOG.md, tests/fixtures/**,
@@ -15,7 +15,7 @@
 #
 # A GREEN RUN VERIFIES ONLY `path (anchor)` CITATIONS. `path:line`,
 # `path:start-end`, `path#Heading` and `path § Heading` are counted and reported
-# as UNVERIFIED records, never resolved — `failed=0` means "every anchor still
+# as UNVERIFIED records, never resolved - `failed=0` means "every anchor still
 # points at its string", NOT "every citation in this repo is good".
 #
 # ── THE BYTE DOMAIN, AND WHY IT IS LATIN-1 ────────────────────────────────────
@@ -34,7 +34,7 @@
 #     no BOM concept, so a BOM is three ordinary bytes here exactly as it is to
 #     `grep` and to the bash leg's `read`.
 #   - The same reader SUBSTITUTES U+FFFD for invalid UTF-8. A raw 0xE9 byte in
-#     an anchor came out of this leg as `EF BF BD` while bash emitted `E9` —
+#     an anchor came out of this leg as `EF BF BD` while bash emitted `E9` -
 #     different stdout bytes, which breaks twin parity directly. Latin-1 cannot
 #     substitute: 0xE9 decodes to U+00E9 and re-encodes to 0xE9.
 # UTF-8 was rejected for the same reason a "usually the same" answer was
@@ -43,9 +43,9 @@
 # total.
 #
 # STDOUT AND STDERR ARE WRITTEN AS RAW BYTES through the standard streams, not
-# through [Console]::Out — Console.OutputEncoding would re-encode a byte-char
+# through [Console]::Out - Console.OutputEncoding would re-encode a byte-char
 # above 0x7F and undo the whole model. The script's own non-ASCII literals (the
-# ` § ` separator, the ` — ` terminator, the three `— not verified` suffixes)
+# ` § ` separator, the ` - ` terminator, the three `- not verified` suffixes)
 # are written readably in this source and converted ONCE by ToByteChars, so
 # source stays legible while the stream stays byte-exact.
 #
@@ -54,7 +54,7 @@
 #     the same unit the bash leg's LC_ALL=C parameter expansions use. The two
 #     legs now agree on offsets as well as on output.
 #   - THE SORT. Byte-char strings sorted with StringComparer.Ordinal ARE sorted
-#     by byte value, so the walk order matches `LC_ALL=C sort` exactly — for
+#     by byte value, so the walk order matches `LC_ALL=C sort` exactly - for
 #     every path, including one holding an astral character, where a sort of
 #     decoded UTF-16 text would have disagreed.
 #   - THE WALK, and its LIST/READ split. The bash leg LISTS every entry that is
@@ -82,7 +82,7 @@
 #     path. Same test as the bash leg's in_tree, same answer.
 #   - THE MATCH COUNT. `grep -a -c -F` counts MATCHING LINES. This leg splits
 #     the raw bytes on LF only and counts lines containing the anchor
-#     ORDINALLY. Ordinal is load-bearing — PowerShell's default comparison is
+#     ORDINALLY. Ordinal is load-bearing - PowerShell's default comparison is
 #     culture-sensitive and case-insensitive, and would count matches `grep`
 #     does not. Same call as
 #     scripts/resolve-citation.ps1 (Ordinal comparison keeps this).
@@ -93,7 +93,7 @@
 # this repo, and the same carve-out covers NUL bytes in file CONTENT, which
 # scripts/resolve-citation.ps1 (OUT OF CONTRACT) already documents.
 #
-# Dependency-free: PowerShell 7+ built-ins only — no jq, no yq, no python, no
+# Dependency-free: PowerShell 7+ built-ins only - no jq, no yq, no python, no
 # YAML or markdown parser
 # (.project/library-manifest.md#Adding a dependency (the gate)).
 param(
@@ -108,7 +108,7 @@ $ErrorActionPreference = 'Stop'
 $L1 = [System.Text.Encoding]::Latin1
 $U8 = [System.Text.UTF8Encoding]::new($false)
 
-# ToByteChars — a readable source literal, respelled as the byte-chars of its
+# ToByteChars - a readable source literal, respelled as the byte-chars of its
 # UTF-8 encoding, so it can be concatenated with and compared against file
 # content without leaving the byte domain.
 function ToByteChars([string]$s) { return $L1.GetString($U8.GetBytes($s)) }
@@ -116,7 +116,7 @@ function ToByteChars([string]$s) { return $L1.GetString($U8.GetBytes($s)) }
 $StdOut = [Console]::OpenStandardOutput()
 $StdErr = [Console]::OpenStandardError()
 
-# Write-ByteChars — raw byte write. Never [Console]::Out: OutputEncoding would
+# Write-ByteChars - raw byte write. Never [Console]::Out: OutputEncoding would
 # re-encode anything above 0x7F and break byte parity with the bash leg.
 function Write-ByteChars($stream, [string]$byteChars) {
   $b = $L1.GetBytes($byteChars)
@@ -128,10 +128,9 @@ function Err([string]$msg) { Write-ByteChars $StdErr ($msg + "`n") }
 
 # Non-ASCII literals, converted once.
 $SECT     = ToByteChars ' § '
-$EMDASH   = ToByteChars ' — '
-$NV_HASH  = ToByteChars 'path#Heading — not verified'
-$NV_SECT  = ToByteChars 'path § Heading — not verified'
-$NV_LINE  = ToByteChars 'path:line — not verified'
+$NV_HASH  = ToByteChars 'path#Heading - not verified'
+$NV_SECT  = ToByteChars 'path § Heading - not verified'
+$NV_LINE  = ToByteChars 'path:line - not verified'
 
 if ($Root.EndsWith('/')) { $Root = $Root.Substring(0, $Root.Length - 1) }
 if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
@@ -164,7 +163,7 @@ $out = [System.Collections.Generic.List[string]]::new()
 # bash leg.
 $RunRx = [regex]::new('[A-Za-z0-9._/-]+', [System.Text.RegularExpressions.RegexOptions]::Compiled)
 
-# Test-CitablePath — discriminator rules 2 and 3 (see the .sh header).
+# Test-CitablePath - discriminator rules 2 and 3 (see the .sh header).
 function Test-CitablePath([string]$p) {
   if ($p.IndexOf('/') -lt 0) { return $false }
   if ($p.StartsWith('/')) { return $false }
@@ -182,7 +181,7 @@ function Test-CitablePath([string]$p) {
   return $hasLetter
 }
 
-# Get-BalancedEnd — index of the ')' closing a paren opened just before $t, or
+# Get-BalancedEnd - index of the ')' closing a paren opened just before $t, or
 # -1 when the parens never balance on this line.
 function Get-BalancedEnd([string]$t) {
   $d = 1
@@ -194,12 +193,14 @@ function Get-BalancedEnd([string]$t) {
   return -1
 }
 
-# Get-HeadingEnd — where a heading citation's text stops. $mode is 'span' when
+# Get-HeadingEnd - where a heading citation's text stops. $mode is 'span' when
 # the path was immediately preceded by a backtick and 'bare' otherwise. See the
 # .sh leg's heading_end for why the two are bounded differently: inside a code
 # span the closing backtick is the EXACT bound and nothing else may cut a
 # heading that legitimately holds quotes, commas or parentheses; bare in prose
-# there is no exact bound, so the stop is conservative.
+# there is no exact bound, so the stop is conservative and there are FIVE of
+# them: backtick, unmatched ')', comma, semicolon, double quote. A spaced
+# hyphen is not one, in either mode - keep this list identical to the .sh leg's.
 function Get-HeadingEnd([string]$t, [string]$mode) {
   $d = 0
   for ($i = 0; $i -lt $t.Length; $i++) {
@@ -209,15 +210,12 @@ function Get-HeadingEnd([string]$t, [string]$mode) {
       if ($c -eq '(') { $d++ }
       elseif ($c -eq ')') { if ($d -eq 0) { return $i }; $d-- }
       elseif ($c -eq ',' -or $c -eq ';' -or $c -eq '"') { return $i }
-      # 5 byte-chars: space + the 3-byte UTF-8 em-dash + space, the same 5-byte
-      # slice the bash leg compares.
-      if (($i + 5) -le $t.Length -and $t.Substring($i, 5) -ceq $EMDASH) { return $i }
     }
   }
   return $t.Length
 }
 
-# Read-AllByteChars — a file's raw bytes as byte-chars, or $null when it cannot
+# Read-AllByteChars - a file's raw bytes as byte-chars, or $null when it cannot
 # be read. No encoding detection, no BOM handling, no replacement character.
 function Read-AllByteChars([string]$path) {
   # READ half of the LIST/READ split: refuse to OPEN a 0-byte entry. A FIFO, a
@@ -230,7 +228,7 @@ function Read-AllByteChars([string]$path) {
   try { return $L1.GetString([System.IO.File]::ReadAllBytes($path)) } catch { return $null }
 }
 
-# Read-Lines — the bash leg's `while IFS= read -r line` model: split on LF ONLY
+# Read-Lines - the bash leg's `while IFS= read -r line` model: split on LF ONLY
 # (a lone CR is ordinary text), and treat a trailing LF as a terminator rather
 # than the start of an empty line. A leading BOM is NOT stripped, because the
 # bash leg's scanner does not strip one either.
@@ -243,7 +241,7 @@ function Read-Lines([string]$path) {
   return $lines
 }
 
-# Get-MatchCount — matching LINE count, byte-exact with `grep -a -c -F`.
+# Get-MatchCount - matching LINE count, byte-exact with `grep -a -c -F`.
 function Get-MatchCount([string]$path, [string]$anchor) {
   $raw = Read-AllByteChars $path
   if ($null -eq $raw -or $raw.Length -eq 0) { return 0 }
@@ -254,7 +252,7 @@ function Get-MatchCount([string]$path, [string]$anchor) {
   return $n
 }
 
-# Get-TreeFiles — the record-stream equivalent of
+# Get-TreeFiles - the record-stream equivalent of
 # `find <root> -name .git -prune -o -type f -print`. Fills $relKeys with the
 # byte-char relative path and $fullVals with the real path to open. See the
 # header's walk note for the regular-file test and the unreadable-directory
@@ -275,7 +273,7 @@ function Get-TreeFiles([string]$dir, [string]$prefix, $relKeys, $fullVals) {
     if ($attrs -band [System.IO.FileAttributes]::Directory) {
       Get-TreeFiles $entry $rel $relKeys $fullVals
     } else {
-      # LIST is deliberately looser than READ — see the walk note in the header.
+      # LIST is deliberately looser than READ - see the walk note in the header.
       $relKeys.Add((ToByteChars $rel))
       $fullVals.Add($entry)
     }
@@ -396,7 +394,7 @@ for ($f = 0; $f -lt $keptRel.Count; $f++) {
 $out.Add("TOTALS`tunverified=$unverified`texcluded-files=$($ExN1 + $ExN2 + $ExN3 + $ExN4 + $ExN5 + $ExN6)")
 $out.Add("SUMMARY`tok=$ok`tfailed=$failed")
 
-# Join with LF and append a single trailing newline — byte-parity with the .sh
+# Join with LF and append a single trailing newline - byte-parity with the .sh
 # leg's printf stream, independent of the host's default line ending.
 Write-ByteChars $StdOut (($out -join "`n") + "`n")
 if ($failed -ne 0) { exit 1 }

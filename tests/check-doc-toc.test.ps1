@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for check-doc-toc.ps1 (issue #490).
+# milestone-driver - golden-matrix runner for check-doc-toc.ps1 (issue #490).
 # Asserts the pwsh checker against the SAME
 # tests/fixtures/check-doc-toc/_expected/*.txt golden files the .sh runner
-# uses — cross-impl parity. See that runner's header for what each of the five
+# uses - cross-impl parity. See that runner's header for what each of the five
 # cases proves, and for the documented fence limitation the
 # fenced-pseudo-heading case does and does not cover.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -31,9 +31,11 @@ try {
     $name = $parts[0]; $wantExit = [int]$parts[1]
     $exp = Join-Path $gold "$name.txt"
     if (-not (Test-Path $exp)) { Write-Host "FAIL ${name}: missing golden $exp"; $fail++; continue }
-    # Capture stdout AND stderr to temp files and read them back as UTF-8 bytes
-    # so the em dash in the fenced-pseudo-heading fixture survives byte-exact,
-    # mirroring the check-size-budgets runner. stderr is appended to stdout to
+    # Capture stdout AND stderr to temp files and read them back as UTF-8 bytes,
+    # mirroring the check-size-budgets runner. check-doc-toc emits only OK/FAIL,
+    # a path from its own ASCII GOVERNED_PATHS table, MISSING, and SUMMARY, so no
+    # fixture content can reach stdout and no byte-parity vector is possible here;
+    # the UTF-8 read-back is defensive, not asserted. stderr is appended to stdout to
     # mirror the .sh runner's `2>&1`, so a case that starts emitting on stderr
     # fails on BOTH twins instead of only the bash one. Every case here writes
     # nothing to stderr, so the concatenation order is unobservable.

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/milestone-driver.svg" alt="milestone-driver — a milestone suite plugin" width="590">
+  <img src="assets/milestone-driver.svg" alt="milestone-driver - a milestone suite plugin" width="590">
 </p>
 
 Systematize the development process in the context of git flow.
@@ -13,9 +13,9 @@ Anything risky, like a design gap or a one-way-door decision, parks with a label
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 280, "nodeSpacing": 30, "rankSpacing": 32, "padding": 8}} }%%
 flowchart TD
-    cfg(["reads your .milestone-config/ profile<br/>&amp; .project/ docs — from milestone-bootstrapper"])
+    cfg(["reads your .milestone-config/ profile<br/>&amp; .project/ docs - from milestone-bootstrapper"])
 
-    input[/"a milestone — or<br/>a single issue #"/]
+    input[/"a milestone - or<br/>a single issue #"/]
 
     subgraph loop [each issue · the same gates · in dependency order]
         direction TB
@@ -23,7 +23,7 @@ flowchart TD
             direction LR
             u1["triage the design<br/>for gaps"] --> u2["find the root cause<br/>(or park, not guess)"]
         end
-        subgraph sgB [build — test-first]
+        subgraph sgB [build - test-first]
             direction LR
             b1["failing test first"] --> b2["subagent builds<br/>to green"] --> b3["review the diff"]
         end
@@ -56,7 +56,7 @@ Issue-to-PR assistants take one big swing at a task. milestone-driver decomposes
 
 ## Quickstart
 
-Install the plugin. It also requires the [`superpowers`](#requirements) plugin — add the official `claude-plugins-official` marketplace and install `superpowers` alongside it.
+Install the plugin. It also requires the [`superpowers`](#requirements) plugin - add the official `claude-plugins-official` marketplace and install `superpowers` alongside it.
 
 Recommended: add the milestone-suite marketplace, which catalogs all the milestone plugins, and install from it:
 
@@ -74,7 +74,7 @@ Alternative (still supported): add this repo's own marketplace and install from 
 
 Restart Claude Code after install so the plugin hooks load.
 
-Add a `.milestone-config/driver.json` profile (a legacy root `milestone-driver.json` is still read transitionally and migrated to the canonical path on the first `setup` or `solve-issue` build — see [`docs/profile-schema.md`](docs/profile-schema.md) for which commands own the move). The minimum is three keys:
+Add a `.milestone-config/driver.json` profile (a legacy root `milestone-driver.json` is still read transitionally and migrated to the canonical path on the first `setup` or `solve-issue` build - see [`docs/profile-schema.md`](docs/profile-schema.md) for which commands own the move). The minimum is three keys:
 
 ```json
 {
@@ -116,26 +116,26 @@ The full architecture, the gating model, the label taxonomy, and the mechanical 
 
 The loop builds the mutually-independent issues within a Wave in parallel by default, each in its own git worktree, then integrates them through one serial verified merge tail. Set `parallel: false` in your profile to opt out and build one issue at a time; and when your unit tests share something like a test database across workers, the driver asks a one-time DB-isolation question on the first run and records your answer. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each), per wave (one branch, one PR, and one CI run for the whole Wave), or per milestone (one local branch `milestone-<number>-<slug>` that nothing pushes until the milestone ends, then one PR and one CI run for everything it built). Pick per milestone when your CI fires on a push to every branch: per wave still pushes a branch per issue, so only per milestone keeps those branches off your remote, and the `milestone-` branch prefix is a stable contract you can filter your own CI against. The trade-off is speed and CI cost against failure isolation: parallel builds finish wider work faster at the cost of a worktree fleet, and wave or milestone granularity buys fewer CI runs at the cost of a coarser signal when something goes wrong. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to configure them.
 
-## Parent issues (md-epic — short for: this issue is really a multi-milestone feature)
+## Parent issues (md-epic - short for: this issue is really a multi-milestone feature)
 
-Some features are too big for one milestone. Label a GitHub issue `md-epic`, list its milestones in build order in the issue body, and it becomes a parent that anchors the whole feature: run `solve-issue` on the parent issue and the driver builds each of its milestones in that order, one at a time, picking up where a prior run left off. Point `solve-milestone` at one of those milestones directly instead, and it asks you first whether you want to build just that slice, hand off to the parent to drive the whole feature in order, or pause — so you never build one piece of an ordered feature without realizing it belongs to a bigger one. This is opt-in: with no `md-epic` label anywhere, milestones and issues build exactly as they always have. See [docs/architecture.md](docs/architecture.md) for the model.
+Some features are too big for one milestone. Label a GitHub issue `md-epic`, list its milestones in build order in the issue body, and it becomes a parent that anchors the whole feature: run `solve-issue` on the parent issue and the driver builds each of its milestones in that order, one at a time, picking up where a prior run left off. Point `solve-milestone` at one of those milestones directly instead, and it asks you first whether you want to build just that slice, hand off to the parent to drive the whole feature in order, or pause - so you never build one piece of an ordered feature without realizing it belongs to a bigger one. This is opt-in: with no `md-epic` label anywhere, milestones and issues build exactly as they always have. See [docs/architecture.md](docs/architecture.md) for the model.
 
 ## Optional integrations
 
-When the `@delorenj/mcp-server-trello` MCP server is loaded in your Claude Code session and `integrations.trello` is added to your profile, milestone progress is mirrored to a Trello board: a card is adopted or created in the Queue list at run start (with a GitHub milestone back-link), moved to In Progress after triage if the card is not already there (cards already In Progress are left as-is; cards in unmanaged lists are left in place with a log line), updated with a per-issue checklist that ticks as issues merge, and finally given a summary comment and moved to In Review when the run finishes with no open issues carrying a blocker label. The integration is opt-in, best-effort, and never gates a run — if the MCP server is absent, every Trello step is skipped with a single session-wide log line; if Trello is reachable but an individual operation fails, one log line is emitted per failed operation and the run continues. See [docs/consumer-setup.md](docs/consumer-setup.md) for setup steps and known limitations.
+When the `@delorenj/mcp-server-trello` MCP server is loaded in your Claude Code session and `integrations.trello` is added to your profile, milestone progress is mirrored to a Trello board: a card is adopted or created in the Queue list at run start (with a GitHub milestone back-link), moved to In Progress after triage if the card is not already there (cards already In Progress are left as-is; cards in unmanaged lists are left in place with a log line), updated with a per-issue checklist that ticks as issues merge, and finally given a summary comment and moved to In Review when the run finishes with no open issues carrying a blocker label. The integration is opt-in, best-effort, and never gates a run - if the MCP server is absent, every Trello step is skipped with a single session-wide log line; if Trello is reachable but an individual operation fails, one log line is emitted per failed operation and the run continues. See [docs/consumer-setup.md](docs/consumer-setup.md) for setup steps and known limitations.
 
-If you also want a read-only second opinion once an issue is built, [milestone-coherence-reviewer](https://github.com/kenmulford/milestone-coherence-reviewer) reviews a built change for how well it fits the rest of your app — post-build, no edits — as its own companion plugin. When you install it, the driver now runs it for you automatically: right before the final code review of each built issue, it checks the change for fit, then lets the build carry on. It's still optional and it never blocks a merge — if the companion plugin isn't installed, the driver simply skips the check and runs exactly as before.
+If you also want a read-only second opinion once an issue is built, [milestone-coherence-reviewer](https://github.com/kenmulford/milestone-coherence-reviewer) reviews a built change for how well it fits the rest of your app - post-build, no edits - as its own companion plugin. When you install it, the driver now runs it for you automatically: right before the final code review of each built issue, it checks the change for fit, then lets the build carry on. It's still optional and it never blocks a merge - if the companion plugin isn't installed, the driver simply skips the check and runs exactly as before.
 
 ## Requirements
 
-- The `superpowers` plugin (install it from the official `claude-plugins-official` marketplace). The per-issue inner loop is built on it, so install it explicitly alongside milestone-driver — it is a required prerequisite.
+- The `superpowers` plugin (install it from the official `claude-plugins-official` marketplace). The per-issue inner loop is built on it, so install it explicitly alongside milestone-driver - it is a required prerequisite.
 - GitHub CLI (`gh`), authenticated, for issue, PR, and milestone operations.
 - git, with the repo using a gitflow-style integration branch.
 - bash (preferred) or PowerShell 7+ for the hooks. `jq` is required for the bash path.
 
 ## Status
 
-Self-hosted — see [CHANGELOG.md](CHANGELOG.md) for the current version and per-release history. milestone-driver drives its own releases through its committed `.milestone-config/driver.json` profile (with a transitional root `milestone-driver.json` fallback). First external-consumer wiring is in progress.
+Self-hosted - see [CHANGELOG.md](CHANGELOG.md) for the current version and per-release history. milestone-driver drives its own releases through its committed `.milestone-config/driver.json` profile (with a transitional root `milestone-driver.json` fallback). First external-consumer wiring is in progress.
 
 ## Docs
 

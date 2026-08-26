@@ -1,5 +1,5 @@
 ---
 name: folded
 description: >-
-  Folded — skill description here
+  Folded · skill description here
 ---

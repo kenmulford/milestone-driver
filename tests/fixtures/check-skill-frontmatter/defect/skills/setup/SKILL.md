@@ -4,4 +4,4 @@ description: A plain one-line description with no colon-space, referencing paths
 ---
 
 # setup fixture
-Throwaway body — only the frontmatter is asserted.
+Throwaway body - only the frontmatter is asserted.

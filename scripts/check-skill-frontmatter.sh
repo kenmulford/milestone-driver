@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
-# milestone-driver — CI SKILL.md frontmatter YAML-validity lint (issue #314).
+# milestone-driver - CI SKILL.md frontmatter YAML-validity lint (issue #314).
 #
 # Guards against the exact defect class that dropped solve-milestone from the
 # Claude Desktop skill registry (issue #314): an UNQUOTED plain-scalar value in
 # a SKILL.md's YAML frontmatter (e.g. a `description:`) that contains a
-# colon+space (`: `) sequence — which a strict YAML parser (js-yaml) reads as a
+# colon+space (`: `) sequence - which a strict YAML parser (js-yaml) reads as a
 # nested mapping and rejects, silently dropping the WHOLE skill. Claude Code's
 # CLI loader is lenient and masks it; Claude Desktop's strict loader does not.
 #
 # Dependency-free by mandate: a LINE-ORIENTED heuristic, shell-only, NO YAML
-# library and NO new tool dependency — the same posture check-size-budgets.sh
+# library and NO new tool dependency - the same posture check-size-budgets.sh
 # and the CI-preflight parser take over their narrow YAML surface
-# (.project/library-manifest.md#Adding a dependency (the gate) — "no YAML
+# (.project/library-manifest.md#Adding a dependency (the gate) - "no YAML
 # library and no new tool dependency"; docs/architecture.md#preflight-optional).
 # A strict-YAML-parser library is explicitly OUT OF SCOPE for this plugin.
 #
 # Heuristic (narrow, false-positive-averse):
 #   Within each governed SKILL.md's frontmatter (the block between the first two
 #   `---` fences, opening fence required on line 1), examine each TOP-LEVEL key
-#   line — a `key:` at column 0. If its inline value is a PLAIN scalar (NOT a
+#   line - a `key:` at column 0. If its inline value is a PLAIN scalar (NOT a
 #   block scalar `|`/`>`, NOT quoted `"`/`'`, NOT a flow collection `[`/`{`, and
 #   non-empty), scan the value for an unquoted colon+space (`: `). A plain YAML
 #   scalar may never contain `: ` (it reads as a mapping), so any hit is a real
-#   strict-YAML breakage. Block scalars — the FIX for #314 folds `description:`
-#   to `>-` — and quoted scalars are SKIPPED, so a `parallel: false` mention
+#   strict-YAML breakage. Block scalars - the FIX for #314 folds `description:`
+#   to `>-` - and quoted scalars are SKIPPED, so a `parallel: false` mention
 #   survives verbatim inside a `>-` block without tripping the lint. URLs
 #   (`http://…`) are safe: they carry colon-SLASH, never colon-SPACE. Continuation
 #   lines of a block scalar are indented, so they never match a column-0 key and
@@ -49,7 +49,7 @@ ROOT="${ROOT%/}"
 # Governed set: the frontmatter-bearing skill entry points. A skill that fails
 # to parse never registers, so these are exactly the files this lint guards.
 # Fixed list (like check-size-budgets.sh): a governed file that is renamed or
-# deleted is a FAILURE (MISSING), never a silent pass — update the list in the
+# deleted is a FAILURE (MISSING), never a silent pass - update the list in the
 # same change.
 FILES=(
   "skills/setup/SKILL.md"

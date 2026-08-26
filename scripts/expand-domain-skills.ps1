@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — expand a profile's domainSkills entries into exact,
+# milestone-driver - expand a profile's domainSkills entries into exact,
 # invocable plugin:skill names (issue #589). Twin of expand-domain-skills.sh;
 # the argument contract, the entry shapes, the version-directory selection rule,
 # and the fail-open exit 0 are documented once, in the .sh header.
@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if ($null -eq $Entries) { $Entries = @() }
 
-# A leading `~/` reaches this leg VERBATIM — no shell expands it here, and .NET
+# A leading `~/` reaches this leg VERBATIM - no shell expands it here, and .NET
 # never treats `~` as the home directory, so
 # `Directory.Exists('~/.claude/plugins/cache')` is False and every wildcard would
 # go unresolved on Windows, the one OS this twin exists for. $env:HOME first so
@@ -40,21 +40,21 @@ $StdOut = [Console]::OpenStandardOutput()
 $StdErr = [Console]::OpenStandardError()
 # Raw byte write. Never [Console]::Out: OutputEncoding would re-encode anything
 # above 0x7F and break byte parity with the bash leg
-# (scripts/check-citations.ps1 (Write-ByteChars — raw byte write)).
+# (scripts/check-citations.ps1 (Write-ByteChars - raw byte write)).
 function Write-ByteChars($stream, [string]$byteChars) {
   $b = $L1.GetBytes($byteChars)
   $stream.Write($b, 0, $b.Length)
   $stream.Flush()
 }
 
-# Get-ChildDirNames — immediate child directory names in the bash twin's `*/`
+# Get-ChildDirNames - immediate child directory names in the bash twin's `*/`
 # glob ORDER, dot-prefixed ones skipped. Directory.GetDirectories order is
 # UNSPECIFIED by .NET, and order is part of the answer: Select-VersionDir keeps
 # the FIRST of two names that tie on magnitude (`1.0` vs `1.0.0`, `1.0` vs
 # `01.0`, which a missing-component-is-0 compare scores equal), so an
 # unspecified order lets the two legs pick different directories on one tree.
-# The sort key carries the TRAILING SLASH the bash glob's own key has — `1.0.0/`
-# before `1.0/`, `aaa-b/` before `aaa/` — without which the two orders diverge
+# The sort key carries the TRAILING SLASH the bash glob's own key has - `1.0.0/`
+# before `1.0/`, `aaa-b/` before `aaa/` - without which the two orders diverge
 # wherever one name is a prefix of another. Byte domain via Get-ByteKey, never
 # bare Ordinal. An absent, unreadable, or not-a-directory path yields none: that
 # is the fail-open branch.
@@ -77,7 +77,7 @@ function Get-ChildDirNames([string]$path) {
 
 function Test-VersionName([string]$n) { return ($n -match '^[0-9]+(\.[0-9]+)+$') }
 
-# Remove-LeadingZeros — the digit string's magnitude spelling, so `08` and `8`
+# Remove-LeadingZeros - the digit string's magnitude spelling, so `08` and `8`
 # compare as one value.
 function Remove-LeadingZeros([string]$d) {
   $t = $d.TrimStart('0')
@@ -85,12 +85,12 @@ function Remove-LeadingZeros([string]$d) {
   return $t
 }
 
-# Compare-VersionGt — $true when dotted-numeric $a ranks above $b, component by
+# Compare-VersionGt - $true when dotted-numeric $a ranks above $b, component by
 # component by MAGNITUDE. A missing component counts as 0. NEVER [long]::Parse: a
 # component wider than Int64 throws under $ErrorActionPreference = 'Stop', which
 # exits 1 with empty stdout and loses the exact names the caller passed alongside,
 # breaking the fail-open contract the header states. Zeros stripped, a longer
-# digit string is the larger value and equal lengths compare Ordinal — the
+# digit string is the larger value and equal lengths compare Ordinal - the
 # components are ASCII digits by Test-VersionName, where Ordinal IS byte order.
 function Compare-VersionGt([string]$a, [string]$b) {
   $ac = $a -split '\.'
@@ -106,7 +106,7 @@ function Compare-VersionGt([string]$a, [string]$b) {
   return $false
 }
 
-# Select-VersionDir — the selected child directory NAME, or '' when the plugin
+# Select-VersionDir - the selected child directory NAME, or '' when the plugin
 # directory holds no child directory at all.
 function Select-VersionDir([string]$pdir) {
   $best = ''; $haveVersion = $false; $byteLast = ''; $byteLastKey = ''
@@ -161,7 +161,7 @@ foreach ($entry in $Entries) {
   if (-not $found) { Write-Unresolved $entry }
 }
 
-# Sort + dedupe in the byte domain — parity with the twin's `sort -u` under
+# Sort + dedupe in the byte domain - parity with the twin's `sort -u` under
 # LC_ALL=C. The sort keys ARE the emitted bytes, so they are written directly.
 $arr = $resolved.ToArray()
 $keys = New-Object string[] $arr.Length

@@ -7,7 +7,7 @@
 # and pwsh legs are held byte-identical.
 #
 # FOUR MORE CASES ARE NOT IN THIS TABLE because they cannot be git-tracked, and
-# each runner BUILDS them instead — byte for byte, identically, asserting the
+# each runner BUILDS them instead - byte for byte, identically, asserting the
 # same committed goldens:
 #   missing-root   a REPO_ROOT that is not a directory (fail-loud on stderr)
 #   default-root   no argument at all, run from inside a fixture root
@@ -18,7 +18,7 @@
 #                  a committed CRLF file is renormalized on checkout and a
 #                  committed UTF-16 file is corrupted by that same conversion.
 #                  Goldens: gen-bytes.txt
-#   gen-unix       a symlink, a FIFO, and a chmod-000 directory — none of them
+#   gen-unix       a symlink, a FIFO, and a chmod-000 directory - none of them
 #                  git-storable. Reports SKIPPED on Windows, where a FIFO and an
 #                  unprivileged symlink do not exist; CI runs both legs on
 #                  Linux. Goldens: gen-unix.txt

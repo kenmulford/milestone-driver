@@ -6,7 +6,7 @@
 # it MUST stay LF in the working tree even on Windows (core.autocrlf=true).
 *.cmd text eol=lf
 
-# Shell scripts MUST be LF even in the working tree — CRLF breaks the
+# Shell scripts MUST be LF even in the working tree - CRLF breaks the
 # shebang and produces "bad interpreter" / "\r command not found" on
 # Linux, macOS, WSL, and git-bash.
 *.sh text eol=lf

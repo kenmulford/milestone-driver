@@ -1,10 +1,10 @@
 #!/usr/bin/env pwsh
-# milestone-driver — behavior matrix runner for write-cost-record.ps1 (issue #320).
+# milestone-driver - behavior matrix runner for write-cost-record.ps1 (issue #320).
 # Behavior-identical pwsh twin of tests/write-cost-record.test.sh: drives the
 # cache-aware cost-record helper and asserts the SAME field + rateSnapshot +
 # fail-open contract (cross-impl parity). Each case runs the helper with its
 # WorkingDirectory set to a fresh temp workspace so cost-records/ lands there
-# (test isolation — .project/environment.md#Data stores).
+# (test isolation - .project/environment.md#Data stores).
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -59,9 +59,9 @@ try {
   # 1000000/200000/10000000cRead/800000cWrite = 12.0 -> total 17.0
   $r = Run-Case '{"runId":"run-happy","wallClockSeconds":42,"tiers":{"opus":{"inputTokens":400000,"outputTokens":40000,"cacheReadTokens":2000000,"cacheWriteTokens":160000},"sonnet":{"inputTokens":1000000,"outputTokens":200000,"cacheReadTokens":10000000,"cacheWriteTokens":800000}}}'
   $j = Rec-Json $r.ws
-  # writtenAt: assert the RAW on-disk string — ConvertFrom-Json auto-coerces an
+  # writtenAt: assert the RAW on-disk string - ConvertFrom-Json auto-coerces an
   # ISO-8601 string into a [DateTime] that stringifies to a culture format, so
-  # $j.writtenAt can't see the bytes the helper wrote — parity with the .sh jq read
+  # $j.writtenAt can't see the bytes the helper wrote - parity with the .sh jq read
   # and tests/render-daemon.test.ps1 ($raw = Get-Content).
   $rf = Rec-File $r.ws
   $rawJson = if ($rf) { Get-Content -LiteralPath $rf -Raw } else { '' }
@@ -166,8 +166,8 @@ try {
 
   # ---- tiny sub-1e-4 costUsd asserted by NUMERIC VALUE (not float bytes) -----
   # opus outputTokens=2 -> 2*25/1e6 = 5e-05. The on-disk float form is serializer-
-  # dependent (ConvertTo-Json emits `5E-05`, jq 1.8 `0.00005`, jq 1.7 `5e-05`) — all
-  # valid JSON for the same value — so assert the parsed NUMBER, never the bytes.
+  # dependent (ConvertTo-Json emits `5E-05`, jq 1.8 `0.00005`, jq 1.7 `5e-05`) - all
+  # valid JSON for the same value - so assert the parsed NUMBER, never the bytes.
   $r = Run-Case '{"runId":"run-tiny","tiers":{"opus":{"outputTokens":2}}}'
   $j = Rec-Json $r.ws
   if ($r.rc -eq 0 -and $j -and $j.costUsd -eq 5e-05 -and $j.tiers.opus.costUsd -eq 5e-05) { Ok } else {
@@ -175,9 +175,9 @@ try {
 
   # ---- fail-open AT THE WRITE + unpriced tier -> STILL exactly one stderr line -
   # An unpriced tier normally prints a note; but when the RECORD WRITE fails open the
-  # note MUST NOT precede the fail line — exactly ONE stderr line. Use a READ-ONLY
+  # note MUST NOT precede the fail line - exactly ONE stderr line. Use a READ-ONLY
   # cost-records DIR so New-Item -Force succeeds (dir exists) but Set-Content fails
-  # AFTER the unpriced tier is computed — reaches the write fail-open branch and
+  # AFTER the unpriced tier is computed - reaches the write fail-open branch and
   # exercises the emit-notes-AFTER-write ordering. chmod bites on the CI (Linux/macOS)
   # leg; where perms don't bite (Windows) the record writes and we skip.
   $ws = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
@@ -192,7 +192,7 @@ try {
         -NoNewWindow -PassThru -Wait
   $uerr = if (Test-Path $errFile) { [System.IO.File]::ReadAllText($errFile) } else { '' }
   if (Rec-File $ws) {
-    Ok  # read-only not enforced on this FS (Windows) — write fail-open path unreachable; skip
+    Ok  # read-only not enforced on this FS (Windows) - write fail-open path unreachable; skip
   } elseif ($p.ExitCode -eq 0 -and (Err-Lines $uerr) -eq 1) { Ok } else {
     No "failopen-write-unpriced-oneline: rc=$($p.ExitCode) errlines=$(Err-Lines $uerr) record=$(Rec-File $ws)" }
   try { & chmod 755 $crDir 2>$null } catch {}

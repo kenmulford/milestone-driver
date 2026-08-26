@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for triage-cache.sh (issue #441).
+# milestone-driver - golden-matrix runner for triage-cache.sh (issue #441).
 # Each row of triage-cache.cases.tsv is: name<TAB>args<TAB>stdout_file<TAB>
 # want_exit<TAB>stderr_file. See that table's header for what each column means
 # and what each case proves. The runner cd's into tests/fixtures/triage-cache/
@@ -7,7 +7,7 @@
 # checkout-dependent (mirrors tests/resolve-citation.test.sh's per-case cd). It
 # asserts the exit code, stdout, AND stderr exactly.
 #
-# RAW vs NORMALIZED — same rule as tests/resolve-citation.test.sh (RAW vs NORMALIZED — the distinction):
+# RAW vs NORMALIZED - same rule as tests/resolve-citation.test.sh (RAW vs NORMALIZED - the distinction):
 #   * The ACTUAL stdout/stderr is captured RAW and compared byte-for-byte. It is
 #     never CR-stripped and never rebuilt from a line array: either would make
 #     the runner blind to CRLF creep and to a missing trailing newline, the
@@ -49,7 +49,7 @@ ERRFILE="$TMP/err"
 
 TAB=$'\t'
 EXPECT_COLS=5
-# split_tab <row> — bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
+# split_tab <row> - bash-3.2-safe TAB split preserving empty fields ("IFS=$'\t'
 # read" collapses adjacent tabs, silently dropping the empty stdout_file /
 # stderr_file columns). NO mapfile/readarray (bash-4+ builtins; macOS ships 3.2).
 # Sets the GLOBAL `cols` array directly. Copied from tests/resolve-citation.test.sh (bash-3.2-safe TAB split).
@@ -59,8 +59,8 @@ split_tab() {
   while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 
-# slurp_x <path> — a file's contents with a literal 'X' sentinel appended.
-# Callers do out="$(slurp_x f)"; out="${out%X}" — the sentinel is what survives
+# slurp_x <path> - a file's contents with a literal 'X' sentinel appended.
+# Callers do out="$(slurp_x f)"; out="${out%X}" - the sentinel is what survives
 # command substitution's trailing-newline stripping, so the capture stays RAW
 # down to the final byte.
 slurp_x() { cat "$1"; printf X; }
@@ -127,10 +127,10 @@ while IFS= read -r row || [ -n "$row" ]; do
 done < "$CASES"
 
 # Self-guard: zero parsed cases means every row was skipped or the table is
-# empty — the suite would otherwise report "0 passed, 0 failed" as a clean,
+# empty - the suite would otherwise report "0 passed, 0 failed" as a clean,
 # misleadingly-green exit.
 if [ "$case_count" -eq 0 ]; then
-  echo "FATAL: parsed 0 cases from $CASES — this run tested nothing" >&2
+  echo "FATAL: parsed 0 cases from $CASES - this run tested nothing" >&2
   exit 1
 fi
 
@@ -144,13 +144,13 @@ run_write() { # <root> <entries> <response> -> OUT/RC
 }
 
 # ---- write: merge onto an existing canonical cache --------------------------
-# Entry 7 is overwritten, entry 11 is added, and entry 9 — which the input never
-# mentions — must survive UNTOUCHED, triaged_at byte-for-byte included. That
+# Entry 7 is overwritten, entry 11 is added, and entry 9 - which the input never
+# mentions - must survive UNTOUCHED, triaged_at byte-for-byte included. That
 # last part is the regression guard for a JSON round-trip that reformats values
 # it does not own.
 # Entry 7's expected key is the LIVE key resp/ts-two.json yields, not the stale
 # one entries-two.json supplies: `write` stamps the key itself (issue #462).
-# Entry 11 is absent from that response, so it keeps its supplied key — the
+# Entry 11 is absent from that response, so it keeps its supplied key - the
 # per-issue no-live-key degradation, which writes what it was given rather than
 # inventing a key.
 W="$(ws)"; cp -R "$FIX/roots/hit/." "$W/"
@@ -215,7 +215,7 @@ if [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}mkdir-failed" ] && [ -z "$ERR" ]; th
 W="$(ws)"; mkdir -p "$W/.milestone-config"; chmod 555 "$W/.milestone-config"
 run_write "$W" "$FIX/entries-two.json" "$FIX/resp/ts-two.json"
 if [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ]; then
-  ok  # read-only not enforced on this FS — the write-fail path is unreachable here
+  ok  # read-only not enforced on this FS - the write-fail path is unreachable here
 elif [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}write-failed" ] && [ -z "$ERR" ]; then ok; else
   no "write-failed: rc=$RC out=[$OUT] err=[$ERR]"; fi
 chmod 755 "$W/.milestone-config" 2>/dev/null
@@ -223,7 +223,7 @@ chmod 755 "$W/.milestone-config" 2>/dev/null
 # ---- write -> lookup round trip: what write stores is what lookup compares ---
 # entries-two.json supplies a deliberately STALE key for issue 7, so a HIT here
 # is only reachable because `write` recomputed the key from the same response
-# Step 2.5 hands `lookup` — the "one definition, not two" guard (issue #462).
+# Step 2.5 hands `lookup` - the "one definition, not two" guard (issue #462).
 # The other three records are the rest of the observed stream: issue 9 is in the
 # response but not in the entries, so it keeps the root's `9:STALE-KEY` and
 # misses; and EDGES carries 100 alone because entry 7 was fully overwritten from
@@ -262,7 +262,7 @@ if [ "$RC" -eq 0 ] && [ "$OUT" = "OK${TAB}.milestone-config/triage-cache.json" ]
 # ---- write with THREE arguments is usage/exit 2, never a 3-arg write ---------
 # NOT a TSV row, even though it is a pure usage case: every row runs against a
 # COMMITTED fixture root, and this one MUTATED roots/hit while it was being
-# written — the pre-fix script accepted the 3-arg form and wrote the cache. A
+# written - the pre-fix script accepted the 3-arg form and wrote the cache. A
 # mktemp root is the only safe home for a `write` case, and it also asserts the
 # thing the table cannot: that nothing was written.
 W="$(ws)"
@@ -276,7 +276,7 @@ if [ "$RC" -eq 2 ] && [ -z "$OUT" ] && [ "$ERR" = "$WANTERR" ] \
   no "write-wrong-argc: rc=$RC (want 2) out=[$OUT] err=[$ERR]"; fi
 
 # ---- write: an ABSENT response is the fail-open degradation, not a failure ----
-# No live key for any issue, so every entry is stored exactly as supplied — no
+# No live key for any issue, so every entry is stored exactly as supplied - no
 # new SKIP reason, still exit 0, and no key invented from thin air.
 W="$(ws)"
 run_write "$W" "$FIX/entries-two.json" "$FIX/resp/absent.json"

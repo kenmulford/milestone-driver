@@ -1,4 +1,4 @@
-# milestone-driver — golden matrix for scripts/triage-cache.{sh,ps1} (issue #441).
+# milestone-driver - golden matrix for scripts/triage-cache.{sh,ps1} (issue #441).
 # One row per READ-ONLY case. Columns, TAB-separated:
 #   name         case label, reported on failure
 #   args         the script's argv, SPACE-separated. No argument in this table
@@ -37,7 +37,7 @@ lookup-legacy-root-only	lookup roots/legacy-only resp/ts-two.json	lookup-hit.out
 # issue 9 and the legacy one knows issue 7. A canonical-wins read reports issue 7
 # as no-entry; a read that merged, or that preferred the legacy file, could not.
 lookup-both-present	lookup roots/both resp/ts-two.json	lookup-both.out	0	
-# A corrupt canonical file degrades to an EMPTY cache — it does NOT fall through
+# A corrupt canonical file degrades to an EMPTY cache - it does NOT fall through
 # to the legacy root, which here holds a file that would have produced a HIT.
 # Same golden as the cache-absent row: both are the empty-cache answer.
 lookup-bad-json	lookup roots/bad-json resp/ts-two.json	lookup-empty.out	0	
@@ -61,7 +61,7 @@ lookup-wrong-typed-fields	lookup roots/wrong-types resp/ts-wrong-types.json	look
 # orders, so no other row can catch this.
 lookup-astral-vs-bmp-labels	lookup roots/sort-order resp/ts-sort-order.json	lookup-sort-order.out	0	
 # Edge 100 is CLOSED/NOT_PLANNED, so both cached entries that reference it are
-# downgraded. Edge 101 is CLOSED/COMPLETED — merged, and never a downgrade.
+# downgraded. Edge 101 is CLOSED/COMPLETED - merged, and never a downgrade.
 check-edges-closed-not-merged	check-edges roots/hit resp/edges-closed.json	check-edges-two.out	0	
 check-edges-all-open	check-edges roots/hit resp/edges-open.json	check-edges-none.out	0	
 # roots/both's entry references edge 102 ONLY, whose stateReason is null: absent

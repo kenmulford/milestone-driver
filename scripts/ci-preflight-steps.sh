@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# milestone-driver — CI-aware preflight step discovery (issue #162).
+# milestone-driver - CI-aware preflight step discovery (issue #162).
 #
 # Discovers the runnable shell steps of a repo's PR-gating GitHub Actions
 # workflows so `preflightCmd: "github-ci"` can front-run CI's cheap checks
-# locally. The workflows are LOCAL files in the checkout — this reads them from
+# locally. The workflows are LOCAL files in the checkout - this reads them from
 # disk and NEVER calls the network. A constrained, line-oriented parser handles
 # the NARROW surface only (jobs -> steps -> run/working-directory/if/uses/
 # continue-on-error + the workflow `on:` trigger). NO YAML library, NO new
-# dependency (no yq/act/python) — see the design spec's "Build decision".
+# dependency (no yq/act/python) - see the design spec's "Build decision".
 #
 # Usage:   ci-preflight-steps.sh [REPO_ROOT] [CI_WORKFLOW]
 #   REPO_ROOT    path to a checked-out repo root (default: CWD).
@@ -44,7 +44,7 @@ flush() { local l; for l in "${out_lines[@]:-}"; do [ -n "$l" ] && printf '%s\n'
 
 WFDIR="$ROOT/.github/workflows"
 if [ ! -d "$WFDIR" ]; then
-  emit "WARN	no .github/workflows directory found at $ROOT — nothing to mirror"
+  emit "WARN	no .github/workflows directory found at $ROOT - nothing to mirror"
   flush; exit 0
 fi
 
@@ -54,7 +54,7 @@ declare -a WFILES=()
 for f in "$WFDIR"/*.yml "$WFDIR"/*.yaml; do WFILES+=("$f"); done
 shopt -u nullglob
 if [ "${#WFILES[@]}" -eq 0 ]; then
-  emit "WARN	no workflow files in $WFDIR — nothing to mirror"
+  emit "WARN	no workflow files in $WFDIR - nothing to mirror"
   flush; exit 0
 fi
 # Sort by basename (deterministic order independent of glob/locale quirks).
@@ -103,12 +103,12 @@ is_pr_gating() {
           case "$val" in *pull_request*) has_pr=1;; esac
           # bare inline push (`on: push` / `on: [push]`) = all branches -> treat as gating.
           case "$val" in *push*) has_push=1; push_subkeys=0;; esac
-          [ -n "$val" ] && in_on=0   # inline on: — done after this line
+          [ -n "$val" ] && in_on=0   # inline on: - done after this line
           ;;
       esac
       continue
     fi
-    # inside the on: block — a line at/below on_indent ends it.
+    # inside the on: block - a line at/below on_indent ends it.
     if [ "$indent" -le "$on_indent" ]; then break; fi
     # trigger sub-keys (e.g. branches:, tags:, paths:) live deeper than the trigger key.
     if [ "$indent" -gt "$trigger_indent" ] && [ "$trigger_indent" -ge 0 ]; then
@@ -167,7 +167,7 @@ extract_workflow() {
   local has_step=0
 
   # finalize_job: when a job had a job-level `uses:` (reusable/composite workflow call)
-  # and emitted no steps of its own, record it as a skipped reusable-workflow call — the
+  # and emitted no steps of its own, record it as a skipped reusable-workflow call - the
   # silent-under-run case the warning guard exists for.
   finalize_job() {
     [ -z "$cur_job" ] && return
@@ -183,12 +183,12 @@ extract_workflow() {
     job_emitted=1
     step_idx=$((step_idx+1))
     local label="$wfname/$cur_job/step$step_idx"
-    # classify — order matters (most specific skip reason wins)
+    # classify - order matters (most specific skip reason wins)
     if [ -n "$s_uses" ]; then
       emit "SKIP	$wfname	$cur_job	uses-step	$s_uses"; skipped=$((skipped+1)); reset_step; return
     fi
     if [ -z "$s_run" ]; then
-      # no run: and no uses: — e.g. a bare `- name:` or unsupported shape; skip quietly.
+      # no run: and no uses: - e.g. a bare `- name:` or unsupported shape; skip quietly.
       emit "SKIP	$wfname	$cur_job	no-run	step has no run: command"; skipped=$((skipped+1)); reset_step; return
     fi
     if [ "$s_secrets" -eq 1 ]; then
@@ -351,7 +351,7 @@ for wf in "${WFILES[@]}"; do
   extract_workflow "$wf"
   # silent-under-run guard, per gating workflow: gating but produced no runnable steps
   if [ "$mirrored" -eq "$before_mirrored" ]; then
-    emit "WARN	PR-gating workflow '$base' produced ZERO runnable steps (real checks may live behind a uses: reusable/composite workflow) — this is NOT a clean pass"
+    emit "WARN	PR-gating workflow '$base' produced ZERO runnable steps (real checks may live behind a uses: reusable/composite workflow) - this is NOT a clean pass"
   fi
 done
 
@@ -359,7 +359,7 @@ if [ -n "$ONLY_WF" ] && [ "$any_gating" -eq 0 ]; then
   emit "WARN	ciWorkflow '$ONLY_WF' matched no PR-gating workflow in $WFDIR"
 fi
 if [ "$any_gating" -eq 0 ] && [ -z "$ONLY_WF" ]; then
-  emit "WARN	no PR-gating workflow found in $WFDIR (none triggered on pull_request or push to integration branch) — nothing to mirror"
+  emit "WARN	no PR-gating workflow found in $WFDIR (none triggered on pull_request or push to integration branch) - nothing to mirror"
 fi
 
 flush

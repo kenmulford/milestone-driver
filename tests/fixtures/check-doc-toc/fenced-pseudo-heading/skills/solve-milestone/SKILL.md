@@ -12,7 +12,7 @@ a heading-shaped line inside a fenced markdown template. The scan stops at the
 first level-2-or-higher heading, so these fenced lines are ordinary content.
 
 ```markdown
-## v<target-version> — <milestone theme>
+## v<target-version> - <milestone theme>
 ### Wave 1
 - [ ] #123 an issue title
 ```

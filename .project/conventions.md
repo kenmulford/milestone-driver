@@ -2,9 +2,9 @@
 
 <!--
 Project doc (.project/). Cite as `.project/conventions.md#<section>`. This is the file the
-implementer and coherence-reviewer lean on hardest — "reuse conventions" and
+implementer and coherence-reviewer lean on hardest - "reuse conventions" and
 "does this fit the app?" both resolve here. Prefer pointing at a canonical
-exemplar in the codebase (path:line) over prose. Keep ## headings stable — they
+exemplar in the codebase (path:line) over prose. Keep ## headings stable - they
 are citation anchors.
 
 Captured by milestone-bootstrapper (dogfood #235), grounded in this repo's own docs.
@@ -20,7 +20,7 @@ Where things go, and the shape of a feature.
 
 ## Test patterns
 Where tests live, how they're named, fixtures/factories, and what a good test looks like.
-> Tests live in `tests/`, named `<script>.test.{sh,ps1}` — a **behavior-identical bash + PowerShell 7+ pair** per script. Pattern: a **golden-matrix runner** that drives the script under test against a `.tsv`/`fixtures/` case table and asserts stdout + stderr exactly (`tests/extract-version.test.sh` + `tests/extract-version.cases.tsv`). Runners are self-contained: they probe for required tools (`command -v jq`) and use `mktemp` per-run temp files to stay collision-free under concurrency. CI runs **both legs** of every twin on every PR into `develop` (`.github/workflows/ci.yml` — `shell-tests-bash` + `shell-tests-pwsh` jobs). A good test for this repo proves the bash and pwsh twins behave identically.
+> Tests live in `tests/`, named `<script>.test.{sh,ps1}` - a **behavior-identical bash + PowerShell 7+ pair** per script. Pattern: a **golden-matrix runner** that drives the script under test against a `.tsv`/`fixtures/` case table and asserts stdout + stderr exactly (`tests/extract-version.test.sh` + `tests/extract-version.cases.tsv`). Runners are self-contained: they probe for required tools (`command -v jq`) and use `mktemp` per-run temp files to stay collision-free under concurrency. CI runs **both legs** of every twin on every PR into `develop` (`.github/workflows/ci.yml` - `shell-tests-bash` + `shell-tests-pwsh` jobs). A good test for this repo proves the bash and pwsh twins behave identically.
 
 ## Canonical exemplars (mirror these)
 The reference implementations to copy when building something similar. Point at real code.
@@ -36,11 +36,11 @@ The reference implementations to copy when building something similar. Point at 
 
 ## Commits & PRs
 Message format and PR expectations.
-> **Issue PRs squash-merge into `develop`** (the integration branch) once CI is green, keeping integration history linear (`skills/solve-issue/SKILL.md (Auto-merge on)`; `gh pr merge --squash --delete-branch`). Every PR body carries a **Decision Log** and a **Code Review** section; a borderline autonomous call adds a `judgment call` label (`skills/solve-issue/SKILL.md` step 6). The **release PR** (`develop` → `main`) is the one exception: merge it with **`--merge`, never `--squash`** — squashing diverges the branches and conflicts the next release on `plugin.json` + `CHANGELOG.md` (`docs/consumer-setup.md (release PR with)`). The release PR, tag, and milestone-close are **manual and human-only**; the loop never opens a PR to `main` (`no-pr-to-protected` hook). Co-author trailer convention applies to commit messages.
+> **Issue PRs squash-merge into `develop`** (the integration branch) once CI is green, keeping integration history linear (`skills/solve-issue/SKILL.md (Auto-merge on)`; `gh pr merge --squash --delete-branch`). Every PR body carries a **Decision Log** and a **Code Review** section; a borderline autonomous call adds a `judgment call` label (`skills/solve-issue/SKILL.md` step 6). The **release PR** (`develop` → `main`) is the one exception: merge it with **`--merge`, never `--squash`** - squashing diverges the branches and conflicts the next release on `plugin.json` + `CHANGELOG.md` (`docs/consumer-setup.md (release PR with)`). The release PR, tag, and milestone-close are **manual and human-only**; the loop never opens a PR to `main` (`no-pr-to-protected` hook). Co-author trailer convention applies to commit messages.
 
 ## Versioning
 Does the project follow semantic versioning? If so, **where the version lives** and the **bump cadence**.
-> **SemVer, yes.** The version lives in **`.claude-plugin/plugin.json`** as the single source of truth — `marketplace.json` carries no `version` field (`docs/architecture.md#plugin-version`). The bump **rides the issue or milestone PR itself**, never a separate chore: a standalone `solve-issue` applies a **patch** bump; `solve-milestone` derives the target version from the **milestone title** (a deterministic, unit-tested extractor — `scripts/extract-version.{sh,ps1}`) and passes it to each issue run idempotently. `versioning: false` is version-free mode. Tagging and cutting the GitHub Release happen **manually after** the `develop`→`main` release merge (`docs/consumer-setup.md#releasing-to-your-protected-branch`).
+> **SemVer, yes.** The version lives in **`.claude-plugin/plugin.json`** as the single source of truth - `marketplace.json` carries no `version` field (`docs/architecture.md#plugin-version`). The bump **rides the issue or milestone PR itself**, never a separate chore: a standalone `solve-issue` applies a **patch** bump; `solve-milestone` derives the target version from the **milestone title** (a deterministic, unit-tested extractor - `scripts/extract-version.{sh,ps1}`) and passes it to each issue run idempotently. `versioning: false` is version-free mode. Tagging and cutting the GitHub Release happen **manually after** the `develop`→`main` release merge (`docs/consumer-setup.md#releasing-to-your-protected-branch`).
 
 ## Code comments
 What earns a comment its place in code, and what does not.

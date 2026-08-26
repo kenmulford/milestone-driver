@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — behavior matrix runner for write-cost-record.sh (issue #320).
+# milestone-driver - behavior matrix runner for write-cost-record.sh (issue #320).
 # Drives the cache-aware cost-record helper and asserts every acceptance
 # criterion by FIELD CONTENT (jq) plus the fail-open stderr/exit contract:
 # happy path (both tiers, exact dollar math), omitted-fields -> zeros,
@@ -9,7 +9,7 @@
 # The .sh and .ps1 runners assert the SAME field + rateSnapshot contract
 # (cross-impl parity), mirroring tests/render-daemon.test.{sh,ps1}. Each case runs
 # the helper with cwd set to a fresh mktemp workspace so cost-records/ lands there
-# (test isolation — .project/environment.md#Data stores).
+# (test isolation - .project/environment.md#Data stores).
 set -u
 export LC_ALL=C
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -28,7 +28,7 @@ no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 ROOT="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/wcr.$$")"; mkdir -p "$ROOT"
 trap 'rm -rf "$ROOT"' EXIT
 
-# run_case <json> — run the helper with a fresh cwd; sets OUT/ERR/RC/WS.
+# run_case <json> - run the helper with a fresh cwd; sets OUT/ERR/RC/WS.
 run_case() {
   WS="$(mktemp -d "$ROOT/case.XXXXXX")"
   OUT="$(cd "$WS" && printf '%s' "$1" | bash "$SCRIPT" 2>"$WS/.stderr")"; RC=$?
@@ -153,8 +153,8 @@ if [ "$RC" -eq 0 ] && [ "$(errlines)" -eq 1 ] && no_record; then ok; else
 # ---- tiny sub-1e-4 costUsd asserted by NUMERIC VALUE (not float bytes) -------
 # opus outputTokens=2 -> 2*25/1e6 = 5e-05 (avoids the inexact 0.1 cache-read
 # factor, so the value is exactly representable). The ON-DISK float form is jq-
-# version-dependent (jq 1.8 writes `0.00005`, jq 1.7 wrote `5e-05`) — both valid
-# JSON for the same value — so assert the parsed NUMBER, never the bytes.
+# version-dependent (jq 1.8 writes `0.00005`, jq 1.7 wrote `5e-05`) - both valid
+# JSON for the same value - so assert the parsed NUMBER, never the bytes.
 run_case '{"runId":"run-tiny","tiers":{"opus":{"outputTokens":2}}}'
 rec="$(recfile)"
 if [ "$RC" -eq 0 ] && [ -n "$rec" ] \
@@ -163,9 +163,9 @@ if [ "$RC" -eq 0 ] && [ -n "$rec" ] \
 
 # ---- fail-open AT THE WRITE + unpriced tier -> STILL exactly one stderr line --
 # An unpriced tier normally prints a note; but when the RECORD WRITE fails open the
-# note MUST NOT precede the fail line — the contract is exactly ONE stderr line.
+# note MUST NOT precede the fail line - the contract is exactly ONE stderr line.
 # Use a READ-ONLY cost-records DIR so `mkdir -p` succeeds (dir exists) but the write
-# (`> "$rel"`) fails AFTER the unpriced tier is computed — this reaches the write-
+# (`> "$rel"`) fails AFTER the unpriced tier is computed - this reaches the write-
 # open fail-open branch and exercises the emit-notes-AFTER-write ordering (a FILE at
 # the path would instead fail at mkdir, before the notes/write). chmod 555 bites on
 # the CI (Linux) leg; where perms don't bite (some Windows FS / root) the record
@@ -176,7 +176,7 @@ chmod 555 "$WS/.milestone-config/.runtime/cost-records"
 OUT="$(cd "$WS" && printf '%s' '{"runId":"r","tiers":{"gpt":{"inputTokens":1}}}' | bash "$SCRIPT" 2>"$WS/.stderr")"; RC=$?
 ERR="$(cat "$WS/.stderr" 2>/dev/null)"
 if [ -n "$(recfile)" ]; then
-  ok  # read-only not enforced on this FS — write-fail-open path unreachable here; skip
+  ok  # read-only not enforced on this FS - write-fail-open path unreachable here; skip
 elif [ "$RC" -eq 0 ] && [ "$(errlines)" -eq 1 ]; then ok; else
   no "failopen-write-unpriced-oneline: rc=$RC errlines=$(errlines) err=[$ERR]"; fi
 chmod 755 "$WS/.milestone-config/.runtime/cost-records" 2>/dev/null

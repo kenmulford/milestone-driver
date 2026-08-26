@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# milestone-driver — diff-scoped repo file-index resolver (issue #318).
+# milestone-driver - diff-scoped repo file-index resolver (issue #318).
 # stdin: JSON {"files":["<repo-relative-path>", ...]}. stdout: one line per input
-# file, IN INPUT ORDER — "<path> → <purpose>[ (callers: a, b)][ (symbols: x, y)]".
+# file, IN INPUT ORDER - "<path> → <purpose>[ (callers: a, b)][ (symbols: x, y)]".
 # Fail-open, mirroring scripts/extract-version.sh (emit_none() {): malformed/empty
 # stdin, missing jq, or zero emitted lines => empty stdout, stderr "none", exit 0.
 # Never a non-zero exit, never a crash. Named paths that don't exist on disk or
@@ -9,7 +9,7 @@
 set -u
 # Force a deterministic byte model: LC_ALL=C makes every string op and `sort`
 # byte-indexed, keeping this leg in lockstep with the pwsh twin's byte model
-# — same rationale as scripts/extract-version.sh (a deterministic).
+# - same rationale as scripts/extract-version.sh (a deterministic).
 export LC_ALL=C
 
 emit_none() { printf 'none' >&2; exit 0; }
@@ -53,8 +53,9 @@ is_block_indicator() { case "$1" in '>-'|'>'|'|'|'|-') return 0;; *) return 1;; 
 # first_sentence <text>: truncate at the first ". " (period+space) occurring
 # OUTSIDE a backtick span, keeping the sentence THROUGH the period (dropping the
 # space and remainder); if none, keep the whole text. Byte-scanned under LC_ALL=C
-# — ASCII '.'/' '/'`' never collide with UTF-8 continuation bytes, so the em-dash
-# / arrow pass through intact and the result matches the pwsh char-scan twin.
+# - ASCII '.'/' '/'`' never collide with UTF-8 continuation bytes, so the arrow
+# separator and any multibyte char in a description pass through intact and the
+# result matches the pwsh char-scan twin.
 first_sentence() {
   local s="$1"; local n="${#s}" i=0 inbt=0 c nx
   while [ "$i" -lt "$n" ]; do
@@ -70,7 +71,7 @@ first_sentence() {
 }
 
 # purpose_frontmatter <file>: YAML-frontmatter description value, applying the
-# folded/literal-scalar rule — the same-line value when non-empty and not a bare
+# folded/literal-scalar rule - the same-line value when non-empty and not a bare
 # block indicator (>- > | |-), else the first non-empty line FOLLOWING the key.
 purpose_frontmatter() {
   local file="$1" in_fm=0 want=0 line trimmed val
@@ -99,7 +100,7 @@ purpose_frontmatter() {
 
 # purpose_header <file>: the file's line-2 header comment, stripping leading '#'
 # markers and whitespace. Exemplars: scripts/extract-version.sh (milestone-driver)
-# and hooks/force-subagent.sh (— force-subagent).
+# and hooks/force-subagent.sh (- force-subagent).
 purpose_header() {
   local file="$1" line2
   line2="$(sed -n '2p' "$file" 2>/dev/null)"
@@ -108,7 +109,7 @@ purpose_header() {
   trim "$line2"
 }
 
-# extract_symbols <file>: top-level function names in a .sh/.ps1 — BOTH the
+# extract_symbols <file>: top-level function names in a .sh/.ps1 - BOTH the
 # bash shape `name() {` AND the pwsh shape `function Name` are matched in this
 # leg (a .ps1 file carries pwsh-shape functions). Deduped + byte-sorted.
 extract_symbols() {
@@ -127,7 +128,7 @@ extract_symbols() {
 }
 
 # file_relations <path>: one combined, deduped, byte-sorted list of source-tree
-# files related to <path> — callers (a source file that references <path> by
+# files related to <path> - callers (a source file that references <path> by
 # repo-relative path OR basename) UNION callees (a source file whose path/basename
 # appears inside <path>). One hop only; <path> itself is excluded.
 file_relations() {

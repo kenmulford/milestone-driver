@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
+# milestone-driver - force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
 #
 # Blocks main-thread edits to the consuming repo's source/test globs so that
 # application and test code is authored only by the dispatched implementer

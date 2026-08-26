@@ -1,15 +1,15 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for triage-cache.ps1 (issue #441).
+# milestone-driver - golden-matrix runner for triage-cache.ps1 (issue #441).
 # Twin of triage-cache.test.sh: drives the SAME triage-cache.cases.tsv table
 # against the SAME fixtures/triage-cache/_expected/* goldens, so the bash and
 # pwsh legs stay byte-identical. See that runner's header for what each column
 # means and what each case proves.
 #
-# RAW vs NORMALIZED — same rule as tests/resolve-citation.test.ps1 (RAW vs NORMALIZED — the distinction):
+# RAW vs NORMALIZED - same rule as tests/resolve-citation.test.ps1 (RAW vs NORMALIZED - the distinction):
 #   * The ACTUAL stdout/stderr is captured RAW, via ProcessStartInfo +
 #     StreamReader.ReadToEnd, which performs NO newline translation. Joining
 #     PowerShell's line-split array (or piping through `>`) normalizes line
-#     endings, and a runner that does so cannot observe CRLF creep AT ALL — on
+#     endings, and a runner that does so cannot observe CRLF creep AT ALL - on
 #     the very leg that runs on Windows, where CRLF creep is the natural failure
 #     mode.
 #   * The GOLDEN gets ONE normalization, CRLF -> LF, for a CRLF checkout.
@@ -48,7 +48,7 @@ $ExpectCols = 5
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 
-# Eq-Exact — BYTE-EXACT comparison. PowerShell's `-eq` on strings is
+# Eq-Exact - BYTE-EXACT comparison. PowerShell's `-eq` on strings is
 # case-INSENSITIVE and culture-sensitive, so it is not the assertion this
 # runner's contract requires; StringComparison.Ordinal is
 # (tests/resolve-citation.test.ps1 (function Eq-Exact) makes the same call, with the
@@ -62,7 +62,7 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-# Read-Golden — a NAMED-BUT-MISSING golden is FATAL. Returning '' here would
+# Read-Golden - a NAMED-BUT-MISSING golden is FATAL. Returning '' here would
 # silently turn such a case into "expect empty", i.e. a green run asserting
 # nothing.
 function Read-Golden([string]$path) {
@@ -76,7 +76,7 @@ function Read-Golden([string]$path) {
 function Ok { $script:pass++ }
 function No([string]$msg) { $script:fail++; Write-Host "FAIL $msg" }
 
-# Invoke-Tc — run the script under test with exact arguments and an explicit
+# Invoke-Tc - run the script under test with exact arguments and an explicit
 # working directory, returning RAW stdout/stderr plus the exit code. Both
 # streams are read asynchronously BEFORE WaitForExit so a full pipe buffer
 # cannot deadlock the child. $envPath, when given, REPLACES PATH in the child.
@@ -140,10 +140,10 @@ foreach ($rawRow in Get-Content -LiteralPath $Cases) {
 }
 
 # Self-guard: zero parsed cases means every row was skipped or the table is
-# empty — the suite would otherwise report "0 passed, 0 failed" as a clean,
+# empty - the suite would otherwise report "0 passed, 0 failed" as a clean,
 # misleadingly-green exit.
 if ($caseCount -eq 0) {
-  Write-Error "FATAL: parsed 0 cases from $Cases — this run tested nothing"
+  Write-Error "FATAL: parsed 0 cases from $Cases - this run tested nothing"
   exit 1
 }
 
@@ -162,14 +162,14 @@ function Get-Json([string]$path) {
 }
 
 # ---- write: merge onto an existing canonical cache --------------------------
-# Entry 7 is overwritten, entry 11 is added, and entry 9 — which the input never
-# mentions — must survive UNTOUCHED, triaged_at byte-for-byte included. That is
+# Entry 7 is overwritten, entry 11 is added, and entry 9 - which the input never
+# mentions - must survive UNTOUCHED, triaged_at byte-for-byte included. That is
 # the regression guard for a JSON round-trip that reformats values it does not
 # own: ConvertFrom-Json turns "2026-08-01T01:00:00Z" into a [datetime], and
 # writing that back rewrites the field in .NET's date format.
 # Entry 7's expected key is the LIVE key resp/ts-two.json yields, not the stale
 # one entries-two.json supplies: `write` stamps the key itself (issue #462).
-# Entry 11 is absent from that response, so it keeps its supplied key — the
+# Entry 11 is absent from that response, so it keeps its supplied key - the
 # per-issue no-live-key degradation, which writes what it was given rather than
 # inventing a key.
 $W = New-Workspace
@@ -192,7 +192,7 @@ if ($okMerge) { Ok } else { No "write-merge: rc=$($r.rc) out=[$(Show-Escaped $r.
 
 # ---- write: self-healed .gitignore is byte-identical to the committed one ----
 # The block lives in the script now, so this is what keeps it in sync with
-# .milestone-config/.gitignore in this repo — and with the bash twin's copy,
+# .milestone-config/.gitignore in this repo - and with the bash twin's copy,
 # which the sibling runner asserts against the same file.
 if (-not (Test-Path -LiteralPath $RepoGitignore)) { No "write-gitignore: missing $RepoGitignore" }
 else {
@@ -261,7 +261,7 @@ if ($chmodOk) { chmod 755 $ro }
 # ---- write -> lookup round trip: what write stores is what lookup compares ---
 # entries-two.json supplies a deliberately STALE key for issue 7, so a HIT here
 # is only reachable because `write` recomputed the key from the same response
-# Step 2.5 hands `lookup` — the "one definition, not two" guard (issue #462).
+# Step 2.5 hands `lookup` - the "one definition, not two" guard (issue #462).
 # The other three records are the rest of the observed stream: issue 9 is in the
 # response but not in the entries, so it keeps the root's `9:STALE-KEY` and
 # misses; and EDGES carries 100 alone because entry 7 was fully overwritten from
@@ -291,7 +291,7 @@ if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json
   $c = Get-Json (Join-Path $W '.milestone-config' 'triage-cache.json')
   # Property-presence FIRST, then read: entry 7 carrying no `key` is the exact
   # regression this case exists to catch, and GetProperty THROWS on an absent
-  # one — under $ErrorActionPreference='Stop' that aborts the whole runner
+  # one - under $ErrorActionPreference='Stop' that aborts the whole runner
   # instead of reporting one FAIL, hiding every case below it.
   $has11Key = @($c.GetProperty('11').EnumerateObject() | ForEach-Object { $_.Name }) -ccontains 'key'
   $key7 = ''
@@ -310,7 +310,7 @@ else { No "write-keyless-entries: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[
 # ---- write with THREE arguments is usage/exit 2, never a 3-arg write ---------
 # NOT a TSV row, even though it is a pure usage case: every row runs against a
 # COMMITTED fixture root, and this one MUTATED roots/hit while it was being
-# written — the pre-fix script accepted the 3-arg form and wrote the cache. A
+# written - the pre-fix script accepted the 3-arg form and wrote the cache. A
 # temp root is the only safe home for a `write` case, and it also asserts the
 # thing the table cannot: that nothing was written.
 $W = New-Workspace
@@ -321,7 +321,7 @@ if ($r.rc -eq 2 -and (Eq-Exact $r.out '') -and (Eq-Exact $r.err $wantErr) -and
 else { No "write-wrong-argc: rc=$($r.rc) (want 2) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
 
 # ---- write: an ABSENT response is the fail-open degradation, not a failure ----
-# No live key for any issue, so every entry is stored exactly as supplied — no
+# No live key for any issue, so every entry is stored exactly as supplied - no
 # new SKIP reason, still exit 0, and no key invented from thin air.
 $W = New-Workspace
 $r = Invoke-Tc @('write', $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'absent.json')) $Tmp
@@ -335,8 +335,8 @@ else { No "write-absent-response: rc=$($r.rc) out=[$(Show-Escaped $r.out)] key=[
 
 # ---- pwsh-only: no external tool is consulted --------------------------------
 # The bash twin's mirror case asserts SKIP no-jq with PATH emptied. This leg has
-# no such record to emit, and the claim behind that difference — "this twin
-# needs no external tool" — is only worth as much as an assertion. Same input,
+# no such record to emit, and the claim behind that difference - "this twin
+# needs no external tool" - is only worth as much as an assertion. Same input,
 # same golden, PATH empty in the child.
 $r = Invoke-Tc @('lookup', (Join-Path $Fix 'roots' 'hit'), (Join-Path $Fix 'resp' 'ts-two.json')) $Fix ''
 $expOut = Read-Golden (Join-Path $Gold 'lookup-hit.out')

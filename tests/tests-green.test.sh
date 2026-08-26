@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — runner for the tests-green.sh hook (issue #499).
+# milestone-driver - runner for the tests-green.sh hook (issue #499).
 # The hook takes no arguments and emits no stdout record, so there is no case
 # table to drive: every assertion here is bespoke, against a fresh mktemp
 # workspace, exactly like the `write` blocks below the loop in
@@ -29,7 +29,7 @@ REPO_GITIGNORE="$ROOT/.milestone-config/.gitignore"
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 command -v git >/dev/null 2>&1 || { echo "FATAL: git required" >&2; exit 3; }
 # Hook child interpreter, resolved once. The hooks ship for whatever bash the
-# consumer has, and on macOS that is /bin/bash 3.2 — a live venue this runner
+# consumer has, and on macOS that is /bin/bash 3.2 - a live venue this runner
 # must keep covering. PATH bash is NOT that venue on the macOS CI job:
 # .github/workflows/ci.yml (Put a modern bash on PATH for runner children)
 # deliberately puts a modern bash ahead of it for the runners' script children
@@ -46,7 +46,7 @@ ERRFILE="$TMP/err"
 ok() { pass=$((pass+1)); }
 no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 
-# ws — a workspace staged so the hook reaches its post-green write. Every
+# ws - a workspace staged so the hook reaches its post-green write. Every
 # ingredient is load-bearing: a driver.json with a unitTestCmd (absent → exit
 # 0), a staged path matching sourceGlobs (no match → exit 0), and a real git
 # repo (`git write-tree` failing leaves the stamp key empty, which gates the
@@ -67,7 +67,7 @@ ws() {
   printf '%s' "$w"
 }
 
-# run_hook <root> — feed the hook the PreToolUse payload a `git commit` carries
+# run_hook <root> - feed the hook the PreToolUse payload a `git commit` carries
 # and capture its exit code. The hook writes only to stderr, so both streams go
 # to one file; the assertions read the tree it left, not its chatter.
 run_hook() {
@@ -93,7 +93,7 @@ elif cmp -s "$EMITTED" "$REPO_GITIGNORE"; then ok; else
 
 # ---- an EXISTING .gitignore is never rewritten ------------------------------
 # The self-heal is create-only at every site, so a user-edited file must survive
-# untouched — not overwritten, not appended to, not truncated. Precedent:
+# untouched - not overwritten, not appended to, not truncated. Precedent:
 # tests/triage-cache.test.sh (write: an EXISTING .gitignore is never rewritten).
 W="$(ws)"
 printf 'sentinel\n' > "$W/.milestone-config/.gitignore"

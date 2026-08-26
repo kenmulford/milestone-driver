@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for check-size-budgets.ps1 (issue #295).
+# milestone-driver - golden-matrix runner for check-size-budgets.ps1 (issue #295).
 # Asserts the pwsh checker against the SAME
 # tests/fixtures/check-size-budgets/_expected/*.txt golden files the .sh
-# runner uses — cross-impl parity. See that runner's header for what each
+# runner uses - cross-impl parity. See that runner's header for what each
 # case proves.
 #
 # Fixture-prose caveat: line-flat-byte-over and byte-flat-word-over are both
@@ -21,7 +21,7 @@
 #
 # missing-closure-member covers the CLOSURE records added by issue #491, whose
 # ceilings are PRINTED AND NEVER GATED. Its tree is the governed set with
-# skills/notices.md deleted — a file that is a closure MEMBER of solve-issue and
+# skills/notices.md deleted - a file that is a closure MEMBER of solve-issue and
 # solve-milestone and of neither other closure. So the one deletion asserts both
 # halves of the missing-member rule at once: those two records print MISSING
 # while setup's and triage's still print a number (the record is per-closure,
@@ -107,7 +107,7 @@ try {
   else {
     $src = [System.IO.File]::ReadAllText($script, [System.Text.UTF8Encoding]::new($false))
     # Table rows are the only lines starting at column 0 with skills/ or
-    # agents/ and carrying three numeric columns — mirrors the .sh runner's awk.
+    # agents/ and carrying three numeric columns - mirrors the .sh runner's awk.
     # The trailing `\r?` is load-bearing: .NET multiline `$` matches before the
     # `\n`, so on a CRLF checkout (Windows core.autocrlf) a bare `[ \t]*$`
     # never matches a table row and the surgery silently becomes a no-op.
@@ -222,13 +222,13 @@ try {
   # copy's stream matches neither expectation.
   #
   # The wide rewrite is applied LINE BY LINE and ONLY to the row the surgery
-  # actually hits — the first table row, skills/setup/SKILL.md. String.Replace
+  # actually hits - the first table row, skills/setup/SKILL.md. String.Replace
   # rewrites EVERY occurrence in the whole text, and '/4300' also matches the
   # leading four digits of another row's '/43000'; milestone #39's ratchet gave
   # skills/solve-issue/SKILL.md a byte ceiling of exactly 43000, so the
   # file-wide form produced a phantom '7/999999999990' for a row the surgery
   # never touched. The .sh twin addresses its two `sed` rewrites to the same
-  # row for the same reason — keep both addressed when these numbers are
+  # row for the same reason - keep both addressed when these numbers are
   # retuned.
   $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
@@ -269,7 +269,7 @@ try {
 
   # --- empty-closure-table: no closures is a no-op, not an error (#491) -----
   # Same case the .sh runner runs. The CLOSURE records are driven by a second
-  # hardcoded table in the checker's own source, so — like the governed set — no
+  # hardcoded table in the checker's own source, so - like the governed set - no
   # fixture tree can reach it. Delete every row between the closure
   # here-string's delimiters in a COPY of the checker and the run must degrade
   # to exactly the pre-#491 stream: the same per-file records, ZERO CLOSURE
@@ -309,11 +309,11 @@ try {
   # closure (#491) ----------------------------------------------------------
   # Same case the .sh runner runs. A CLOSURE sum counts ONLY the files a skill
   # read-directs on EVERY run. The six reference docs that sit behind an
-  # observable branch — parallel-waves.md (parallel mode),
+  # observable branch - parallel-waves.md (parallel mode),
   # milestone-granularity.md (`integrationGranularity: "milestone"`),
   # trello-sync.md (`integrations.trello`), async-mode.md (retired, inert),
   # md-epic-fanout.md (the `md-epic` label) and blocker-resolver-dispatch.md
-  # (>=1 Blocker gap on a MISS-set issue) — are NOT part of any closure, and
+  # (>=1 Blocker gap on a MISS-set issue) - are NOT part of any closure, and
   # the executable statement of that is: perturb all six and every CLOSURE line
   # is byte-identical. A committed fixture cannot hold both the perturbed and
   # unperturbed state of the same tree, so this copies at-ceiling and edits the

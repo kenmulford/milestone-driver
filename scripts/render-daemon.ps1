@@ -1,33 +1,33 @@
 #!/usr/bin/env pwsh
-# milestone-driver — render-daemon lifecycle seam (issue #208).
+# milestone-driver - render-daemon lifecycle seam (issue #208).
 #
 # Behavior-identical pwsh twin of scripts/render-daemon.sh. Boots the consumer's
 # seeded/persona app server ONCE per run and reuses it across the run; tears it
-# down at run end. Built for the SERIAL capture path only — a single per-run
+# down at run end. Built for the SERIAL capture path only - a single per-run
 # daemon on the consumer's configured port. Parallel is now the default, so
-# render capture is deferred to the serial tail —
+# render capture is deferred to the serial tail -
 # skills/solve-milestone/parallel-waves.md (orchestrator-run).
 #
 # Inputs are read DIRECTLY from the profile .milestone-config/driver.json
-# — mirroring the native-JSON profile-read in scripts/ci-preflight-steps.ps1 ($script:integrationBranch = ''):
-#   visualCapture.serverCmd  — the command that boots the app server.
-#   visualCapture.readyUrl   — the full /health-style ready-probe URL. The port
+# - mirroring the native-JSON profile-read in scripts/ci-preflight-steps.ps1 ($script:integrationBranch = ''):
+#   visualCapture.serverCmd  - the command that boots the app server.
+#   visualCapture.readyUrl   - the full /health-style ready-probe URL. The port
 #                              is the consumer's; parsed from readyUrl for the
-#                              state file's informational `port` field — NOT
+#                              state file's informational `port` field - NOT
 #                              dynamically allocated.
 # The visualCapture block is defined/documented by sibling issue #209; this
 # script only READS serverCmd + readyUrl (key names fixed by spec).
 #
 # Usage:   render-daemon.ps1 <start|status|stop> [REPO_ROOT]
-#   start  — reuse-or-autostart (reuse only when the recorded process is still a
+#   start  - reuse-or-autostart (reuse only when the recorded process is still a
 #            live, OURS process tree AND the readyUrl probe passes; else spawn
 #            serverCmd DETACHED, poll readyUrl within a bounded timeout, exit 0
 #            when ready / fail loud nonzero on boot failure, reaping the partial
 #            process tree).
-#   status — live endpoint + ours/stale verdict when up (exit 0); "no daemon
+#   status - live endpoint + ours/stale verdict when up (exit 0); "no daemon
 #            running" + exit 0 when state is absent.
-#   stop   — idempotent teardown: gracefully terminate the recorded process TREE
-#            (the spawned wrapper plus its descendants — a compound serverCmd
+#   stop   - idempotent teardown: gracefully terminate the recorded process TREE
+#            (the spawned wrapper plus its descendants - a compound serverCmd
 #            runs the real server as a child of the wrapper), remove the state
 #            file, exit 0; no-op exit 0 when absent.
 #   A state file that exists but whose probe fails or whose recorded process is
@@ -40,7 +40,7 @@
 #   the .sh twin): port (int) · token (string) · pid (int) · readyUrl (string) ·
 #   startedAt (string, ISO-8601 UTC).
 #   `pid` is the spawned wrapper; teardown walks its descendant tree so a forked
-#   real server dies with it. `token` is a per-run nonce (NOT server-verified —
+#   real server dies with it. `token` is a per-run nonce (NOT server-verified -
 #   the app server never echoes it); it is kept because sibling #210 reads
 #   port+token from the state file. Ownership/liveness is proven by the live
 #   process plus the readyUrl probe, never by the token.
@@ -49,7 +49,9 @@
 # Exit codes: 0 ok · 1 boot failure / not ready · 2 bad usage / missing config.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-# Force UTF-8 stdout so endpoint/em-dash output matches the .sh byte output.
+# Force UTF-8 stdout so a non-ASCII endpoint URL or root path matches the .sh
+# byte output. The script's own literals are all ASCII today; the forcing guards
+# the interpolated content.
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 function Err([string]$msg) { [Console]::Error.WriteLine($msg) }
@@ -106,7 +108,7 @@ function Read-Profile {
 # scheme default for http (80) / https (443) when it does not, or 0 for any
 # other case (portless non-http(s), unparseable). [System.Uri].Port already
 # returns the scheme default for http/https and -1 when the scheme has no
-# default — so map -1 (and any parse failure) to 0. Parity contract with the
+# default - so map -1 (and any parse failure) to 0. Parity contract with the
 # .sh parse_port twin: explicit port -> that port; else 0-when-absent.
 function Get-PortFromUrl([string]$url) {
   try {
@@ -118,7 +120,7 @@ function Get-PortFromUrl([string]$url) {
 
 # Test-Ready <url> -> $true only if the ready URL answers with SUCCESS (2xx),
 # matching the .sh twin's `curl -fsS` (which fails on a non-2xx status). A
-# non-2xx status throws in PS7 and a connection failure throws too — both are
+# non-2xx status throws in PS7 and a connection failure throws too - both are
 # "not ready", so any thrown error => not ready (parity with curl -f).
 function Test-Ready([string]$url) {
   try {
@@ -164,7 +166,7 @@ function Get-DescendantPids([int]$rootPid) {
 # Test-PidAlive <pid> -> $true if the process exists. Rejects pid <= 1 (require
 # >= 2), matching the .sh valid_pgid contract exactly: pid 0/1 (and negative /
 # non-numeric) are NEVER treated as a usable process. This is the fail-closed
-# guard against the catastrophic kill footgun — on Linux pid 1 is init/systemd
+# guard against the catastrophic kill footgun - on Linux pid 1 is init/systemd
 # (a live process), so a tree-kill seeded from a recorded `pid:1` would walk and
 # SIGTERM init's descendants = the whole session. A corrupted / zero / one /
 # negative / non-numeric recorded pid must therefore read as "not alive" so the
@@ -206,13 +208,13 @@ function Write-State([int]$port, [string]$token, [int]$processId, [string]$url, 
 }
 
 # Stop the recorded process TREE gracefully first (SIGTERM-equivalent so a
-# server's cleanup handler runs — parity with the .sh twin's `kill`), then force
+# server's cleanup handler runs - parity with the .sh twin's `kill`), then force
 # any survivors after a short grace window, then remove the state file.
 function Remove-DaemonState {
   if (Test-Path -LiteralPath $state) {
     $s = Read-State
     # Test-PidAlive rejects pid <= 1 (parity with the .sh valid_pgid guard), so a
-    # malformed `pid:0`/`pid:1` state never enters this block — the tree is never
+    # malformed `pid:0`/`pid:1` state never enters this block - the tree is never
     # walked or killed; only the state file is removed below.
     if ($null -ne $s -and $s.PSObject.Properties['pid'] -and (Test-PidAlive $s.pid)) {
       $rootPid = [int]$s.pid
@@ -243,7 +245,7 @@ function Remove-DaemonState {
 switch ($cmd) {
   'status' {
     if (Test-DaemonLive) {
-      [Console]::Out.Write("render-daemon: ours — live at $($script:stUrl) (pid $($script:stPid), port $($script:stPort))`n")
+      [Console]::Out.Write("render-daemon: ours - live at $($script:stUrl) (pid $($script:stPid), port $($script:stPort))`n")
       exit 0
     }
     if (Test-Path -LiteralPath $state) { Remove-DaemonState }
@@ -261,7 +263,7 @@ switch ($cmd) {
     if (-not (Read-Profile)) { exit 2 }
 
     if (Test-DaemonLive) {
-      [Console]::Out.Write("render-daemon: reused — live at $($script:stUrl) (port $($script:stPort))`n")
+      [Console]::Out.Write("render-daemon: reused - live at $($script:stUrl) (port $($script:stPort))`n")
       exit 0
     }
     if (Test-Path -LiteralPath $state) { Remove-DaemonState }
@@ -272,7 +274,7 @@ switch ($cmd) {
     # Spawn serverCmd DETACHED via a shell so an arbitrary command string runs
     # without blocking, and so the child survives this process. Detach the child's
     # stdio (</dev/null >/dev/null 2>&1) so its boot output never pollutes our
-    # stdout — byte-identical contract with the .sh twin.
+    # stdout - byte-identical contract with the .sh twin.
     New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
     if ($IsWindows) {
       # No bash on Windows: keep the Start-Process spawn. Wrap so all six
@@ -289,11 +291,11 @@ switch ($cmd) {
       # which mangles a complex serverCmd (spaces, `<`, `>`, `;`) on Linux so bash
       # receives a broken `-c` argument and exits during boot. The outer `& bash
       # -c '...'` literal is single-quoted, so pwsh hands bash ONE clean argument
-      # and `$RD_SERVER_CMD` expands inside that bash — no quoting of the user's
+      # and `$RD_SERVER_CMD` expands inside that bash - no quoting of the user's
       # command anywhere. The captured pid is the backgrounded `nohup` WRAPPER
       # (the inner `bash -c "$RD_SERVER_CMD"`): its forked server children are its
       # descendants, so the `pgrep -P` tree-walk in Get-DescendantPids reaps them
-      # at teardown — the same pid contract the .sh twin records. (No `set -m`
+      # at teardown - the same pid contract the .sh twin records. (No `set -m`
       # process-group leadership is needed here: teardown walks a parent->child
       # pid TREE via pgrep -P, not a negative-pgid group signal.)
       $env:RD_SERVER_CMD = $script:serverCmd
@@ -325,13 +327,13 @@ switch ($cmd) {
         exit 1
       }
       if (Test-Ready $script:readyUrl) {
-        [Console]::Out.Write("render-daemon: started — live at $($script:readyUrl) (port $port)`n")
+        [Console]::Out.Write("render-daemon: started - live at $($script:readyUrl) (port $port)`n")
         exit 0
       }
       Start-Sleep -Seconds 1
     }
 
-    Err "render-daemon: server did not become ready at $($script:readyUrl) within ${timeout}s — reaping and failing"
+    Err "render-daemon: server did not become ready at $($script:readyUrl) within ${timeout}s - reaping and failing"
     Remove-DaemonState
     exit 1
   }
