@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
+# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
 # Denies writes whose content begins with the UTF-8 BOM (EF BB BF / U+FEFF).
 # Deny: exit 2 + stderr. Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_NO_BOM:-}" = "1" ] && exit 0
@@ -25,13 +25,13 @@ has_bom() {
 case "$tool" in
   Write)
     if has_bom ".tool_input.content"; then
-      echo "milestone-driver: no-bom gate — content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
+      echo "milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
       exit 2
     fi
     ;;
   Edit)
     if has_bom ".tool_input.new_string"; then
-      echo "milestone-driver: no-bom gate — new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
+      echo "milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
       exit 2
     fi
     ;;
@@ -40,7 +40,7 @@ case "$tool" in
     [[ "$count" =~ ^[0-9]+$ ]] || exit 0
     for (( i=0; i<count; i++ )); do
       if has_bom ".tool_input.edits[$i].new_string"; then
-        echo "milestone-driver: no-bom gate — edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
+        echo "milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
         exit 2
       fi
     done

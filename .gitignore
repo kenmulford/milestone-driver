@@ -11,7 +11,7 @@ desktop.ini
 
 # Per-developer Claude Code settings. A project-level .claude/settings.json (shared,
 # repo-relative permissions) stays trackable; settings.local.json is per-clone and
-# routinely holds machine-absolute paths — never commit it.
+# routinely holds machine-absolute paths - never commit it.
 .claude/settings.local.json
 
 # Logs and scratch
@@ -20,7 +20,7 @@ desktop.ini
 /scratch/
 
 # milestone-driver per-clone runtime markers (under .milestone-config/, gitignored).
-# NOTE: the committed profile .milestone-config/driver.json is NOT ignored — never add a
+# NOTE: the committed profile .milestone-config/driver.json is NOT ignored - never add a
 # blanket /.milestone-config/ ignore here.
 /.milestone-config/tests-stamp
 /.milestone-config/preflight-notice

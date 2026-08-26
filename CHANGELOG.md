@@ -83,7 +83,7 @@ Judgment-call PRs: #614, the only PR in this release held for human sign-off, si
 - **Ceiling state a contributor's next edit hits:** `skills/solve-milestone/changelog-authoring.md` and `skills/output-style.md` both WARN that a CRLF checkout would fail the row. `skills/solve-issue/visual-capture.md` sits near its word ceiling after taking the shared capture guard.
 - The `needs review` label survives the hold it was named for. Its name and `0E8A16` colour are byte-identical across `docs/architecture.md`, both `skills/setup/SKILL.md` sites, and the milestone-granularity handler that now creates it, so no consumer repo is left with an orphaned label.
 
-## v1.23.3 — agent brief read scope, domainSkills invocation
+## v1.23.3 - agent brief read scope, domainSkills invocation
 
 **Theme:** A dispatched agent is now handed the absolute path of every plugin file it must read and a rule forbidding it to search above the repo root, and `domainSkills` finally resolves to names the Skill tool can invoke, with each agent reporting which it used.
 
@@ -117,7 +117,7 @@ Judgment-call PRs: #590, #594.
 - Both issues' PRs were reviewed three times each. #589's third review found two defects that CI could not: `[long]::Parse` on an over-Int64 version component threw under StrictMode, exiting 1 with empty stdout against the script's fail-open contract, and the two legs picked different directories on a magnitude tie because `Directory.GetDirectories` order is unspecified. Both are fixed and pinned by golden rows.
 - Ceiling state a contributor's next edit hits: no ceiling was raised on any axis this release. The advisory CRLF `WARN` fires for three files, all untouched here: `skills/solve-milestone/SKILL.md` 15 bytes free, `skills/solve-milestone/changelog-authoring.md` 11, `skills/output-style.md` 57. `agents/design-reviewer.md` sits at 119/120 lines, so the next edit there must trade a line.
 
-## v1.23.2 — hook gate integrity, CI venue closure, margin restoration
+## v1.23.2 - hook gate integrity, CI venue closure, margin restoration
 
 **Theme:** The two bash hooks gate again under the `/bin/bash` macOS ships and now cover `scripts/` and `tests/`, the size-budget twins warn before a CRLF checkout fails a row, both shell-test legs run the same 17 runners, and the Blocked comment, CHANGELOG step 6.2, and the conventions table state what the shipped code actually does.
 
@@ -127,7 +127,7 @@ Judgment-call PRs: #590, #594.
 |---|---|---|
 | #573 sourceGlobs omits `scripts/**` and `tests/**`, so first-class source is ungated | #579 | This repo's tracked `.milestone-config/driver.json` listed three globs while `.project/conventions.md#File & folder layout` treats `scripts/` and `tests/` as first-class source, so `force-subagent` never gated a direct main-thread edit to either tree. The profile now carries five globs: a main-thread Write/Edit under `scripts/` or `tests/` denies at exit 2, while subagent writes and the `docs/` + `.claude/` exemptions are unchanged. The coded fallback in `scripts/build-file-index.{sh,ps1}` still ships three, so no consumer's behavior moves. |
 | #574 md-epic-fanout has 13 bytes of headroom against a 52-byte CRLF cost, and nothing warns | #581 | `skills/solve-issue/md-epic-fanout.md` sat at 8487/8500 bytes over 52 lines, so a `core.autocrlf` clone read roughly 8539 and failed the gate on a fresh Windows checkout. Two cuts of provenance and restatement bring it to 8386/8500, headroom 114 against 52 lines. Both `check-size-budgets` twins now emit `WARN <path> <free> bytes free < <lines> lines (a CRLF checkout would FAIL this row)` after any OK row in that state; the row is advisory, and SUMMARY counts and exit codes are untouched. |
-| #575 The 🔴 Blocked comment still instructs the manual label removal #516 automated | #578 | The Blocked comment's unblock line said "remove this `blocked` label and re-run" at three sites, though `skills/solve-milestone/blocked-label-clear.md` clears the label automatically on the next run once every upstream merges. All three sites now state the self-clear: `not-buildable.md`'s byte-fixed comment body, its transitive-dependent restatement, and `output-style.md`'s Blocked-comment row slot. The `🔴 Blocked — ` opener is byte-unchanged, so the downstream literal matches still hold. |
+| #575 The 🔴 Blocked comment still instructs the manual label removal #516 automated | #578 | The Blocked comment's unblock line said "remove this `blocked` label and re-run" at three sites, though `skills/solve-milestone/blocked-label-clear.md` clears the label automatically on the next run once every upstream merges. All three sites now state the self-clear: `not-buildable.md`'s byte-fixed comment body, its transitive-dependent restatement, and `output-style.md`'s Blocked-comment row slot. The `🔴 Blocked - ` opener is byte-unchanged, so the downstream literal matches still hold. |
 | #576 changelog 6.2 extracts a problem-only What; the shipped half lives in the Decision Log | #580 | Step 6.2 of `skills/solve-milestone/changelog-authoring.md` reads the PR body's opening prose block, which on 5 of milestone #40's 6 merged PRs states only the problem, leaving the shipped-behavior half in the PR's `## Decision Log`. 6.2 gains one conditional clause: where the block carries no shipped-behavior half, complete it from that Decision Log's choices, never their rationale. |
 | #577 conventions.md lacks the pwsh byte-domain collation idiom #471 shipped at four sites | #583 | #471's byte-order collation idiom (respell each string as `Latin1.GetString(UTF8.GetBytes(s))`, then compare with `StringComparer.Ordinal`) shipped at four pwsh sites with nothing recording it, so the next twin author re-derives or diverges. One row appended to `## Canonical exemplars (mirror these)` names `scripts/check-citations.ps1 (function ToByteChars)` as the exemplar, its three sibling sites, and the two banned near-idioms: bare `Ordinal` is UTF-16 code-unit order, `Sort-Object` is culture order. |
 
@@ -156,7 +156,7 @@ Judgment-call PRs: none.
 - Ceiling state a contributor's next edit hits: no ceiling was raised on any axis this release, and both files that needed room (#576, #574) paid for it with byte trades. The advisory `WARN` fires today for exactly three files: `skills/solve-milestone/SKILL.md` 15 bytes free, `skills/solve-milestone/changelog-authoring.md` 11, `skills/output-style.md` 43. `skills/solve-issue/md-epic-fanout.md` is CRLF-safe again at 114.
 - Open, no issue number: `skills/setup/SKILL.md`'s inference table still infers three sourceGlobs for "a Claude Code plugin", so a future bootstrap reproduces the gap #573 fixed (recorded as a candidate follow-up in #579's coherence pass).
 
-## v1.23.1 — twin collation, gitignore self-heal, wave-PR review aggregation
+## v1.23.1 - twin collation, gitignore self-heal, wave-PR review aggregation
 
 **Theme:** The pwsh legs collate in byte order like their bash twins, every runner executes under the bash macOS ships, the tests-green self-heal writes the committed 12-entry set, and each wave, fan-out, and triage contract that previously left a run with no defined answer now states one.
 
@@ -182,7 +182,7 @@ Judgment-call PRs: none.
 | #471 The pwsh legs collate strings differently from the bash legs, so twin output diverges | #554 | `triage-cache.ps1`, `build-file-index.ps1` and `ci-preflight-steps.ps1` sorted in UTF-16 code-unit and culture order, both of which diverge from the bash legs' `LC_ALL=C`: astral characters sorted before `U+E000`–`FFFF`, and plain ASCII case was re-ranked. All three now sort a parallel UTF-8 byte-key array, the idiom `check-citations.ps1` already ships. Three new fixtures pin the parity on both legs. |
 | #499 tests-green's .gitignore self-heal writes 6 entries where the committed authority carries 12 | #552 | The self-heal is create-only, so a consumer repo whose `.milestone-config/.gitignore` was written by tests-green never gained the six notice-marker names and those markers surfaced in `git status`. Both twins now emit the full set byte-identical to the committed authority, covered by a new `tests/tests-green.test.{sh,ps1}` pair registered in both shell-test CI jobs. |
 | #517 check-citations.ps1 takes its root positionally while its two sibling checkers take -Root | #550 | `scripts/check-citations.ps1` now takes its root through `param([string]$Root = (Get-Location).Path)`, the shape `check-size-budgets.ps1` and `check-doc-toc.ps1` already use. `-Root .` works and the positional call sites, CI included, are byte-unchanged. |
-| — `hook-smoke-macos` went red when #468's per-runner steps landed | #557 | The runners execute on the explicit `/bin/bash` 3.2 that is the job's venue, but launch the scripts under test through a PATH lookup that also resolves 3.2, and `scripts/extract-version.sh` and `scripts/build-file-index.sh` need bash 4+ for `mapfile`. One step after the hook-smoke fixtures prepends `$(brew --prefix)/bin` via `GITHUB_PATH`: runners keep executing on 3.2, their children resolve a modern bash. |
+| - `hook-smoke-macos` went red when #468's per-runner steps landed | #557 | The runners execute on the explicit `/bin/bash` 3.2 that is the job's venue, but launch the scripts under test through a PATH lookup that also resolves 3.2, and `scripts/extract-version.sh` and `scripts/build-file-index.sh` need bash 4+ for `mapfile`. One step after the hook-smoke fixtures prepends `$(brew --prefix)/bin` via `GITHUB_PATH`: runners keep executing on 3.2, their children resolve a modern bash. |
 
 ### Consumer notes (upgrading from v1.23.0)
 
@@ -201,7 +201,7 @@ Judgment-call PRs: #556 (recorded ceiling raise, `skills/solve-issue/wave-clause
 - Ceiling state a contributor's next edit hits: `skills/output-style.md` 48 bytes free, `skills/solve-milestone/changelog-authoring.md` 16 bytes free, `skills/solve-issue/md-epic-fanout.md` 13 bytes free, `skills/solve-milestone/SKILL.md` 15 bytes free. A Windows autocrlf clone measures md-epic-fanout at roughly 8539/8500, a known CRLF-margin exposure.
 - The new governed `skills/solve-milestone/blocked-label-clear.md` ceilings 25/2500/400 were derived arithmetically per the documented discipline, not raised; #556's byte raise above is the run's only ceiling change.
 
-## v1.23.0 — wire the driver's triage park to the feeder's remediate verb
+## v1.23.0 - wire the driver's triage park to the feeder's remediate verb
 
 **Theme:** The driver's triage park gains a hand-off to `/milestone-feeder:remediate`: solve-issue and solve-milestone ask once at run start whether to auto-remediate blocked issues, and the triage comment names the verb in every branch.
 
@@ -221,7 +221,7 @@ Judgment-call PRs: #556 (recorded ceiling raise, `skills/solve-issue/wave-clause
 
 - With milestone-feeder installed, `solve-issue` and `solve-milestone` ask one new run-start question: auto-remediate blocked issues, or leave them for you. Feeder absent → no question, no behavior change; unattended runs default to Leave-them-for-me.
 - The `🔴 Triage` comment's closing line now names `/milestone-feeder:remediate <n>` as the tool that applies its findings.
-- **No schema changes** to `.milestone-config/driver.json` — feeder presence is the only switch.
+- **No schema changes** to `.milestone-config/driver.json` - feeder presence is the only switch.
 
 ### ⚖️ Post-run audit trail
 
@@ -231,7 +231,7 @@ Judgment-call PRs: #541.
 - The Auto loop does not refresh `dependencyGraph.edges` after a remediation that adds an intra-set edge; the Phase 2 serial merge tail is the backstop in parallel mode.
 - Ceiling state a contributor's next edit hits: `skills/solve-milestone/SKILL.md` has 43 words free; `skills/solve-milestone/not-buildable.md` has 2 words free.
 
-## v1.22.1 — every governed file is writable again
+## v1.22.1 - every governed file is writable again
 
 **Theme:** Eleven governed markdown files were compressed and their ceilings ratcheted down in the same change, so no file in the repo sits at a size limit.
 
@@ -239,8 +239,8 @@ Judgment-call PRs: #541.
 
 | Issue | PR | What |
 |---|---|---|
-| — eleven governed files sat at their size ceilings | #527 | Each was rewritten to state its requirements without restating the case for them — rationale, provenance and repeated cross-references cut, every gate, decision point, degradation branch, literal directive and citation kept. Headroom on the binding axis moved from 1–59 units to between 164 bytes and 1.3 KB. All three ceilings were lowered to the new actuals in the same change, per the ratchet discipline in `scripts/check-size-budgets.sh`. |
-| — `skills/output-style.md` stated one prose rule three times | #527 | Its six GitHub-facing prose rules consolidate to three: the two that both said the citation carries the weight merge, and the three that all said a line filling no slot gets cut merge. The delete-on-sight vocabulary list is verbatim; the Guardrail and both anti-criteria are byte-identical, since three other files cite them by name. |
+| - eleven governed files sat at their size ceilings | #527 | Each was rewritten to state its requirements without restating the case for them - rationale, provenance and repeated cross-references cut, every gate, decision point, degradation branch, literal directive and citation kept. Headroom on the binding axis moved from 1–59 units to between 164 bytes and 1.3 KB. All three ceilings were lowered to the new actuals in the same change, per the ratchet discipline in `scripts/check-size-budgets.sh`. |
+| - `skills/output-style.md` stated one prose rule three times | #527 | Its six GitHub-facing prose rules consolidate to three: the two that both said the citation carries the weight merge, and the three that all said a line filling no slot gets cut merge. The delete-on-sight vocabulary list is verbatim; the Guardrail and both anti-criteria are byte-identical, since three other files cite them by name. |
 | #521 design-philosophy cites a solve-issue step that no longer exists | #527 | `.project/design-philosophy.md`'s Testing-philosophy section pointed at "steps 4-5"; step 5 merged into `### 4. Verification gates`. The pointer now reads `step 4`. |
 
 ### Consumer notes (upgrading from v1.22.0)
@@ -258,7 +258,7 @@ Judgment-call PRs: none.
 - **`skills/output-style.md` is the weakest result** at 174 bytes free, up from 31. It is a rules file with almost no prose fat; further headroom there needs content relocation, not another scrub.
 - Nine defects filed during milestone #40 remain open, none blocking: #509, #511, #512, #514, #515, #516, #517, #518, #520.
 
-## v1.22.0 — finish the granularity matrix, resolve blockers instead of parking them
+## v1.22.0 - finish the granularity matrix, resolve blockers instead of parking them
 
 **Theme:** `integrationGranularity: "wave"` behaves as documented in both execution modes, and triage clears a Blocker it can resolve from the record instead of handing it back as work.
 
@@ -293,7 +293,7 @@ Judgment-call PRs: #507, #510, #513, #519.
 - **`wave-clauses.md` states no home for a wave non-UI issue's Decision Log or `judgment call` label.** Its `6.7` and `Autonomy model` rows measured 179 and 314 bytes against 13 bytes free and were not written, so no shipped clause names where either lands. Filed as #520.
 - Ten defects were filed during the run and remain open, none blocking: #509, #511, #512, #514, #515, #516, #517, #518, #520, #521.
 
-## v1.21.0 — skill files meet the published authoring limits
+## v1.21.0 - skill files meet the published authoring limits
 
 **Theme:** The four SKILL.md files and the largest reference file come under Anthropic's published Agent Skills limits, and the CI size gate gains the axes that measure them.
 
@@ -301,23 +301,23 @@ Judgment-call PRs: #507, #510, #513, #519.
 
 | Issue | PR | What |
 |---|---|---|
-| #488 Normalize the seven existing contents blocks | #498 | Seven blocks conformed to `## Contents` as the file's first `##`-or-deeper heading — two heading renames, five bold-prose-row promotions, index bodies verbatim. |
+| #488 Normalize the seven existing contents blocks | #498 | Seven blocks conformed to `## Contents` as the file's first `##`-or-deeper heading - two heading renames, five bold-prose-row promotions, index bodies verbatim. |
 | #489 Add a word column to the size-budget gate | #498 | `GOVERNED_TABLE` gains a fourth word-ceiling column across both `check-size-budgets` twins, both runners, every golden, and a new `byte-flat-word-over` fixture tree. |
 | #490 Add the check-doc-toc twin, its runner, and both CI legs | #498 | New `scripts/check-doc-toc.{sh,ps1}` asserts `## Contents` is the first `##`-or-deeper heading in any governed file over 100 lines, with a golden-matrix runner and a fixture step on both CI legs. |
-| #491 Print each skill's unconditional load closure | #500 | A `CLOSURE` row per governed skill sums its SKILL.md plus every file it read-directs on **every** run, by word. Informational — it never gates. |
+| #491 Print each skill's unconditional load closure | #500 | A `CLOSURE` row per governed skill sums its SKILL.md plus every file it read-directs on **every** run, by word. Informational - it never gates. |
 | #492 Reduce `skills/solve-milestone/SKILL.md` | #500 | 608 → 305 lines, 9,619 → 4,996 words. Both limits met. |
 | #493 Reduce `skills/solve-issue/SKILL.md` | #500 | 9,969 → 5,750 words. Still over 5,000. |
 | #494 Reduce `skills/solve-milestone/parallel-waves.md` | #500 | 10,080 → 5,647 words. Still over 5,000. |
 | #495 Trim `skills/triage/SKILL.md` and lower its ceilings | #500 | 5,296 → 4,938 words. Byte ceiling 37000 → 35500. |
 | #496 Add `## Contents` to the four blockless governed files | #500 | Blocks added to `skills/citation-format.md`, `agents/design-reviewer.md`, `agents/implementer.md`, `agents/triage-reviewer.md`, each paid for by an equal-or-larger prose trim. Both CI legs gain a real-tree `check-doc-toc` step; previously only fixtures were checked. |
-| #497 Add a direct citation-format read-directive to each SKILL.md | #501 | All four SKILL.md files read-direct `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` from their own `## Output style` section — one hop from every skill entry point, not only through `skills/output-style.md`. |
+| #497 Add a direct citation-format read-directive to each SKILL.md | #501 | All four SKILL.md files read-direct `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` from their own `## Output style` section - one hop from every skill entry point, not only through `skills/output-style.md`. |
 
 ### Consumer notes (upgrading from v1.20.3)
 
 - **No schema changes** to `.milestone-config/driver.json`. No profile key added, removed or re-defaulted.
 - **No behavior or procedure change.** Every gate, decision point, degradation branch, citation and literal directive survives verbatim. Reduction came from cutting unconditional prose or gating conditional bodies behind an observable branch whose condition stays inline in the SKILL.md.
 - 18 new shipped reference files under `skills/solve-issue/` and `skills/solve-milestone/` carry the gated bodies.
-- `check-doc-toc` and the widened `check-size-budgets` govern this repo's own files — `GOVERNED_TABLE` names milestone-driver paths and both gates run in this repo's CI. A consumer repo runs neither.
+- `check-doc-toc` and the widened `check-size-budgets` govern this repo's own files - `GOVERNED_TABLE` names milestone-driver paths and both gates run in this repo's CI. A consumer repo runs neither.
 
 ### ⚖️ Post-run audit trail
 
@@ -330,7 +330,7 @@ Judgment-call PRs: none.
 - **No test asserts `check-doc-toc`'s `GOVERNED_PATHS` stays in sync with `GOVERNED_TABLE`'s path column.** A rename or deletion fails loud; adding a governed file to one table and not the other passes silently.
 - Two pre-existing defects were found and filed, not fixed: sequential runs with `integrationGranularity: "wave"` have no defined behavior (#502), and `skills/solve-issue/SKILL.md`'s step numbering skips 5 with step 6's sub-steps cited both as `6.1–6.4` and as `7/8/9` (#503).
 
-## v1.20.3 — the CHANGELOG's own prose contract
+## v1.20.3 - the CHANGELOG's own prose contract
 
 **Theme:** Release notes state what shipped and what a consumer must do; the slots that generate them are defined so the next entry cannot narrate how the work went.
 
@@ -338,13 +338,13 @@ Judgment-call PRs: none.
 
 | Issue | PR | What |
 |---|---|---|
-| — apply the artifact prose contract to `CHANGELOG.md` | #483 | 789 → 717 lines with every issue and PR reference, release heading, release date and consumer-actionable note intact. Theme paragraphs become one line, a `What` cell states shipped behavior rather than build provenance, and each ⚖️ audit trail becomes the judgment-call line plus a fact list. |
-| — define the CHANGELOG-entry slots in the generator | #483 | `skills/output-style.md`'s `## Evidence slots` row names four slots — theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail and its fact list — plus what is not one. `skills/solve-milestone/SKILL.md` step 6.5 reshapes its template to match and points at that row instead of restating it. |
+| - apply the artifact prose contract to `CHANGELOG.md` | #483 | 789 → 717 lines with every issue and PR reference, release heading, release date and consumer-actionable note intact. Theme paragraphs become one line, a `What` cell states shipped behavior rather than build provenance, and each ⚖️ audit trail becomes the judgment-call line plus a fact list. |
+| - define the CHANGELOG-entry slots in the generator | #483 | `skills/output-style.md`'s `## Evidence slots` row names four slots - theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail and its fact list - plus what is not one. `skills/solve-milestone/SKILL.md` step 6.5 reshapes its template to match and points at that row instead of restating it. |
 
 ### Consumer notes (upgrading from v1.20.2)
 
 - **No schema changes** to `.milestone-config/driver.json`. No profile key added, removed or re-defaulted.
-- **Behavior change, nothing to configure.** A completed `solve-milestone` run authors its CHANGELOG entry to the defined slots — shorter entries, the same facts. No skill gains or loses a step, and no gate changes.
+- **Behavior change, nothing to configure.** A completed `solve-milestone` run authors its CHANGELOG entry to the defined slots - shorter entries, the same facts. No skill gains or loses a step, and no gate changes.
 - Both changed files are shipped plugin skills, so the contract governs your repo's CHANGELOG from the next completed milestone.
 
 ### ⚖️ Post-run audit trail
@@ -353,9 +353,9 @@ Judgment-call PRs: none.
 
 - `skills/output-style.md` is at 9412 of its 9500-byte ceiling and `skills/solve-issue/SKILL.md` at 69478 of 69500. The next edit to either fails the size ratchet until something is cut or the file is split.
 
-## v1.20.2 — stop re-reviewing what cannot have broken
+## v1.20.2 - stop re-reviewing what cannot have broken
 
-**Theme:** Two review-cycle costs removed — a comment-only fix no longer re-runs the suite or the review, and `risk:light` no longer pays for review rounds after a clean one.
+**Theme:** Two review-cycle costs removed - a comment-only fix no longer re-runs the suite or the review, and `risk:light` no longer pays for review rounds after a clean one.
 
 ### ✨ Review-cycle cost
 
@@ -369,7 +369,7 @@ Judgment-call PRs: none.
 - **No schema changes** to `.milestone-config/driver.json`.
 - New shipped scripts: `scripts/classify-delta.{sh,ps1}` plus `tests/classify-delta.{cases.tsv,test.sh,test.ps1}`. Both legs run in CI on every PR.
 - The comment-only branch resolves every uncertainty to `code-changed`: unmapped extension, empty delta, untracked file, rename, mode change, deletion, a machine-read directive (`#!`, `// eslint-disable`, `//go:build`), a block comment followed by code on one line, and a heredoc payload line.
-- The comment-only branch stages and commits in separate calls — `tests-green` is a `PreToolUse` hook that reads the index before the command runs. It is not a guaranteed second suite run: it no-ops when `unitTestCmd` is absent, when the staged tree matches the last green stamp, when `jq` is absent, or when `CLAUDE_HOOK_DISABLE_TESTS_GREEN=1` is set.
+- The comment-only branch stages and commits in separate calls - `tests-green` is a `PreToolUse` hook that reads the index before the command runs. It is not a guaranteed second suite run: it no-ops when `unitTestCmd` is absent, when the staged tree matches the last green stamp, when `jq` is absent, or when `CLAUDE_HOOK_DISABLE_TESTS_GREEN=1` is set.
 - Light reads the reviewer template's Critical / Important / Minor. A finding carrying no severity counts as Important, so Light degrades to Heavy rather than skipping a defect.
 
 ### ⚖️ Post-run audit trail
@@ -378,7 +378,7 @@ Judgment-call PRs: none.
 
 - `skills/solve-issue/SKILL.md` is at 69478 of its 69500-byte ceiling. The next edit to it fails the size ratchet until something is cut or the file is split.
 
-## v1.20.1 — the cache that shipped switched off
+## v1.20.1 - the cache that shipped switched off
 
 **Theme:** v1.20.0's triage cache wrote entries with no usable key, so every lookup missed and the cache was inert in the release that introduced it; fixed here with three consistency defects a post-release coherence review found.
 
@@ -393,7 +393,7 @@ Judgment-call PRs: none.
 
 ### Consumer notes (upgrading from v1.20.0)
 
-- **Upgrade if you use `/milestone-driver:triage`.** On v1.20.0 the cache never matched, so every run re-dispatched a reviewer for every issue. Results were correct; you paid full triage cost each time. Existing `.milestone-config/triage-cache.json` files stay valid — the key format is unchanged, only which component computes it.
+- **Upgrade if you use `/milestone-driver:triage`.** On v1.20.0 the cache never matched, so every run re-dispatched a reviewer for every issue. Results were correct; you paid full triage cost each time. Existing `.milestone-config/triage-cache.json` files stay valid - the key format is unchanged, only which component computes it.
 - `scripts/triage-cache.{sh,ps1}`'s `write` subcommand now takes **four** arguments (`write <repo-root> <entries.json> <graphql-response.json>`). Direct callers must add the response file. An absent or unreadable response is fail-open: entries are written without a key, exit 0, and those issues re-triage next run.
 - **No schema changes** to `.milestone-config/driver.json`.
 
@@ -401,13 +401,13 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none.
 
-- Two ceilings in `scripts/check-size-budgets.{sh,ps1}` were raised by recorded decision: `agents/triage-reviewer.md` to 17000 bytes, `agents/design-reviewer.md` to 120 lines. That authorization is spent — the next edit to either re-derives downward as usual.
-- **No gate catches a fix that reads correctly and no longer does the same thing.** Nine instances across this milestone, each caught by a reviewer opening the target and reading it, none by a gate — the result is valid, passes every check, and reads like it means what it used to. #466 corrected a gate count in a sentence and left the table 45 lines below still enumerating four; #464's ceiling raise would have collapsed the two rows `positional-desync` swaps to identical values, leaving the assertion passing while proving nothing.
+- Two ceilings in `scripts/check-size-budgets.{sh,ps1}` were raised by recorded decision: `agents/triage-reviewer.md` to 17000 bytes, `agents/design-reviewer.md` to 120 lines. That authorization is spent - the next edit to either re-derives downward as usual.
+- **No gate catches a fix that reads correctly and no longer does the same thing.** Nine instances across this milestone, each caught by a reviewer opening the target and reading it, none by a gate - the result is valid, passes every check, and reads like it means what it used to. #466 corrected a gate count in a sentence and left the table 45 lines below still enumerating four; #464's ceiling raise would have collapsed the two rows `positional-desync` swaps to identical values, leaving the assertion passing while proving nothing.
 - **v1.20.0 was tagged before #462 merged.** The fix was built, reviewed and green on an open PR at release time.
 - **#465 was closed unbuilt** (eight tables of contents in four shapes). The inconsistency costs human navigation only: the model loads the whole file and cross-file references resolve against headings, not TOC labels. Its body also miscounted its own sites and cited `docs/plugin-features-reference.md`, which has never existed in the tree or in git history.
-- Open, found here and not fixed: **#468** — `tests/build-file-index.test.sh`, `tests/extract-version.test.sh` and `tests/parse-md-epic-order.test.sh` use bash 4.3 namerefs (`local -n`) and report `0 passed` under the `/bin/bash 3.2.57` macOS ships; invisible in CI, which runs the bash suite on Ubuntu. **#471** — the bash and PowerShell legs sort labels differently outside the BMP, so an issue carrying both an emoji label and a `U+E000-FFFF` label gets a different cache key per platform.
+- Open, found here and not fixed: **#468** - `tests/build-file-index.test.sh`, `tests/extract-version.test.sh` and `tests/parse-md-epic-order.test.sh` use bash 4.3 namerefs (`local -n`) and report `0 passed` under the `/bin/bash 3.2.57` macOS ships; invisible in CI, which runs the bash suite on Ubuntu. **#471** - the bash and PowerShell legs sort labels differently outside the BMP, so an issue carrying both an emoji label and a `U+E000-FFFF` label gets a different cache key per platform.
 
-## v1.20.0 — anchor every citation, then cut 20%
+## v1.20.0 - anchor every citation, then cut 20%
 
 **Theme:** Every live line citation became a content anchor or heading reference, repo-root-relative became the only conforming path base, and `scripts/check-citations.{sh,ps1}` resolves them in CI so a reworded line fails the build. The second half trimmed the governed skill and agent files by 7.3% of bytes against a 20% target.
 
@@ -416,9 +416,9 @@ Judgment-call PRs: none.
 | Issue | PR | What |
 |---|---|---|
 | #431 convert every live line citation to an anchor | #447 | 152 line citations converted, each verified by a resolver run (exit 0, exactly one `PRIMARY`, zero `MATCH`). Three line-style citations survive deliberately and are named in the PR: two illustrate the line form, one points into the sibling `milestone-feeder` repo. |
-| #430 retarget 20 broken line citations and drop 2 to a file that never existed | #444 | Every line number re-derived against the real target. Three sites asserted a process-ID threshold of `<= 0` where `scripts/render-daemon.ps1` ships `<= 1`; the claim was corrected before #431 froze it into an anchor. Both citations to `docs/efficiency-grounding-plan.md` were dropped — no doc in this repo makes that claim. |
+| #430 retarget 20 broken line citations and drop 2 to a file that never existed | #444 | Every line number re-derived against the real target. Three sites asserted a process-ID threshold of `<= 0` where `scripts/render-daemon.ps1` ships `<= 1`; the claim was corrected before #431 froze it into an anchor. Both citations to `docs/efficiency-grounding-plan.md` were dropped - no doc in this repo makes that claim. |
 | #429 declare repo-root-relative the only conforming citation base | #445 | `skills/citation-format.md` named four citation forms but not what directory a `path` resolves from, and no resolver does repo-root discovery. Live citations used both bases: 132 repo-root, 47 citing-file-relative, 8 neither. Repo-root-relative is now the single conforming base, with no fallback. |
-| #425 same-file citations must use a heading, not an anchor | #442 | An anchor citation written into its own target file reproduces the anchor on the citing line, which `resolve-citation.sh` labels `PRIMARY` at exit 0. Inside its own target file, write a heading citation — a citing line is not a heading. Live same-file count measured at 0. |
+| #425 same-file citations must use a heading, not an anchor | #442 | An anchor citation written into its own target file reproduces the anchor on the citing line, which `resolve-citation.sh` labels `PRIMARY` at exit 0. Inside its own target file, write a heading citation - a citing line is not a heading. Live same-file count measured at 0. |
 | #432 gate `path (anchor)` citations repo-wide | #456 | `scripts/check-citations.{sh,ps1}` walks the tree, resolves every `path (anchor)` citation byte-identically on both legs, and runs in CI as a runner plus a pass over this repo's real tree. Clean at merge: `SUMMARY ok=189 failed=0`. Catches both a broken anchor and an anchor that resolves twice, which exit status alone cannot see. |
 | #427 govern `skills/citation-format.md` in the size ratchet | #448 | The shared citation reference loads into context like every other governed file and eight files point at it, but it was absent from the size check. Now governed at 230 lines / 13000 bytes, re-derived from a fresh measure. |
 | #428 make the governed set one row per file so ceilings cannot drift | #446 | The parity guard compared only the lengths of three parallel arrays, so a positional desync measured files against other files' ceilings and exited 0. The governed set is now one row per file, `<path> <lineCeiling> <byteCeiling>`. Written RED first; twin equivalence reconstructed across 14 malformed row shapes. |
@@ -428,13 +428,13 @@ Judgment-call PRs: none.
 | Issue | PR | What |
 |---|---|---|
 | #433 trim `skills/solve-milestone/SKILL.md` | #449 | 664 / 76470 → 602 / 65569, a 14.3% byte reduction across 129 edits. Two cuts that read as prose but were content were restored: step 6.5's literal `git show <commit>:CHANGELOG.md`, and versioned mode's leading-whitespace qualifier for a CHANGELOG heading match. |
-| #434 trim `skills/solve-issue/SKILL.md` | #450 | 394 / 76940 → 357 / 66075, a 14.1% reduction across 64 hunks. A stale claim that the plugin ships no code-review hook was corrected — `hooks/code-review-gate.sh` exists. A park trigger that had survived only in a label-conditioned form was restored unconditional. |
-| #441 extract the triage cache mechanics to `scripts/triage-cache.{sh,ps1}` | #451 | Steps 2.5 and 6.5 re-taught the cache mechanics in prose on every invocation; a script executes and costs zero context. `skills/triage/SKILL.md` goes 450 / 42130 → 368 / 36670. Building it RED found a real bug: PowerShell's `ConvertFrom-Json` coerces an ISO-8601 string to `[datetime]`, so the composed key came out in culture format — a permanent 100% cache miss at exit 0. |
+| #434 trim `skills/solve-issue/SKILL.md` | #450 | 394 / 76940 → 357 / 66075, a 14.1% reduction across 64 hunks. A stale claim that the plugin ships no code-review hook was corrected - `hooks/code-review-gate.sh` exists. A park trigger that had survived only in a label-conditioned form was restored unconditional. |
+| #441 extract the triage cache mechanics to `scripts/triage-cache.{sh,ps1}` | #451 | Steps 2.5 and 6.5 re-taught the cache mechanics in prose on every invocation; a script executes and costs zero context. `skills/triage/SKILL.md` goes 450 / 42130 → 368 / 36670. Building it RED found a real bug: PowerShell's `ConvertFrom-Json` coerces an ISO-8601 string to `[datetime]`, so the composed key came out in culture format - a permanent 100% cache miss at exit 0. |
 | #435 trim `skills/triage/SKILL.md` | #452 | 368 / 36670 → 368 / 34789, a 5.1% reduction. #441 had already harvested this file. Review found 579 further cuttable bytes; they were left, because the residual is exact commands, two agent return contracts, a JSON shape and two measured findings. |
-| #436 trim `skills/solve-milestone/parallel-waves.md` | #453 | Read in full on every run that does not hit a barrier. 205 / 64827 → 186 / 58981, a 9.0% reduction — the only issue in the cut whose byte and line targets both cleared. All 17 removed spans were traced to a surviving statement or classified as rationale. |
-| #437 trim the user-facing trio | #454 | `skills/setup/SKILL.md`, `skills/notices.md`, `skills/output-style.md`: 620 / 54565 → 601 / 47894, a 12.2% reduction. The largest cut in `notices.md` had replaced each notice's literal marker-writing command with a generic template that does not compose (all eight marker values already carry the `.milestone-config/` prefix) — the composed `touch` would have failed and every one-time notice would have re-printed forever. Fixed; all eight verified by running the composed command. |
-| #438 trim the four conditionally-loaded reference files | #457 | `trello-sync.md`, `milestone-granularity.md`, `async-mode.md`, `md-epic-fanout.md`: 625 / 59707 → 621 / 55475, a 7.1% reduction. This cleared the milestone's last ratchet failure — `milestone-granularity.md` had been 342 bytes over ceiling since #431, since anchors are longer than the line numbers they replaced. One requested cut was refused: the caller does not state what the cut text states, and what it does state contradicts it. |
-| #439 trim the three agent briefs, and fix `implementer.md`'s return-shape examples | #455 | `design-reviewer.md` 15721 → 13929 (11.4%), `triage-reviewer.md` 16356 → 14216 (13.1%), `implementer.md` 14614 → 14147 (3.2%). Two examples in `agents/implementer.md` taught return tokens the consumer cannot parse — `PAUSE` where `skills/solve-issue/SKILL.md` matches `PAUSED-FOR-APPROVAL`, `STOP` where it matches `STATUS: STOPPED`. All eleven Blocker-producing rules re-probed by literal substring and confirmed intact. |
+| #436 trim `skills/solve-milestone/parallel-waves.md` | #453 | Read in full on every run that does not hit a barrier. 205 / 64827 → 186 / 58981, a 9.0% reduction - the only issue in the cut whose byte and line targets both cleared. All 17 removed spans were traced to a surviving statement or classified as rationale. |
+| #437 trim the user-facing trio | #454 | `skills/setup/SKILL.md`, `skills/notices.md`, `skills/output-style.md`: 620 / 54565 → 601 / 47894, a 12.2% reduction. The largest cut in `notices.md` had replaced each notice's literal marker-writing command with a generic template that does not compose (all eight marker values already carry the `.milestone-config/` prefix) - the composed `touch` would have failed and every one-time notice would have re-printed forever. Fixed; all eight verified by running the composed command. |
+| #438 trim the four conditionally-loaded reference files | #457 | `trello-sync.md`, `milestone-granularity.md`, `async-mode.md`, `md-epic-fanout.md`: 625 / 59707 → 621 / 55475, a 7.1% reduction. This cleared the milestone's last ratchet failure - `milestone-granularity.md` had been 342 bytes over ceiling since #431, since anchors are longer than the line numbers they replaced. One requested cut was refused: the caller does not state what the cut text states, and what it does state contradicts it. |
+| #439 trim the three agent briefs, and fix `implementer.md`'s return-shape examples | #455 | `design-reviewer.md` 15721 → 13929 (11.4%), `triage-reviewer.md` 16356 → 14216 (13.1%), `implementer.md` 14614 → 14147 (3.2%). Two examples in `agents/implementer.md` taught return tokens the consumer cannot parse - `PAUSE` where `skills/solve-issue/SKILL.md` matches `PAUSED-FOR-APPROVAL`, `STOP` where it matches `STATUS: STOPPED`. All eleven Blocker-producing rules re-probed by literal substring and confirmed intact. |
 
 ### 🔧 Behavior and correctness
 
@@ -449,7 +449,7 @@ Judgment-call PRs: none.
 - **Nothing to do on upgrade.** No schema changes to `.milestone-config/driver.json`; no key added, removed, renamed or re-defaulted. Every invocation token behaves as in v1.19.0.
 - **New artifacts:** `scripts/check-citations.{sh,ps1}` (a CI gate) and `scripts/triage-cache.{sh,ps1}` (a runtime primitive the triage skill calls), each with its test twin, cases table and fixtures.
 - **CI grows three steps per leg**, six total: the `triage-cache` runner, the `check-citations` runner, and one `check-citations` run against this repo's real tree.
-- **The gate verifies exactly one citation form.** `scripts/check-citations.{sh,ps1}` resolves `path (anchor)`. The other three forms are counted and reported `UNVERIFIED`, not checked, so `failed=0` says nothing about them. On this repo the gate reports `ok=194 failed=0` with `unverified=81` — 57 `path#Heading`, 21 `path § Heading`, 3 `path:line`.
+- **The gate verifies exactly one citation form.** `scripts/check-citations.{sh,ps1}` resolves `path (anchor)`. The other three forms are counted and reported `UNVERIFIED`, not checked, so `failed=0` says nothing about them. On this repo the gate reports `ok=194 failed=0` with `unverified=81` - 57 `path#Heading`, 21 `path § Heading`, 3 `path:line`.
 - **The gate skips six trees**, each emitted as an `EXCLUDED` record with its skip count, including `.milestone-config/worktrees/` and `.milestone-feeder/`.
 - **`.gitattributes` now pins `*.md` to `eol=lf`.** A checkout with `core.autocrlf=true` previously added a byte per line and failed the size gate on files a contributor had never touched.
 - **A parallel `solve-milestone` run reviews as it goes (#400).** `parallel` and `maxParallelWorkers` keep their names, shapes and defaults. What changes is what the cap counts: one number covering build leaves and review leaves together, rather than a separate allowance per stage.
@@ -460,14 +460,14 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none. All 18 issues in milestone #37 merged and closed, zero parked.
 
-- **The 20% target was not met on any file.** Across the whole governed set (15 files) from base commit `c379bb3` to the end-of-milestone pass: 427611 → 396568 bytes, 3479 → 3313 lines — 7.3% of bytes, 4.8% of lines. Best single file is `skills/triage/SKILL.md` at 17.0% net, which is an extraction plus a trim. Per-issue byte yields ran 3.0% (`trello-sync.md`) to 15.2% (`notices.md`). Four files grew: `parallel-waves.md` +4.6% (#400's scheduler), both reviewer briefs (#440's source sets), and `skills/citation-format.md` 9536 → 12060 bytes (#427 brought a previously ungoverned file under the ratchet, and anchors cost bytes against the line numbers they replace).
-- **#432 shipped with two acceptance criteria formally dropped**, recorded in the PR and in both script headers. (1) `path#Heading` and `path § Heading` resolution — a heading matcher produced 23 FAIL records against 23 correct citations. (2) A syntactic same-file rule — every skill file here is named `SKILL.md`, so a basename comparison flagged 3 cross-file citations as same-file; same-file citations are caught by match count instead.
+- **The 20% target was not met on any file.** Across the whole governed set (15 files) from base commit `c379bb3` to the end-of-milestone pass: 427611 → 396568 bytes, 3479 → 3313 lines - 7.3% of bytes, 4.8% of lines. Best single file is `skills/triage/SKILL.md` at 17.0% net, which is an extraction plus a trim. Per-issue byte yields ran 3.0% (`trello-sync.md`) to 15.2% (`notices.md`). Four files grew: `parallel-waves.md` +4.6% (#400's scheduler), both reviewer briefs (#440's source sets), and `skills/citation-format.md` 9536 → 12060 bytes (#427 brought a previously ungoverned file under the ratchet, and anchors cost bytes against the line numbers they replace).
+- **#432 shipped with two acceptance criteria formally dropped**, recorded in the PR and in both script headers. (1) `path#Heading` and `path § Heading` resolution - a heading matcher produced 23 FAIL records against 23 correct citations. (2) A syntactic same-file rule - every skill file here is named `SKILL.md`, so a basename comparison flagged 3 cross-file citations as same-file; same-file citations are caught by match count instead.
 - **#400's slot-allocation order contradicted a recorded decision.** `docs/briefs/2026-07-31-post-alienation-followups.md § Decision 1: the concurrency cap. SETTLED.` records build-first as settled on 2026-07-30; #400's acceptance criterion 2 says the opposite. Review-first was re-ratified 2026-08-06 and the brief is marked superseded in place, scoped to its two slot-preference statements.
 - **Ceilings were re-derived once at the end of the milestone**, not per issue: 5 line ceilings and 10 byte ceilings lowered, 8 rows derived above their current value and held. Issue bodies assuming `target × 1.05` recorded numbers that would have failed three files.
 - Fixed in the end pass: the citation gate walked `.milestone-config/worktrees/` (58 FAIL records from deliberately-broken fixture anchors, red only for the person running the driver), and governed `*.md` was not yet pinned to `eol=lf`.
-- Open follow-ups: **#468** — three test runners use bash 4.3 namerefs and cannot run under real `/bin/bash 3.2.57` (`tests/build-file-index.test.sh`, `tests/extract-version.test.sh`, `tests/parse-md-epic-order.test.sh`, each `local -n _arr="$2"`). **`skills/solve-milestone/milestone-granularity.md`** documents a pre-clean-guard placement in Before-starting that `skills/solve-milestone/SKILL.md` contradicts by cutting the milestone branch inside the issue loop. **`agents/design-reviewer.md`** criterion 3 reads as "found pattern → never Blocker", conflicting with its own rendered-outcome row. **15 `path § Heading` citations use a bare filename** instead of the repo-root-relative path `skills/citation-format.md` requires — six in `skills/solve-milestone/SKILL.md`, nine in `parallel-waves.md`; the gate does not cover that form.
+- Open follow-ups: **#468** - three test runners use bash 4.3 namerefs and cannot run under real `/bin/bash 3.2.57` (`tests/build-file-index.test.sh`, `tests/extract-version.test.sh`, `tests/parse-md-epic-order.test.sh`, each `local -n _arr="$2"`). **`skills/solve-milestone/milestone-granularity.md`** documents a pre-clean-guard placement in Before-starting that `skills/solve-milestone/SKILL.md` contradicts by cutting the milestone branch inside the issue loop. **`agents/design-reviewer.md`** criterion 3 reads as "found pattern → never Blocker", conflicting with its own rendered-outcome row. **15 `path § Heading` citations use a bare filename** instead of the repo-root-relative path `skills/citation-format.md` requires - six in `skills/solve-milestone/SKILL.md`, nine in `parallel-waves.md`; the gate does not cover that form.
 
-## v1.19.0 — citation anchors
+## v1.19.0 - citation anchors
 
 **Theme:** A citation can now name its target by a content anchor that survives line drift, with a resolver that fails loud when the anchor is gone and resolve-once blocks in triage and solve-issue so no subagent reasons from a moved citation.
 
@@ -484,9 +484,9 @@ Judgment-call PRs: none. All 18 issues in milestone #37 merged and closed, zero 
 
 - **No schema changes** to `.milestone-config/driver.json`.
 - **Nothing breaks.** `path:line` and `path:start-end` remain valid to write and resolve as before. The anchor form is additive; no evidence slot requires it.
-- **New artifacts:** `scripts/resolve-citation.{sh,ps1}` (a runtime primitive, not a CI gate — it returns records at exit 0 and never fails a build), `tests/resolve-citation.test.{sh,ps1}` with its cases table and fixtures, and `skills/citation-format.md`.
+- **New artifacts:** `scripts/resolve-citation.{sh,ps1}` (a runtime primitive, not a CI gate - it returns records at exit 0 and never fails a build), `tests/resolve-citation.test.{sh,ps1}` with its cases table and fixtures, and `skills/citation-format.md`.
 - **CI grows one step per leg.**
-- **Anchors are literal strings, never parsed symbols.** Resolution is a case-sensitive, line-scoped substring search — not a regex, not language-aware. Write the shortest string that uniquely names the region.
+- **Anchors are literal strings, never parsed symbols.** Resolution is a case-sensitive, line-scoped substring search - not a regex, not language-aware. Write the shortest string that uniquely names the region.
 - **Extraction is model judgment, not pattern matching.** A parenthetical following a path is not automatically a citation.
 
 ### ⚖️ Post-run audit trail
@@ -495,7 +495,7 @@ Judgment-call PRs: none.
 
 - `tests/resolve-citation.test.ps1` asserts with `[string]::Equals(…, Ordinal)`, diverging from the bare `-eq` in its eight sibling pwsh runners, because `-eq` is case-insensitive and culture-sensitive and the issue required exact assertion. Migrating the house idiom is a separate sweep.
 
-## v1.18.0 — milestone-scoped branching and dispatch topology
+## v1.18.0 - milestone-scoped branching and dispatch topology
 
 **Theme:** Two bodies of work. A whole milestone can build on one local branch and reach the integration branch through a single push, PR and CI run. And the worker layer is deleted: the orchestrator is the only session that fans out, every dispatched agent is a leaf at depth 1 where its completion notification arrives, and an issue outside the barrier partition is named and recovered rather than vanishing.
 
@@ -504,7 +504,7 @@ Judgment-call PRs: none.
 | Issue | PR | What |
 |---|---|---|
 | #368 add `milestone-granularity.md` with the branch model and local integration mechanics | #386 | New `skills/solve-milestone/milestone-granularity.md` holds the branch model, the local `git merge --squash` fold both the sequential loop and the parallel merge tail run, and the integration commit whose `Issue: #<n>` trailer carries that issue's Decision Log and Code Review block. Issue branches keep their `issue/<n>-<slug>` name, are cut from the milestone branch, and are never pushed. Read only under `"milestone"` granularity; missing there it halts rather than degrading to `"issue"`. |
-| #371 add the milestone-end sequence and the red-CI handler | #388 | Replaces `solve-milestone` steps 6.6–6.8: commit the CHANGELOG onto the milestone branch, push once, open one PR into `integrationBranch`, merge on green, then close each issue with its own `gh issue close` — `Closes #n` fires only on a merge into the default branch. Red CI is run-scoped: label the PR `needs review`, name every issue on the branch in one 🔴 line, preserve the branch, close nothing. |
+| #371 add the milestone-end sequence and the red-CI handler | #388 | Replaces `solve-milestone` steps 6.6–6.8: commit the CHANGELOG onto the milestone branch, push once, open one PR into `integrationBranch`, merge on green, then close each issue with its own `gh issue close` - `Closes #n` fires only on a merge into the default branch. Red CI is run-scoped: label the PR `needs review`, name every issue on the branch in one 🔴 line, preserve the branch, close nothing. |
 | #376 add the `visualHold` milestone-PR gate and carve out architecture invariant 3 | #394 | `visualHold` decides whether the single milestone PR waits for human UI sign-off, resolved through a first-match-wins table whose indeterminate-diff row holds. `docs/architecture.md` invariant 3 gets an explicit carve-out: under `"milestone"` the hold moves from the per-issue PR to the milestone PR, and only an operator writing `visualHold: false` merges it. |
 | #374 make milestone-branch creation resume-safe against a leftover branch | #392 | Until the milestone-end push the milestone branch is the only copy of every issue folded in, so a resumed run must never re-cut it. Four legs, first match wins: cold cuts fresh; provably safe (0 commits ahead, or a merged PR) clears and re-cuts; carries-work attaches; ambiguous or a failed probe preserves the branch and halts. |
 | #379 make `solve-issue` granularity-aware: branch base, commit trailer, suppressed push/PR/merge, resume probe | #390 | Under `"milestone"`, `solve-issue` cuts from the milestone branch, writes the extended commit trailer, suppresses its own push, PR and merge, and answers "already integrated?" from `git log <milestone-branch> --grep='^Issue: #<n>$'` rather than remote state that does not yet exist. `async-mode.md` follows. |
@@ -526,9 +526,9 @@ Judgment-call PRs: none.
 | Issue | PR | What |
 |---|---|---|
 | #361 delete the worker layer: the orchestrator fans out by stage, dispatched agents are leaves | #401 | Worker mode, the `--worker` token, Delta 3's structured handback and `--async`'s dispatch contract are deleted. Phase 1 dispatches by stage: concurrent implementer leaves, a barrier, concurrent reviewer leaves, then an unbarriered per-issue tail the orchestrator runs itself. A dispatched agent that dispatches a child seats that child at depth 2, where the completion notification never arrives and the parent's turn ends with the work uncommitted. `docs/architecture.md § Dispatch topology` is the invariant's one home. |
-| #362 name the `abandoned` bucket, recover once, then park | #405 | The barrier partition ran on `built-green` and `parked`, which are not exhaustive: an issue in neither vanished with no label, comment or notification — the exact shape of an auto-denied background leaf, context exhaustion, or a killed run. `abandoned` is a named third bucket with its own probe legs (no PR, no pushed branch ahead of base, no park label), resolved by a recover-once ladder at cap 1 inside the same pass. |
+| #362 name the `abandoned` bucket, recover once, then park | #405 | The barrier partition ran on `built-green` and `parked`, which are not exhaustive: an issue in neither vanished with no label, comment or notification - the exact shape of an auto-denied background leaf, context exhaustion, or a killed run. `abandoned` is a named third bucket with its own probe legs (no PR, no pushed branch ahead of base, no park label), resolved by a recover-once ladder at cap 1 inside the same pass. |
 | #363 `ort` auto-resolves non-adjacent same-file edits, not non-overlapping ones | #403 | Two edits on directly adjacent lines conflict; one unchanged line between them merges clean. So any file with a single shared append point (a changelog table, a barrel export, a DI registration list) conflicts by construction under concurrency. Swapped at five sites, and the two park-call sites now carry that this shape sits within bounded auto-resolve rather than triggering a park. |
-| #365 tell every dispatched agent to namespace its own scratch | #404 | Concurrent agents shared one scratchpad directory and overwrote each other's probe files, producing a false cross-worktree-write alarm. One rule in two byte-identical families — seven dispatch sites state what the brief must carry, three agent contracts state what the agent honors: write scratch only under a path named for that issue or agent, and report what a probe printed rather than writing a file to read back. |
+| #365 tell every dispatched agent to namespace its own scratch | #404 | Concurrent agents shared one scratchpad directory and overwrote each other's probe files, producing a false cross-worktree-write alarm. One rule in two byte-identical families - seven dispatch sites state what the brief must carry, three agent contracts state what the agent honors: write scratch only under a path named for that issue or agent, and report what a probe printed rather than writing a file to read back. |
 | #364 caveat the version-free CHANGELOG idempotency check against heading suffixes | #398 | Version-free mode compares the whole line, so a heading carrying `(partial)`, `(in progress)` or a date is not equal to `## <milestone title>`: the check reports no existing entry and prepends a duplicate section. Versioned mode is immune (its prefix ends in a trailing space). The caveat is appended byte-identically at both sites; strict equality stands, since widening the match would let `## Q3 Hardening` satisfy a milestone titled `Q3`. |
 | #397 re-derive 18 stale cross-file citations | #409 | 18 citations re-derived: 6 into heading anchors that survive a line shift, 12 into corrected line numbers. Only 8 of the 12 had no heading to anchor to, their targets inside a 116-line heading-free stretch. The issue title's "5 of 8" does not reconcile with the PR's evidence table. |
 | #399 the size-budget ratchet governs bytes as well as lines | #410 | Counting lines only meant prose appended to an existing line grew context cost at zero reported movement: PR #398 added 1,052 bytes at a flat 664 lines, and three later merges added 3,818 more the same way. Both twins hold a per-file byte ceiling beside the line ceiling, rounded up to the next 500 bytes. Lines stay as an independent second ceiling, because `file:line` citations pay a cost for line growth no byte count expresses. |
@@ -538,7 +538,7 @@ Judgment-call PRs: none.
 - **Nothing to do on upgrade.** The default is still `"issue"`, and the `"issue"` and `"wave"` paths are byte-unchanged.
 - **Schema change, both parts optional.** `integrationGranularity` now accepts `"milestone"` alongside `"issue"` and `"wave"`; `visualHold` is new. Both default to today's behavior when absent.
 - **Opting in has one prereq.** Set `{ "integrationGranularity": "milestone" }`, then filter your own push-triggered workflows to ignore the `milestone-*` prefix: `branches-ignore: ['milestone-*']`, or `branches: ['**', '!milestone-*']` with the negation last. One form per event, never both. Skip the filter and the milestone-end push starts your push workflow while the PR run rebuilds the same commit.
-- **The `milestone-` branch prefix is a stable, externally-consumed contract** — consumer CI filters are written against it.
+- **The `milestone-` branch prefix is a stable, externally-consumed contract** - consumer CI filters are written against it.
 - **`visualHold` is the one UI sign-off.** Absent (the default) holds the milestone PR whenever the branch's diff against `integrationBranch` touched a `uiSurfaceGlobs` path, and holds when that diff cannot be read. `visualHold: false` is the sole override. A non-boolean value holds, with a logged note. There is no `--no-visual-hold` token, and the key is read only under `"milestone"`.
 - **Raising a governed file's size-budget ceiling is now recorded in the Decision Log of the PR that grows the file**, not on the issue (#378). Contributors only; consumers are unaffected.
 - **`parallel` and `maxParallelWorkers` keep their names and defaults, but "how wide" counts something different (#361).** Concurrency moved from one worker per issue to one leaf agent per issue per stage: the run builds the Wave's issues concurrently, barriers, reviews them concurrently, then runs the gates, version bump, commit and PR from the main line. A value of 8 now buys 8 concurrent implementers then 8 concurrent reviewers, rather than 8 issues each running a full pipeline. `--worker` is gone and `--async` is inert.
@@ -554,10 +554,10 @@ Judgment-call PRs: none.
 - **#400 is parked `needs design`, not built.** #362 made the Stage A/B barrier load-bearing: an issue still mid-build presents the identical ground truth the `abandoned` classifier keys on, so removing the barrier would dispatch a second implementer into a worktree the first is still writing. Two decisions are owed: a per-issue readiness gate step 9 can trust, and a combined `maxParallelWorkers` accounting rule. (Built in v1.20.0.)
 - **#399 rejected the word-count convention `superpowers:writing-skills` prescribes**, on a measurement: word count splits on whitespace, so `scripts/check-size-budgets.ps1` scores 1 word for 30 bytes, and the governed files are dense with exactly that token shape.
 - **A mid-flight redirect to a running subagent never arrived, and the agent's final report described the retracted instruction as applied.** Caught by reading the changed files, not the report. A correction travelling parent→child is as unreliable as a completion notification travelling child→parent; only the second direction was in scope for #361. Derive-from-artifacts covers the outcome; nothing yet covers the instruction.
-- **`hooks/code-review-gate.sh` caught the orchestrator skipping review** on #399 — it denies a `gh pr create` whose body carries no `## Code Review` section. Worth recording because a backstop that has never fired cannot be told apart from one that does not work.
-- Open follow-ups: **#402, #406, #407** — four more stale cross-file citations plus #407's durable fix (check heading anchors, not line numbers). **#408** — `skills/solve-milestone/SKILL.md` contradicts itself on whether the purely-numeric-title halt fires under `--driven`. **A twin divergence, deferred** — a governed file that is present but unreadable records `OK` and exits 0 on the bash side of `check-size-budgets` while the PowerShell twin throws; which way both should go was out of scope for #399.
+- **`hooks/code-review-gate.sh` caught the orchestrator skipping review** on #399 - it denies a `gh pr create` whose body carries no `## Code Review` section. Worth recording because a backstop that has never fired cannot be told apart from one that does not work.
+- Open follow-ups: **#402, #406, #407** - four more stale cross-file citations plus #407's durable fix (check heading anchors, not line numbers). **#408** - `skills/solve-milestone/SKILL.md` contradicts itself on whether the purely-numeric-title halt fires under `--driven`. **A twin divergence, deferred** - a governed file that is present but unreadable records `OK` and exits 0 on the bash side of `check-size-budgets` while the PowerShell twin throws; which way both should go was out of scope for #399.
 
-## v1.17.0 — reviewer grounding & output style
+## v1.17.0 - reviewer grounding & output style
 
 **Theme:** Reviewer claims get a defined research path and a scope-honesty rule, and every GitHub-facing shape this plugin writes gets one governing prose contract with an evidence slot.
 
@@ -587,7 +587,7 @@ Found by a `plugin-dev:skill-reviewer` pass over all four skills after the three
 - **`setup` now asks for `uiSurfaceGlobs`.** Existing profiles keep working; a one-time notice points out the gap on the next run. Without the key, design-lens review, the visual-review gate and visual capture stay off.
 - **Plugin-shipped paths in skill text carry `${CLAUDE_PLUGIN_ROOT}`.** Consumer-repo paths (`.milestone-config/`, `.project/`, `sourceGlobs` matches) still resolve against your repo.
 - **Behavior change, no config change.** Reviewers verify a convention against an ordered path (docs → `domainSkills` → repo patterns) rather than assumption, and may not assert a count or universal quantifier they did not enumerate. Expect scope qualifications like "confirmed at `x.rb:201`; 2 other call sites not individually checked".
-- **`domainSkills` is optional and degrades cleanly** — absent, the step is skipped; it never makes the docs check optional. All three injected inputs are additive grounding whose absence is never a STOP condition.
+- **`domainSkills` is optional and degrades cleanly** - absent, the step is skipped; it never makes the docs check optional. All three injected inputs are additive grounding whose absence is never a STOP condition.
 - **No schema changes** to `.milestone-config/driver.json`.
 
 ### ⚖️ Post-run audit trail
@@ -601,7 +601,7 @@ Open at this release:
 - **The repo's own `domainSkills` went unconsulted while authoring changes to its skills.** Three findings from that guidance remain unfiled: `skills/solve-milestone/SKILL.md` is 658 lines against a documented 500-line limit, all four frontmatter descriptions summarize workflow (which `writing-skills` shows causes agents to skip the skill body), and no skill edit in this milestone was preceded by the baseline pressure test its Iron Law requires.
 - **`${CLAUDE_PLUGIN_ROOT}` prefixing has no machine enforcement.** #348 placed 28 substrings by hand; nothing stops the next skill edit from reintroducing a bare path.
 
-## v1.16.1 — convention-search before parking as `needs design`
+## v1.16.1 - convention-search before parking as `needs design`
 
 **Theme:** Before triage parks an issue as `needs design`, both reviewer agents must search the existing codebase for a convention that answers the gap, and emulate a sound one (cited) rather than recommend a new approach.
 
@@ -621,7 +621,7 @@ Open at this release:
 
 Judgment-call PRs: none.
 
-## v1.16.0 — run-efficiency grounding
+## v1.16.0 - run-efficiency grounding
 
 **Theme:** Three additions to cut cache-aware dollar cost and sharpen grounding: a diff-scoped repo file map injected into subagent briefs, an optional AI pre-filter over captured screenshots, and a per-run cache-aware cost record.
 
@@ -647,7 +647,7 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none.
 
-## v1.15.2 — solve-milestone registration fix + config cleanup
+## v1.15.2 - solve-milestone registration fix + config cleanup
 
 _Released 2026-07-07._
 
@@ -657,7 +657,7 @@ _Released 2026-07-07._
 
 | Issue | PR | What |
 |---|---|---|
-| #314 `solve-milestone`'s frontmatter `description:` is invalid YAML | #316 | The unquoted scalar contained `parallel: false`, and the `: ` sequence makes strict parsers (js-yaml) reject the whole frontmatter block, so the skill never registered in Claude Desktop while the lenient CLI loader masked it. `description:` is now a folded block scalar, round-tripping byte-exact with the `parallel: false` mention intact. Ships `scripts/check-skill-frontmatter.{sh,ps1}` — a dependency-free, line-oriented lint, no YAML library — wired into CI on every PR. |
+| #314 `solve-milestone`'s frontmatter `description:` is invalid YAML | #316 | The unquoted scalar contained `parallel: false`, and the `: ` sequence makes strict parsers (js-yaml) reject the whole frontmatter block, so the skill never registered in Claude Desktop while the lenient CLI loader masked it. `description:` is now a folded block scalar, round-tripping byte-exact with the `parallel: false` mention intact. Ships `scripts/check-skill-frontmatter.{sh,ps1}` - a dependency-free, line-oriented lint, no YAML library - wired into CI on every PR. |
 | #248 remove the now-dead `allowCrossMarketplaceDependenciesOn` from `marketplace.json` | #315 | The key lived only in `.claude-plugin/marketplace.json`, added when the repo became an installable single-plugin marketplace. The cross-marketplace dependency it permitted was already removed from `plugin.json` in v1.13.1. |
 
 ### Consumer notes (upgrading from v1.15.1)
@@ -672,16 +672,16 @@ Judgment-call PRs: none.
 
 - #249 (native/non-web visual-capture seam) was parked at triage on three design blockers and is not in this release.
 
-## v1.15.1 — audit remediation: progressive disclosure, wave checkpoint, mechanical gates
+## v1.15.1 - audit remediation: progressive disclosure, wave checkpoint, mechanical gates
 
-Patch release — the audit-remediation milestone, 15 issues, all merged CI-green.
+Patch release - the audit-remediation milestone, 15 issues, all merged CI-green.
 
 - **Progressive disclosure**: solve-issue's worker-mode (#282), async-mode (#283), md-epic fan-out (#284) and solve-milestone's parallel-waves (#285) extracted into sibling reference docs loaded only when triggered; agent briefs trimmed (#286, #287, #288).
-- **Reliability**: unified act→verify→retry gate loop (#290); `wave-state.json` checkpoint with trust-but-verify freshness for resumed runs (#291); triage stale-edge dedup — M fetches, not N×M (#293).
-- **Mechanical enforcement**: `code-review-gate` hook — PRs must carry their `## Code Review` section (bash+pwsh twins, 22-case golden matrix) plus a macos-latest CI job running all six hooks under real /bin/bash 3.2 (#289); per-file ratcheted size budgets in CI, one-way tightening (#295).
+- **Reliability**: unified act→verify→retry gate loop (#290); `wave-state.json` checkpoint with trust-but-verify freshness for resumed runs (#291); triage stale-edge dedup - M fetches, not N×M (#293).
+- **Mechanical enforcement**: `code-review-gate` hook - PRs must carry their `## Code Review` section (bash+pwsh twins, 22-case golden matrix) plus a macos-latest CI job running all six hooks under real /bin/bash 3.2 (#289); per-file ratcheted size budgets in CI, one-way tightening (#295).
 - **Truth-ups**: one-time notices consolidated into `skills/notices.md` (#292); honesty pass on stale claims (#294); SendMessage/mid-run-redirect claims corrected and the background-wait pattern documented (#281).
 
-## v1.15.0 — Parent-issue fan-out (md-epic)
+## v1.15.0 - Parent-issue fan-out (md-epic)
 
 **Theme:** A GitHub issue labeled `md-epic` can anchor a feature too big for one milestone: list the milestones in its body in build order, and `solve-issue` on that parent drives them one at a time. Entirely opt-in, gated on the label, off by default.
 
@@ -690,7 +690,7 @@ Patch release — the audit-remediation milestone, 15 issues, all merged CI-gree
 | Issue | PR | What |
 |---|---|---|
 | #266 Add the md-epic-order block parser | #271 | New `scripts/parse-md-epic-order.{sh,ps1}`: locates the fenced `md-epic-order` block, validates each `number:`/`title:` line, and reports the first malformed line by position. No `gh` calls, no network. |
-| #267 Recognize `--driven` and suppress the DB-hazard interview | #272 | `solve-milestone` recognizes an internal `--driven` token, read the same way as `--worker` and `--async`. When present the DB-hazard interview degrades straight to its non-interactive sequential path — a driven run has no human to answer it. |
+| #267 Recognize `--driven` and suppress the DB-hazard interview | #272 | `solve-milestone` recognizes an internal `--driven` token, read the same way as `--worker` and `--async`. When present the DB-hazard interview degrades straight to its non-interactive sequential path - a driven run has no human to answer it. |
 | #268 Detect md-epic parent issues and fan out over their milestones | #273 | `solve-issue` checks an issue's labels for `md-epic` before anything else. A parent parses the ordered milestone list from its body, resolves each entry to a real milestone, and drives them one at a time via `solve-milestone --driven`, resuming completed milestones and parking the parent itself when the list is missing or malformed. |
 | #269 Add the human cherry-pick prompt for a directly-targeted milestone | #274 | `solve-milestone` on a milestone belonging to an `md-epic` parent asks first: build just this milestone, hand off to `solve-issue` on the parent, or pause. A driven run skips the prompt. |
 | #270 Document md-epic in README, architecture, and this changelog | #275 | A `## Parent issues (md-epic)` README section and the mechanism writeup in `docs/architecture.md`. |
@@ -700,13 +700,13 @@ Patch release — the audit-remediation milestone, 15 issues, all merged CI-gree
 - **Entirely opt-in.** No `md-epic` label anywhere in your repo means `solve-issue` and `solve-milestone` behave exactly as in v1.14.0.
 - **New internal token `--driven`.** Like `--worker` and `--async`, recognized by string presence and never typed by a human; the parent-issue fan-out loop supplies it.
 - **No schema changes** to `.milestone-config/driver.json`.
-- **The other half ships later.** Creating a parent issue — applying the label, writing the ordered milestone list, linking each milestone's issues as sub-issues — is the feeder's and bootstrapper's job, specced separately and not yet built. Until then, hand-author a parent issue to the contract in `docs/architecture.md`.
+- **The other half ships later.** Creating a parent issue - applying the label, writing the ordered milestone list, linking each milestone's issues as sub-issues - is the feeder's and bootstrapper's job, specced separately and not yet built. Until then, hand-author a parent issue to the contract in `docs/architecture.md`.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.14.0 — Parallel by default
+## v1.14.0 - Parallel by default
 
 **Theme:** `solve-milestone` builds a milestone's mutually-independent issues in parallel by default; a run-start barrier check drops to sequential only when something makes parallel unsafe. `maxParallelWorkers` tunes the width, and a one-time notice tells existing users the default changed.
 
@@ -715,7 +715,7 @@ Judgment-call PRs: none.
 | Issue | PR | What |
 |---|---|---|
 | #250 Flip solve-milestone to parallel-by-default | #256 | The `--parallel` flag and the "in parallel" phrase are gone. Every run resolves the mode once through a barrier cascade: parallel unless `parallel: false`, a session permission the background workers need is not allow-listed, or the repo runs unit tests and the one-time test-database question is unanswered. A habit-typed `--parallel` is ignored. Wires the worker cap to `maxParallelWorkers` and adds the one-time notice. |
-| #251 Add setup's conditional parallel question | #257 | First-run setup asks — only if the project runs unit tests — whether the test harness is isolated per worker, and records the answer as `parallel`. Projects with no unit tests are never asked and stay parallel. |
+| #251 Add setup's conditional parallel question | #257 | First-run setup asks - only if the project runs unit tests - whether the test harness is isolated per worker, and records the answer as `parallel`. Projects with no unit tests are never asked and stay parallel. |
 | #252 Document the parallel and maxParallelWorkers keys | #258 | Documents both keys, including the deliberately-opposite write rules: `parallel` always records an explicit yes/no, `maxParallelWorkers` follows the usual omit-for-default. |
 | #253 Rewrite consumer-setup's parallel section | #259 | Rewrites the guide to the default-with-opt-out model, keeping the existing DB-isolation guidance. |
 | #254 Reframe architecture.md's parallel-mode model | #260 | Reframes the section from opt-in to parallel-by-default with the barrier cascade. Worktree-fleet and serial-merge-tail mechanics are unchanged. |
@@ -726,14 +726,14 @@ Judgment-call PRs: none.
 - **Parallel builds are the default.** To keep building one issue at a time, set `"parallel": false`. A passed `--parallel` is stripped and ignored.
 - **New key `parallel` (boolean, optional).** Absent means "not yet decided": the run goes parallel unless the repo defines `unitTestCmd`, in which case the first run asks once whether the test harness is isolated per worker (a git worktree isolates files, not the DB) and records the answer here. `true` forces parallel; `false` forces sequential. A missing session permission still overrides `true` down to sequential.
 - **New key `maxParallelWorkers` (integer, optional, default 4).** How many mutually-independent issues build at once within a Wave. An absent or invalid value falls back to 4.
-- **Headless / CI runs** (`MILESTONE_DRIVER_NONINTERACTIVE=1`) never see the test-database prompt — they run sequentially with a loud note until the profile sets `"parallel": true`.
+- **Headless / CI runs** (`MILESTONE_DRIVER_NONINTERACTIVE=1`) never see the test-database prompt - they run sequentially with a loud note until the profile sets `"parallel": true`.
 - **Schema change:** two new optional keys. An existing profile keeps working unchanged, and the first run seeds `parallel` when a test-DB hazard is present.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.13.1 — Claude Desktop slash-command fix
+## v1.13.1 - Claude Desktop slash-command fix
 
 _Released 2026-06-26._
 
@@ -743,8 +743,8 @@ _Released 2026-06-26._
 
 | Issue | PR | What |
 |---|---|---|
-| — drop the cross-marketplace `superpowers` dependency | #246 | The `dependencies` array is removed from `.claude-plugin/plugin.json`. Declaring `superpowers@claude-plugins-official` made Claude Desktop load the plugin but skip registering its skills as slash commands; the CLI was unaffected. Cross-plugin dependencies are an open upstream feature request ([anthropics/claude-code#9444](https://github.com/anthropics/claude-code/issues/9444)), so the declaration was dropped rather than worked around. `superpowers` is still required at runtime, documented as a prerequisite in the README and `.project/library-manifest.md`. |
-| — note the bootstrapper-owned `driver.json` keys | #245 | `docs/profile-schema.md` records that `stack` and `stackVersionFile` are owned by milestone-bootstrapper. |
+| - drop the cross-marketplace `superpowers` dependency | #246 | The `dependencies` array is removed from `.claude-plugin/plugin.json`. Declaring `superpowers@claude-plugins-official` made Claude Desktop load the plugin but skip registering its skills as slash commands; the CLI was unaffected. Cross-plugin dependencies are an open upstream feature request ([anthropics/claude-code#9444](https://github.com/anthropics/claude-code/issues/9444)), so the declaration was dropped rather than worked around. `superpowers` is still required at runtime, documented as a prerequisite in the README and `.project/library-manifest.md`. |
+| - note the bootstrapper-owned `driver.json` keys | #245 | `docs/profile-schema.md` records that `stack` and `stackVersionFile` are owned by milestone-bootstrapper. |
 
 ### Consumer notes (upgrading from v1.13.0)
 
@@ -756,16 +756,16 @@ _Released 2026-06-26._
 
 Judgment-call PRs: none.
 
-## v1.13.0 — An optional coherence check before the final review
+## v1.13.0 - An optional coherence check before the final review
 
 - **The driver auto-runs an optional coherence pass before the final code review.** When the milestone-coherence-reviewer companion plugin is installed, `solve-issue` dispatches it read-only over the built change just before the final `/code-review`, as a never-gating post-build pass. Wired via a new default-filled `coherenceReviewAgent` profile key (`milestone-coherence-reviewer:coherence-reviewer`); silently skipped when the companion is absent. It heals via follow-ups and never blocks or changes a merge. (#231)
-- **Fixed: flaky `shell-tests (bash)` render-daemon teardown.** The idempotent-teardown case asserted process liveness the instant `stop` returned, racing the asynchronous SIGTERM teardown sends best-effort, so a loaded CI runner could flake (`teardown: … alive=1`) and block green merges. The test now polls for process death with a bounded window and escalates to a guarded SIGKILL only as a diagnostic — which still fails the test if `stop` did not reap. Mirrored into the PowerShell twin. Test-infra only. (#240)
+- **Fixed: flaky `shell-tests (bash)` render-daemon teardown.** The idempotent-teardown case asserted process liveness the instant `stop` returned, racing the asynchronous SIGTERM teardown sends best-effort, so a loaded CI runner could flake (`teardown: … alive=1`) and block green merges. The test now polls for process death with a bounded window and escalates to a guarded SIGKILL only as a diagnostic - which still fails the test if `stop` did not reap. Mirrored into the PowerShell twin. Test-infra only. (#240)
 
-## v1.12.2 — Triage now catches changes that leave existing users in the dark
+## v1.12.2 - Triage now catches changes that leave existing users in the dark
 
 _Released 2026-06-23._
 
-**Theme:** When an issue affects existing users or their config, triage now requires a discovery path — a one-time notice, a re-run-setup prompt, or a documented upgrade note — and flags the issue when there is none.
+**Theme:** When an issue affects existing users or their config, triage now requires a discovery path - a one-time notice, a re-run-setup prompt, or a documented upgrade note - and flags the issue when there is none.
 
 ### ✨ Triage insists every existing-user-facing change has a way to be found
 
@@ -777,14 +777,14 @@ _Released 2026-06-23._
 ### Consumer notes (upgrading from v1.12.1)
 
 - **Triage flags an existing-user-facing change that nobody can discover.** No discovery path and existing users affected → **Advisory** (**Blocker** only when the gap makes the issue undeliverable). Exempt: a brand-new feature an existing install cannot reach. The check fires on impact to an already-set-up user, not on whether a change is breaking.
-- **#223 is internal maintenance only** — comment text on the driver's hand-synced git-ignore blocks. Nothing visible in your runs.
+- **#223 is internal maintenance only** - comment text on the driver's hand-synced git-ignore blocks. Nothing visible in your runs.
 - **No schema changes** to `.milestone-config/driver.json`.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.12.1 — A one-time nudge so upgraders find the new screenshots feature
+## v1.12.1 - A one-time nudge so upgraders find the new screenshots feature
 
 _Released 2026-06-23._
 
@@ -794,7 +794,7 @@ _Released 2026-06-23._
 
 | Issue | PR | What |
 |---|---|---|
-| #219 Add one-time "New in 1.12.0 — optional visual capture" discovery notice to solve-issue + solve-milestone, gitignore the marker | #220 | Prints a one-time, opt-in-framed note only when all three hold: no `visualCapture` block, the repo declares `uiSurfaceGlobs`, and this checkout has not shown the note. Then it drops a marker and stays quiet. Same pattern as the 1.4.0 preflight and 1.8.0 Trello notices; the marker lives only at `.milestone-config/visualcapture-notice`, with no legacy fallback. |
+| #219 Add one-time "New in 1.12.0 - optional visual capture" discovery notice to solve-issue + solve-milestone, gitignore the marker | #220 | Prints a one-time, opt-in-framed note only when all three hold: no `visualCapture` block, the repo declares `uiSurfaceGlobs`, and this checkout has not shown the note. Then it drops a marker and stays quiet. Same pattern as the 1.4.0 preflight and 1.8.0 Trello notices; the marker lives only at `.milestone-config/visualcapture-notice`, with no legacy fallback. |
 
 ### Consumer notes (upgrading from v1.12.0)
 
@@ -807,24 +807,24 @@ _Released 2026-06-23._
 
 Judgment-call PRs: none.
 
-## v1.12.0 — Opt-in screenshots on your UI pull requests
+## v1.12.0 - Opt-in screenshots on your UI pull requests
 
 _Released 2026-06-23._
 
-**Theme:** The driver can boot your app, drive it to each changed screen, and attach the screenshots to a UI issue's PR. Strictly opt-in; the screenshots are evidence, never a gate — a UI issue is still never auto-merged, and any capture failure degrades to the manual-visual-test note.
+**Theme:** The driver can boot your app, drive it to each changed screen, and attach the screenshots to a UI issue's PR. Strictly opt-in; the screenshots are evidence, never a gate - a UI issue is still never auto-merged, and any capture failure degrades to the manual-visual-test note.
 
 ### ✨ Opt-in visual capture for UI pull requests
 
 | Issue | PR | What |
 |---|---|---|
-| #208 Render-daemon lifecycle seam — one-per-run app-server boot/reuse | #212 | New `scripts/render-daemon.{sh,ps1}`, called as `start` / `status` / `stop`. Reads `visualCapture.serverCmd` and `readyUrl` from the profile; `start` reuses a running daemon or boots the app server once per run, spawned detached in its own process group and polled at the ready URL before returning. `stop` is idempotent and tears down the whole process group, so a compound `cd app && npm run dev` command's children die with it. A stale or dead state file is cleaned and treated as down, never reused, never an error. State lives in `.milestone-config/.runtime/render-daemon.json`. Dependency-free beyond `jq` and `curl`/`wget`. |
-| #209 Optional `visualCapture` profile block — schema, validation, setup tier | #213 | Documents the block in `docs/profile-schema.md`: `serverCmd`, `readyUrl`, `signInPath` (all three required when the block is present), plus optional `persona` (default `"super-admin"`), `viewports` (default desktop-only `1440×900`) and `appearances` (default `["light"]`). A block missing any required key is treated as absent and logged; absent = behavior byte-unchanged. Adds a Phase-2 Visual Capture tier to `setup`, surfacing only on a detected signal and writing a sparse object. |
-| #210 Capture per-surface visual evidence for UI-issue PRs | #214 | Wires capture into `solve-issue` step 7. For a UI issue on a serial run with a complete block: boot the daemon, sign in through the test seam as the configured persona (substituting `{persona}` into `signInPath`), then drive Playwright MCP once per changed surface × viewport × appearance. Shots are pushed to an orphan `visual-review-assets` branch and embedded in one "👁️ Visual evidence" PR comment. Any failure posts the human-visual-test note instead, never fails the run, never auto-merges. Under parallel runs, capture defers to the serial merge tail — one fixed-port daemon cannot serve concurrent worktrees. |
+| #208 Render-daemon lifecycle seam - one-per-run app-server boot/reuse | #212 | New `scripts/render-daemon.{sh,ps1}`, called as `start` / `status` / `stop`. Reads `visualCapture.serverCmd` and `readyUrl` from the profile; `start` reuses a running daemon or boots the app server once per run, spawned detached in its own process group and polled at the ready URL before returning. `stop` is idempotent and tears down the whole process group, so a compound `cd app && npm run dev` command's children die with it. A stale or dead state file is cleaned and treated as down, never reused, never an error. State lives in `.milestone-config/.runtime/render-daemon.json`. Dependency-free beyond `jq` and `curl`/`wget`. |
+| #209 Optional `visualCapture` profile block - schema, validation, setup tier | #213 | Documents the block in `docs/profile-schema.md`: `serverCmd`, `readyUrl`, `signInPath` (all three required when the block is present), plus optional `persona` (default `"super-admin"`), `viewports` (default desktop-only `1440×900`) and `appearances` (default `["light"]`). A block missing any required key is treated as absent and logged; absent = behavior byte-unchanged. Adds a Phase-2 Visual Capture tier to `setup`, surfacing only on a detected signal and writing a sparse object. |
+| #210 Capture per-surface visual evidence for UI-issue PRs | #214 | Wires capture into `solve-issue` step 7. For a UI issue on a serial run with a complete block: boot the daemon, sign in through the test seam as the configured persona (substituting `{persona}` into `signInPath`), then drive Playwright MCP once per changed surface × viewport × appearance. Shots are pushed to an orphan `visual-review-assets` branch and embedded in one "👁️ Visual evidence" PR comment. Any failure posts the human-visual-test note instead, never fails the run, never auto-merges. Under parallel runs, capture defers to the serial merge tail - one fixed-port daemon cannot serve concurrent worktrees. |
 | #211 Document the visualCapture seam; retire dead `screenshotCmd` prose | #215 | Removes the never-built `screenshotCmd` language from `docs/profile-schema.md` and `docs/consumer-setup.md`, adds a "One render daemon per run" section and the three invariants to `docs/architecture.md`. |
 
 ### Consumer notes (upgrading from v1.11.2)
 
-- **New optional profile block `visualCapture`.** Leave it out and nothing changes — no app booted, no screenshot attempted, no new gate, prompt or error.
+- **New optional profile block `visualCapture`.** Leave it out and nothing changes - no app booted, no screenshot attempted, no new gate, prompt or error.
 - **Opting in needs two things on your side:** a browser driven through Playwright MCP, and a seeded app server the driver can boot with a passwordless test sign-in. Declare it with `serverCmd`, `readyUrl` and `signInPath` (e.g. `/dev/sign_in/{persona}`). Optional `persona`, `viewports` and `appearances` default to super-admin, desktop-only, light. Skip any one required key and no block is written.
 - **New artifact:** `scripts/render-daemon.{sh,ps1}`. Dependency-free beyond `jq` and `curl` or `wget`.
 - **New `setup` tier:** on a detected visual-capture signal, setup walks you through the keys. No signal → skipped silently, like the E2E tier.
@@ -836,17 +836,17 @@ _Released 2026-06-23._
 
 Judgment-call PRs: none.
 
-## v1.11.2 — Ground the release tail in docs, and make the auto-merge gate real
+## v1.11.2 - Ground the release tail in docs, and make the auto-merge gate real
 
 _Released 2026-06-23._
 
-**Theme:** The human-owned release tail is now documented correctly — merge the release PR with `--merge`, never `--squash` — and this repo's own auto-merge gate runs a real test suite instead of merging on a vacuous green.
+**Theme:** The human-owned release tail is now documented correctly - merge the release PR with `--merge`, never `--squash` - and this repo's own auto-merge gate runs a real test suite instead of merging on a vacuous green.
 
 ### 📖 Document the release tail correctly (`--merge`, not `--squash`)
 
 | Issue | PR | What |
 |---|---|---|
-| #160 Adopt `--merge` for the release PR + harden the release tail | #204 | Rewrites `docs/consumer-setup.md § Releasing to your protected branch` into the complete ordered runbook. **Merge the integration→protected release PR with `--merge`, never `--squash`:** a squash puts a commit on the protected branch the integration branch never sees, so the two diverge and the next release PR conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`) — and a PR-locked integration branch cannot be resolved by pushing, forcing a history-only back-merge PR. The runbook spells out the ordered tail: open and merge the release PR with `--merge` **before** tagging → tag and cut the Release after the merge → close the milestone object → deploy, with the `--notes`-from-CHANGELOG form and `--generate-notes` as the no-CHANGELOG fallback. Two footguns are called out: a bare `gh release create` before the PR merges tags the old tip with wrong notes (happened in v1.9.2), and a PR-locked integration branch blocks direct pushes even for admins. `solve-milestone`'s 🔴 Your move recap and Final-summary next-step both name `--merge` and merge-before-tag. |
+| #160 Adopt `--merge` for the release PR + harden the release tail | #204 | Rewrites `docs/consumer-setup.md § Releasing to your protected branch` into the complete ordered runbook. **Merge the integration→protected release PR with `--merge`, never `--squash`:** a squash puts a commit on the protected branch the integration branch never sees, so the two diverge and the next release PR conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`) - and a PR-locked integration branch cannot be resolved by pushing, forcing a history-only back-merge PR. The runbook spells out the ordered tail: open and merge the release PR with `--merge` **before** tagging → tag and cut the Release after the merge → close the milestone object → deploy, with the `--notes`-from-CHANGELOG form and `--generate-notes` as the no-CHANGELOG fallback. Two footguns are called out: a bare `gh release create` before the PR merges tags the old tip with wrong notes (happened in v1.9.2), and a PR-locked integration branch blocks direct pushes even for admins. `solve-milestone`'s 🔴 Your move recap and Final-summary next-step both name `--merge` and merge-before-tag. |
 
 ### 🧪 Make the driver's own auto-merge gate real
 
@@ -856,16 +856,16 @@ _Released 2026-06-23._
 
 ### Consumer notes (upgrading from v1.11.1)
 
-- **#160 is documentation only** — no change to how the driver runs. If you have been squash-merging integration→protected release PRs and hitting recurring conflicts on the next cut, that is the cause; switch to `--merge`. Full runbook in `docs/consumer-setup.md § Releasing to your protected branch`.
+- **#160 is documentation only** - no change to how the driver runs. If you have been squash-merging integration→protected release PRs and hitting recurring conflicts on the next cut, that is the cause; switch to `--merge`. Full runbook in `docs/consumer-setup.md § Releasing to your protected branch`.
 - **The CI workflow (#179) gates this repo's `develop` only.** It does not change the installed plugin or your repo; the suite still provisions a CI gate for your repo separately.
-- 🔴 **Operator follow-up, not shipped here:** making the two checks *required* on `develop` is a one-time branch-protection step — adding `shell-tests (bash)` and `shell-tests (pwsh)` to the required-checks list via `gh api -X PUT .../branches/develop/protection`, preserving `enforce_admins`. The workflow makes the checks run; the protection PUT makes a red PR unmergeable.
+- 🔴 **Operator follow-up, not shipped here:** making the two checks *required* on `develop` is a one-time branch-protection step - adding `shell-tests (bash)` and `shell-tests (pwsh)` to the required-checks list via `gh api -X PUT .../branches/develop/protection`, preserving `enforce_admins`. The workflow makes the checks run; the protection PUT makes a red PR unmergeable.
 - **No schema changes** to `.milestone-config/driver.json`.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.11.1 — Ground the builder in your project's house docs (anchored retrieval)
+## v1.11.1 - Ground the builder in your project's house docs (anchored retrieval)
 
 _Released 2026-06-22._
 
@@ -876,7 +876,7 @@ _Released 2026-06-22._
 | Issue | PR | What |
 |---|---|---|
 | #183 Add the projectDocs profile key | #190 | New optional `projectDocs` key (default `.project/`, absent-means-default), mirroring the feeder; resolved at the solve-issue and triage profile reads. |
-| #184 Ship the read-doc-section primitive | #191 | New dependency-free `scripts/read-doc-section.{sh,ps1}`: given a doc and a `## anchor`, prints only that section and **fails loud** (non-zero exit) on a missing or renamed anchor — never silent empty grounding. Ships a 5-case test twin. |
+| #184 Ship the read-doc-section primitive | #191 | New dependency-free `scripts/read-doc-section.{sh,ps1}`: given a doc and a `## anchor`, prints only that section and **fails loud** (non-zero exit) on a missing or renamed anchor - never silent empty grounding. Ships a 5-case test twin. |
 | #185 Resolve cited sections once in solve-issue | #192 | Resolves the issue's cited `.project/<doc>#<section>` anchors once, pulls a superset via the primitive, and passes the sections into the implementer brief. |
 | #186 Resolve cited sections once in triage | #193 | Resolves the cited sections once per issue and passes the same sections into both reviewer briefs. |
 | #187 Wire the implementer | #194 | The implementer's "What you receive" consumes the provided sections; Read/grep for additional anchors is retained. |
@@ -887,11 +887,11 @@ _Released 2026-06-22._
 
 | Issue | What |
 |---|---|
-| #199 Self-ignore per-clone scratch | Ships a committed `.milestone-config/.gitignore` that makes per-clone runtime scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus `.runtime/` and `worktrees/`) git-invisible in any repo the plugin runs in, from the first write, with zero user setup — while tracked config (`driver.json`, `feeder.json`) stays tracked. The `tests-green` hook and the scratch-write steps in `solve-issue` / `solve-milestone` / `triage` self-heal the file when absent, so existing repos pick it up on their next run. |
+| #199 Self-ignore per-clone scratch | Ships a committed `.milestone-config/.gitignore` that makes per-clone runtime scratch (`preflight-notice`, `trello-notice`, `triage-cache.json`, `tests-stamp`, plus `.runtime/` and `worktrees/`) git-invisible in any repo the plugin runs in, from the first write, with zero user setup - while tracked config (`driver.json`, `feeder.json`) stays tracked. The `tests-green` hook and the scratch-write steps in `solve-issue` / `solve-milestone` / `triage` self-heal the file when absent, so existing repos pick it up on their next run. |
 
 ### Consumer notes (upgrading from v1.11.0)
 
-- **New optional profile key `projectDocs`** — where your standing docs live. Default `.project/`; set it only if they live elsewhere.
+- **New optional profile key `projectDocs`** - where your standing docs live. Default `.project/`; set it only if they live elsewhere.
 - **No grounding without docs.** No `.project/` directory, or an issue citing no `.project/#section` anchors, is a clean no-op with no error.
 - **Anchored, never whole-file.** Grounding pulls only the cited `## sections` plus plausibly-relevant siblings, so per-dispatch token cost scales with cited-section size, not doc size. A drifted or renamed anchor is a loud failure, not silent empty grounding.
 - **New artifact:** `scripts/read-doc-section.{sh,ps1}` (+ its test twin). Dependency-free.
@@ -901,24 +901,24 @@ _Released 2026-06-22._
 
 Judgment-call PRs: none.
 
-## v1.11.0 — Right model for each job: a stronger builder, leaner reviewers
+## v1.11.0 - Right model for each job: a stronger builder, leaner reviewers
 
 _Released 2026-06-22._
 
-**Theme:** Each built-in helper is pinned to the model tier that fits its job — the builder to the strong tier, the two pre-build reviewers to a leaner tier an A/B test showed catches the same blocking problems.
+**Theme:** Each built-in helper is pinned to the model tier that fits its job - the builder to the strong tier, the two pre-build reviewers to a leaner tier an A/B test showed catches the same blocking problems.
 
-### ⚙️ Efficiency & quality — model assigned per helper
+### ⚙️ Efficiency & quality - model assigned per helper
 
 | Issue | PR | What |
 |---|---|---|
 | #173 Pin the implementer (code-writer) to the strong tier | #177 | The implementer is the only helper that writes production and test code. Its model frontmatter goes `inherit` → `opus`, so code is written by the strong tier regardless of the session model, cutting first-try misses against the ≤2-per-gate retry caps. Also bumps the plugin version to 1.11.0. |
 | #176 Pin both pre-build reviewers to the mid tier | #178 | The triage-reviewer and design-reviewer only read and check an issue against five fixed criteria; they author nothing, and they are the highest-fan-out helpers in a run (~20× triage, ~17× design per milestone). Both go `inherit` → `sonnet`. The "genuinely unsure → escalate to Blocker" fail-safe is untouched. |
 
-An A/B test recorded on the tracking issue compared models on the reviewers' real job: **Sonnet caught 9 / 9 blocking problems, identical to Opus at 9 / 9**, at the cost of one extra false flag on a clean issue. Haiku was disqualified — it missed a real blocking problem. The fixtures were text-only, so the repo-grounded dependency and pattern checks were not exercised; live-run Blocker recall is monitored and the reviewers revert to `inherit` if a real Blocker is ever missed.
+An A/B test recorded on the tracking issue compared models on the reviewers' real job: **Sonnet caught 9 / 9 blocking problems, identical to Opus at 9 / 9**, at the cost of one extra false flag on a clean issue. Haiku was disqualified - it missed a real blocking problem. The fixtures were text-only, so the repo-grounded dependency and pattern checks were not exercised; live-run Blocker recall is monitored and the reviewers revert to `inherit` if a real Blocker is ever missed.
 
-### 📖 Docs — simpler install
+### 📖 Docs - simpler install
 
-The Quickstart leads with the **milestone-suite** install path — one marketplace cataloging all three milestone plugins — keeping the per-repo install as a labeled alternative. ([#167](https://github.com/kenmulford/milestone-driver/issues/167))
+The Quickstart leads with the **milestone-suite** install path - one marketplace cataloging all three milestone plugins - keeping the per-repo install as a labeled alternative. ([#167](https://github.com/kenmulford/milestone-driver/issues/167))
 
 ### Consumer notes (upgrading from v1.10.0)
 
@@ -929,26 +929,26 @@ The Quickstart leads with the **milestone-suite** install path — one marketpla
 
 Judgment-call PRs: none.
 
-## v1.10.0 — Deterministic, tested semver extraction for milestone version detection
+## v1.10.0 - Deterministic, tested semver extraction for milestone version detection
 
 **Theme:** `solve-milestone` step 3 extracts the milestone version deterministically instead of by model judgment, and `preflightCmd` gains a `"github-ci"` sentinel that derives the local preflight gate from the repo's own CI.
 
 ### ✨ Deterministic version extraction
 
-`scripts/extract-version.{sh,ps1}` — a behavior-identical pair driven by the shared golden matrix `tests/extract-version.cases.tsv` — extracts the version from the milestone title (description as fallback) and reports `none` / `ambiguous:<candidates>` on a miss. Step 3 maps that outcome against `versioning` to versioned / version-free / prompt, splitting the previously-identical `absent` and `true` semantics.
+`scripts/extract-version.{sh,ps1}` - a behavior-identical pair driven by the shared golden matrix `tests/extract-version.cases.tsv` - extracts the version from the milestone title (description as fallback) and reports `none` / `ambiguous:<candidates>` on a miss. Step 3 maps that outcome against `versioning` to versioned / version-free / prompt, splitting the previously-identical `absent` and `true` semantics.
 
 ### ✨ CI-aware preflight (`preflightCmd: "github-ci"`)
 
-`preflightCmd` accepts the reserved sentinel `"github-ci"` alongside its literal-command mode, deriving the preflight gate from the repo's GitHub Actions CI so a cheap CI check (e.g. `npm audit --omit=dev --audit-level=high`) is front-run locally before the PR instead of being hand-transcribed and forgotten. `scripts/ci-preflight-steps.{sh,ps1}` (golden matrix `tests/fixtures/ci-preflight/`) parses local `.github/workflows/*.yml` with a constrained line parser — no new tool dependency, no network — discovers the PR-gating workflows and emits each job's `run:` steps in order. `solve-issue` step 6.1 runs them through the existing tool-presence-guard → re-dispatch (cap 2) → park machinery. Skip rules drop `uses:` steps, secrets / services / deploy, `${{ }}`-interpolated and step-`if:` steps; `working-directory` is honored and `continue-on-error` steps never park. Coverage is logged ("mirrored N, skipped M"), and a PR-gating workflow yielding zero runnable steps is a visible warning, not a clean pass. One optional `ciWorkflow` key narrows discovery to a single workflow. Documented limitations, with CI as the authority: no `uses:` recursion, no `matrix` expansion, no `act` fidelity, GitHub Actions only. ([#162](https://github.com/kenmulford/milestone-driver/issues/162))
+`preflightCmd` accepts the reserved sentinel `"github-ci"` alongside its literal-command mode, deriving the preflight gate from the repo's GitHub Actions CI so a cheap CI check (e.g. `npm audit --omit=dev --audit-level=high`) is front-run locally before the PR instead of being hand-transcribed and forgotten. `scripts/ci-preflight-steps.{sh,ps1}` (golden matrix `tests/fixtures/ci-preflight/`) parses local `.github/workflows/*.yml` with a constrained line parser - no new tool dependency, no network - discovers the PR-gating workflows and emits each job's `run:` steps in order. `solve-issue` step 6.1 runs them through the existing tool-presence-guard → re-dispatch (cap 2) → park machinery. Skip rules drop `uses:` steps, secrets / services / deploy, `${{ }}`-interpolated and step-`if:` steps; `working-directory` is honored and `continue-on-error` steps never park. Coverage is logged ("mirrored N, skipped M"), and a PR-gating workflow yielding zero runnable steps is a visible warning, not a clean pass. One optional `ciWorkflow` key narrows discovery to a single workflow. Documented limitations, with CI as the authority: no `uses:` recursion, no `matrix` expansion, no `act` fidelity, GitHub Actions only. ([#162](https://github.com/kenmulford/milestone-driver/issues/162))
 
 ### Consumer notes
 
 - **Behavior change (default `versioning`):** with `versioning` absent (the default), a milestone whose title has no parseable version now **silently runs version-free** instead of parsing by judgment or prompting. Confirm your milestone titles carry a version, or set `versioning: true` to be prompted on a miss.
 - **No schema break:** `preflightCmd` keeps its literal-command and absent behavior byte-for-byte; `"github-ci"` and the optional `ciWorkflow` key are additive.
 
-## v1.9.2 — Make the manual close-the-milestone step explicit
+## v1.9.2 - Make the manual close-the-milestone step explicit
 
-**Theme:** Closing the GitHub milestone object is named as a manual, human-only step, with the exact command surfaced — the driver closes a milestone's issues and authors the CHANGELOG, but never the milestone itself.
+**Theme:** Closing the GitHub milestone object is named as a manual, human-only step, with the exact command surfaced - the driver closes a milestone's issues and authors the CHANGELOG, but never the milestone itself.
 
 ### ✨ Release-tail clarity
 
@@ -958,7 +958,7 @@ Judgment-call PRs: none.
 
 ### Consumer notes (upgrading from v1.9.1)
 
-- **Documentation only** — no change to how the driver runs. After it merges every issue and authors the CHANGELOG, the release tail tells you to close the GitHub milestone object (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`).
+- **Documentation only** - no change to how the driver runs. After it merges every issue and authors the CHANGELOG, the release tail tells you to close the GitHub milestone object (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`).
 - **No schema changes** to `.milestone-config/driver.json`.
 - Milestone #16 also included #152, locking this repo's own `develop` to PR-only. Author-repo configuration with **no effect on the installed plugin**; noted for milestone completeness.
 
@@ -966,7 +966,7 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none.
 
-## v1.9.1 — Finish the `.milestone-config/` relocation: the per-clone runtime markers move out of the repo root
+## v1.9.1 - Finish the `.milestone-config/` relocation: the per-clone runtime markers move out of the repo root
 
 **Theme:** v1.9.0 relocated the committed profile but left five per-clone runtime artifacts in the target repo root. All five now live under `.milestone-config/` without the redundant `milestone-driver-` prefix, read transitionally (new path first, legacy root as fallback) with the stale root file auto-cleaned on the first new write.
 
@@ -980,41 +980,41 @@ Judgment-call PRs: none.
 
 - **No action required.** Each marker is read from `.milestone-config/<marker>` first and falls back transitionally to the legacy root `.milestone-driver-<marker>`, so an in-flight clone behaves identically: no duplicate notice, no triage-cache rebuild, no re-run of an already-green suite. On the first write to the new path the stale legacy file is removed.
 - **No schema change.** These markers are per-clone and gitignored. `.gitignore` adds the five new paths and keeps the legacy root ignores (commented as transitional). The committed `.milestone-config/driver.json` is not ignored.
-- **Leftover root files self-clean.** A pre-existing `.milestone-driver-tests-stamp` / `-preflight-notice` / `-trello-notice` / `-triage-cache.json` is read once as the fallback, then removed when the new-path file is first written. A leftover `.milestone-driver-worktrees/` dir is harmless — gitignored and unused; remove it at leisure.
+- **Leftover root files self-clean.** A pre-existing `.milestone-driver-tests-stamp` / `-preflight-notice` / `-trello-notice` / `-triage-cache.json` is read once as the fallback, then removed when the new-path file is first written. A leftover `.milestone-driver-worktrees/` dir is harmless - gitignored and unused; remove it at leisure.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.9.0 — Suite-wide `.milestone-config/` profile location
+## v1.9.0 - Suite-wide `.milestone-config/` profile location
 
-**Theme:** The driver profile moves to a canonical `<repo>/.milestone-config/driver.json`, read transitionally from the legacy root and auto-migrated on the first build — the precondition the sibling `milestone-feeder` assumes when it reads the driver's shared keys from the same directory.
+**Theme:** The driver profile moves to a canonical `<repo>/.milestone-config/driver.json`, read transitionally from the legacy root and auto-migrated on the first build - the precondition the sibling `milestone-feeder` assumes when it reads the driver's shared keys from the same directory.
 
 ### ✨ Canonical `.milestone-config/` profile location
 
 | Issue | PR | What |
 |---|---|---|
-| #144 Resolve profile from `.milestone-config/driver.json` first | #145 | Resolves the profile from `.milestone-config/driver.json`, falling back transitionally to the legacy root `milestone-driver.json` so gates keep firing on un-migrated repos. All eight gate hooks do the two-step read and never mutate (`.ps1` uses the portable multi-arg `Join-Path`). Migration is commit-clean: `setup` and `solve-issue` perform the `git mv` (solve-issue on the feature branch at step 3.5, riding the issue PR), `solve-milestone` migrates via its first dispatched build, and `triage` stays read-only — it surfaces a "legacy profile detected" note but never moves the file. Idempotent everywhere; when both files exist `.milestone-config/driver.json` wins, with no overwrite and no deletion of the leftover root file. |
+| #144 Resolve profile from `.milestone-config/driver.json` first | #145 | Resolves the profile from `.milestone-config/driver.json`, falling back transitionally to the legacy root `milestone-driver.json` so gates keep firing on un-migrated repos. All eight gate hooks do the two-step read and never mutate (`.ps1` uses the portable multi-arg `Join-Path`). Migration is commit-clean: `setup` and `solve-issue` perform the `git mv` (solve-issue on the feature branch at step 3.5, riding the issue PR), `solve-milestone` migrates via its first dispatched build, and `triage` stays read-only - it surfaces a "legacy profile detected" note but never moves the file. Idempotent everywhere; when both files exist `.milestone-config/driver.json` wins, with no overwrite and no deletion of the leftover root file. |
 
 ### Consumer notes (upgrading from v1.8.1)
 
 - **No action required.** The legacy root `milestone-driver.json` is still read transitionally. On the first `setup` or `solve-issue` build a legacy root profile is `git mv`'d to `.milestone-config/driver.json`; `solve-milestone` migrates via its first dispatched build; `triage` is read-only. When both exist, `.milestone-config/driver.json` wins and the leftover root file is left for you to remove.
-- **No schema change** — the keys are identical; only the location moved. Add new keys to `.milestone-config/driver.json` going forward.
+- **No schema change** - the keys are identical; only the location moved. Add new keys to `.milestone-config/driver.json` going forward.
 - **PowerShell gate hooks** resolve the new path with the portable multi-arg `Join-Path` form (PowerShell 7+).
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.8.1 — Surface what the engine already does (and fix the capture defect underneath)
+## v1.8.1 - Surface what the engine already does (and fix the capture defect underneath)
 
-**Theme:** Existing capability made visible — fewer false triage Blockers, a triage cache that says when it skips, the wave trade-off surfaced at the setup decision point — on one reliability repair: the parallel barrier reads git/gh ground truth instead of a worker's free-text handback. Plus a cross-platform gate fix reported from the field.
+**Theme:** Existing capability made visible - fewer false triage Blockers, a triage cache that says when it skips, the wave trade-off surfaced at the setup decision point - on one reliability repair: the parallel barrier reads git/gh ground truth instead of a worker's free-text handback. Plus a cross-platform gate fix reported from the field.
 
 ### ✨ Surfacing the engine's existing behavior
 
 | Issue | PR | What |
 |---|---|---|
-| #135 setup Integration tier | #141 | Adds an optional Integration tier to `/milestone-driver:setup` for `integrationGranularity`, an existing schema key that was never prompted, defaulting to `issue`. Choosing `wave` fires a non-blocking precondition prompt — is `preflightCmd` set? is `unitTestCmd` your full suite? — surfacing the "one red wave-PR CI blocks the whole Wave" trade-off where the choice is made. |
+| #135 setup Integration tier | #141 | Adds an optional Integration tier to `/milestone-driver:setup` for `integrationGranularity`, an existing schema key that was never prompted, defaulting to `issue`. Choosing `wave` fires a non-blocking precondition prompt - is `preflightCmd` set? is `unitTestCmd` your full suite? - surfacing the "one red wave-PR CI blocks the whole Wave" trade-off where the choice is made. |
 | #134 visible cache writes | #139 | The best-effort triage cache write no longer fails silently: the Bash path emits a stderr line on `jq`-absent and on write-fail, the PowerShell `catch` surfaces a `Write-Warning`, and the Step 5 output line gains a conditional `; cache write skipped this run` clause. The never-gating contract is unchanged. |
 
 ### 🔧 Fixes
@@ -1028,18 +1028,18 @@ Judgment-call PRs: none.
 ### Consumer notes (upgrading from v1.8.0)
 
 - **🔴 macOS/Linux: all gates now actually run.** Before this release `hooks/run-hook.cmd` shipped non-executable, so every PreToolUse gate died with "Permission denied" and was silently inert. If you applied the `chmod +x` cache workaround, it is no longer needed.
-- **New `setup` Integration tier** offers `integrationGranularity`. **No schema change** — the key already existed. Existing profiles need no migration.
+- **New `setup` Integration tier** offers `integrationGranularity`. **No schema change** - the key already existed. Existing profiles need no migration.
 - **Triage: fewer false Blockers.** Choices an established convention answers are Advisory rather than parking the issue.
-- **Triage cache writes are observable** — a skipped or failed write prints a one-line warning. Still best-effort, never gating.
-- **Parallel runs are more robust to dropped worker handbacks** — no happy-path change; the barrier no longer strands a built branch when a worker's final message drifts off-format.
+- **Triage cache writes are observable** - a skipped or failed write prints a one-line warning. Still best-effort, never gating.
+- **Parallel runs are more robust to dropped worker handbacks** - no happy-path change; the barrier no longer strands a built branch when a worker's final message drifts off-format.
 
 ### ⚖️ Post-run audit trail
 
 Judgment-call PRs: none.
 
-## v1.8.0 — Optional Trello board sync + auto-authored release notes
+## v1.8.0 - Optional Trello board sync + auto-authored release notes
 
-**Theme:** Milestone progress optionally mirrors to a Trello board — a card per milestone moving Queue → In Progress → In Review with a per-issue checklist — and the release notes author themselves at milestone completion. Both opt-in and best-effort; absent their config the loop is byte-unchanged.
+**Theme:** Milestone progress optionally mirrors to a Trello board - a card per milestone moving Queue → In Progress → In Review with a per-issue checklist - and the release notes author themselves at milestone completion. Both opt-in and best-effort; absent their config the loop is byte-unchanged.
 
 ### ✨ Trello integration (the #99–#104 family)
 
@@ -1061,7 +1061,7 @@ Judgment-call PRs: none.
 ### Consumer notes (upgrading from 1.7.0)
 
 - **New optional profile node `integrations.trello`.** Absent → every Trello step skips silently and the loop is byte-unchanged. Present → requires the `@delorenj/mcp-server-trello` MCP server loaded in your session; the plugin itself has no Trello dependency.
-- **Enable it** by re-running `/milestone-driver:setup` (the External integrations tier is last; existing values pre-fill) or by hand-adding the node — see `docs/consumer-setup.md`.
+- **Enable it** by re-running `/milestone-driver:setup` (the External integrations tier is last; existing values pre-fill) or by hand-adding the node - see `docs/consumer-setup.md`.
 - **New gitignored marker:** `.milestone-driver-trello-notice` at the repo root. Safe to delete.
 - **Release notes author themselves.** A fully-completed run ends with a CHANGELOG PR; a run with any park or hold authors nothing.
 
@@ -1069,7 +1069,7 @@ Judgment-call PRs: none.
 
 Judgment-call PRs: none. All seven PRs (#123–#129) carry a `## Code Review` section with their findings and resolutions.
 
-## v1.7.0 — Interactive background orchestration, scannable output, triage reuse
+## v1.7.0 - Interactive background orchestration, scannable output, triage reuse
 
 **Theme:** The orchestrator no longer clogs the main conversation line, the run is scannable at a glance, and repeat runs stop paying the re-triage tax. Includes the 1.7.1 triage-reuse milestone, rolled in.
 
@@ -1079,7 +1079,7 @@ Judgment-call PRs: none. All seven PRs (#123–#129) carry a `## Code Review` se
 |---|---|---|
 | #89 Chunked background dispatch | #112 | The milestone loop dispatches each issue (sequential) or each Wave's workers (parallel) via `Agent(run_in_background: true)`. The main line stays interactive; the operator can redirect between chunks. Standalone `solve-issue` gains an opt-in `--async` token (pipeline unchanged except the version-bump confirm defaults to patch, logged as a judgment call). |
 | #95 Permission pre-flight gate | #109 | Background subagents auto-deny any tool call that would prompt, so before the first background dispatch the gate verifies the union of readable `permissions.allow` layers (user + project + local) covers the pipeline's tool surface. Gap → 🔴 gap table + synchronous fallback. Workers convert mid-chunk auto-denies to parks. |
-| #97 Main-line push notifications | #113 | One notification per event that matters: `⏸️ #N parked — <reason>`, `🌊 Wave N done` (suppressed on the final Wave), `🏁` run complete / `🚨` systemic halt. Main line only — `PushNotification` does not exist in subagent registries. |
+| #97 Main-line push notifications | #113 | One notification per event that matters: `⏸️ #N parked - <reason>`, `🌊 Wave N done` (suppressed on the final Wave), `🏁` run complete / `🚨` systemic halt. Main line only - `PushNotification` does not exist in subagent registries. |
 
 ### ✨ Scannable output
 
@@ -1093,7 +1093,7 @@ Judgment-call PRs: none. All seven PRs (#123–#129) carry a `## Code Review` se
 | Issue | PR | What |
 |---|---|---|
 | #106 Step-0 context handoff | #111 | `solve-issue` step 0 reuses the milestone run's Phase 0 triage result when the caller explicitly supplies it, eliminating the intra-run N+1 re-triage. Anything not explicitly supplied falls back to fresh single-issue triage. |
-| #107 Per-issue result cache | #110 | `.milestone-driver-triage-cache.json` (gitignored) caches per-issue triage results keyed on change signals (labels, body edit time, comment count, milestone description). Unchanged issues skip agent dispatch across invocations; any change — including upstream edges closing unmerged — forces fresh triage. Absent or corrupt cache degrades to full re-triage. |
+| #107 Per-issue result cache | #110 | `.milestone-driver-triage-cache.json` (gitignored) caches per-issue triage results keyed on change signals (labels, body edit time, comment count, milestone description). Unchanged issues skip agent dispatch across invocations; any change - including upstream edges closing unmerged - forces fresh triage. Absent or corrupt cache degrades to full re-triage. |
 
 ### 🔧 Fixes
 
@@ -1101,13 +1101,13 @@ Judgment-call PRs: none. All seven PRs (#123–#129) carry a `## Code Review` se
 |---|---|---|
 | #98 Milestone ID or name | #108 | `solve-milestone 10` and `solve-milestone "1.7.0"` both resolve: number-first for numeric input, paginated title lookup otherwise, fail-fast table of available milestones. |
 | #114 Contradictory gate paragraphs | #117 | Deleted two stale STOP-flavored duplicates left by the 1.6.0 autonomy rewrite. Park-don't-prompt is the single directive at the red-suite cap and the `/code-review`-omission gate. |
-| #115 Park-reason lookup + park anchor | #119 | Build-park comments open with the canonical `🔴 Parked — ` anchor, joining `🔴 Triage` and `🔴 Blocked`, making the final summary's park-reason lookup a pure prefix match (last matching comment, any run). No match → "park reason not recorded", never a guess. |
+| #115 Park-reason lookup + park anchor | #119 | Build-park comments open with the canonical `🔴 Parked - ` anchor, joining `🔴 Triage` and `🔴 Blocked`, making the final summary's park-reason lookup a pure prefix match (last matching comment, any run). No match → "park reason not recorded", never a guess. |
 
 ### Consumer notes (upgrading from 1.6.0)
 
 - **Allowlist before backgrounding.** Background dispatch activates only when the pre-flight gate passes. Run `/fewer-permission-prompts` or allowlist your git/gh/test commands to enable it; otherwise runs fall back to synchronous behavior.
 - **New gitignored artifact:** `.milestone-driver-triage-cache.json` at the repo root. Safe to delete at any time.
-- **Park comments changed shape.** New parks open with `🔴 Parked — `. Issues parked by pre-1.7.0 runs report "park reason not recorded (pre-1.7.0 park format)" — read the issue directly for those.
+- **Park comments changed shape.** New parks open with `🔴 Parked - `. Issues parked by pre-1.7.0 runs report "park reason not recorded (pre-1.7.0 park format)" - read the issue directly for those.
 - **No schema changes** to `milestone-driver.json`.
 
 ### ⚖️ Post-run audit trail

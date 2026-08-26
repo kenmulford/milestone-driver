@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — behavior matrix runner for read-doc-section.sh (issue #184).
+# milestone-driver - behavior matrix runner for read-doc-section.sh (issue #184).
 # Each case builds a tiny Markdown fixture in a per-run temp dir and asserts the
 # stdout, the exit code, AND (on failure cases) that stdout is empty + stderr
 # names the anchor/file. The .sh and .ps1 runners assert the SAME contract
@@ -10,7 +10,7 @@ SCRIPT="$HERE/../scripts/read-doc-section.sh"
 [ -f "$SCRIPT" ] || { echo "FATAL: missing $SCRIPT" >&2; exit 3; }
 
 pass=0; fail=0
-# Per-run temp dir for fixtures + captured stderr — mktemp -d avoids fixed-path
+# Per-run temp dir for fixtures + captured stderr - mktemp -d avoids fixed-path
 # collisions under concurrent runs and is portable; trap removes it on exit.
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/rds.$$")"; mkdir -p "$TMP"
 trap 'rm -f "$ERRFILE"; rm -rf "$TMP"' EXIT
@@ -30,7 +30,7 @@ Keys body line 1.
 
 ### Sub
 
-Nested deeper than ## — stays inside Keys.
+Nested deeper than ## - stays inside Keys.
 
 ## Other
 
@@ -38,7 +38,7 @@ Other body.
 
 ## Keys
 
-Duplicate Keys — must NOT be reached (first-match policy).
+Duplicate Keys - must NOT be reached (first-match policy).
 
 ## Last
 
@@ -81,7 +81,7 @@ Keys body line 1.
 
 ### Sub
 
-Nested deeper than ## — stays inside Keys.
+Nested deeper than ## - stays inside Keys.
 EOF
 check happy 0 "$WANT_KEYS" "$DOC" "Keys"
 

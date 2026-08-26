@@ -1,17 +1,17 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for resolve-citation.ps1 (issue #417).
+# milestone-driver - golden-matrix runner for resolve-citation.ps1 (issue #417).
 # Twin of resolve-citation.test.sh: drives the SAME resolve-citation.cases.tsv
 # table and asserts against the SAME fixtures/resolve-citation/_expected/*.out
 # golden files, so the bash and pwsh legs stay byte-identical. See that runner's
 # header for what each column means and what each case proves.
 #
-# RAW vs NORMALIZED — the distinction this runner turns on (same rule as the
+# RAW vs NORMALIZED - the distinction this runner turns on (same rule as the
 # bash leg):
 #   * The ACTUAL stdout/stderr is captured RAW, via ProcessStartInfo +
 #     StreamReader.ReadToEnd, which performs NO newline translation. This is
 #     load-bearing: joining PowerShell's line-split array (or piping through
 #     `>`) normalizes line endings, and a runner that does so cannot observe
-#     CRLF creep or a missing trailing newline AT ALL — on the very leg that
+#     CRLF creep or a missing trailing newline AT ALL - on the very leg that
 #     runs on Windows, where CRLF creep is the natural failure mode.
 #   * The GOLDEN file gets ONE normalization, CRLF -> LF, for a CRLF checkout.
 #     Deliberately \r\n-scoped, so a golden holding a LONE CR keeps it.
@@ -38,19 +38,19 @@ $ExpectCols = 7
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 
-# Unescape — turns the TSV's literal \n / \t 2-char sequences into real
+# Unescape - turns the TSV's literal \n / \t 2-char sequences into real
 # characters (parity with the bash leg's `printf '%b'`).
 function Unescape([string]$s) {
   if ($null -eq $s) { return '' }
   return (($s -replace '\\n', "`n") -replace '\\t', "`t")
 }
 
-# Eq-Exact — BYTE-EXACT string comparison, the assertion this runner's contract
+# Eq-Exact - BYTE-EXACT string comparison, the assertion this runner's contract
 # requires ("asserts stdout and stderr exactly"). PowerShell's `-eq` on strings
 # is case-INSENSITIVE and culture-sensitive, so it is not that assertion:
 # measured on this host, 'PRIMARY' -eq 'primary' is True, and so is a comparison
 # of NFC vs NFD 'café' or of "a" against "a"+U+200B. `-ceq` fixes only the case
-# half — it still reports True for both Unicode cases. StringComparison.Ordinal
+# half - it still reports True for both Unicode cases. StringComparison.Ordinal
 # is False for all three. The record kind is the FIRST field of the TAB contract
 # issue #418 parses, so a case-only divergence would otherwise ship silently on
 # the leg that runs on Windows.
@@ -62,7 +62,7 @@ function Eq-Exact([string]$a, [string]$b) {
   return [string]::Equals($a, $b, [System.StringComparison]::Ordinal)
 }
 
-# Show-Escaped — render CR / LF / TAB visibly in a failure report, so a
+# Show-Escaped - render CR / LF / TAB visibly in a failure report, so a
 # line-ending or missing-newline mismatch does not print identically to what it
 # was compared against.
 function Show-Escaped([string]$s) {
@@ -70,7 +70,7 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-# Read-Golden — a NAMED-BUT-MISSING golden is FATAL. Returning '' here would
+# Read-Golden - a NAMED-BUT-MISSING golden is FATAL. Returning '' here would
 # silently turn such a case into "expect empty stdout", i.e. a green run that
 # asserts nothing.
 function Read-Golden([string]$path) {
@@ -82,7 +82,7 @@ function Read-Golden([string]$path) {
   return ([System.IO.File]::ReadAllText($path, $utf8) -replace "`r`n", "`n")
 }
 
-# Invoke-Resolver — run the script under test with exact arguments and an
+# Invoke-Resolver - run the script under test with exact arguments and an
 # explicit working directory, returning RAW stdout/stderr text plus the exit
 # code. Both streams are read asynchronously BEFORE WaitForExit so a full pipe
 # buffer cannot deadlock the child.
@@ -158,10 +158,10 @@ foreach ($rawRow in Get-Content -LiteralPath $Cases) {
 }
 
 # Self-guard: zero parsed cases means every row was skipped or the table is
-# empty — the suite would otherwise report "0 passed, 0 failed" as a clean,
+# empty - the suite would otherwise report "0 passed, 0 failed" as a clean,
 # misleadingly-green exit.
 if ($caseCount -eq 0) {
-  Write-Error "FATAL: parsed 0 cases from $Cases — this run tested nothing"
+  Write-Error "FATAL: parsed 0 cases from $Cases - this run tested nothing"
   exit 1
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for ci-preflight-steps.sh (issue #162).
+# milestone-driver - golden-matrix runner for ci-preflight-steps.sh (issue #162).
 # Each fixture is a repo-root under tests/fixtures/ci-preflight/<case>/ with a
 # .github/workflows/*.yml tree; the expected emitted output lives in
 # tests/fixtures/ci-preflight/_expected/<case>.txt. The .sh and .ps1 runners
@@ -23,7 +23,7 @@ declare -a CASES=(
   "inline-comment"
   "multi-workflow"
   # COLLATION (issue #471): alpha.yml + Zeta.yml rank differently under culture
-  # order and codepoint order. multi-workflow cannot catch it — alpha.yml/zeta.yml
+  # order and codepoint order. multi-workflow cannot catch it - alpha.yml/zeta.yml
   # rank identically under both, and ASCII agreement is not evidence of parity.
   "sort-order"
   "services"
@@ -46,7 +46,7 @@ for spec in "${CASES[@]}"; do
     got="$(bash "$SCRIPT" "$FIX/$name" 2>&1)"
   fi
   # CR-normalize the golden so a CRLF checkout (Windows core.autocrlf) still
-  # compares clean — the script's own stdout is already LF. Mirrors the .ps1 runner.
+  # compares clean - the script's own stdout is already LF. Mirrors the .ps1 runner.
   want="$(tr -d '\r' < "$exp")"
   if [ "$got" = "$want" ]; then
     pass=$((pass+1))

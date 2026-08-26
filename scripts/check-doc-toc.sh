@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — CI table-of-contents gate (issue #490).
+# milestone-driver - CI table-of-contents gate (issue #490).
 #
 # Asserts that every governed `.md` file OVER 100 LINES carries `## Contents`
 # as its FIRST level-2-or-higher heading. The standard being satisfied is
@@ -30,8 +30,8 @@
 # The scan therefore is: skip a leading YAML frontmatter fence, then take the
 # file's first line matching `^#{2,} ` and require it to be `## Contents`
 # (level exactly 2, heading text exactly "Contents" after trimming). Anything
-# ahead of it that is NOT such a heading — frontmatter, intro prose, an H1, a
-# fenced block — does not violate the rule.
+# ahead of it that is NOT such a heading - frontmatter, intro prose, an H1, a
+# fenced block - does not violate the rule.
 #
 # FENCE CAVEAT, by design. Apart from the leading frontmatter fence the scan is
 # line-oriented, exactly like scripts/read-doc-section.sh's ATX heading scan,
@@ -39,17 +39,17 @@
 # fence placed BEFORE the file's real first heading would therefore be read as
 # a heading. That shape does not occur in the governed set: every fenced
 # pseudo-heading it holds sits in skills/solve-milestone/changelog-authoring.md
-# — the CHANGELOG skeleton under that file's `## 6.5 Author the CHANGELOG
-# entry` (whose `## v<target-version> — <milestone theme>` is the level-2 one)
+# - the CHANGELOG skeleton under that file's `## 6.5 Author the CHANGELOG
+# entry` (whose `## v<target-version> - <milestone theme>` is the level-2 one)
 # and the sample under its `## CHANGELOG preview`. Both sit far behind that
 # file's `## Contents`, which is its first heading, and the scan stops at the
 # first heading it finds. tests/fixtures/check-doc-toc/fenced-pseudo-heading/
 # pins exactly that arrangement. DO NOT ADD GENERAL FENCE PARSING to widen it
-# — that is a markdown model, and .project/library-manifest.md#Adding a
+# - that is a markdown model, and .project/library-manifest.md#Adding a
 # dependency (the gate) is the reason this whole family of checkers has none.
 #
 # Threshold: STRICTLY OVER 100 lines. A file at or under 100 lines passes
-# whether or not it carries the heading — a reader takes in a 100-line file
+# whether or not it carries the heading - a reader takes in a 100-line file
 # whole, so an index buys it nothing. 100 exactly passes; 101 is measured.
 #
 # Usage:   check-doc-toc.sh [REPO_ROOT]
@@ -74,7 +74,7 @@ ROOT="${ROOT%/}"
 # Lines strictly above this count make `## Contents` mandatory.
 THRESHOLD=100
 
-# The governed set, PATH ONLY — mirrored row for row from the path column of
+# The governed set, PATH ONLY - mirrored row for row from the path column of
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, which is this repo's one
 # definition of "a governed file". No ceilings here: the two checkers govern
 # the same files against different properties, and duplicating the ceilings
@@ -83,7 +83,7 @@ THRESHOLD=100
 # KEEP THIS TABLE IN SYNC with GOVERNED_TABLE's path column and with
 # scripts/check-doc-toc.ps1's $governedPaths, in the SAME change that adds,
 # renames, or drops a governed file. A file that is renamed or deleted without
-# the table following is a FAILURE here (FAIL … MISSING), not a silent pass —
+# the table following is a FAILURE here (FAIL … MISSING), not a silent pass -
 # same posture as the size-budget ratchet.
 #
 # Rows start at column 0; `#` starts a comment row.
@@ -154,7 +154,7 @@ while [ "$i" -lt "$nfiles" ]; do
   fi
 
   # `wc -l` counts newlines, so a final line with no trailing newline is not
-  # counted — the pwsh twin counts 0x0A bytes to match exactly, and both are
+  # counted - the pwsh twin counts 0x0A bytes to match exactly, and both are
   # CRLF-proof.
   lines="$(wc -l < "$path")"
   lines="${lines//[[:space:]]/}"
@@ -186,8 +186,8 @@ while [ "$i" -lt "$nfiles" ]; do
       continue
     fi
 
-    # Level 2 or higher only. A `# ...` line — an H1, or a bash comment inside
-    # a fence, which this scanner cannot tell apart — is ordinary content.
+    # Level 2 or higher only. A `# ...` line - an H1, or a bash comment inside
+    # a fence, which this scanner cannot tell apart - is ordinary content.
     case "$line" in
       '##'*) ;;
       *) continue ;;
@@ -202,7 +202,7 @@ while [ "$i" -lt "$nfiles" ]; do
       *) level=0; continue ;;
     esac
     # Trim surrounding whitespace off the heading text, same normalization
-    # read-doc-section.sh applies before comparing an anchor — so a heading
+    # read-doc-section.sh applies before comparing an anchor - so a heading
     # this gate accepts is one `read-doc-section.sh <doc> Contents` can reach.
     text="${rest#"${rest%%[![:space:]]*}"}"
     text="${text%"${text##*[![:space:]]}"}"

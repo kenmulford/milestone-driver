@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — CI-aware preflight step discovery (issue #162).
+# milestone-driver - CI-aware preflight step discovery (issue #162).
 #
 # Behavior-identical pwsh sibling of scripts/ci-preflight-steps.sh. Discovers the
 # runnable shell steps of a repo's PR-gating GitHub Actions workflows so
@@ -7,7 +7,7 @@
 # workflows from disk; NEVER calls the network. A constrained, line-oriented
 # parser handles the NARROW surface only (jobs -> steps -> run/
 # working-directory/if/uses/continue-on-error + the workflow `on:` trigger). NO
-# YAML library, NO new dependency — see the design spec's "Build decision".
+# YAML library, NO new dependency - see the design spec's "Build decision".
 #
 # Usage:   ci-preflight-steps.ps1 [REPO_ROOT] [CI_WORKFLOW]
 # Output:  the same TAB-separated STEP/SKIP/CHECK/WARN/SUMMARY record stream as
@@ -17,7 +17,9 @@ param(
   [string]$OnlyWorkflow = ''
 )
 $ErrorActionPreference = 'Stop'
-# Force UTF-8 stdout so the em-dash in WARN messages matches the .sh byte output.
+# Force UTF-8 stdout so non-ASCII echoed from the consumer's workflow YAML (job
+# names, run: text, working-directory) matches the .sh byte output. The script's
+# own literals are all ASCII today; the forcing guards the echoed content.
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $Root = ($Root -replace '[\\/]+$', '')
 
@@ -36,7 +38,7 @@ function Flush {
 # to the .sh sibling on every host (Join-Path yields backslashes on Windows).
 $wfdir = "$Root/.github/workflows"
 if (-not (Test-Path -LiteralPath $wfdir -PathType Container)) {
-  Emit "WARN`tno .github/workflows directory found at $Root — nothing to mirror"
+  Emit "WARN`tno .github/workflows directory found at $Root - nothing to mirror"
   Flush; exit 0
 }
 
@@ -47,7 +49,7 @@ if (-not (Test-Path -LiteralPath $wfdir -PathType Container)) {
 #
 # The keys are each basename's UTF-8 BYTES respelled as Latin-1 byte-chars, so
 # StringComparer.Ordinal over them IS a byte comparison, and UTF-8 byte order IS
-# codepoint order — the byte-domain model scripts/check-citations.ps1 (THE SORT)
+# codepoint order - the byte-domain model scripts/check-citations.ps1 (THE SORT)
 # already ships (Latin1 is the lossless byte<->char bijection). `Sort-Object Name`
 # would NOT do: it is culture-sensitive, ranking `alpha.yml` before `Zeta.yml`
 # where codepoint order ranks `Zeta.yml` first, so it diverged on PLAIN ASCII
@@ -59,7 +61,7 @@ if (-not (Test-Path -LiteralPath $wfdir -PathType Container)) {
 #
 # [System.IO.FileInfo[]], not the @() object[] every other collection here uses.
 # Probed on pwsh 7.6.3: Array.Sort(keys, items, comparer) handed an OBJECT[] as
-# items sorts the keys and leaves items in discovery order — the binder converts
+# items sorts the keys and leaves items in discovery order - the binder converts
 # object[] to the overload's element type and permutes that conversion, not the
 # variable. Any concretely-typed items array (int[], string[], FileInfo[]) needs
 # no conversion and sorts in place. Silent when it goes wrong, so the typed cast
@@ -74,7 +76,7 @@ if ($wfiles.Count -gt 1) {
   [array]::Sort($bk, $wfiles, [System.StringComparer]::Ordinal)
 }
 if ($wfiles.Count -eq 0) {
-  Emit "WARN`tno workflow files in $wfdir — nothing to mirror"
+  Emit "WARN`tno workflow files in $wfdir - nothing to mirror"
   Flush; exit 0
 }
 
@@ -293,7 +295,7 @@ foreach ($wf in $wfiles) {
   $before = $script:mirrored
   Get-WorkflowSteps $wf.FullName
   if ($script:mirrored -eq $before) {
-    Emit "WARN`tPR-gating workflow '$base' produced ZERO runnable steps (real checks may live behind a uses: reusable/composite workflow) — this is NOT a clean pass"
+    Emit "WARN`tPR-gating workflow '$base' produced ZERO runnable steps (real checks may live behind a uses: reusable/composite workflow) - this is NOT a clean pass"
   }
 }
 
@@ -301,7 +303,7 @@ if ($OnlyWorkflow -ne '' -and -not $anyGating) {
   Emit "WARN`tciWorkflow '$OnlyWorkflow' matched no PR-gating workflow in $wfdir"
 }
 if (-not $anyGating -and $OnlyWorkflow -eq '') {
-  Emit "WARN`tno PR-gating workflow found in $wfdir (none triggered on pull_request or push to integration branch) — nothing to mirror"
+  Emit "WARN`tno PR-gating workflow found in $wfdir (none triggered on pull_request or push to integration branch) - nothing to mirror"
 }
 
 Flush

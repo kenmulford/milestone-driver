@@ -1,6 +1,6 @@
 # CHANGELOG authoring: solve-milestone reference
 
-Loaded only when core `SKILL.md`'s `### 6. Author the CHANGELOG entry` guard passes — clean completion path, zero parked issues. A systemic halt or any park skips step 6 whole and never reads this file. Missing or unreadable once the guard has passed is a **systemic failure**: surface it and halt per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run".
+Loaded only when core `SKILL.md`'s `### 6. Author the CHANGELOG entry` guard passes - clean completion path, zero parked issues. A systemic halt or any park skips step 6 whole and never reads this file. Missing or unreadable once the guard has passed is a **systemic failure**: surface it and halt per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run".
 
 ## Contents
 
@@ -13,9 +13,9 @@ Loaded only when core `SKILL.md`'s `### 6. Author the CHANGELOG entry` guard pas
 Match rule by versioning mode:
 
 - **Versioned mode** (`versioning: true` or absent): heading prefix `## v<target-version> ` (with a trailing space).
-- **Version-free mode** (`versioning: false`): full-line equality on the trimmed line — strip leading and trailing whitespace (including `\r` on Windows), then require `trim(line) == '## <milestone title>'` with no additional characters. **Suffix caveat, version-free mode only.** A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal, so the match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
+- **Version-free mode** (`versioning: false`): full-line equality on the trimmed line - strip leading and trailing whitespace (including `\r` on Windows), then require `trim(line) == '## <milestone title>'` with no additional characters. **Suffix caveat, version-free mode only.** A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal, so the match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
 
-If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync) and scan each line, from the start of the trimmed line, with the mode's match rule above. Match → log _"CHANGELOG entry for `<version/title>` already exists — skipping."_ and proceed to core `SKILL.md`'s `## Run-complete notification` section. No match → continue. `CHANGELOG.md` absent → treat as "no existing entry" and continue.
+If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync) and scan each line, from the start of the trimmed line, with the mode's match rule above. Match → log _"CHANGELOG entry for `<version/title>` already exists - skipping."_ and proceed to core `SKILL.md`'s `## Run-complete notification` section. No match → continue. `CHANGELOG.md` absent → treat as "no existing entry" and continue.
 
 ## 6.2 Fetch PR summaries
 
@@ -25,9 +25,9 @@ For each issue merged in this run, look up its PR number from the **run's in-con
 gh issue view <n> --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences | map(select(.state == "MERGED")) | .[0].number // empty'
 ```
 
-Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. Null or empty (no linked PR) → use the issue title as that issue's What-column content, skip `gh pr view`, and record the gap in the run output: _"No merged PR found for issue #N — using issue title as summary."_
+Before calling `gh pr view`, verify the PR number returned by the query is non-null and non-empty. Null or empty (no linked PR) → use the issue title as that issue's What-column content, skip `gh pr view`, and record the gap in the run output: _"No merged PR found for issue #N - using issue title as summary."_
 
-With a valid PR number confirmed, run `gh pr view <pr-number> --json title,body` and read the body's **opening prose block** — the text between the `Closes #<n>.` opener and the first `##` heading (line 1 if absent). Never look for or add a `## Summary` heading: a PR body here carries the Decision Log and `## Code Review` (`skills/solve-issue/SKILL.md (Put the Decision Log)`). That block usually states only the problem; where it carries no shipped-behavior half, complete it from that `## Decision Log`'s choices, never their rationale. Condense it to one line under step 6.5's `What`-cell rule; empty block → the PR title. Record a triple per issue: `{ issue: #N, pr: #P, summary: "<condensed>" }`.
+With a valid PR number confirmed, run `gh pr view <pr-number> --json title,body` and read the body's **opening prose block** - the text between the `Closes #<n>.` opener and the first `##` heading (line 1 if absent). Never look for or add a `## Summary` heading: a PR body here carries the Decision Log and `## Code Review` (`skills/solve-issue/SKILL.md (Put the Decision Log)`). That block usually states only the problem; where it carries no shipped-behavior half, complete it from that `## Decision Log`'s choices, never their rationale. Condense it to one line under step 6.5's `What`-cell rule; empty block → the PR title. Record a triple per issue: `{ issue: #N, pr: #P, summary: "<condensed>" }`.
 
 ## 6.3 Categorize issues
 
@@ -40,14 +40,14 @@ Group the merged issues into two buckets by label and title prefix:
 
 Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`) and look for a theme line starting `Theme:` or `**Theme:**`; the text after it is the one-sentence theme description. The heading theme is the milestone title minus any version prefix.
 
-**No theme line**: derive it from the description's own **prose**, never its title — the release's net behavior change (`skills/output-style.md (CHANGELOG entry)`) minus what the entry already carries (build order, Waves, `#N` list), never a restatement of the entry heading. No description → the milestone title.
+**No theme line**: derive it from the description's own **prose**, never its title - the release's net behavior change (`skills/output-style.md (CHANGELOG entry)`) minus what the entry already carries (build order, Waves, `#N` list), never a restatement of the entry heading. No description → the milestone title.
 
 ## 6.5 Author the CHANGELOG entry
 
-Construct the block below, mirroring the v1.7.0 entry in `CHANGELOG.md` exactly — same heading format, same table schema, same section names. **Versioned mode entry:**
+Construct the block below, mirroring the v1.7.0 entry in `CHANGELOG.md` exactly - same heading format, same table schema, same section names. **Versioned mode entry:**
 
 ```markdown
-## v<target-version> — <milestone theme>
+## v<target-version> - <milestone theme>
 
 **Theme:** <one-sentence theme description>
 
@@ -77,17 +77,17 @@ Judgment-call PRs: <comma-separated list of PRs with `judgment call` label, or "
 - <ceiling or budget state the next edit hits>
 ```
 
-**Version-free mode entry:** the block above with exactly two lines changed — the entry heading becomes `## <milestone title>` (no version, no ` — <milestone theme>` suffix) and the Consumer notes heading becomes `### Consumer notes` (no prev-version parenthetical). Every other line, including both tables and the ⚖️ Post-run audit trail section, is identical.
+**Version-free mode entry:** the block above with exactly two lines changed - the entry heading becomes `## <milestone title>` (no version, no ` - <milestone theme>` suffix) and the Consumer notes heading becomes `### Consumer notes` (no prev-version parenthetical). Every other line, including both tables and the ⚖️ Post-run audit trail section, is identical.
 
 Rules for authoring the entry:
 
-- **Shape.** This entry becomes the GitHub release body, so it is GitHub-facing prose: author it to the CHANGELOG-entry row of `skills/output-style.md § Evidence slots`, which defines every slot — theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail — and names what is not one. That row is authoritative for both lists; the bullets below say where they apply, never what they contain. A bucket line with no issue/PR reference is an unfilled slot, not a tighter entry.
+- **Shape.** This entry becomes the GitHub release body, so it is GitHub-facing prose: author it to the CHANGELOG-entry row of `skills/output-style.md § Evidence slots`, which defines every slot - theme, the per-bucket lines and their evidence, Consumer notes, the ⚖️ audit trail - and names what is not one. That row is authoritative for both lists; the bullets below say where they apply, never what they contain. A bucket line with no issue/PR reference is an unfilled slot, not a tighter entry.
 - **The non-slot list applies hardest to the `What` cell.** That cell states what shipped and how it behaves; a fact the row excludes as a non-slot survives into it only when a reader's next action depends on it. **Cut pass before writing:** delete every sentence that changes nothing a reader would type, configure, or expect.
 - Omit the `### 🔧 Fixes` or `### ✨` section entirely when its bucket has no issues.
 - Feature category label: derive from the milestone theme or title (e.g. "Background orchestration", "Scannable output"). If none is obvious, use "Features / enhancements".
-- Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes — authored from what was actually built. Include the "No schema changes" line only when confirmed true.
+- Consumer notes: summarize new profile keys, changed behavior, new gitignored artifacts, schema changes - authored from what was actually built. Include the "No schema changes" line only when confirmed true.
 - Post-run audit trail: list PRs carrying the `judgment call` label **from this run's in-context issue→PR tracking set** (do NOT re-query `gh pr list`; read from context); write "none" if empty. Then the fact list, one bullet each: an open or unfixed defect with its issue number, a dropped acceptance criterion stated as what the shipped gate does NOT verify, a ceiling or budget state a contributor's next edit hits. Omit the fact list entirely when there are none of those facts.
-- Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. Absent, or no `## v...` heading → use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched it, then `git show <commit>:CHANGELOG.md | grep '^## v' | head -1`. None in history → omit the parenthetical and use `### Consumer notes`. Do NOT use `plugin.json` as a fallback — it holds the target version, not the previous one.
+- Prev version for the Consumer notes header: derive from the most recent `## v...` heading already in `CHANGELOG.md`. Absent, or no `## v...` heading → use `git log --oneline --all -- CHANGELOG.md` to find the most recent commit that touched it, then `git show <commit>:CHANGELOG.md | grep '^## v' | head -1`. None in history → omit the parenthetical and use `### Consumer notes`. Do NOT use `plugin.json` as a fallback - it holds the target version, not the previous one.
 
 **Prepend the entry** into `CHANGELOG.md` after the file header (the `# Changelog` line and any intro prose preceding the first `## v...` entry) but before that first `## v...` entry. Preserve the file header verbatim. If `CHANGELOG.md` is absent on `integrationBranch`, create one with a standard `# Changelog` header and intro paragraph, then append the new entry below. For a template, `git show <newest commit>:CHANGELOG.md` via the `git log` command above; nothing in history → a minimal header (`# Changelog` plus a blank line).
 
@@ -100,7 +100,7 @@ Rules for authoring the entry:
 
 ## 6.7 Open the doc-only PR
 
-Cut the branch from the current `integrationBranch` tip — this step re-syncs inline, so do not rely on a prior re-sync:
+Cut the branch from the current `integrationBranch` tip - this step re-syncs inline, so do not rely on a prior re-sync:
 
 ```bash
 # Ensure integrationBranch is current before cutting the docs branch
@@ -151,7 +151,7 @@ EOF
 fi
 ```
 
-The `## Code Review` heading is required — without it `hooks/code-review-gate.sh` denies this `gh pr create` and step 6.8's `gh pr merge`. Confirm each evidence claim against the authored entry before pasting. Record the PR number and URL — the newly created PR, or the existing one the re-run guard found.
+The `## Code Review` heading is required - without it `hooks/code-review-gate.sh` denies this `gh pr create` and step 6.8's `gh pr merge`. Confirm each evidence claim against the authored entry before pasting. Record the PR number and URL - the newly created PR, or the existing one the re-run guard found.
 
 ## 6.8 Handle CI result
 
@@ -172,13 +172,13 @@ gh pr merge <pr-number> --squash --delete-branch
 
 - **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR, creating it first through the apply-time label helper (`skills/setup/SKILL.md (canonical apply-time label helper)`): `gh pr edit <pr-number> --add-label "needs review"`. Add a 🔴 item to the run output:
 
-  > 🔴 CHANGELOG PR needs human merge (CI red): #P — <pr-url>
+  > 🔴 CHANGELOG PR needs human merge (CI red): #P - <pr-url>
 
   Return to `integrationBranch` but preserve the local `docs/changelog-<slug>` branch:
 
   ```bash
   git checkout <integrationBranch>
-  # do NOT delete the local docs/changelog-<slug> branch — remote PR is still open
+  # do NOT delete the local docs/changelog-<slug> branch - remote PR is still open
   ```
 
   Do NOT re-attempt the merge. Proceed to step 6.9, exactly as the merged branch does.

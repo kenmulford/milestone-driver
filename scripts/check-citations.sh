@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# milestone-driver — repo-wide citation gate (issue #432).
+# milestone-driver - repo-wide citation gate (issue #432).
 #
 # Walks a checked-out repo, finds every citation this repo writes, and RESOLVES
-# the one form that can be resolved — `path (anchor)`, per
-# skills/citation-format.md (D1 — the `path (anchor)` form). An anchor that
+# the one form that can be resolved - `path (anchor)`, per
+# skills/citation-format.md (D1 - the `path (anchor)` form). An anchor that
 # matches zero lines, or more than one, fails the run.
 #
 # Why the gate exists: an anchor points at a literal string, so any edit to that
-# string breaks the citation SILENTLY — it still looks well-formed and still
+# string breaks the citation SILENTLY - it still looks well-formed and still
 # sends its reader somewhere. scripts/resolve-citation.sh resolves ONE citation
 # per invocation and had no repo-walking caller. This is that caller.
 #
@@ -19,7 +19,7 @@
 #   EXCLUDED    <pattern>       skipped=<N>
 #   OK          <file>:<line>   <citation>
 #   FAIL        <file>:<line>   <citation>   <N> matches
-#   UNVERIFIED  <file>:<line>   <citation>   <form> — not verified
+#   UNVERIFIED  <file>:<line>   <citation>   <form> - not verified
 #   TOTALS      unverified=<U>  excluded-files=<E>
 #   SUMMARY     ok=<N>          failed=<M>
 # EXCLUDED records come first, then citation records in byte-sorted file order,
@@ -58,7 +58,7 @@
 # markdown parser:
 #
 #   1. A PATH-CLASS RUN. The path is a maximal run of [A-Za-z0-9._/-]. Every
-#      other byte — backtick, space, quote, `<`, `>`, `$`, `{` — ends the run,
+#      other byte - backtick, space, quote, `<`, `>`, `$`, `{` - ends the run,
 #      and the citation form is decided by the bytes that FOLLOW it. This is
 #      what kills the prose lookalikes the format file names: in
 #      `` `agents/triage-reviewer.md` (architect lens) `` a CLOSING BACKTICK
@@ -68,7 +68,7 @@
 #      `` `package.json` (generic Node) ``. No special-casing.
 #   2. THE RUN MUST CONTAIN `/`. Measured: removes 24 further prose lookalikes
 #      at ZERO cost to a real citation. The dominant class is this repo's own
-#      test-runner header line, 18 of them, shaped `# milestone-driver —
+#      test-runner header line, 18 of them, shaped `# milestone-driver -
 #      golden-matrix runner for build-file-index.ps1 (issue #318).`
 #   3. THE RUN MUST NOT START WITH `/`, and must end in an extension of 1–4
 #      alphanumeric bytes holding at least one letter. Rule 1 already cuts
@@ -76,10 +76,10 @@
 #      that starts with `/`; the extension test drops version shapes like
 #      `1.2 (…)` and bare prose like `Fail-loud (fail-CLOSED)`.
 #   4. THE ANCHOR IS BOUNDED BY PAREN BALANCE, not by the final `)` on the line.
-#      This is what recovers the nested anchors this repo really writes —
+#      This is what recovers the nested anchors this repo really writes -
 #      scripts/read-doc-section.sh (Fail-loud (fail-CLOSED)),
 #      scripts/build-file-index.sh (extract_symbols() {),
-#      scripts/read-doc-section.ps1 (if ($args.Count -ne 2) {) — and what drops
+#      scripts/read-doc-section.ps1 (if ($args.Count -ne 2) {) - and what drops
 #      a prose parenthetical that runs off the end of the line without closing
 #      (4 of them live, e.g. `.gitignore`'s wrapped settings comment).
 # Measured against this repo on a clean tree: 168 anchor citations, all 168
@@ -87,7 +87,7 @@
 #
 # THE POSITION TEST IS NOT APPLIED. skills/citation-format.md also requires a
 # citation to stand in a citation position (an evidence slot, or a grounding
-# reference). That is a model judgment, not a mechanical one — see
+# reference). That is a model judgment, not a mechanical one - see
 # skills/solve-issue/SKILL.md (never a regex). This script deliberately runs the
 # SPAN test only, and the four rules above are calibrated so that on this tree
 # the span test alone has no false positives.
@@ -105,8 +105,8 @@
 #     Never reported as missing. None is written in the anchor form today; if
 #     one ever is, it goes UNREPORTED rather than failing.
 #   Cross-repo citations  Not distinguishable from a local path by shape. Every
-#     live one is a LINE form — `skills/output-style.md` cites milestone-feeder's
-#     `agents/issue-author.md` by line range — so every live one lands in
+#     live one is a LINE form - `skills/output-style.md` cites milestone-feeder's
+#     `agents/issue-author.md` by line range - so every live one lands in
 #     UNVERIFIED and cannot fail the build. A cross-repo ANCHOR citation fails as
 #     `0 matches`, and CONTAINMENT is what makes that true rather than
 #     accidental: see in_tree() below. Without it, an anchor citation of a
@@ -118,11 +118,11 @@
 #     happens to sit there. citation-format.md's repo-root base rule is the
 #     contract this enforces.
 #   Bare `:NNN` continuations  A token with no path before the colon has no
-#     path-class run, so it is never picked up — skipped by construction. It
+#     path-class run, so it is never picked up - skipped by construction. It
 #     carries no path to check.
 #   Same-file citations  NOT special-cased. A same-file anchor citation
 #     reproduces its own anchor, so the citing line is itself a match and the
-#     anchor then matches twice — which this gate already reports as `2
+#     anchor then matches twice - which this gate already reports as `2
 #     matches`. A SYNTACTIC same-file rule was measured and rejected: every
 #     skill file in this repo is named `SKILL.md`, so a basename comparison
 #     flagged 3 CROSS-file citations as same-file. Match count catches the real
@@ -130,7 +130,7 @@
 #
 # ── EXCLUDED FROM THE WALK ────────────────────────────────────────────────────
 # Six patterns, and every one of them is EMITTED as an EXCLUDED record carrying
-# the file count it skipped — a silent exclusion would hide a third of the
+# the file count it skipped - a silent exclusion would hide a third of the
 # corpus.
 #
 # ONE CLASS, six spellings: content that is historical, generated, or
@@ -153,20 +153,20 @@
 #     builds a git worktree per issue there, so each one is a WHOLE SECOND COPY
 #     of the repo sitting inside the tree being walked. Two effects, and the
 #     second is the one that bites: every citation gets counted once per live
-#     worktree, and — because the exclusions above are REPO-RELATIVE PREFIXES —
+#     worktree, and - because the exclusions above are REPO-RELATIVE PREFIXES -
 #     a worktree's own `tests/fixtures/` reads as
 #     `.milestone-config/worktrees/issue-N/tests/fixtures/`, matches NO
 #     exclusion, and its deliberately-broken fixture anchors FAIL THE RUN.
 #     Measured on this repo with two worktrees live: 58 FAIL records, every one
 #     of them a fixture citation that is broken ON PURPOSE, against a tree whose
-#     TRACKED files were clean. CI never sees it — a fresh checkout has no
-#     worktrees — so the gate went red only for the person running the driver,
+#     TRACKED files were clean. CI never sees it - a fresh checkout has no
+#     worktrees - so the gate went red only for the person running the driver,
 #     which is every real run. Excluded as a SOURCE only, like the others.
 #   .milestone-feeder/**   A SIBLING PLUGIN'S PER-RUN SCRATCH. milestone-feeder
 #     writes its plan file, needs-input report and authoring temp files there
 #     (gitignored, `/.milestone-feeder/` in .gitignore). A plan describes the
 #     tree as it WAS at planning time, so its citations go stale exactly the way
-#     docs/briefs/** does — same class, different author. Measured on this repo:
+#     docs/briefs/** does - same class, different author. Measured on this repo:
 #     11 FAIL records, every one a plan or resolved-body file naming an anchor
 #     that has since been reworded. Like the worktrees, CI never sees it and a
 #     fresh clone has none, so the cost landed entirely on the person running the
@@ -182,12 +182,12 @@
 # Identical to scripts/resolve-citation.sh: literal substring, case-sensitive,
 # LINE-SCOPED, lines split on LF only. The count is the number of MATCHING
 # LINES, which is what resolve-citation emits one record per. `grep -a -c -F`
-# has exactly that model — a trailing CR and a line-1 BOM can change a
-# PREFIX-ANCHORED match but never a SUBSTRING one — so this leg uses it, and the
+# has exactly that model - a trailing CR and a line-1 BOM can change a
+# PREFIX-ANCHORED match but never a SUBSTRING one - so this leg uses it, and the
 # pwsh twin's hand-rolled line loop returns the same count for the same bytes.
 # OUT OF CONTRACT: files containing NUL bytes, same as resolve-citation.sh.
 #
-# Dependency-free: bash builtins plus `find`, `sort` and `grep` — no jq, no yq,
+# Dependency-free: bash builtins plus `find`, `sort` and `grep` - no jq, no yq,
 # no python, no YAML or markdown parser
 # (.project/library-manifest.md#Adding a dependency (the gate)).
 # bash-3.2-safe (macOS /bin/bash): no `declare -A`, no `mapfile`, no `${var,,}`.
@@ -220,7 +220,7 @@ ok=0
 failed=0
 unverified=0
 
-# is_citable_path <run> — discriminator rules 2 and 3.
+# is_citable_path <run> - discriminator rules 2 and 3.
 is_citable_path() {
   case "$1" in */*) ;; *) return 1 ;; esac
   case "$1" in /*) return 1 ;; esac
@@ -233,7 +233,7 @@ is_citable_path() {
   return 0
 }
 
-# balanced_end <text> — index of the `)` closing a paren opened just before
+# balanced_end <text> - index of the `)` closing a paren opened just before
 # <text>, or -1 when the parens never balance on this line. Byte-indexed under
 # LC_ALL=C, so a multibyte anchor yields the index the pwsh twin's char scan
 # yields: no UTF-8 continuation byte is `(` or `)`.
@@ -252,7 +252,7 @@ balanced_end() {
   printf '%s' '-1'
 }
 
-# heading_end <text> <mode> — where a heading citation's text stops. <mode> is
+# heading_end <text> <mode> - where a heading citation's text stops. <mode> is
 # `span` when the path was immediately preceded by a backtick and `bare`
 # otherwise, and the two are bounded differently ON PURPOSE:
 #
@@ -260,22 +260,19 @@ balanced_end() {
 #          skills/citation-format.md (What marks it as a citation) read
 #          literally: a citation is one whole backtick-wrapped token, so inside
 #          a span the delimiter IS the bound and it is EXACT. Nothing else may
-#          cut it — a real heading legitimately holds quotes
+#          cut it - a real heading legitimately holds quotes
 #          (`… § 6.9 Surface in the final summary "Your move" section`), commas
 #          and parentheses, and every one of those was truncating a correct
 #          citation before.
 #   bare   No span exists, so no exact bound exists either and the rule is a
-#          conservative stop: backtick, UNMATCHED `)`, comma, semicolon, double
-#          quote, or ` — ` (space, em-dash, space). The paren-depth guard keeps
-#          a heading holding a BALANCED parenthetical whole while still cutting
-#          a markdown link target at its closing `)`
-#          (`](../README.md#the-layered-gating-model)`). ` — ` is this repo's
-#          prose connector and is what ends a bare citation embedded in a
-#          sentence: check-skill-frontmatter.sh's header names the
-#          library-manifest "Adding a dependency (the gate)" heading and then
-#          continues ` — "no YAML library …` on the same line. ` — ` is NOT a
-#          terminator in span mode, where headings such as `§ Phase 0 — Triage`
-#          contain it.
+#          conservative stop, FIVE of them: backtick, UNMATCHED `)`, comma,
+#          semicolon, double quote. The paren-depth guard keeps a heading
+#          holding a BALANCED parenthetical whole while still cutting a
+#          markdown link target at its closing `)`
+#          (`](../README.md#the-layered-gating-model)`). A spaced hyphen is
+#          deliberately NOT a stop, in either mode: it is ordinary text inside
+#          this repo's headings and anchors, so stopping on it would cut a
+#          correct anchor at its first hyphen and fail the gate repo-wide.
 heading_end() {
   _t="$1"; _m="$2"; _d=0; _i=0; _n="${#_t}"
   while [ "$_i" -lt "$_n" ]; do
@@ -287,19 +284,16 @@ heading_end() {
         ')') if [ "$_d" -eq 0 ]; then break; fi; _d=$((_d - 1)) ;;
         ','|';'|'"') break ;;
       esac
-      # 5 bytes: space + the 3-byte UTF-8 em-dash + space. Byte-sliced under
-      # LC_ALL=C, and the pwsh twin slices the same 5 byte-chars.
-      [ "${_t:$_i:5}" = ' — ' ] && break
     fi
     _i=$((_i + 1))
   done
   printf '%s' "$_i"
 }
 
-# rtrim <text> — strip trailing spaces and TABs.
+# rtrim <text> - strip trailing spaces and TABs.
 rtrim() { _s="$1"; printf '%s' "${_s%"${_s##*[!$WS]}"}"; }
 
-# match_count <file> <anchor> — matching LINE count, resolve-citation's model.
+# match_count <file> <anchor> - matching LINE count, resolve-citation's model.
 # `-a` forces text mode so a file grep guesses is binary still yields a count
 # instead of "Binary file … matches"; `-F` makes the anchor a literal (a `.` or
 # `*` in it matches only itself); `-e` protects an anchor starting with `-`.
@@ -315,14 +309,14 @@ match_count() {
   esac
 }
 
-# in_tree <repo-relative-path> — CONTAINMENT. True only when the path is a
+# in_tree <repo-relative-path> - CONTAINMENT. True only when the path is a
 # MEMBER OF THE WALKED FILE SET, which is the set `find -type f` produced under
 # ROOT. Membership is the containment test, and it is stronger than a lexical
 # `..` check: the walked set holds no path outside ROOT, no symlink (find
 # without -L lists none), no directory, and no FIFO/socket/device node, so an
 # anchor can only ever be resolved against a regular file inside this checkout.
 # WHY IT IS REQUIRED: without it, an anchor citation naming a dot-dot path
-# opened a file NEXT TO the checkout and reported OK. That is not hypothetical —
+# opened a file NEXT TO the checkout and reported OK. That is not hypothetical -
 # driver runs from `.milestone-config/worktrees/issue-N`, where `..` points
 # somewhere entirely different than it does in a plain clone, so the same
 # citation would answer differently depending on where the tree sits on disk.
@@ -336,16 +330,16 @@ in_tree() { grep -qxF -e "$1" -- "$FILELIST" 2>/dev/null; }
 # ---------------------------------------------------------------------------
 # The walk. `find` LISTS every entry under ROOT that is NOT A DIRECTORY and NOT
 # A SYMLINK, and prunes `.git` (a directory in a normal clone, a FILE in a
-# linked worktree — the prune handles both). Paths are byte-sorted so the record
+# linked worktree - the prune handles both). Paths are byte-sorted so the record
 # stream is identical to the pwsh twin's, whose enumeration order is otherwise
 # filesystem-defined.
 #
 # LIST and READ are two different tests, and that split is what keeps the twins
 # byte-identical:
 #   LIST   not a directory, not a symlink. `-type f` would have been the tighter
-#          rule, but .NET on Unix EXPOSES NO REGULAR-FILE BIT — probed on pwsh
+#          rule, but .NET on Unix EXPOSES NO REGULAR-FILE BIT - probed on pwsh
 #          7.6.3, a FIFO reports FileAttributes.Normal and UnixMode `-rw-r--r--`,
-#          both identical to a regular file — so `-type f` is a test the pwsh
+#          both identical to a regular file - so `-type f` is a test the pwsh
 #          twin cannot reproduce, and the two legs' EXCLUDED counts would drift
 #          apart on any tree holding a non-regular entry. "Not a directory, not
 #          a symlink" is computable on both legs, exactly.
@@ -357,7 +351,7 @@ in_tree() { grep -qxF -e "$1" -- "$FILELIST" 2>/dev/null; }
 #          REGULAR file is skipped by the same test and loses nothing: it has no
 #          lines to scan and no bytes to match.
 # The three 0-byte files in this repo's fixtures are why the split is not
-# theoretical — `find -type f` counted them and the pwsh walk did not, a 3-file
+# theoretical - `find -type f` counted them and the pwsh walk did not, a 3-file
 # gap in the EXCLUDED record.
 #
 # find's OWN stderr is discarded, deliberately. An unreadable subdirectory makes
@@ -407,7 +401,7 @@ printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX6" "$EXN6"
 while IFS= read -r rel; do
   src="$ROOT/$rel"
   [ -r "$src" ] || continue
-  # READ half of the LIST/READ split — see the walk comment above.
+  # READ half of the LIST/READ split - see the walk comment above.
   [ -s "$src" ] || continue
   lno=0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -455,7 +449,7 @@ while IFS= read -r rel; do
           end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
-          printf 'UNVERIFIED\t%s:%s\t%s#%s\tpath#Heading — not verified\n' "$rel" "$lno" "$run" "$head"
+          printf 'UNVERIFIED\t%s:%s\t%s#%s\tpath#Heading - not verified\n' "$rel" "$lno" "$run" "$head"
           unverified=$((unverified + 1))
           ;;
         ' § '*)
@@ -463,7 +457,7 @@ while IFS= read -r rel; do
           end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
-          printf 'UNVERIFIED\t%s:%s\t%s § %s\tpath § Heading — not verified\n' "$rel" "$lno" "$run" "$head"
+          printf 'UNVERIFIED\t%s:%s\t%s § %s\tpath § Heading - not verified\n' "$rel" "$lno" "$run" "$head"
           unverified=$((unverified + 1))
           ;;
         :[0-9]*)
@@ -479,7 +473,7 @@ while IFS= read -r rel; do
               cite="$cite-$d2"
               ;;
           esac
-          printf 'UNVERIFIED\t%s:%s\t%s\tpath:line — not verified\n' "$rel" "$lno" "$cite"
+          printf 'UNVERIFIED\t%s:%s\t%s\tpath:line - not verified\n' "$rel" "$lno" "$cite"
           unverified=$((unverified + 1))
           ;;
       esac

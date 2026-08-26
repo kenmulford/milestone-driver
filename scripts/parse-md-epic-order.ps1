@@ -1,13 +1,13 @@
 #!/usr/bin/env pwsh
-# milestone-driver — deterministic md-epic-order block parser (issue #266).
+# milestone-driver - deterministic md-epic-order block parser (issue #266).
 # stdin: a parent issue's raw body text. stdout (success): one TAB-separated
-# record per block entry, in block order — "<kind><TAB><raw>" (kind = number|
+# record per block entry, in block order - "<kind><TAB><raw>" (kind = number|
 # title). An empty block (zero non-blank interior lines) is success with empty
 # stdout. stderr is used ONLY on failure, naming the failure; exit 0 on any
 # success (including the empty-block case), exit 1 on any failure.
 #
 # Scope boundary, block location, and grammar: see scripts/parse-md-epic-order.sh
-# (behavior-identical twin) — this file mirrors that contract exactly.
+# (behavior-identical twin) - this file mirrors that contract exactly.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -29,11 +29,11 @@ $lines = $raw -split "`n"
 if ($raw.EndsWith("`n") -and $lines.Count -gt 0) {
   $lines = $lines[0..($lines.Count - 2)]
 }
-# Tolerate CRLF bodies by stripping a single TRAILING \r per line — mirrors the
-# .sh twin's `line="${line%$'\r'}"` exactly — scripts/parse-md-epic-order.sh (tolerate CRLF).
+# Tolerate CRLF bodies by stripping a single TRAILING \r per line - mirrors the
+# .sh twin's `line="${line%$'\r'}"` exactly - scripts/parse-md-epic-order.sh (tolerate CRLF).
 # Do NOT globally replace \r with \n: bash's `read` only strips a trailing \r
 # per record: an embedded LONE \r elsewhere in a line (e.g. inside a `title:`
-# value) is ordinary line content there, so it must survive here too — a
+# value) is ordinary line content there, so it must survive here too - a
 # global CR->LF conversion would turn one bash-line into two pwsh-lines.
 for ($i = 0; $i -lt $lines.Count; $i++) {
   if ($lines[$i].EndsWith("`r")) {
@@ -62,7 +62,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
     continue
   }
 
-  # state = inside — position is 1-based from the first line inside the block,
+  # state = inside - position is 1-based from the first line inside the block,
   # blank lines included in the count.
   $pos++
 
@@ -74,7 +74,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
   # blank/whitespace-only interior line: ignored (never malformed, never
   # counted as an entry). ASCII-only whitespace set (space/tab/CR/FF/VT) to
   # match bash's `[:space:]` under `LC_ALL=C` byte-for-byte, as
-  # scripts/parse-md-epic-order.sh (-z "$trimmed") does — NOT
+  # scripts/parse-md-epic-order.sh (-z "$trimmed") does - NOT
   # `.Trim()`, which is Unicode-aware and would also
   # treat NBSP (U+00A0), U+3000, etc. as blank, diverging from the bash leg's
   # byte-oriented C-locale behavior.

@@ -1,19 +1,19 @@
 #!/usr/bin/env pwsh
-# milestone-driver — code-review-gate (Claude PreToolUse: Bash,
+# milestone-driver - code-review-gate (Claude PreToolUse: Bash,
 # if: Bash(gh pr create *) / Bash(gh pr merge *)).
 #
-# Bash parity of code-review-gate.sh — see that file for the full design note.
-# create: detects a --body/-b or --body-file/-F SIGNAL (presence only — NOT a
+# Bash parity of code-review-gate.sh - see that file for the full design note.
+# create: detects a --body/-b or --body-file/-F SIGNAL (presence only - NOT a
 # precisely delimited value) and checks the heading against the WIDEST
 # available surface: the whole decoded command string for inline --body/-b,
 # the whole referenced file's content for --body-file/-F. A deliberate
-# re-bias toward fail-open (issue #289 review round 2) — precisely EXTRACTING
+# re-bias toward fail-open (issue #289 review round 2) - precisely EXTRACTING
 # the --body value via quote-matched capture truncated early on an escaped
 # quote or this repo's own `--body "$(cat <<'EOF' ... EOF)"` heredoc pattern
 # with any quote before the heading, producing a false BLOCK on the repo's own
 # documented PR shape. merge: gh's own -b/--body/-F on `gh pr merge` set the
 # MERGE COMMIT message, not the PR body, and every real invocation in this
-# repo passes neither — so the merge path always fetches the PR's current
+# repo passes neither - so the merge path always fetches the PR's current
 # body via `gh pr view`.
 #
 # Heading match is ANCHORED, not a bare substring: `## Code Review` must be
@@ -76,7 +76,7 @@ function Deny([string]$msg) {
   exit 2
 }
 
-# HeadingMatch <text> — true iff <text> contains an ANCHORED `## Code Review`
+# HeadingMatch <text> - true iff <text> contains an ANCHORED `## Code Review`
 # (not immediately followed by a letter/digit; end-of-string also satisfies
 # the anchor). [regex]::Escape guards against $heading ever containing a
 # regex metacharacter.
@@ -143,7 +143,7 @@ if ($isCreate) {
     if ($matches[1] -eq $protected) { exit 0 }
   }
 
-  # Presence-only signal detection (NOT value extraction — see header note).
+  # Presence-only signal detection (NOT value extraction - see header note).
   $hasBody = [bool]($cmd -match '(^|\s)(--body|-b)([=\s]|$)')
   $hasFile = [bool]($cmd -match '(^|\s)(--body-file|-F)([=\s]|$)')
 
@@ -171,7 +171,7 @@ if ($isCreate) {
   }
 
   # Wide-surface check: the whole command string for inline --body/-b (never
-  # a narrowly extracted substring — see header note), the whole file content
+  # a narrowly extracted substring - see header note), the whole file content
   # for --body-file/-F. Either surface matching is enough to allow.
   if ($hasBody -and (HeadingMatch $cmd)) { CheckVerdict $cmd 'opening the PR'; exit 0 }
   if ($fileContent -and (HeadingMatch $fileContent)) { CheckVerdict $fileContent 'opening the PR'; exit 0 }

@@ -2,13 +2,13 @@
 #
 # One throwaway git repo per row. `base` files and the driver.json a row names are
 # committed, then `ops` runs against the working tree, then the classifier runs
-# against the row's run root — the repo root, or the `R:` subdirectory.
+# against the row's run root - the repo root, or the `R:` subdirectory.
 #
 # Columns: name  globs  base  ops  expected_stdout  expected_stderr
 #   globs  the driver config to commit, one sourceGlobs entry per `|` field:
 #            -         write no .milestone-config/driver.json at all
-#            @EMPTY@   write `{}` — a config carrying no sourceGlobs key
-#            @SCALAR@  write `{"sourceGlobs":"scripts/**"}` — the key as a JSON
+#            @EMPTY@   write `{}` - a config carrying no sourceGlobs key
+#            @SCALAR@  write `{"sourceGlobs":"scripts/**"}` - the key as a JSON
 #                      scalar where the schema says array
 #            @LEGACY@  write `{"sourceGlobs":["scripts/**"]}` to the LEGACY root
 #                      `milestone-driver.json` and no `.milestone-config/`
@@ -23,13 +23,13 @@
 #            N:<path>  create a new file and leave it untracked
 #            D:<path>  delete a tracked file
 #            R:<dir>   run the classifier against <repo>/<dir> instead of the
-#                      repo root, and write the row's driver.json there — a
+#                      repo root, and write the row's driver.json there - a
 #                      package subdir carrying its own config. At most one per
 #                      row. Every other op path stays relative to the REPO root.
 #
 # A reason token naming a path names the FIRST candidate that fires it, and the
 # candidate list is `git diff --name-status HEAD` order then
-# `git ls-files --others` order — git sorts both by path, so `foo.ps1` always
+# `git ls-files --others` order - git sorts both by path, so `foo.ps1` always
 # precedes `foo.sh`. Rows below expect the .ps1 leg for that reason.
 #
 # A non-repo root, a repo with no commits, and a PATH stripped of git or of jq
@@ -80,7 +80,7 @@ candidate_dotdot_rejected	scripts/**	scripts/a..b.sh	M:scripts/a..b.sh	standard	
 candidate_dotdot_rejected_in_hooks	hooks/**	hooks/a..b.sh	M:hooks/a..b.sh	standard	rejected-path:hooks/a..b.sh
 # `scripts/a"b.md` arrives from git as `"scripts/a\"b.md"`, a C-quoting that
 # `core.quotePath=false` does not suppress. The fixture needs a filesystem that
-# permits `"` in a name — which is also why the candidate this row pins cannot
+# permits `"` in a name - which is also why the candidate this row pins cannot
 # arise on Windows, where such a name is illegal.
 candidate_quoted_rejected	scripts/**	scripts/a"b.md	M:scripts/a"b.md	standard	rejected-path:"scripts/a\"b.md"
 # The floor is applied LAST, so a rejected candidate can only raise a `shallow`

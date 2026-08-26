@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for expand-domain-skills.ps1 (issue #589).
+# milestone-driver - golden-matrix runner for expand-domain-skills.ps1 (issue #589).
 # Twin of tests/expand-domain-skills.test.sh: SAME cases table, SAME fixture
 # tree, SAME comparison rule (trailing newlines stripped from both the actual
 # and the expected stream), so a divergence between the two legs shows up as a
@@ -11,7 +11,7 @@
 # PowerShell's NATIVE-command argument binder expands a wildcard argument
 # against the current directory when it matches something, so a bare `*` entry
 # reaches the child as the runner's own file names and the `bare_star` case can
-# never be driven. ArgumentList hands each argument to the OS verbatim — no
+# never be driven. ArgumentList hands each argument to the OS verbatim - no
 # shell, no glob. The bash runner's `set -f` around its split is the same guard.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $here '..' 'scripts' 'expand-domain-skills.ps1'
@@ -30,7 +30,7 @@ $pass = 0; $fail = 0
 $tmpHome = Join-Path ([System.IO.Path]::GetTempPath()) ('eds-' + [System.Guid]::NewGuid().ToString('N'))
 [void][System.IO.Directory]::CreateDirectory($tmpHome)
 Copy-Item -Path (Join-Path $fix '*') -Destination $tmpHome -Recurse
-# Strip EVERY trailing newline, matching the bash runner's `$(cat file)` — never
+# Strip EVERY trailing newline, matching the bash runner's `$(cat file)` - never
 # a broad .Trim(), which would mask leading/internal-whitespace divergence.
 function Strip-Trailing([string]$s) { if ($null -eq $s) { return '' } return ($s -replace '(\r?\n)+$', '') }
 function Unesc([string]$s) { if ($null -eq $s) { return '' } return ($s -replace '\\n', "`n") }
@@ -63,7 +63,7 @@ foreach ($line in Get-Content $cases) {
   $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
   $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
   $p = [System.Diagnostics.Process]::Start($psi)
-  # Both streams are read before WaitForExit — the outputs are single-line-scale,
+  # Both streams are read before WaitForExit - the outputs are single-line-scale,
   # well under a pipe buffer, so a sequential read cannot deadlock here.
   $out = Strip-Trailing $p.StandardOutput.ReadToEnd()
   $err = Strip-Trailing $p.StandardError.ReadToEnd()
@@ -71,7 +71,7 @@ foreach ($line in Get-Content $cases) {
   $rc = $p.ExitCode
   # Ordinal, never -ceq: PowerShell's string operators are InvariantCulture
   # compares under ICU, which treats an ignorable character as absent and would
-  # score a byte-divergent stream as a pass — the one thing this matrix exists
+  # score a byte-divergent stream as a pass - the one thing this matrix exists
   # to catch.
   $okOut = [System.StringComparer]::Ordinal.Compare($out, $expOut) -eq 0
   $okErr = [System.StringComparer]::Ordinal.Compare($err, $expErr) -eq 0

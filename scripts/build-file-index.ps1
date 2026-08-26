@@ -1,12 +1,13 @@
 #!/usr/bin/env pwsh
-# milestone-driver — diff-scoped repo file-index resolver (issue #318).
+# milestone-driver - diff-scoped repo file-index resolver (issue #318).
 # stdin: JSON {"files":["<repo-relative-path>", ...]}. stdout: one line per input
-# file, IN INPUT ORDER — "<path> → <purpose>[ (callers: a, b)][ (symbols: x, y)]".
+# file, IN INPUT ORDER - "<path> → <purpose>[ (callers: a, b)][ (symbols: x, y)]".
 # Fail-open (twin of scripts/build-file-index.sh): malformed/empty stdin, or zero
 # emitted lines => empty stdout, stderr "none", exit 0. Never a non-zero exit,
 # never a crash. Named paths that don't exist on disk or resolve outside the repo
 # root (cwd) are skipped, not fatal. Output bytes are written UTF-8 (no BOM) so
-# the ` -> ` (U+2192) separator and em-dash survive redirection on any host.
+# the U+2192 separator, and any multibyte char a purpose line carries, survive
+# redirection on any host.
 
 function Emit-None {
   $b = [System.Text.Encoding]::UTF8.GetBytes('none')
@@ -60,13 +61,13 @@ function Is-BlockIndicator([string]$v) { return @('>-', '>', '|', '|-') -contain
 # and back, losslessly (scripts/check-citations.ps1 (Latin1 is the byte<->char)).
 $SUU8 = [System.Text.Encoding]::UTF8
 $SUL1 = [System.Text.Encoding]::Latin1
-# Get-ByteKey — a path respelled as the byte-chars of its UTF-8 encoding, so
+# Get-ByteKey - a path respelled as the byte-chars of its UTF-8 encoding, so
 # StringComparer.Ordinal over the result compares BYTES.
 function Get-ByteKey([string]$s) { return $SUL1.GetString($SUU8.GetBytes($s)) }
 
 # De-duplicated string list in CODEPOINT ORDER, parity with the .sh twin's
 # `LC_ALL=C sort -u`. The keys are each item's UTF-8 BYTES as byte-chars, so
-# Ordinal over them IS a byte sort, and UTF-8 byte order IS codepoint order — the
+# Ordinal over them IS a byte sort, and UTF-8 byte order IS codepoint order - the
 # byte-domain model scripts/check-citations.ps1 (THE SORT) already ships. Ordinal
 # over the DECODED strings would NOT do: that is UTF-16 code-unit order, which
 # ranks an astral char (lead surrogate U+D800-DBFF) BEFORE every U+E000-FFFF char
@@ -132,7 +133,7 @@ function Purpose-Header([string]$path) {
   return $l.Trim()
 }
 
-# Top-level function names in a .sh/.ps1 — BOTH bash shape `name() {` AND pwsh
+# Top-level function names in a .sh/.ps1 - BOTH bash shape `name() {` AND pwsh
 # shape `function Name` matched in this leg. Deduped + byte-sorted.
 function Extract-Symbols([string]$path) {
   $names = [System.Collections.Generic.List[string]]::new()

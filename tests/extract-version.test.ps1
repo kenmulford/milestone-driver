@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for extract-version.ps1 (issue #158).
+# milestone-driver - golden-matrix runner for extract-version.ps1 (issue #158).
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $here '..' 'scripts' 'extract-version.ps1'
 $cases = Join-Path $here 'extract-version.cases.tsv'
@@ -15,7 +15,7 @@ foreach ($line in Get-Content $cases) {
   $errFile = New-TemporaryFile
   $out = ($json | pwsh -NoProfile -File $script 2> $errFile.FullName)
   # Compare byte-exact like the bash runner (whose $(...) strips only a trailing
-  # newline). Strip a single trailing CR/LF the pipeline may add — NOT a broad
+  # newline). Strip a single trailing CR/LF the pipeline may add - NOT a broad
   # .Trim(), which would mask leading/internal-whitespace divergence between impls.
   $out = ("$out") -replace '\r?\n$', ''
   $err = (Get-Content $errFile.FullName -Raw); $err = if ($null -eq $err) { '' } else { $err -replace '\r?\n$', '' }

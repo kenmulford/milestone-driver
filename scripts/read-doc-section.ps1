@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — dependency-free anchored Markdown section reader (issue #184).
+# milestone-driver - dependency-free anchored Markdown section reader (issue #184).
 # Usage: read-doc-section.ps1 <doc-path> <anchor-text>
 #   <anchor-text> is the heading text WITHOUT the leading #s (e.g. "Keys" matches
 #   "## Keys"). Match rule: trim the leading #s and surrounding whitespace from a
@@ -11,10 +11,10 @@
 # Duplicate anchors (same heading text twice): match the FIRST occurrence.
 # Fail-loud (fail-CLOSED): a missing/renamed anchor or a missing/unreadable file
 #   writes a clear message to stderr (naming the anchor + file) and exits NONZERO
-#   with NO stdout — never silent empty output. (This is an INTENTIONAL divergence
+#   with NO stdout - never silent empty output. (This is an INTENTIONAL divergence
 #   from extract-version.ps1, which fails OPEN on a version miss; silent empty
 #   grounding is the drift this seam exists to surface.)
-# Dependency-free: PowerShell 7+ built-ins only — no yq/python/jq.
+# Dependency-free: PowerShell 7+ built-ins only - no yq/python/jq.
 # (.project/library-manifest.md (**STOP-and-ask**,) forbids new tool deps.)
 # Exit codes: 0 ok · 1 missing file / missing anchor · 2 bad usage.
 Set-StrictMode -Version Latest
@@ -61,9 +61,9 @@ foreach ($line in $lines) {
     while ($rest.StartsWith('#')) { $level++; $rest = $rest.Substring(1) }
     # ATX requires a space (or EOL) after the #s; otherwise it's not a heading
     # (e.g. "#hashtag"), so treat as body.
-    if ($rest.Length -eq 0) { }                 # bare "###" — heading, empty text
-    elseif ($rest.StartsWith(' ')) { }          # "## Keys" — standard ATX heading
-    else { $level = 0 }                          # "#hashtag" — not a heading
+    if ($rest.Length -eq 0) { }                 # bare "###" - heading, empty text
+    elseif ($rest.StartsWith(' ')) { }          # "## Keys" - standard ATX heading
+    else { $level = 0 }                          # "#hashtag" - not a heading
   }
 
   if ($level -gt 0) {
@@ -73,7 +73,7 @@ foreach ($line in $lines) {
       break
     }
     if ((-not $found) -and (-not $inSection) -and ($text -ceq $anchor)) {
-      # First matching heading — open the section (first-match policy).
+      # First matching heading - open the section (first-match policy).
       $found = $true
       $inSection = $true
       $matchedLevel = $level
@@ -92,6 +92,6 @@ if (-not $found) {
   exit 1
 }
 
-# Join with LF and append a single trailing newline — byte-parity with the .sh
+# Join with LF and append a single trailing newline - byte-parity with the .sh
 # (printf '%s\n'), independent of the host's default line ending.
 [Console]::Out.Write(($out -join "`n") + "`n")

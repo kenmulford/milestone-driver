@@ -12,3 +12,5 @@ jobs:
       - name: Flaky lint
         continue-on-error: true
         run: npm run lint:experimental
+      - name: Report
+        run: echo "typecheck · lint complete"

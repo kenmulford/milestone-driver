@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — behavior matrix runner for render-daemon.ps1 (issue #208).
+# milestone-driver - behavior matrix runner for render-daemon.ps1 (issue #208).
 # Behavior-identical pwsh twin of tests/render-daemon.test.sh: drives the
 # render-daemon lifecycle (start | status | stop) against a throwaway app server
 # and asserts the SAME command + state-file contract (cross-impl parity).
@@ -81,14 +81,14 @@ try {
   Run-Daemon @('stop', $tmp) | Out-Null
 
   # Malformed-pid footgun guard (parity with the .sh valid_pgid regression): a
-  # state file recording pid 0 / 1 must read as DOWN — stop/status exit 0, the
+  # state file recording pid 0 / 1 must read as DOWN - stop/status exit 0, the
   # state file is removed, and NOTHING external is killed. The pwsh twin already
-  # rejects processId <= 1 in Test-PidAlive — scripts/render-daemon.ps1 (if ($n -le 1) { return $false }) — so Remove-
+  # rejects processId <= 1 in Test-PidAlive - scripts/render-daemon.ps1 (if ($n -le 1) { return $false }) - so Remove-
   # DaemonState never walks/kills a tree; this case CONFIRMS that parity (it would
   # regress if the guard were dropped). We prove "nothing killed" with a sentinel
   # process we own: it must still be alive after stop/status. (The .sh twin's
-  # group-kill footgun has no pwsh analogue — pwsh kills an explicit pid tree, not
-  # a negative-pgid group — but the pid<=1 reject is the same fail-closed rule, so
+  # group-kill footgun has no pwsh analogue - pwsh kills an explicit pid tree, not
+  # a negative-pgid group - but the pid<=1 reject is the same fail-closed rule, so
   # we assert the same observable contract.)
   foreach ($badpid in @(0, 1)) {
     Write-Profile 'true' $readyUrl
@@ -119,7 +119,7 @@ try {
       # startedAt: assert the RAW on-disk JSON string (parity with the .sh twin's
       # jq read). ConvertFrom-Json auto-coerces an ISO-8601 string into a
       # [DateTime] that stringifies to a culture format, so State-Field can't see
-      # the bytes the daemon wrote — read the file raw and match the exact
+      # the bytes the daemon wrote - read the file raw and match the exact
       # "startedAt":"<ISO-8601-UTC>" the daemon's Now-Iso emits.
       $raw = Get-Content -LiteralPath $state -Raw
       $stOk = $raw -match '"startedAt":"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"'
@@ -141,25 +141,25 @@ try {
 
     # Idempotent teardown: stop kills pid, removes state, exit 0; pid dead; 2nd stop no-op.
     # stop signals the recorded daemon best-effort and returns WITHOUT waiting, so
-    # the death is asynchronous — poll for it rather than asserting in the same
+    # the death is asynchronous - poll for it rather than asserting in the same
     # instant (on a loaded runner the recorded process can still be alive for a
     # microsecond after stop returns). Same bound as the .sh twin (5x1s) to keep
     # the pair behavior-identical (.project/conventions.md#Test patterns), mirroring
     # the sibling poll-with-timeout in the compound-teardown case below. The 5s
-    # window is generous and deterministic — on the happy path stop reaps the
+    # window is generous and deterministic - on the happy path stop reaps the
     # process on the first iteration, so $stopReaped flips to $true and the case
     # PASSES.
     #
     # The escalation is a DIAGNOSTIC SAFETY NET, not a silent rescue (parity with
     # the .sh twin): if the grace window elapses with the process STILL alive,
-    # stop did NOT reap it within 5s — a real teardown regression, not flake. We
-    # still Stop-Process -Force the orphan (suite hygiene — the pwsh analogue of
+    # stop did NOT reap it within 5s - a real teardown regression, not flake. We
+    # still Stop-Process -Force the orphan (suite hygiene - the pwsh analogue of
     # SIGKILL; note pwsh kills an explicit pid, not a negative-pgid group, so it
     # has no group-signal footgun and needs no valid_pgid guard), but $stopReaped
     # stays $false so the assertion FAILS loudly. An escalation kill must never
     # flip the result to PASS, otherwise a broken stop would hide behind the
-    # test's own cleanup (state-removed always passes — Remove-DaemonState removes
-    # the file unconditionally — so the liveness check is the only catch).
+    # test's own cleanup (state-removed always passes - Remove-DaemonState removes
+    # the file unconditionally - so the liveness check is the only catch).
     $r = Run-Daemon @('stop', $tmp)
     $stopReaped = $false
     for ($i = 0; $i -lt 5; $i++) {
@@ -167,17 +167,17 @@ try {
       Start-Sleep -Seconds 1
     }
     if (-not $stopReaped) {
-      # Orphan hygiene only — does NOT count as a pass.
+      # Orphan hygiene only - does NOT count as a pass.
       Stop-Process -Id ([int]$pid1) -Force -ErrorAction SilentlyContinue
     }
     if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath $state) -and $stopReaped) { Pass-T }
-    else { Fail-T "teardown: rc=$($r.rc) state-exists=$(Test-Path -LiteralPath $state) stop-reaped=$stopReaped (stop did not reap the daemon within 5s — teardown regression)" }
+    else { Fail-T "teardown: rc=$($r.rc) state-exists=$(Test-Path -LiteralPath $state) stop-reaped=$stopReaped (stop did not reap the daemon within 5s - teardown regression)" }
     $r = Run-Daemon @('stop', $tmp)
     if ($r.rc -eq 0) { Pass-T } else { Fail-T "teardown-idempotent: rc=$($r.rc)" }
 
     # Compound-serverCmd teardown (genuineness guard for the process-TREE reap):
     # `python3 -m http.server ... & wait` backgrounds the listener and keeps the
-    # spawned bash wrapper alive on `wait` — so the recorded pid is the WRAPPER
+    # spawned bash wrapper alive on `wait` - so the recorded pid is the WRAPPER
     # and the real listener is a CHILD (mirrors a realistic `npm start` that
     # forks). A wrapper-only kill would leave the listener holding the port; only
     # a descendant-tree reap frees it. Probe the readyUrl post-stop: it must no
@@ -199,7 +199,7 @@ try {
         Start-Sleep -Seconds 1
       }
       if (-not (Test-Path -LiteralPath $state) -and $freed) { Pass-T }
-      else { Fail-T "teardown-compound: state-removed=$(-not (Test-Path -LiteralPath $state)) port-freed=$freed (compound serverCmd leaked the listener — tree reap failed)" }
+      else { Fail-T "teardown-compound: state-removed=$(-not (Test-Path -LiteralPath $state)) port-freed=$freed (compound serverCmd leaked the listener - tree reap failed)" }
     } else { Fail-T "teardown-compound-setup: rc=$($r.rc) upBefore=$upBefore out=[$($r.out)] (compound serverCmd never came up; cannot test tree reap)" }
     Run-Daemon @('stop', $tmp) | Out-Null
 

@@ -1,4 +1,4 @@
-# milestone-driver — consumer setup
+# milestone-driver - consumer setup
 
 Adopt milestone-driver in a repository in four steps. The whole point is that the
 discipline is mechanical, so most of this is one-time wiring.
@@ -14,7 +14,7 @@ published). Confirm both are enabled with `/plugin`.
 The first time you run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`,
 the plugin **auto-invokes `/milestone-driver:setup`** if the driver profile is absent
 or missing a Core key. The bootstrap infers every key it can from repo signals (default branch,
-gitflow layout, project type, test scripts) and presents detected defaults — you accept, edit,
+gitflow layout, project type, test scripts) and presents detected defaults - you accept, edit,
 or skip. It writes the profile to the canonical `.milestone-config/driver.json`. After writing
 the file it returns control so the original task continues immediately.
 
@@ -25,10 +25,10 @@ If your repo has no `.claude-plugin/plugin.json` (or you simply don't want a per
 **Manual authoring (fallback):** Create `.milestone-config/driver.json` (the canonical
 location). Only the Core keys are required. A legacy root `milestone-driver.json` is still
 read transitionally, and the migration to `.milestone-config/driver.json` is performed by the
-commands with a commit path — **`setup`** and **`solve-issue`** (the latter on its feature
+commands with a commit path - **`setup`** and **`solve-issue`** (the latter on its feature
 branch, so the move rides the issue PR); **`solve-milestone`** migrates via the first build it
 dispatches; **`triage`** surfaces detection but does not move the file; the **gate hooks** stay
-read-only. The move is idempotent and the transitional read covers the gap until it lands — see
+read-only. The move is idempotent and the transitional read covers the gap until it lands - see
 [`profile-schema.md`](profile-schema.md) for the full schema and the resolution/migration rules.
 Minimal example (Core keys only):
 
@@ -40,13 +40,13 @@ Minimal example (Core keys only):
 }
 ```
 
-Commit it — the gates read this file, so it must be present in every clone and on CI.
+Commit it - the gates read this file, so it must be present in every clone and on CI.
 
 ## 3. Restart Claude Code
 
 The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
-`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all plugin
-`PreToolUse` hooks registered there. They **load at session start** — restart
+`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` - all plugin
+`PreToolUse` hooks registered there. They **load at session start** - restart
 Claude Code after installing or updating the plugin so the hooks take effect. No
 separate native-hook installation step is required.
 
@@ -66,14 +66,14 @@ session knows the repo is milestone-driver–driven.
 
 Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:solve-issue <n>`) runs a gated pipeline. Two phases matter to you as a consumer:
 
-- **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering — through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues — it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
+- **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering - through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues - it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
 
-  **Triage reuse.** Results are cached in `.milestone-config/triage-cache.json` (gitignored, per-clone). On subsequent runs, an issue is re-triaged only when its body, comments, or labels have changed — unchanged issues reuse the cached result at zero agent cost. The run reports the reused/fresh split in its output. To force a full re-triage (e.g. after updating the triage agent itself), delete this file.
-- **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as **light** or **heavy** (default: **heavy**). The profile right-sizes ceremony — it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
+  **Triage reuse.** Results are cached in `.milestone-config/triage-cache.json` (gitignored, per-clone). On subsequent runs, an issue is re-triaged only when its body, comments, or labels have changed - unchanged issues reuse the cached result at zero agent cost. The run reports the reused/fresh split in its output. To force a full re-triage (e.g. after updating the triage agent itself), delete this file.
+- **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as **light** or **heavy** (default: **heavy**). The profile right-sizes ceremony - it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
 
   | What changes | Light | Heavy (default) |
   |---|---|---|
-  | Implementer verification | Targeted verify in place of full TDD red→green (still verifies — never skips) | Full TDD red→green |
+  | Implementer verification | Targeted verify in place of full TDD red→green (still verifies - never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
 
   **Review depth is not the risk profile.** `/code-review` effort and the review→fix cycle cap come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling:
@@ -90,19 +90,19 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
   **What the rubric looks at.** Triage classifies an issue as **heavy** when any of the following is true: a gap of type `contradiction` or `not-buildable`; an undeclared `DEPENDS_ON` edge; a UI surface with a design-review need; the issue body names a shared interface, schema, auth path, or payment path; or genuine ambiguity. An issue is **light** only when none of the above heavy conditions is triggered, all triage criteria are clean, and no shared boundary is named.
 
-- **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority — this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it — this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
+- **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority - this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it - this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 
 To enable the design-lens triage, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and it does not run. See [the layered gating model](architecture.md#the-layered-gating-model) for the full two-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
 ## Parallel builds and integration granularity
 
-These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls **how** issues build, `integrationGranularity` controls **how** they integrate. They differ in default. Parallel is the **default** execution mode — the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
+These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls **how** issues build, `integrationGranularity` controls **how** they integrate. They differ in default. Parallel is the **default** execution mode - the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
 
 ### Parallel by default: a Wave's independent issues build concurrently
 
-The driver builds the mutually-independent issues within a single dependency Wave **concurrently, by default** — there is no flag to add and nothing to opt into per run. To force the old one-at-a-time behavior, set `parallel: false` in your profile. That profile key is the **only** force-sequential surface — there is **no `--sequential` flag**. Setting `parallel: false` also suppresses the one-time DB-isolation question described below.
+The driver builds the mutually-independent issues within a single dependency Wave **concurrently, by default** - there is no flag to add and nothing to opt into per run. To force the old one-at-a-time behavior, set `parallel: false` in your profile. That profile key is the **only** force-sequential surface - there is **no `--sequential` flag**. Setting `parallel: false` also suppresses the one-time DB-isolation question described below.
 
-**Back-compat.** There is no `--parallel` flag anymore; a habit-typed one is harmlessly stripped and ignored — parallel is already the default, the argument resolver strips any `--<token>` generically, and it never corrupts the milestone identifier.
+**Back-compat.** There is no `--parallel` flag anymore; a habit-typed one is harmlessly stripped and ignored - parallel is already the default, the argument resolver strips any `--<token>` generically, and it never corrupts the milestone identifier.
 
 Each of those issues builds in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), and they integrate one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-adjacent same-file edits (two edits on directly adjacent lines conflict); anything non-trivial or red parks `blocked` for you instead of guessing.
 
@@ -110,21 +110,21 @@ Each of those issues builds in its own git worktree (under a gitignored scratch 
 
 **Do not reach for `merge=union` in `.gitattributes` to make this go away.** Union never reports a conflict, so it removes the only signal you would get. It also interleaves multi-line changes into structurally broken output: a table row can land below the trailing bullets, orphaned from its table. A single-line-per-worker append does merge clean and correct under union, which is exactly what makes it tempting; the corruption shows up once a contribution is a multi-line block whose lines belong in different parts of the file, which is where union's interleaving drops one of them in the wrong place.
 
-**How wide it goes — `maxParallelWorkers`.** The concurrent agent fan-out is capped per Wave — one shared cap covering builds and reviews together, since the two overlap. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling — for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 — never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize — a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
+**How wide it goes - `maxParallelWorkers`.** The concurrent agent fan-out is capped per Wave - one shared cap covering builds and reviews together, since the two overlap. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling - for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 - never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize - a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
 
 The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the build stages and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
 #### DB isolation (consumer responsibility)
 
-A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each build runs `unitTestCmd` in its own worktree directory — but all N share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk — it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
+A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each build runs `unitTestCmd` in its own worktree directory - but all N share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk - it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
 
-**Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds — and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
+**Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds - and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
 
 **How to isolate.** Use a per-worker database pattern:
 
 | Stack | Isolation mechanism |
 |---|---|
-| Ruby / RSpec | [`parallel_tests`](https://github.com/grosser/parallel_tests) gem — sets `TEST_ENV_NUMBER` per worker; configure `database.yml` to suffix the DB name with `ENV['TEST_ENV_NUMBER']` so each worker gets `myapp_test1`, `myapp_test2`, … |
+| Ruby / RSpec | [`parallel_tests`](https://github.com/grosser/parallel_tests) gem - sets `TEST_ENV_NUMBER` per worker; configure `database.yml` to suffix the DB name with `ENV['TEST_ENV_NUMBER']` so each worker gets `myapp_test1`, `myapp_test2`, … |
 | Python / pytest | [`pytest-xdist`](https://pytest-xdist.readthedocs.io/) with `--dist=loadscope` + a DB-naming fixture that reads `worker_id` from `pytest-xdist`'s `request` fixture and suffixes `DATABASE_URL` |
 | .NET / xUnit | Spin up an isolated `TestContainers` DB per test class, or set `DATABASE_URL` per worker via a `GlobalSetup` that appends the worker index |
 | Any stack | Set `DATABASE_URL` (or equivalent) per worker to a dedicated per-worker DB name, and ensure `db:test:prepare` (or equivalent) runs for each DB before the suite |
@@ -134,11 +134,11 @@ A git worktree isolates the **filesystem**, not external services. When the driv
 - **Yes** → the run goes **parallel**, and `parallel: true` is written to `.milestone-config/driver.json`.
 - **No** → the run goes **sequential**, and `parallel: false` is written.
 
-Either way the run prints: *"Recorded `parallel: <value>` in `.milestone-config/driver.json` — change it there anytime."* The question is asked only once — the recorded value answers it on every later run (edit or delete the key to be asked again).
+Either way the run prints: *"Recorded `parallel: <value>` in `.milestone-config/driver.json` - change it there anytime."* The question is asked only once - the recorded value answers it on every later run (edit or delete the key to be asked again).
 
-A repo with **no `unitTestCmd`** raises no DB hazard, so the question never fires and `parallel` stays absent — the run is parallel by default. (Absent means "not yet decided," not "off.")
+A repo with **no `unitTestCmd`** raises no DB hazard, so the question never fires and `parallel` stays absent - the run is parallel by default. (Absent means "not yet decided," not "off.")
 
-In a **non-interactive / headless** run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron), the driver cannot ask a human, so it does **not** prompt. It degrades to **sequential** with a loud note and records **nothing** — no human actually decided: *"⚠ unitTestCmd set and no parallel-safety decision recorded — running sequential; set `"parallel": true` in `.milestone-config/driver.json` to enable parallel builds."* This mirrors the degrade-with-a-logged-note pattern used elsewhere in this doc (for example, the version-free fallback above).
+In a **non-interactive / headless** run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron), the driver cannot ask a human, so it does **not** prompt. It degrades to **sequential** with a loud note and records **nothing** - no human actually decided: *"⚠ unitTestCmd set and no parallel-safety decision recorded - running sequential; set `"parallel": true` in `.milestone-config/driver.json` to enable parallel builds."* This mirrors the degrade-with-a-logged-note pattern used elsewhere in this doc (for example, the version-free fallback above).
 
 ### `integrationGranularity`: integrate per issue or per wave
 
@@ -196,7 +196,7 @@ The trade-off: nothing reaches your remote until the milestone-end push, so remo
 
 ## Permission pre-flight gate
 
-Because the driver dispatches background agents on the **default** path, a pre-flight gate fires once at the start of every run, before the first one is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface — or no layer is readable — the run falls back to **synchronous, sequential** dispatch automatically: concurrent builds require background dispatch, so a permission gap forces the run one-at-a-time.
+Because the driver dispatches background agents on the **default** path, a pre-flight gate fires once at the start of every run, before the first one is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface - or no layer is readable - the run falls back to **synchronous, sequential** dispatch automatically: concurrent builds require background dispatch, so a permission gap forces the run one-at-a-time.
 
 **The fastest fix when you see a 🔴 gap table:** run `/fewer-permission-prompts` in the repo. That skill scans recent transcripts for tool calls you've already approved and builds a prioritized allowlist in `.claude/settings.json`, covering the pipeline surface in one pass. After running it, re-run the milestone command; the gate should clear.
 
@@ -213,21 +213,21 @@ Because the driver dispatches background agents on the **default** path, a pre-f
 
 ## Trello integration (optional)
 
-milestone-driver can mirror milestone progress to a Trello board. The integration is **opt-in, best-effort, and never gates a run** — a Trello outage or absent MCP server never blocks or parks an issue.
+milestone-driver can mirror milestone progress to a Trello board. The integration is **opt-in, best-effort, and never gates a run** - a Trello outage or absent MCP server never blocks or parks an issue.
 
 ### Prerequisite
 
-The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/delorenj/mcp-server-trello) MCP server (`mcp__trello__*` tools) to be loaded in your Claude Code session. This is a prerequisite of the integration, NOT of milestone-driver itself — the plugin functions fully without it.
+The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/delorenj/mcp-server-trello) MCP server (`mcp__trello__*` tools) to be loaded in your Claude Code session. This is a prerequisite of the integration, NOT of milestone-driver itself - the plugin functions fully without it.
 
 **Timing distinction:**
 - **At setup time:** the MCP server must be present and loaded for the Integrations tier to appear in `/milestone-driver:setup`. If the server is absent during setup, no `integrations.trello` node will be written to your profile (though you can hand-add it as described below).
-- **At run time:** if the MCP server is absent, every Trello step is skipped with a single log line (`Trello MCP tools not available in this session — all Trello steps skipped`) and the run proceeds normally. The plugin itself has no Trello dependency.
+- **At run time:** if the MCP server is absent, every Trello step is skipped with a single log line (`Trello MCP tools not available in this session - all Trello steps skipped`) and the run proceeds normally. The plugin itself has no Trello dependency.
 
 ### How to enable
 
-**Option 1 — re-run setup.** With the `@delorenj/mcp-server-trello` MCP server loaded, run `/milestone-driver:setup` directly. The Integrations tier (the last tier) will appear and walk you through board selection and list naming. Existing profile values are pre-filled, so re-running is safe for upgraders — no core keys are overwritten.
+**Option 1 - re-run setup.** With the `@delorenj/mcp-server-trello` MCP server loaded, run `/milestone-driver:setup` directly. The Integrations tier (the last tier) will appear and walk you through board selection and list naming. Existing profile values are pre-filled, so re-running is safe for upgraders - no core keys are overwritten.
 
-**Option 2 — hand-add the node.** Add an `integrations.trello` object directly to `.milestone-config/driver.json` (or the legacy root `milestone-driver.json` until it migrates). Only `boardId` is required; the `lists` sub-keys are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"`. Remember: the `@delorenj/mcp-server-trello` MCP server must be loaded in your Claude Code session at run time or all Trello steps will skip with a single log line. A profile written with all defaults accepted needs only `boardId`:
+**Option 2 - hand-add the node.** Add an `integrations.trello` object directly to `.milestone-config/driver.json` (or the legacy root `milestone-driver.json` until it migrates). Only `boardId` is required; the `lists` sub-keys are individually optional and default to `"Queue"`, `"In Progress"`, and `"In Review"`. Remember: the `@delorenj/mcp-server-trello` MCP server must be loaded in your Claude Code session at run time or all Trello steps will skip with a single log line. A profile written with all defaults accepted needs only `boardId`:
 
 ```json
 {
@@ -262,7 +262,7 @@ To override list names (all names are case-sensitive; a missing list is auto-cre
 }
 ```
 
-For the full `integrations.trello` key reference — `boardId`, `lists.queue`, `lists.inProgress`, `lists.inReview`, and their types, defaults, and constraints — see [profile-schema.md](profile-schema.md#keys).
+For the full `integrations.trello` key reference - `boardId`, `lists.queue`, `lists.inProgress`, `lists.inReview`, and their types, defaults, and constraints - see [profile-schema.md](profile-schema.md#keys).
 
 ### What it tracks
 
@@ -272,16 +272,16 @@ Each lifecycle event below is best-effort. Two distinct skip modes apply: if the
 |---|---|
 | **Run start** | Card resolution runs in order: (1) the `<!-- trello: <card-url> -->` back-link in the GitHub milestone description is checked first and is authoritative if present; (2) if absent, a name-match is attempted across Queue / In Progress / In Review; (3) if still unresolved, a new card is created in the Queue list. A back-link is written to the milestone description after resolution for idempotent lookup on future runs. An "Issues" checklist is populated with every open milestone issue at card-creation time (adoption leaves the existing checklist as-is). |
 | **Phase 0 (after triage)** | A triage summary comment is posted to the card (all-clear or gap table + Wave dependency graph). If at least one issue is buildable, the card is moved from Queue to In Progress. If all issues are parked, the card stays in Queue with an explanatory comment. |
-| **On each issue merge** | The matching checklist item (matched on the leading `#<n>` token) is ticked complete. Under `integrationGranularity: "wave"`, ticks fire after the wave PR merges and issues are bulk-closed — not per-merge during the build. |
+| **On each issue merge** | The matching checklist item (matched on the leading `#<n>` token) is ticked complete. Under `integrationGranularity: "wave"`, ticks fire after the wave PR merges and issues are bulk-closed - not per-merge during the build. |
 | **Run finish** | A summary comment is posted with merged issues, parked issues, and any skipped Trello updates. If zero open milestone issues carry a blocker label (`needs design`, `needs decision`, `blocked`), the card moves to In Review. If parks remain, the card stays In Progress with an explanatory comment. |
 
-For the full operational spec — the card-resolution order, the card state machine, the back-link mechanics, and the Phase 0 / loop / finish hooks — see [trello-sync.md](../skills/solve-milestone/trello-sync.md), the normative reference the orchestrator reads at run time.
+For the full operational spec - the card-resolution order, the card state machine, the back-link mechanics, and the Phase 0 / loop / finish hooks - see [trello-sync.md](../skills/solve-milestone/trello-sync.md), the normative reference the orchestrator reads at run time.
 
 ### Known limitations
 
 1. **Moving to a Completed list is manual.** The plugin never moves a card to a "Completed" or "Done" list. After the `integrationBranch` → `protectedBranch` release merge, move the card yourself.
 
-2. **The checklist is not reconciled on re-runs.** The "Issues" checklist is created once at card-creation time and never updated. Issues added to the milestone after card creation do not appear in the checklist automatically. Manually closed issues are not auto-ticked. On adoption (an existing card matched by name), the existing checklist is preserved as-is — no reconciliation.
+2. **The checklist is not reconciled on re-runs.** The "Issues" checklist is created once at card-creation time and never updated. Issues added to the milestone after card creation do not appear in the checklist automatically. Manually closed issues are not auto-ticked. On adoption (an existing card matched by name), the existing checklist is preserved as-is - no reconciliation.
 
 3. **All updates are best-effort and never-gating.** A Trello outage never blocks or fails a run. Skipped updates are collected and listed in the final summary comment and run output.
 
@@ -308,7 +308,7 @@ Your answer is held for the whole run; you are never asked again per issue.
 | Answer | What happens |
 |---|---|
 | **Auto** | Every issue this run parks enters the remediate loop: the driver reads that issue's `🔴 Triage` findings, invokes `/milestone-feeder:remediate <n>`, re-runs triage on the corrected body, and clears the park label when the re-triage comes back clean. Attempt cap: 1 per issue per run. |
-| **Leave them for me** | Today's behavior, unchanged: one park label, one `🔴 Parked — ` comment, and the run continues with independent clean issues. No issue body is edited. |
+| **Leave them for me** | Today's behavior, unchanged: one park label, one `🔴 Parked - ` comment, and the run continues with independent clean issues. No issue body is edited. |
 
 Either answer leaves the triage comment's closing line intact, naming the verb: "run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label."
 
@@ -326,16 +326,16 @@ There is nothing to configure. **No profile key exists for this integration** an
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).
 
-**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge — and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all — it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does **not** by itself keep the branches topologically in sync — the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
+**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge - and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all - it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does **not** by itself keep the branches topologically in sync - the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
 
 When the integration branch is ready to ship, run the tail in order:
 
-1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then **merge it with `--merge`** — **before** you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
+1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then **merge it with `--merge`** - **before** you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
    ```
    gh pr merge <release-PR> --merge
    ```
    `code-review-gate` exempts this merge on the PR's **fetched `baseRefName`**, read through `gh pr view`, not on any flag of the command above: only the create leg reads `--base`, and this exemption additionally needs `gh` on `PATH` and that view to succeed. Write a `/code-review run:` line into the release PR's body by hand anyway, for the audit trail. Do not copy step 3's value: this PR carries the whole milestone's `sourceGlobs` changes, so `n/a` would be a false claim. Record what happened, e.g. `/code-review run: yes (per-issue reviews on the merges into <integrationBranch>)`.
-2. **Tag and cut the GitHub Release** on `protectedBranch`, AFTER the merge, so the Releases page tracks what shipped. If your repo carries a `CHANGELOG.md` (this plugin does — `solve-milestone` authors the release entry, which doubles as the release body), pass that entry as the notes:
+2. **Tag and cut the GitHub Release** on `protectedBranch`, AFTER the merge, so the Releases page tracks what shipped. If your repo carries a `CHANGELOG.md` (this plugin does - `solve-milestone` authors the release entry, which doubles as the release body), pass that entry as the notes:
    ```
    gh release create v<version> --target <protectedBranch> --notes "$(<this release's CHANGELOG.md section>)"
    ```
@@ -366,7 +366,7 @@ EOF
 **Two footguns:**
 
 - **Don't tag before the merge.** Running a bare `gh release create v<version>` before the release PR merges tags the *old* `protectedBranch` tip with empty/wrong notes (this happened in v1.9.2). Merge first (step 1), then tag (step 2).
-- **A PR-locked `integrationBranch` blocks direct pushes** — even for admins. So you can't fix a squash-divergence by pushing `integrationBranch`; that's the second reason to use `--merge`.
+- **A PR-locked `integrationBranch` blocks direct pushes** - even for admins. So you can't fix a squash-divergence by pushing `integrationBranch`; that's the second reason to use `--merge`.
 
 Cut the Release (steps 2–4) every time: the loop bumps the version on `integrationBranch` but never tags or releases, so skipping it leaves the Releases page stale even though the merge landed.
 
@@ -374,15 +374,15 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 
 | Test | Expected |
 |---|---|
-| Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) — dispatch the implementer instead |
+| Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) - dispatch the implementer instead |
 | The same edit from a dispatched subagent | allowed |
-| A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) — write BOM-less UTF-8 instead |
-| `git commit` with the unit suite red (staged source) — **when `unitTestCmd` is defined** | **blocked** (tests-green) |
+| A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) - write BOM-less UTF-8 instead |
+| `git commit` with the unit suite red (staged source) - **when `unitTestCmd` is defined** | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
-| `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) — exempt when `--base` targets `protectedBranch` |
+| `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |
 
-When `unitTestCmd` is absent, `tests-green` is a no-op — there is no unit gate to verify.
+When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 
 Each gate honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for deliberate
 human override.

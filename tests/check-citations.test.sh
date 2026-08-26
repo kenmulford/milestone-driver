@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for check-citations.sh (issue #432).
+# milestone-driver - golden-matrix runner for check-citations.sh (issue #432).
 # Each row of check-citations.cases.tsv is: name<TAB>golden<TAB>want_exit.
 # <name> is a fixture REPO ROOT under tests/fixtures/check-citations/<name>/ and
 # <golden> is its expected stdout under .../_expected/. The runner cd's to the
@@ -11,7 +11,7 @@
 # What the nine cases prove, one property each:
 #   resolves-once       an anchor matching exactly one line is OK, exit 0
 #   zero-matches        a stale anchor is FAIL 0 matches, exit 1
-#   two-matches         an anchor matching twice is FAIL 2 matches, exit 1 —
+#   two-matches         an anchor matching twice is FAIL 2 matches, exit 1 -
 #                       the uniqueness property. Exit status alone would never
 #                       catch it: issue #431 landed two anchors that resolved at
 #                       exit 0 onto the WRONG line.
@@ -32,7 +32,7 @@
 #                       holding a nested parenthetical; a citation whose TARGET
 #                       FILE does not exist is FAIL 0 matches
 #   prose-not-citation  one line per measured prose lookalike, and the whole
-#                       fixture emits NOTHING — a false positive here is the
+#                       fixture emits NOTHING - a false positive here is the
 #                       failure mode that made a naive matcher unusable
 #   frozen-excluded     docs/superpowers/**, docs/briefs/**, CHANGELOG.md and
 #                       tests/fixtures/** are skipped as SOURCES, each with a
@@ -44,9 +44,9 @@
 # the fixture), which is the one path the table cannot drive and the one where
 # `${1:-$PWD}` and the pwsh twin's `(Get-Location).Path` could diverge.
 #
-# RAW vs NORMALIZED — same rule as tests/resolve-citation.test.sh (RAW vs NORMALIZED — the distinction):
+# RAW vs NORMALIZED - same rule as tests/resolve-citation.test.sh (RAW vs NORMALIZED - the distinction):
 #   * ACTUAL stdout/stderr is captured RAW and compared byte-for-byte, never
-#     rebuilt from a line array — otherwise the runner is blind to CRLF creep
+#     rebuilt from a line array - otherwise the runner is blind to CRLF creep
 #     and to a missing trailing newline, the twin-parity bugs this matrix
 #     exists to catch.
 #   * The GOLDEN gets ONE normalization, CRLF -> LF, because a CRLF working
@@ -71,7 +71,7 @@ ERRFILE="$TMP/err"
 
 TAB=$'\t'
 EXPECT_COLS=3
-# split_tab <row> — bash-3.2-safe TAB split preserving empty fields. Copied from
+# split_tab <row> - bash-3.2-safe TAB split preserving empty fields. Copied from
 # tests/resolve-citation.test.sh (split_tab <row>).
 split_tab() {
   local rest="$1$TAB"
@@ -79,15 +79,15 @@ split_tab() {
   while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 
-# slurp_x <path> — a file's contents with a literal 'X' sentinel appended, so
+# slurp_x <path> - a file's contents with a literal 'X' sentinel appended, so
 # the caller's $(...) cannot strip the trailing newline off the capture.
 slurp_x() { cat "$1"; printf X; }
 
-# read_golden <name> — the named golden, CRLF -> LF only, with the same trailing
+# read_golden <name> - the named golden, CRLF -> LF only, with the same trailing
 # 'X' sentinel slurp_x uses: this function is itself called through $(...), so
 # WITHOUT the sentinel the caller's command substitution strips the golden's
 # final newline and every case fails on a phantom one-byte diff. A
-# named-but-missing golden is FATAL — returning '' would silently turn the case
+# named-but-missing golden is FATAL - returning '' would silently turn the case
 # into "expect empty stdout", i.e. a green run that asserts nothing.
 read_golden() {
   [ -f "$GOLD/$1" ] || { echo "FATAL: case names a missing golden: $GOLD/$1" >&2; exit 3; }
@@ -127,7 +127,7 @@ while IFS= read -r row || [ -n "$row" ]; do
 done < "$CASES"
 
 if [ "$case_count" -eq 0 ]; then
-  echo "FATAL: parsed 0 cases from $CASES — this run tested nothing" >&2
+  echo "FATAL: parsed 0 cases from $CASES - this run tested nothing" >&2
   exit 1
 fi
 
@@ -154,7 +154,7 @@ fi
 
 # ---- bespoke: NO argument at all, run from inside the fixture root. The table
 # always passes a root explicitly, so this is the only exercise of the
-# `${1:-$PWD}` default — and the only place it can diverge from the pwsh twin's
+# `${1:-$PWD}` default - and the only place it can diverge from the pwsh twin's
 # `(Get-Location).Path`.
 exp_out="$(read_golden "resolves-once.txt")"; exp_out="${exp_out%X}"
 ( cd "$ROOT/$FIX/resolves-once" && "$BASH_BIN" "$SCRIPT" >"$OUTFILE" 2>"$ERRFILE" ); rc=$?
@@ -175,14 +175,14 @@ fi
 # checkout and a committed UTF-16 file would be corrupted by that same
 # conversion; a FIFO, a symlink target and a chmod-000 directory are not
 # git-storable at all. They are built here byte for byte, and the .ps1 runner
-# builds the IDENTICAL trees and asserts the SAME committed goldens — which is
+# builds the IDENTICAL trees and asserts the SAME committed goldens - which is
 # what holds the two legs' decoders and walks together. Before these cases the
 # fixture set had zero CRLF files, zero BOMs, zero files missing a final
 # newline, zero non-UTF-8 bytes, zero symlinks and zero non-regular files, and
 # that blind spot is exactly why the golden matrix stayed green through four
 # twin-splitting defects.
 
-# build_gen_bytes <base> — <base>/gen is the repo root; <base>/outside.md sits
+# build_gen_bytes <base> - <base>/gen is the repo root; <base>/outside.md sits
 # OUTSIDE it, which is what the containment case reaches for.
 #   crlf.md       a trailing CR must not shift a line number or a match
 #   bom.md        a UTF-8 BOM is three ORDINARY BYTES; neither leg may strip it
@@ -193,7 +193,7 @@ fi
 #                 while this leg reported FAIL 0 matches: same tree, one leg red
 #                 and one green
 #   ../outside.md containment: an anchor may not read a file next to the checkout
-# cite_line <n> <path> <anchor> — emits "<n> `<path> (<anchor>)`" plus a
+# cite_line <n> <path> <anchor> - emits "<n> `<path> (<anchor>)`" plus a
 # newline. The citation is ASSEMBLED from arguments and never spelled out
 # literally anywhere in this file, because tests/ IS SCANNED by the gate under
 # test: a literal would be a real citation here, resolved against a fixture path
@@ -222,7 +222,7 @@ build_gen_bytes() {
   printf '\377\376u\000t\000f\0001\0006\000 \000a\000n\000c\000h\000o\000r\000\n\000' > "$b/gen/src/utf16.md"
 }
 
-# build_gen_unix <base> — non-regular entries and an unreadable directory.
+# build_gen_unix <base> - non-regular entries and an unreadable directory.
 # Unix-only: a FIFO and an unprivileged symlink do not exist on Windows, so the
 # case reports SKIPPED there rather than failing. CI runs both legs on Linux.
 #   link.md    a symlink is LISTED BY NEITHER leg, so citing it is 0 matches

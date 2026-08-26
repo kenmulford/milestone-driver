@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# milestone-driver — behavior matrix runner for render-daemon.sh (issue #208).
+# milestone-driver - behavior matrix runner for render-daemon.sh (issue #208).
 # Drives the render-daemon lifecycle seam (start | status | stop) against a
 # lightweight throwaway app server, asserting every acceptance criterion:
 # happy autostart, reuse, empty/no-daemon status+stop, boot-failure (fail-loud
 # nonzero), stale-state cleanup -> autostart, idempotent teardown, and a
 # COMPOUND-serverCmd teardown that asserts the port is actually freed after stop
-# (the genuineness guard for the process-group reap — a wrapper-only kill would
+# (the genuineness guard for the process-group reap - a wrapper-only kill would
 # leak the forked listener and the port).
 # The .sh and .ps1 runners assert the SAME command + state-file contract
 # (cross-impl parity), mirroring tests/read-doc-section.test.{sh,ps1}.
@@ -13,7 +13,7 @@
 # Stub server: a trivial python3 HTTP server is the consumer `serverCmd`. python3
 # ships on the CI ubuntu-latest runner; absent locally, the boot/reuse/stale
 # sub-cases SKIP cleanly (mirroring the command-presence guards in
-# tests/extract-version.test.sh / ci-preflight-steps.sh) — the state-shape and
+# tests/extract-version.test.sh / ci-preflight-steps.sh) - the state-shape and
 # no-daemon sub-cases still run with no stub.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +22,7 @@ SCRIPT="$HERE/../scripts/render-daemon.sh"
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 
 pass=0; fail=0; skipped=0
-# Per-run temp dir as the throwaway workspace root — mktemp -d avoids fixed-path
+# Per-run temp dir as the throwaway workspace root - mktemp -d avoids fixed-path
 # collisions under concurrent runs and is portable; trap removes it on exit AND
 # stops any stub daemon left running so no orphan process survives the suite.
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/rd.$$")"; mkdir -p "$TMP"
@@ -47,7 +47,7 @@ HAVE_PY=0; command -v "$PY" >/dev/null 2>&1 && HAVE_PY=1
 PORT=8731
 READY_URL="http://127.0.0.1:$PORT/"
 
-# write_profile <serverCmd> <readyUrl> — seed the workspace driver.json with a
+# write_profile <serverCmd> <readyUrl> - seed the workspace driver.json with a
 # visualCapture block (the daemon reads serverCmd/readyUrl straight from it).
 write_profile() {
   mkdir -p "$TMP/.milestone-config"
@@ -94,7 +94,7 @@ else
 bash "$SCRIPT" stop "$TMP" >/dev/null 2>&1 || true
 
 # Malformed-pgid footgun guard (regression for the group-reap fix): a state file
-# recording pid 0 / 1 must NEVER reach `kill -- -<g>` — `kill -- -0` signals the
+# recording pid 0 / 1 must NEVER reach `kill -- -<g>` - `kill -- -0` signals the
 # CALLER'S entire process group and `kill -- -1` signals every process the user
 # owns. A corrupted pid must read as DOWN: stop/status exit 0, the state file is
 # removed, and NOTHING external is signaled. We prove "nothing signaled" with a
@@ -128,7 +128,7 @@ for badpid in 0 1; do
   caught=$([ -f "$flag" ] && echo 1 || echo 0)
   if [ "$src" -eq 0 ] && [ "$stc" -eq 0 ] && [ "$state_gone" -eq 1 ] \
      && [ "$caught" -eq 0 ] && [ "$salive" -eq 1 ]; then pass_t; else
-    fail_t "malformed-pgid(pid=$badpid): stop-rc=$src status-rc=$stc state-removed=$state_gone caller-signaled=$caught sentinel-alive=$salive (want 0/0/1/0/1 — a kill -- -$badpid would signal the caller's group)"; fi
+    fail_t "malformed-pgid(pid=$badpid): stop-rc=$src status-rc=$stc state-removed=$state_gone caller-signaled=$caught sentinel-alive=$salive (want 0/0/1/0/1 - a kill -- -$badpid would signal the caller's group)"; fi
   rm -f "$flag"
 done
 
@@ -152,7 +152,7 @@ if [ "$HAVE_PY" -eq 1 ]; then
   else
     fail_t "autostart: rc=$rc out=[$out] state-exists=$([ -f "$STATE" ] && echo y || echo n)"; fi
 
-  # Reuse: a second start with a live, ours-token-matching daemon reuses it —
+  # Reuse: a second start with a live, ours-token-matching daemon reuses it -
   # no second spawn (pid unchanged), reports the port, exits 0.
   pid1="$(jq -r '.pid' "$STATE" 2>/dev/null)"
   out="$(RENDER_DAEMON_TIMEOUT=15 bash "$SCRIPT" start "$TMP" 2>&1)"; rc=$?
@@ -171,21 +171,21 @@ if [ "$HAVE_PY" -eq 1 ]; then
   # exit 0; the pid is no longer alive; a second stop is a clean no-op.
   # stop sends SIGTERM to the recorded daemon's process group best-effort and
   # returns WITHOUT waiting (non-blocking teardown). The death is therefore
-  # asynchronous, so poll for it rather than asserting in the same instant — on a
+  # asynchronous, so poll for it rather than asserting in the same instant - on a
   # loaded runner the recorded `sleep` can still be alive for a microsecond after
   # stop returns. Mirror the sibling poll-with-timeout in the compound-teardown
   # case below (5x1s): poll kill -0 for death. The 5s window is generous and
-  # deterministic — on the happy path stop's SIGTERM reaps the `sleep` on the
+  # deterministic - on the happy path stop's SIGTERM reaps the `sleep` on the
   # first iteration, so stop_reaped flips to 1 and the case PASSES.
   #
   # The escalation is a DIAGNOSTIC SAFETY NET, not a silent rescue: if the grace
   # window elapses with the process STILL alive, that means stop did NOT reap it
-  # within 5s — a real teardown regression, not flake. We still group-SIGKILL the
-  # orphan (suite hygiene — leave no leaked `sleep`), but stop_reaped stays 0 so
+  # within 5s - a real teardown regression, not flake. We still group-SIGKILL the
+  # orphan (suite hygiene - leave no leaked `sleep`), but stop_reaped stays 0 so
   # the assertion FAILS loudly. An escalation kill must never flip the result to
   # PASS, otherwise a broken stop would hide behind the test's own cleanup (the
-  # state-removed assertion always passes — teardown_state unconditionally rm's
-  # the state file — so the liveness check is the only thing that catches it).
+  # state-removed assertion always passes - teardown_state unconditionally rm's
+  # the state file - so the liveness check is the only thing that catches it).
   out="$(bash "$SCRIPT" stop "$TMP" 2>&1)"; rc=$?
   stop_reaped=0
   for _ in 1 2 3 4 5; do
@@ -193,14 +193,14 @@ if [ "$HAVE_PY" -eq 1 ]; then
     sleep 1
   done
   if [ "$stop_reaped" -eq 0 ]; then
-    # Orphan hygiene only — does NOT count as a pass. Guard the negative-group
+    # Orphan hygiene only - does NOT count as a pass. Guard the negative-group
     # signal with the same valid_pgid contract the production teardown applies at
-    # its kill site — scripts/render-daemon.sh (if valid_pgid "$g" && group_alive)
-    # — where the guard itself is the valid_pgid() helper defined above it: a pgid
+    # its kill site - scripts/render-daemon.sh (if valid_pgid "$g" && group_alive)
+    # - where the guard itself is the valid_pgid() helper defined above it: a pgid
     # must be a non-empty
     # run of digits AND > 1, else `kill -- -0` signals the caller's whole group
     # and `kill -- -1` every process the user owns. pid1 is a verified real pgid
-    # in normal flow, so this never fires on the happy path — it just ensures the
+    # in normal flow, so this never fires on the happy path - it just ensures the
     # escalation can never become the very footgun the file guards elsewhere.
     case "$pid1" in
       ''|*[!0-9]*) : ;;                                  # not digits -> never group-kill
@@ -209,18 +209,18 @@ if [ "$HAVE_PY" -eq 1 ]; then
     esac
   fi
   if [ "$rc" -eq 0 ] && [ ! -f "$STATE" ] && [ "$stop_reaped" -eq 1 ]; then pass_t; else
-    fail_t "teardown: rc=$rc state-removed=$([ ! -f "$STATE" ] && echo y || echo n) stop-reaped=$stop_reaped (stop did not reap the daemon within 5s — teardown regression)"; fi
+    fail_t "teardown: rc=$rc state-removed=$([ ! -f "$STATE" ] && echo y || echo n) stop-reaped=$stop_reaped (stop did not reap the daemon within 5s - teardown regression)"; fi
   out="$(bash "$SCRIPT" stop "$TMP" 2>&1)"; rc=$?
   if [ "$rc" -eq 0 ]; then pass_t; else fail_t "teardown-idempotent: rc=$rc (want exit 0)"; fi
 
   # Compound-serverCmd teardown (genuineness guard for the process-group reap):
   # `python3 -m http.server ... & wait` backgrounds the listener and keeps the
-  # bash wrapper alive on `wait` — so bash does NOT exec-optimize, the recorded
+  # bash wrapper alive on `wait` - so bash does NOT exec-optimize, the recorded
   # pid is the WRAPPER, and the real listener is a CHILD in the wrapper's process
   # group (this mirrors a realistic `npm start` that forks its server). A
   # wrapper-only `kill <pid>` would leave the listener holding the port; only a
   # process-GROUP reap frees it. Uses a 2nd port so it never collides with the
-  # autostart case above. (Verified to genuinely leak under a wrapper-only kill —
+  # autostart case above. (Verified to genuinely leak under a wrapper-only kill -
   # a single-command serverCmd would exec-optimize and hide this bug.)
   PORT2=8733
   READY_URL2="http://127.0.0.1:$PORT2/"
@@ -239,7 +239,7 @@ if [ "$HAVE_PY" -eq 1 ]; then
     done
     grp_gone=1; kill -0 -- -"$wpid" 2>/dev/null && grp_gone=0
     if [ ! -f "$STATE" ] && [ "$freed" -eq 1 ] && [ "$grp_gone" -eq 1 ]; then pass_t; else
-      fail_t "teardown-compound: state-removed=$([ ! -f "$STATE" ] && echo y || echo n) port-freed=$freed group-gone=$grp_gone (compound serverCmd leaked the listener — group reap failed)"; fi
+      fail_t "teardown-compound: state-removed=$([ ! -f "$STATE" ] && echo y || echo n) port-freed=$freed group-gone=$grp_gone (compound serverCmd leaked the listener - group reap failed)"; fi
   else
     fail_t "teardown-compound-setup: rc=$rc out=[$out] (compound serverCmd never came up; cannot test group reap)"; fi
   # Belt-and-suspenders: ensure nothing on PORT2 survives into later cases.

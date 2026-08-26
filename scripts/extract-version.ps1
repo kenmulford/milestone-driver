@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — deterministic milestone version extractor (issue #158).
+# milestone-driver - deterministic milestone version extractor (issue #158).
 # stdin: JSON {title, description?}. stdout: normalized version or empty.
 # When empty, stderr is "none" or "ambiguous:<v1>,<v2>,...". Fail-open, exit 0.
 function Emit-None { [Console]::Error.Write('none'); exit 0 }
@@ -33,7 +33,7 @@ function Scan([string]$textIn, [bool]$anchor) {
   foreach ($m in [regex]::Matches($text, $CAND)) {
     $start = $m.Index; $end = $m.Index + $m.Length; $match = $m.Value
     if ($start -gt 0) { if ($text[$start-1] -match '[0-9A-Za-z.]') { continue } }
-    # boundary after: reject digit, letter, or dot — symmetric with the before-check
+    # boundary after: reject digit, letter, or dot - symmetric with the before-check
     # (rejects a 5th component, a trailing digit, AND a trailing-letter token like
     # "1.2.3abc"). The suffix (-rc.1 / +build7) is part of the matched token, so the
     # after-char is evaluated PAST the suffix and pre-release/build metadata still pass.
@@ -43,12 +43,12 @@ function Scan([string]$textIn, [bool]$anchor) {
     # in a title are mostly NOT versions (dates "2024.06.19", section numbers
     # "section 1.2.3"), so the more ambiguous the shape, the stronger the position
     # it must occupy to be accepted.
-    #   * bare 2-part (1.9)      -> whole-title only — too ambiguous mid-sentence.
-    #   * bare 3/4-part (1.2.3)  -> title start OR end — rejects "section 1.2.3 rewrite".
-    #   * v-prefixed (v1.2.3)    -> anywhere — the explicit "v" disambiguates it.
+    #   * bare 2-part (1.9)      -> whole-title only - too ambiguous mid-sentence.
+    #   * bare 3/4-part (1.2.3)  -> title start OR end - rejects "section 1.2.3 rewrite".
+    #   * v-prefixed (v1.2.3)    -> anywhere - the explicit "v" disambiguates it.
     # tests/extract-version.cases.tsv is the parity/regression contract that pins
     # the date / section-number false-positive cases; do NOT "simplify" these tiers
-    # away — that regresses date_zeropad / bare_3part_mid / date_2part_decorated.
+    # away - that regresses date_zeropad / bare_3part_mid / date_2part_decorated.
     if ($anchor) {
       $hasv = $match -match '^[vV]'
       if (-not $hasv) {
