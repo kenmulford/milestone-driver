@@ -14,7 +14,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
 | Blocker-resolver agent | `agents/blocker-resolver.md` | Triage Step 3.5: returns `RESOLVED` or `NEEDS_HUMAN` per Blocker gap, so only a Blocker needing a human parks (read-only; profile-overridable) |
-| Hooks | `hooks/` | The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration / visual layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
+| Hooks | `hooks/` | The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` — all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
 ## Plugin version
@@ -23,15 +23,14 @@ Plugin version lives in `.claude-plugin/plugin.json` as the single source of tru
 
 ## The layered gating model
 
-Three defense-in-depth layers catch design gaps (underspecified or self-contradictory acceptance criteria, silent UX gaps, rendered defects) before they reach your integration branch. They are procedural (skill-level STOP/park decisions), not mechanical hooks: deciding "is this a new UI element / a contradictory design / a destructive op" means reading a diff or a recorded design, which a path-pattern `PreToolUse` hook cannot do.
+Two defense-in-depth layers catch design gaps (underspecified or self-contradictory acceptance criteria, silent UX gaps) before they reach your integration branch. They are procedural (skill-level STOP/park decisions), not mechanical hooks: deciding "is this a new UI element / a contradictory design / a destructive op" means reading a diff or a recorded design, which a path-pattern `PreToolUse` hook cannot do.
 
 | Layer | When | Catches | Mechanism |
 |---|---|---|---|
 | 0 - Proactive triage | Before any build: batched at `solve-milestone` start, single-issue at `solve-issue` start | Design contradictions, silent UX gaps, missing criteria, dependency ordering | `triage` skill plus `triage-reviewer` (architect lens) plus `design-reviewer` (front-end lens, UI issues only) |
 | 1 - Implementer declaration | After the implementer returns | `NEW_UI_ELEMENTS` / `DESTRUCTIVE_OPS` the implementer discovers mid-build | Implementer report fields the orchestrator gates on |
-| 2 - Visual-review gate | Post-build, pre-merge | Rendered defects that unit/E2E pass: misalignment, wrong default state, a flat list that should be grouped | UI issues leave the PR open for your visual sign-off (no auto-merge); light plus dark screenshots are attached when a render capability is configured, otherwise a PR-open-for-human-test note. Never fails, never auto-merges a UI issue |
 
-Triage front-loads most gaps into one consolidated up-front review and emits a dependency graph that drives the build loop; the implementer declaration backstops what triage couldn't foresee; the visual gate catches what only renders on-device. The mechanical gates below enforce how work is done; these three layers gate whether the design is sound enough to build and ship.
+Triage front-loads most gaps into one consolidated up-front review and emits a dependency graph that drives the build loop; the implementer declaration backstops what triage couldn't foresee. The mechanical gates below enforce how work is done; these two layers gate whether the design is sound enough to build and ship.
 
 ### Park, don't prompt
 
@@ -47,10 +46,10 @@ A park applies a comment plus a label, so you can triage a finished run by label
 | `blocked` | Held by an unmerged dependency, or an E2E-unverified park |
 | `needs design` | Design direction required before building (insufficient / contradictory design; silent-criteria new UI). Applied only after an active codebase-convention search comes up dry — a found, sound, cited convention is emulated (Advisory) instead of parked. |
 | `needs decision` | Non-design human decision required (new dependency; destructive-op confirm UX; architecture call) |
-| `needs review` | Built; UI PR open awaiting your visual sign-off (incl. the no-render path) |
+| `needs review` | Built; a PR whose CI came back red, needing a human before it can merge |
 | `judgment call` | A borderline autonomous call worth a post-run audit |
 
-A parked issue carries exactly one blocker label (`blocked` / `needs design` / `needs decision`), plus `in progress` if a branch exists; `needs review` and `judgment call` are orthogonal.
+A parked issue carries exactly one blocker label (`blocked` / `needs design` / `needs decision`), plus `in progress` if a branch exists; `judgment call` is orthogonal. `needs review` goes on a **PR**, never an issue, so it never appears in that set.
 
 ## The mechanical gates
 
@@ -101,13 +100,13 @@ For the full procedure (the feeder-installed gate, the question's verbatim text,
 
 ## The skills
 
-- `/milestone-driver:solve-milestone <name>`: triages the whole milestone for design gaps plus dependency order (Phase 0), then iterates the buildable issues by the validated dependency graph, running `/milestone-driver:solve-issue` on each; auto-merges logic-only issues to the integration branch on green (UI issues open a PR for your visual sign-off), and re-syncs before the next dependent issue. Runs unattended; parks blocked/gapped issues and continues with clean ones. Only a systemic failure ends the run early.
-- `/milestone-driver:solve-issue <n>`: the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself): single-issue triage, root-cause-or-park, implementer dispatch, unit plus E2E gates, code review, PR, and auto-merge (or the visual-review hold for UI issues). Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline. When the milestone-coherence-reviewer companion plugin is installed and configured, `solve-issue` runs it read-only over the implementer's uncommitted diff **before** the final `/code-review` as a never-gating post-build coherence pass — a second opinion on whether the change fits the rest of the app — wired via the default-filled `coherenceReviewAgent` key and silently skipped (absent-means-skip) when the companion is absent; it heals via follow-ups and never gates the merge.
+- `/milestone-driver:solve-milestone <name>`: triages the whole milestone for design gaps plus dependency order (Phase 0), then iterates the buildable issues by the validated dependency graph, running `/milestone-driver:solve-issue` on each; auto-merges built issues to the integration branch on green, and re-syncs before the next dependent issue. Runs unattended; parks blocked/gapped issues and continues with clean ones. Only a systemic failure ends the run early.
+- `/milestone-driver:solve-issue <n>`: the rigid, gated per-issue procedure the orchestrator runs (never authoring code itself): single-issue triage, root-cause-or-park, implementer dispatch, unit plus E2E gates, code review, PR, and auto-merge. Orchestrates the `superpowers:*` skills as its inner loop rather than reimplementing discipline. When the milestone-coherence-reviewer companion plugin is installed and configured, `solve-issue` runs it read-only over the implementer's uncommitted diff **before** the final `/code-review` as a never-gating post-build coherence pass — a second opinion on whether the change fits the rest of the app — wired via the default-filled `coherenceReviewAgent` key and silently skipped (absent-means-skip) when the companion is absent; it heals via follow-ups and never gates the merge.
 - `/milestone-driver:triage <milestone | issue>`: the standalone Layer-0 review phase: emits an all-clear or a gap table and posts a blocker summary on each affected issue, without building anything. Invoked automatically by the two skills above; runnable on its own to pre-flight a milestone.
 
 ## Visual capture (optional)
 
-The Layer-2 visual gate (above) holds every UI-touching PR open for human sign-off regardless of tooling. `visualCapture` is the optional render seam that attaches convenience evidence — light/dark screenshots of the new surface — to that held-open PR, so the human reviews from the diff *plus* the rendered shots instead of from the diff alone. It is configured as a `visualCapture` block in the profile (`serverCmd`, `readyUrl`, `signInPath` required; see [`profile-schema.md`](profile-schema.md)) and consumed by `solve-issue` step 6.7. Capture never changes the merge decision — it only enriches the evidence on a PR that is already held.
+`visualCapture` is the optional render seam that attaches convenience evidence — light/dark screenshots of the new surface — to a UI-touching PR, so a reviewer reads the diff *plus* the rendered shots instead of the diff alone. It is configured as a `visualCapture` block in the profile (`serverCmd`, `readyUrl`, `signInPath` required; see [`profile-schema.md`](profile-schema.md)) and consumed by `solve-issue` step 6.8. Capture never changes the merge decision — the PR auto-merges on green CI like any other.
 
 ### One render daemon per run
 
@@ -117,17 +116,14 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 - **State file.** Liveness is recorded in `.milestone-config/.runtime/render-daemon.json` (`port` · `token` · `pid` · `readyUrl` · `startedAt`). The `.runtime/` directory is gitignored, so nothing about the daemon lands in the repo.
 - **Ready probe.** Before any capture, readiness is confirmed by polling the `/health`-style `readyUrl` until it answers (within a bounded timeout) — the daemon never reports ready on a server that has not actually come up.
 - **Teardown.** At the end of the run the daemon is reaped (`render-daemon.<sh|ps1> stop` — idempotent SIGTERM to the recorded process group; a no-op when nothing is running).
-- **Serial inline, deferred under parallel builds (the default).** In a sequential run, capture runs inline in `solve-issue` step 6.7 against the one shared daemon. Under a parallel build, render capture is **deferred to the serial merge tail** — the render daemon must **not** boot during the concurrent phase, because a single fixed-port daemon cannot safely serve concurrent worktrees. A parallel UI issue gets its PR and its `needs review` label but no screenshots; the serial tail or the human captures before merge. (A consumer can inject a per-worktree `PORT` to opt capture back into the parallel phase.) This matches the ratified parallel-phase deferral in `skills/solve-issue/SKILL.md`; no shared-fixed-port multi-worktree render model exists anywhere.
+- **Serial inline, deferred under parallel builds (the default).** In a sequential run, capture runs inline in `solve-issue` step 6.8 against the one shared daemon. Under a parallel build, render capture is **deferred to the serial merge tail** — the render daemon must **not** boot during the concurrent phase, because a single fixed-port daemon cannot safely serve concurrent worktrees. A parallel UI issue gets its PR but no screenshots; the serial tail captures them. (A consumer can inject a per-worktree `PORT` to opt capture back into the parallel phase.) This matches the ratified parallel-phase deferral in `skills/solve-issue/SKILL.md`; no shared-fixed-port multi-worktree render model exists anywhere.
 
-### The three invariants
+### The two invariants
 
-`visualCapture` is engineered so that adding it can only *add* evidence — never change a run's outcome or weaken a gate. That guarantee covers `visualCapture` itself. The one carve-out named in invariant 3 is not a capture behavior: it is reached only by an operator setting `visualHold: false` in the profile by hand, and only under `integrationGranularity: "milestone"`. The invariants:
+`visualCapture` is engineered so that adding it can only *add* evidence — never change a run's outcome or weaken a gate. The invariants:
 
 1. **Opt-in / byte-unchanged when absent.** With no `visualCapture` block configured, run output is byte-for-byte identical to today's no-render behavior — no daemon boots, no render is attempted, no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
-2. **Never fail the run.** Any capture failure — a daemon that never becomes ready, a probe timeout, a capture command error, an absent or incomplete capability — degrades to the PR-open-for-human-test note. It never fails the build.
-3. **Never auto-merge a UI issue.** Screenshots are convenience evidence only. The human-before-merge hold is the real gate, and it holds regardless of whether evidence was captured: a UI issue is always left open with `needs review` for a human to test-render and merge. Under `integrationGranularity: "milestone"` that hold moves up one level, from the per-issue PR to the single milestone PR: a milestone branch whose diff touches a `uiSurfaceGlobs` path is left open with `needs review`, and the only thing that auto-merges it is an operator's affirmative `visualHold: false` in the profile. Under `integrationGranularity: "issue"` and `"wave"` the prohibition above stands unqualified, and `visualHold` has no effect.
-
-When `visualCapture` is absent or incomplete, the gate simply posts the human-visual-test note and holds the PR open — logic-only issues still auto-merge on green, and a repo with no `uiSurfaceGlobs` has no UI issues and auto-merges normally.
+2. **Never fail the run.** Any capture failure — a daemon that never becomes ready, a probe timeout, a capture command error, an absent or incomplete capability — is logged, and the PR proceeds exactly as it would with no capture configured. It never fails the build.
 
 ## Dispatch topology
 
@@ -174,7 +170,7 @@ Phase 1 — the concurrent stage dispatch covered above — builds but does not 
 
 Merge-in is the default rather than rebase plus force because a history-rewriting push is fragile across consumer safety setups: a consumer destructive-command hook and the runtime's destructive-action classifier can both block even the safe `--force-with-lease`, and a `no-push` hook permitting the push is necessary but not sufficient when those other guards stand. Merge-in gives the identical re-verify guarantee with no history rewrite. The rebase plus `--force-with-lease` variant stays available, but it must be allow-listed in the consumer's hooks and destructive-action classifier first.
 
-UI issues are not merged by the tail. They are held open with the `needs review` label for human visual sign-off (the Layer-2 visual gate, unchanged). The tail integrates only the non-UI built-green branches.
+The tail integrates every built-green branch, UI included: a UI-touching branch merges on green exactly like a logic-only one.
 
 ### Bounded auto-resolve conflict policy
 
@@ -230,7 +226,7 @@ No `md-epic-order` block in the body (including an unterminated fence), or one m
 
 ### The fan-out loop
 
-Resolved milestones drive **sequentially, in listed order** — never concurrently, because a later milestone may depend on an earlier one's merged code. For each one: re-check its issue counts first (`open_issues == 0` and at least one closed issue means it's already done — skip silently, so re-running the parent is idempotent with no checkpoint file); otherwise invoke `/milestone-driver:solve-milestone <number> --driven` and wait, re-sync `integrationBranch`, then continue to the next entry regardless of outcome. A milestone whose resolved title is purely numeric is skipped with a warning instead of driven — driving it would trip `solve-milestone`'s own numeric-title halt, which `--driven` does not suppress, stalling the unattended loop on a human who isn't there. A systemic failure inside a driven `solve-milestone` run (auth, a broken `integrationBranch`, missing tooling) halts the whole fan-out loop, not just the current milestone. The parent issue itself is never built, and its label state changes only via the park path above; on completion the run reports one row per milestone (done already / built this run / held for visual review / parked with opens).
+Resolved milestones drive **sequentially, in listed order** — never concurrently, because a later milestone may depend on an earlier one's merged code. For each one: re-check its issue counts first (`open_issues == 0` and at least one closed issue means it's already done — skip silently, so re-running the parent is idempotent with no checkpoint file); otherwise invoke `/milestone-driver:solve-milestone <number> --driven` and wait, re-sync `integrationBranch`, then continue to the next entry regardless of outcome. A milestone whose resolved title is purely numeric is skipped with a warning instead of driven — driving it would trip `solve-milestone`'s own numeric-title halt, which `--driven` does not suppress, stalling the unattended loop on a human who isn't there. A systemic failure inside a driven `solve-milestone` run (auth, a broken `integrationBranch`, missing tooling) halts the whole fan-out loop, not just the current milestone. The parent issue itself is never built, and its label state changes only via the park path above; on completion the run reports one row per milestone (done already / built this run / open, PR unmerged / parked with opens).
 
 ### The `--driven` token
 
@@ -268,11 +264,9 @@ With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` 
 `"wave"` integrates a whole Wave on one branch. The merge-tail mechanism is unchanged (merge-in plus re-verify against accumulated state plus bounded auto-resolve); only the target and the PR-opening differ:
 
 - No per-issue PR is opened. Each issue is built, verified, committed, and pushed on its own branch, and the branch goes to the tail.
-- The orchestrator integrates the Wave's built-green logic branches into a wave branch `wave/<milestone>-w<N>` (N is the Wave number), applying the same merge-tail policy with the wave branch as the integration target, so siblings are re-verified against each other exactly as in the per-issue tail.
+- The orchestrator integrates the Wave's built-green branches into a wave branch `wave/<milestone>-w<N>` (N is the Wave number), applying the same merge-tail policy with the wave branch as the integration target, so siblings are re-verified against each other exactly as in the per-issue tail.
 - The orchestrator opens one wave PR to the integration branch and squash-merges it on CI green. Auto-merge-on-green moves from per-issue to per-wave: the whole assembled Wave merges on one green CI run.
-- After the squash-merge the orchestrator explicitly closes the Wave's logic issues with `gh issue close`. A GitHub `Closes #n` keyword auto-closes an issue only when the PR merges into the repository's default branch; the wave PR targets the integration branch, which is typically not the default branch, so the keyword would not fire. The explicit close is the reliable mechanism.
-
-The logic-only carve-out: the visual-review gate is per-UI-issue, so a single wave PR cannot both auto-merge (logic) and hold open (UI). A Wave containing UI issues keeps those per-issue and held, each opening its own `needs review` PR for human visual sign-off, and only the logic issues join the wave branch.
+- After the squash-merge the orchestrator explicitly closes the Wave's issues with `gh issue close`. A GitHub `Closes #n` keyword auto-closes an issue only when the PR merges into the repository's default branch; the wave PR targets the integration branch, which is typically not the default branch, so the keyword would not fire. The explicit close is the reliable mechanism.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave, catching integration-level issues an isolated per-issue build misses. But one red wave-PR CI blocks the whole Wave. That is acceptable because the strong local gates (unit plus static preflight plus `/code-review` plus the tail's re-verify) catch most failures before CI, so CI is the backstop. It is not for repos with weak local gates. As with parallel mode, the wave PR targets the integration branch, never the protected branch.
 
@@ -291,8 +285,6 @@ The branch model:
 Milestone granularity works under both execution modes, sequential and parallel, exactly as wave granularity does. Nothing in it depends on which mode a run resolves to: `integrationGranularity` is how issues integrate, the `parallel` key is how they build.
 
 **The `milestone-` branch prefix is a stable, externally-consumed contract.** Consumers filter their own CI workflows against it (`branches-ignore: ['milestone-*']`), the same way the CI workflow emitted by milestone-bootstrapper treats its two job names as a contract that branch protection requires by exact string. Renaming the prefix later would silently un-exclude every consumer's filter and put the suppressed pushes back on their runners.
-
-The visual gate collapses with the PRs: a milestone branch whose diff against the integration branch touches a `uiSurfaceGlobs` path is labeled `needs review` and held for human sign-off instead of auto-merging, and it is held anyway when that diff cannot be determined. The one override is the `visualHold: false` profile key, scoped to milestone granularity only; under `"issue"` and `"wave"` the per-issue visual gate is untouched. See [`profile-schema.md`](profile-schema.md) for both keys.
 
 The default is unaffected. A profile with no `integrationGranularity` key, or with `"issue"`, behaves byte-for-byte as it does today, so an existing consumer sees no change from this value existing.
 

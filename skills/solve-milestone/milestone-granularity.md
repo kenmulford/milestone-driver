@@ -4,7 +4,7 @@ Loaded when the profile resolves `integrationGranularity: "milestone"` (`docs/pr
 
 ## Contents
 
-Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (The visualHold gate · Red CI on the milestone PR) · Creating the milestone branch: resume-safe pre-clean guard
+Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (Red CI on the milestone PR) · Creating the milestone branch: resume-safe pre-clean guard
 
 ---
 
@@ -100,7 +100,7 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md (Guard — 
    - The **wave-PR-body shape** (`skills/solve-milestone/integration-granularity.md (One wave PR)`): one line per issue on the branch, its evidence slot naming that issue's branch and the gates it passed during the fold.
    - A **Decision Log** and **exactly one** anchored `## Code Review` heading, each carrying one `### #<n>` sub-entry per issue: that issue's Decision Log lines and its `Code-Review:` block, lifted from its integration commit and de-indented back to column 0. The block's slots are defined in `## The integration commit` above; do not restate them here. Both sections are required by `.project/conventions.md#Commits & PRs`, and the `## Code Review` heading is checked at **both** `gh pr create` and `gh pr merge` (`hooks/hooks.json (Bash(gh pr merge *))` and its `gh pr create` sibling row directly above, `hooks/code-review-gate.sh (heading='## Code Review')`, `hooks/code-review-gate.sh (heading_match <text>)`).
    - The **milestone branch is the only source** for those sub-entries. A resumed run holding nothing in context rebuilds the whole section by reading each issue's commit with `git log <milestone-branch> --grep='^Issue: #<n>$'`. The `gh pr view` fallback issue and wave granularity rely on (`skills/solve-milestone/changelog-authoring.md (For each issue merged in this run)`) is unreachable here, because milestone granularity opens no per-issue PR; step 6.2's own summary lookup takes its documented issue-title fallback (`skills/solve-milestone/changelog-authoring.md (verify the PR number returned by the query)`) for that same reason.
-4. **CI green, then merge, unless `### The visualHold gate` below holds the PR.** `gh pr merge --squash --delete-branch` (`.project/conventions.md#Commits & PRs`). A hold suppresses this step and step 5. Red CI takes the red-CI handler below instead of this step and step 5.
+4. **CI green, then merge.** `gh pr merge --squash --delete-branch` (`.project/conventions.md#Commits & PRs`). Red CI takes the red-CI handler below instead of this step and step 5.
 5. **Close every issue on the branch, one `gh issue close` call each.**
 
    ```bash
@@ -110,27 +110,18 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md (Guard — 
    `Closes #n` fires only on a merge into the repository's **default** branch, and this PR targets `integrationBranch`, which typically is not it (`skills/solve-milestone/integration-granularity.md (Explicit issue close)`). The loop form is required: `gh issue close` accepts exactly one issue, and an unquoted `#` opens a shell comment. The list names **only** issues whose trailer is on the branch, never a parked one.
 6. **Delete the local milestone branch and re-sync.** `git checkout <integrationBranch>`, `git fetch`, fast-forward, then `git branch -d milestone-<number>-<slug>`, exactly as step 6.8's cleanup does for its docs branch (`skills/solve-milestone/changelog-authoring.md (git branch -d docs/changelog-<slug>)`).
 
-**Nothing merged.** Every issue parked or triage-blocked leaves the milestone branch with no commits over `integrationBranch`: no push, no PR, no close, no branch to delete. This is the all-UI-Wave precedent (`skills/solve-milestone/integration-granularity.md (All-UI wave)`).
-
-### The visualHold gate
-
-Step 4's precondition, green CI only, this granularity only (`docs/profile-schema.md (Should the single milestone PR wait)`). Under `"issue"` and `"wave"` the per-issue Layer-2 visual gate is the visual gate and this one is never reached; here that per-issue gate is bypassed whole (`skills/solve-issue/SKILL.md (Visual-review gate)`), so this is the milestone's one UI sign-off. First match wins:
-
-| Condition | Step 4 |
-|---|---|
-| `visualHold: false` in the profile | **Merge.** The operator's one affirmative act disables the gate outright, so no diff is read. A non-boolean value is not `false`: it holds, with a logged note. |
-| `uiSurfaceGlobs` absent | **Merge.** The repo declares no UI surface, so there is nothing to hold for, exactly as with the per-issue gate. |
-| The milestone branch's diff against `integrationBranch` cannot be determined | **Hold.** Never merge on an unread diff: an unreviewed UI merge is a one-way door, while an over-strict hold costs one human action (`.project/design-philosophy.md#One-way doors`). |
-| That diff touches a `uiSurfaceGlobs` path | **Hold.** Match `git diff --name-only <integrationBranch>...milestone-<number>-<slug>` against the globs, the same derivation the per-issue gate uses (`skills/solve-milestone/parallel-waves.md (independently from)`). |
-| It touches none | **Merge.** |
-
-**A hold takes `### Red CI on the milestone PR`'s shape below, with a green build and a different reason:** every step there applies unchanged, including the preserved local milestone branch and the step-2 re-entry whose step-3 guard reuses the open PR. What the 🔴 line says is the one difference: the build is green and the work is waiting on one human look, never a failure to fix.
+**Nothing merged.** Every issue parked or triage-blocked leaves the milestone branch with no commits over `integrationBranch`: no push, no PR, no close, no branch to delete.
 
 ### Red CI on the milestone PR
 
 **Run-scoped, not issue-scoped.** Not a park (`skills/solve-issue/SKILL.md (PARK & continue)` is per-issue; the loop is already over) and not a systemic halt (`skills/solve-milestone/SKILL.md (conditions where no further issue can make progress)`): no single issue owns a failure N issues share. Take the CHANGELOG-PR-red shape (`skills/solve-milestone/changelog-authoring.md (CI red:)`), which labels the **PR** rather than parking anything.
 
-- Apply `needs review` to the milestone PR: `gh pr edit <pr-number> --add-label "needs review"`.
+- Apply `needs review` to the milestone PR through the apply-time label helper (`skills/setup/SKILL.md (canonical apply-time label helper)`), which creates the label idempotently first so the edit cannot fail on a repo that never provisioned it:
+
+  ```bash
+  gh label create "needs review" --color 0E8A16 --description "Built; a PR whose CI came back red, needing a human before it can merge" --force
+  gh pr edit <pr-number> --add-label "needs review"
+  ```
 - Emit one 🔴 line into the Template 3 final summary's `🔴 Your move:` section (`skills/solve-milestone/changelog-authoring.md § 6.9 Surface in the final summary "Your move" section`) naming **every issue on the branch**, not just the PR — a line naming only the PR leaves the human to reconstruct its contents from the diff.
 - Preserve the local milestone branch. The remote PR is still open and needs it.
 - Do **not** re-attempt the merge, and do **not** close any issue: the work is unmerged, so every issue on the branch stays open.

@@ -8,7 +8,7 @@ milestone-driver is a Claude Code plugin. A milestone is the largest body of wor
 
 The point is quality. The bigger the ask of AI, the worse the quality is. By keeping every issue small and running it through the same controlled procedure, milestone-driver keeps quality in the forefront while letting large bodies of work be automated.
 
-UI issues stop for your visual sign-off. Anything risky, like a design gap or a one-way-door decision, parks with a label instead of guessing. Your release branch is never touched. That stays your call, behind your manual deploy.
+Anything risky, like a design gap or a one-way-door decision, parks with a label instead of guessing. Your release branch is never touched. That stays your call, behind your manual deploy.
 
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 280, "nodeSpacing": 30, "rankSpacing": 32, "padding": 8}} }%%
@@ -29,7 +29,7 @@ flowchart TD
         end
         subgraph sgL [land]
             direction LR
-            l1["PR to your<br/>integration branch"] --> l2["merge on green CI ·<br/>UI waits for your eyes"]
+            l1["PR to your<br/>integration branch"] --> l2["merge on<br/>green CI"]
         end
 
         sgU -->|root cause in hand| sgB
@@ -106,7 +106,7 @@ milestone-driver runs three stages in order. Every stage is gated, so no single 
 
 1. Triage. Before any code, it reviews every issue for design gaps and dependency order. Clean issues build. Gapped issues park with a comment and a label.
 2. Build loop. It works the issues in dependency order. For each one it locks an approach, dispatches a subagent to write it test-first, runs your unit and E2E suites, reviews the diff, and opens a PR.
-3. Merge. Logic-only issues auto-merge to your integration branch when CI is green. UI issues stay open for your visual sign-off. Risky issues park instead of guessing.
+3. Merge. Built issues auto-merge to your integration branch when CI is green, with no UI/logic distinction. Risky issues park instead of guessing.
 
 Discipline is enforced by local hooks, not by trust. Commits are blocked on red tests, pushes to your protected branch are blocked, and source edits are forced through subagents so the main thread only orchestrates.
 
@@ -114,7 +114,7 @@ The full architecture, the gating model, the label taxonomy, and the mechanical 
 
 ## Parallel mode
 
-The loop builds the mutually-independent issues within a Wave in parallel by default, each in its own git worktree, then integrates them through one serial verified merge tail. Set `parallel: false` in your profile to opt out and build one issue at a time; and when your unit tests share something like a test database across workers, the driver asks a one-time DB-isolation question on the first run and records your answer. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each), per wave (one branch, one PR, and one CI run for the whole Wave), or per milestone (one local branch `milestone-<number>-<slug>` that nothing pushes until the milestone ends, then one PR and one CI run for everything it built). Pick per milestone when your CI fires on a push to every branch: per wave still pushes a branch per issue, so only per milestone keeps those branches off your remote, and the `milestone-` branch prefix is a stable contract you can filter your own CI against. Per milestone also moves your UI sign-off: instead of holding each UI issue's PR, the driver holds the single milestone PR for you to review, and setting `visualHold: false` in your profile skips that hold so the PR merges on green CI. The trade-off is speed and CI cost against failure isolation: parallel builds finish wider work faster at the cost of a worktree fleet, and wave or milestone granularity buys fewer CI runs at the cost of a coarser signal when something goes wrong. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to configure them.
+The loop builds the mutually-independent issues within a Wave in parallel by default, each in its own git worktree, then integrates them through one serial verified merge tail. Set `parallel: false` in your profile to opt out and build one issue at a time; and when your unit tests share something like a test database across workers, the driver asks a one-time DB-isolation question on the first run and records your answer. It also adds `integrationGranularity`, which chooses how built issues integrate: per issue (the default, one PR and one CI run each), per wave (one branch, one PR, and one CI run for the whole Wave), or per milestone (one local branch `milestone-<number>-<slug>` that nothing pushes until the milestone ends, then one PR and one CI run for everything it built). Pick per milestone when your CI fires on a push to every branch: per wave still pushes a branch per issue, so only per milestone keeps those branches off your remote, and the `milestone-` branch prefix is a stable contract you can filter your own CI against. The trade-off is speed and CI cost against failure isolation: parallel builds finish wider work faster at the cost of a worktree fleet, and wave or milestone granularity buys fewer CI runs at the cost of a coarser signal when something goes wrong. See [docs/architecture.md](docs/architecture.md) for the model and [docs/consumer-setup.md](docs/consumer-setup.md) for how to configure them.
 
 ## Parent issues (md-epic — short for: this issue is really a multi-milestone feature)
 

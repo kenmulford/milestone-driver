@@ -81,10 +81,9 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
   **What the rubric looks at.** Triage classifies an issue as **heavy** when any of the following is true: a gap of type `contradiction` or `not-buildable`; an undeclared `DEPENDS_ON` edge; a UI surface with a design-review need; the issue body names a shared interface, schema, auth path, or payment path; or genuine ambiguity. An issue is **light** only when none of the above heavy conditions is triggered, all triage criteria are clean, and no shared boundary is named.
 
-- **Visual-review gate (post-build, for UI issues).** An issue whose changes touch `uiSurfaceGlobs` is **not** auto-merged. Its PR is opened and left **open** with a `needs review` label for your visual sign-off. If you've configured the render capability (the `visualCapture` seam — see [`profile-schema.md`](profile-schema.md)), light + dark screenshots of the new surface are attached to the PR; if not, the gate posts a note that a human visual test is required before merge. Either way the PR waits for you — logic-only issues still auto-merge on green.
 - **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority — this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it — this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 
-To enable the design-lens triage and the visual gate, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and neither runs. See [the layered gating model](architecture.md#the-layered-gating-model) for the full three-layer model, the park-don't-prompt runtime, and the label taxonomy.
+To enable the design-lens triage, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and it does not run. See [the layered gating model](architecture.md#the-layered-gating-model) for the full two-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
 ## Parallel builds and integration granularity
 
@@ -140,7 +139,7 @@ Set this in the profile (it is a repo-stable choice, not a per-run flag):
 { "integrationGranularity": "wave" }
 ```
 
-Default `"issue"` is today's model, unchanged: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ. UI issues stay per-issue and held for your visual sign-off even in wave granularity; only the logic issues join the wave branch.
+Default `"issue"` is today's model, unchanged: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
@@ -184,16 +183,7 @@ The trade-off: nothing reaches your remote until the milestone-end push, so remo
 
 **If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
 
-**`visualHold`: whether the milestone PR waits for your visual sign-off.** A milestone arrives as one PR, so the per-issue visual gate becomes one decision. When the milestone branch's diff against your `integrationBranch` touches a `uiSurfaceGlobs` path, the PR is labeled `needs review` and held for you instead of auto-merging on green CI. The key has two states and no third:
-
-| `visualHold` in `.milestone-config/driver.json` | What the milestone PR does |
-|---|---|
-| Absent (the default) | Holds for your sign-off when the branch touched a UI surface. |
-| `false` | Auto-merges on green CI even when the branch touched a UI surface. |
-
-That profile key is the sole override. There is no `--no-visual-hold` token to type, for the same reason there is no `--sequential` flag: skipping a visual review is your call, and the profile is the only surface that records it durably where you can review it later. `visualHold` is read only under `"milestone"` granularity, so under `"issue"` and `"wave"` today's per-issue visual gate is untouched. **If the diff against `integrationBranch` cannot be determined, the gate holds anyway,** because merging UI nobody looked at is a one-way door while an over-strict hold costs you one action.
-
-**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` and `visualHold` key rows.
+**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
 
 ## Permission pre-flight gate
 
@@ -274,9 +264,7 @@ Each lifecycle event below is best-effort. Two distinct skip modes apply: if the
 | **Run start** | Card resolution runs in order: (1) the `<!-- trello: <card-url> -->` back-link in the GitHub milestone description is checked first and is authoritative if present; (2) if absent, a name-match is attempted across Queue / In Progress / In Review; (3) if still unresolved, a new card is created in the Queue list. A back-link is written to the milestone description after resolution for idempotent lookup on future runs. An "Issues" checklist is populated with every open milestone issue at card-creation time (adoption leaves the existing checklist as-is). |
 | **Phase 0 (after triage)** | A triage summary comment is posted to the card (all-clear or gap table + Wave dependency graph). If at least one issue is buildable, the card is moved from Queue to In Progress. If all issues are parked, the card stays in Queue with an explanatory comment. |
 | **On each issue merge** | The matching checklist item (matched on the leading `#<n>` token) is ticked complete. Under `integrationGranularity: "wave"`, ticks fire after the wave PR merges and issues are bulk-closed — not per-merge during the build. |
-| **Run finish** | A summary comment is posted with merged issues, parked issues, open `needs review` UI PRs, and any skipped Trello updates. If zero open milestone issues carry a blocker label (`needs design`, `needs decision`, `blocked`), the card moves to In Review. If parks remain, the card stays In Progress with an explanatory comment. |
-
-> **Note on checklist ticks.** UI issues held at the visual-review gate (`needs review`) are not ticked at merge time — they have not been merged yet. A future run that observes their merge will tick them only if a re-run encounters the merge event; in practice, visual-gate issues are not auto-ticked.
+| **Run finish** | A summary comment is posted with merged issues, parked issues, and any skipped Trello updates. If zero open milestone issues carry a blocker label (`needs design`, `needs decision`, `blocked`), the card moves to In Review. If parks remain, the card stays In Progress with an explanatory comment. |
 
 For the full operational spec — the card-resolution order, the card state machine, the back-link mechanics, and the Phase 0 / loop / finish hooks — see [trello-sync.md](../skills/solve-milestone/trello-sync.md), the normative reference the orchestrator reads at run time.
 

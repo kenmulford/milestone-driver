@@ -72,7 +72,6 @@ skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
-skills/solve-issue/visual-review-hold.md             20     2500      400
 skills/solve-issue/wave-clauses.md                   25     3500      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    39500     5900
@@ -156,8 +155,9 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
 # membership rule (a file belongs to a closure when the skill reads it on EVERY
 # run, with no branch in front of the read), for the branch-gated files that are
-# deliberately EXCLUDED — the six branch-gated files plus 19 of the 20 files
-# later split out, each with the branch that gates it — for the one remaining
+# deliberately EXCLUDED — the six branch-gated files plus 18 of the 19 files
+# later split out that still exist, each with the branch that gates it — for
+# the one remaining
 # (skills/solve-issue/version-bump.md), which is NOT branch-gated and IS summed
 # into solve-issue's closure, carrying that closure's 11200 -> 11700
 # re-derivation with it, and for why column 1 is both the record's

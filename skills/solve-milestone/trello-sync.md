@@ -269,15 +269,13 @@ Two call sites fire checklist ticks during the solve-milestone loop. Both are ma
 
 ### Issue granularity
 
-**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged non-UI issue.
+**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged issue.
 
 **When a card handle is available:**
 
 1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
 2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only — titles may have been edited after checklist creation).
 3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
-
-**Not ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) — not yet merged.
 
 **Parallel builds (the default):** ticks fire in the Phase 2 serial merge tail (main thread) as each branch squash-merges, through the same on-success tick logic as the sequential step 4 path.
 
@@ -301,7 +299,7 @@ Do NOT add a new item. Continue.
 
 ### Wave granularity
 
-**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
+**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path — the wave PR merges once, then every issue in the Wave is closed together.
 
 **When a card handle is available:**
 
@@ -335,7 +333,6 @@ Post a card comment that mirrors the canonical Final summary fields, condensed f
 
 - **Issues built and merged** — list each issue number and title with its PR link (e.g. `#12 Add login page — PR #45`)
 - **Issues parked** — for each parked issue: number, title, park label (one of `needs design`, `needs decision`, `blocked`), and a one-line blocker reason
-- **Open `needs review` UI PRs** — list any PRs awaiting human visual sign-off (these are built issues held at the visual gate, not parked issues)
 - **Trello updates skipped this run** — any Trello operations that failed and were skipped, from the best-effort log accumulated per Convention 1
 
 ### Move condition: inProgress → inReview
@@ -349,8 +346,6 @@ gh issue list --milestone "<milestone-name>" --state open --json labels
 ```
 
 Inspect the returned labels array for each open issue. If any open issue carries `needs design`, `needs decision`, or `blocked`, the move condition fails.
-
-**`needs review` issues are NOT parked.** A UI issue held at the visual gate is built work awaiting human sign-off, not blocked work: it carries no blocker label and does NOT prevent the move.
 
 On move condition met: call `mcp__trello__move_card` to the `inReview` list (list ID resolved per Convention 4 at run start). Best-effort: move failure is logged per Convention 1.
 

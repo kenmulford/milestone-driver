@@ -108,7 +108,6 @@ skills/solve-issue/preflight-github-ci.md
 skills/solve-issue/resume-paths.md
 skills/solve-issue/version-bump.md
 skills/solve-issue/visual-capture.md
-skills/solve-issue/visual-review-hold.md
 skills/solve-issue/wave-clauses.md
 skills/solve-milestone/SKILL.md
 skills/solve-milestone/parallel-waves.md

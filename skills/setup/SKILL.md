@@ -83,7 +83,7 @@ Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces — the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → three layers stay off: **no design-lens review** in triage (UI issues never reach `design-reviewer`), **no visual-review gate** (UI PRs auto-merge exactly like logic-only PRs — nobody is asked to look), and **no visual capture** (nothing is identified as a UI surface, so the Visual Capture tier is skipped). |
+| `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces — the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → two layers stay off: **no design-lens review** in triage (UI issues never reach `design-reviewer`), and **no visual capture** (nothing is identified as a UI surface, so the Visual Capture tier is skipped). |
 
 **Tier: Visual Capture** (optional; presented only when **both** gates pass — (a) a visual-capture signal was detected in Phase 1, **and** (b) `uiSurfaceGlobs` was captured above. They are AND'd: a native UI stack (MAUI, WPF) has UI surfaces, so `uiSurfaceGlobs` is captured, but has no server or URL to poll and should omit `visualCapture` entirely (`docs/profile-schema.md (This block is a)`). If either gate fails, skip the tier silently.)
 
@@ -91,9 +91,9 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `visualCapture.serverCmd` | "What command boots your seeded/test app server? (e.g. `bin/rails server -e test -p 3000`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
-| `visualCapture.readyUrl` | "What `/health`-style URL should the ready probe poll to know the server is up? (e.g. `http://127.0.0.1:3000/health`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
-| `visualCapture.signInPath` | "What is your passwordless test sign-in path, persona-templated? (e.g. `/dev/sign_in/{persona}`)" | Skip → required: **no `visualCapture` block is written at all**, and the visual gate stays at PR-open-for-human-test. |
+| `visualCapture.serverCmd` | "What command boots your seeded/test app server? (e.g. `bin/rails server -e test -p 3000`)" | Skip → required: **no `visualCapture` block is written at all**, and no screenshots are attached; the PR merges on green CI like any other. |
+| `visualCapture.readyUrl` | "What `/health`-style URL should the ready probe poll to know the server is up? (e.g. `http://127.0.0.1:3000/health`)" | Skip → required: **no `visualCapture` block is written at all**, and no screenshots are attached; the PR merges on green CI like any other. |
+| `visualCapture.signInPath` | "What is your passwordless test sign-in path, persona-templated? (e.g. `/dev/sign_in/{persona}`)" | Skip → required: **no `visualCapture` block is written at all**, and no screenshots are attached; the PR merges on green CI like any other. |
 | `visualCapture.persona` | "Which seeded persona should capture sign in as? (Default: `super-admin`, so every surface is reachable.)" | Skip → default `"super-admin"` used at runtime. |
 | `visualCapture.viewports` | "Which named viewports should I capture? (Default: `{\"desktop\":{\"width\":1440,\"height\":900}}`. Detected an appearance/mobile signal? Add e.g. `\"mobile\":{\"width\":390,\"height\":844}`.)" | Skip → default desktop-only viewport used at runtime. |
 | `visualCapture.appearances` | "Which appearances should I capture? (Default: `[\"light\"]`. Detected `dark:` variants / a theme toggle / `prefers-color-scheme`? Suggest `[\"light\",\"dark\"]`.)" | Skip → default single-appearance `[\"light\"]` used at runtime. |
@@ -218,7 +218,7 @@ After the profile is written (Phase 3) and before returning control, ensure all 
 | `blocked` | `B60205` | Can't proceed; waiting on something external (unmerged dependency, unverified E2E) |
 | `needs design` | `5319E7` | Design direction required before building |
 | `needs decision` | `D93F0B` | Non-design human decision required |
-| `needs review` | `0E8A16` | Built; awaiting human review/merge (e.g. a UI PR awaiting visual sign-off) |
+| `needs review` | `0E8A16` | Built; a PR whose CI came back red, needing a human before it can merge |
 | `judgment call` | `FBCA04` | Borderline autonomous call — audit post-run |
 
 #### Reconcile the existing `judgment-call` label
@@ -243,7 +243,7 @@ gh label create "in progress"    --color 1D76DB --description "Branch open with 
 gh label create "blocked"        --color B60205 --description "Can't proceed; waiting on something external (unmerged dependency, unverified E2E)" --force
 gh label create "needs design"   --color 5319E7 --description "Design direction required before building" --force
 gh label create "needs decision" --color D93F0B --description "Non-design human decision required" --force
-gh label create "needs review"   --color 0E8A16 --description "Built; awaiting human review/merge (e.g. a UI PR awaiting visual sign-off)" --force
+gh label create "needs review"   --color 0E8A16 --description "Built; a PR whose CI came back red, needing a human before it can merge" --force
 gh label create "judgment call"  --color FBCA04 --description "Borderline autonomous call — audit post-run" --force
 ```
 
