@@ -170,7 +170,7 @@ gh pr merge <pr-number> --squash --delete-branch
   git branch -d docs/changelog-<slug>
   ```
 
-- **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR (`gh pr edit <pr-number> --add-label "needs review"`). Add a 🔴 item to the run output:
+- **CI red:** do **not** block or fail the run. Apply the `needs review` label to the CHANGELOG PR, creating it first through the apply-time label helper (`skills/setup/SKILL.md (canonical apply-time label helper)`): `gh pr edit <pr-number> --add-label "needs review"`. Add a 🔴 item to the run output:
 
   > 🔴 CHANGELOG PR needs human merge (CI red): #P — <pr-url>
 
@@ -190,4 +190,4 @@ gh pr merge <pr-number> --squash --delete-branch
 - **Merged:** `CHANGELOG entry merged → use as GitHub release body (#P)`
 - **Held open (CI red):** `🔴 CHANGELOG PR needs human merge (CI red): #P`
 
-**Label collision note:** A CHANGELOG PR carrying the `needs review` label is surfaced in the `🔴 Your move:` list only — it must NOT appear in the `👁️ open` rows of Template 3. The Final summary's "Open UI PRs awaiting human merge" bullet is scoped to PRs opened for issues in this run's issue set (cross-referenced against the run's in-context issue→PR tracking table), not all `needs review` PRs in the repo.
+**Label collision note:** A CHANGELOG PR carrying the `needs review` label is surfaced in the `🔴 Your move:` list only. It is not one of this run's issues (cross-reference the run's in-context issue→PR tracking table), so it never appears in Template 3's issue rows.

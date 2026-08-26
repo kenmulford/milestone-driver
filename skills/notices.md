@@ -141,10 +141,10 @@ Examples:
 ```text
 ▶ New in 1.12.0 — optional visual capture (one-time notice)
 
-| What | Capture rendered screenshots of your UI surfaces during the
-|      | visual-review gate.
-| Why  | The gate can then show the real rendered screenshots of your
-|      | change instead of degrading to PR-open-for-human-test.
+| What | Capture rendered screenshots of your UI surfaces and attach
+|      | them to the PR.
+| Why  | The PR then carries the real rendered screenshots of your
+|      | change alongside the diff.
 | How  | Run `/milestone-driver:setup` and choose the Visual Capture tier,
 |      | or add a `visualCapture` block to .milestone-config/driver.json
 |      | manually. Optional — skip and nothing changes.
@@ -202,9 +202,9 @@ Examples:
 | What | An AI pass reads the screenshots visual capture already took and
 |      | posts a per-surface pass / suspected-issue verdict on the PR,
 |      | alongside the Visual evidence comment.
-| Why  | Obvious rendered-layout breakage — overflow, overlap, blank/broken
-|      | surfaces — gets flagged before a human looks; the human stays the
-|      | merge gate.
+| Why  | Obvious rendered-layout breakage (overflow, overlap, blank or
+|      | broken surfaces) is flagged on the PR before a human looks.
+|      | Never a merge gate.
 | How  | Add "aiPrefilter": true inside the visualCapture block in
 |      | .milestone-config/driver.json. Optional — skip and nothing changes.
 ```
@@ -234,8 +234,8 @@ Examples:
 ▶ New in 1.17.0 — tell milestone-driver where your UI lives (one-time notice)
 
 | What | "uiSurfaceGlobs" marks which path patterns are UI surfaces.
-| Why  | Without it three layers stay silently off: design-lens review in
-|      | triage, the visual-review gate (UI PRs auto-merge), visual capture.
+| Why  | Without it two layers stay silently off: design-lens review in
+|      | triage, and visual capture.
 | How  | Run `/milestone-driver:setup` or add "uiSurfaceGlobs" to
 |      | .milestone-config/driver.json. Optional — a repo with no UI skips it.
 ```

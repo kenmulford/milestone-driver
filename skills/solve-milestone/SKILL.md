@@ -31,7 +31,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup`, then continue. Do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer`. |
    | Optional keys — `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, `nonNegotiables` | Their steps skip cleanly when absent. |
-   | `integrationGranularity` / `visualHold` (resolve BOTH here, once, hold all run) | Absent → `"issue"` and hold. **Fail-open, never a hard error:** an out-of-enum `integrationGranularity` degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`; a non-boolean `visualHold` degrades toward holding, logging `visualHold "<value>" is not a boolean, degraded to holding the milestone PR`. A valid value logs nothing. Every later read uses the resolved value. |
+   | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"issue"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`. A valid value logs nothing. Every later read uses the resolved value. |
 
    2.0.5. **Self-heal the scratch-ignore** — always, before any `.milestone-config/` scratch write. That directory also holds **tracked** config (`driver.json`, `feeder.json`): never blanket-ignore it, never add a `*` or `/` rule. Ensure a **committed** `.milestone-config/.gitignore` carrying the block below — absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 
@@ -152,7 +152,7 @@ Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave,
 
 **If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it — the park-label back-fill and `in progress` marking for a triage/prior-run park (with the one-blocker-label-per-issue rule), and, for a dependency hold, the `blocked` label plus the byte-fixed `🔴 Blocked` comment and the transitive-dependent holds. Both modes read it when an issue is not buildable.
 
-The loop **never waits on a human**. Every issue ends merged, **held at the visual-review gate** (an open `needs review` PR on a UI issue), or parked (labeled, branch open if applicable, comment posted). Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
+The loop **never waits on a human**. Every issue ends **merged** or **parked** (labeled, branch open if applicable, comment posted), UI included. Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
 
 In **versioned mode** the **first issue's PR** sets `plugin.json` to the target version; every later PR is idempotent. In **version-free mode** no PR carries a version change.
 
@@ -199,7 +199,7 @@ The run ends when no buildable issues remain.
 ## Output spec
 
 <!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone. -->
-**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ UI surface / visual evidence · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
 
@@ -244,12 +244,12 @@ Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 The layout for `## Final summary` below; fill the metadata lines from that section's requirements.
 
 ```text
-🏁 v[version] complete · [T] min · ✅ [M] merged · 👁️ [U] open · ⏸️ [P] parked
+🏁 v[version] complete · [T] min · ✅ [M] merged · ⏸️ [P] parked
 
 | Issue | Outcome   | PR          | Follow-up                                  |
 |-------|-----------|-------------|--------------------------------------------|
 | #201  | ✅ merged | #301        | —                                          |
-| #203  | 👁️ open   | #303        | render + merge (light/dark shots attached) |
+| #203  | ✅ merged | #303        | 👁️ visual evidence attached                |
 | #202  | ⏸️ parked | [#pr | —]   | clear `needs decision` (new dep)           |
 
 Judgment-call PRs: [list or "none"]
@@ -258,7 +258,7 @@ Auto-resolved conflicts: [list or "none"]
 Per-wave sizes: Wave 1 · [N] issues · [T] min | Wave 2 · …
 
 🔴 Your move:
-1. Review & merge each open PR (👁️ rows above) — visual sign-off; check ⚖️ judgment-call PRs too
+1. Sanity-check the ⚖️ judgment-call PRs and any PR listed as missing a Code Review section
 2. Clear park labels → re-run
 3. All merged → merge `integrationBranch` → `protectedBranch` with `--merge` (not squash), merging the release PR *before* tagging, then **back-merge `protectedBranch` → `integrationBranch`** (history-only, conflict-free) so `integrationBranch` stays tag-current and topologically even, close the milestone (`gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`), deploy — full ordered runbook in `docs/consumer-setup.md` § "Releasing to your protected branch"
 ```
@@ -276,13 +276,12 @@ Use Template 3 as the layout. On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch`, with PR links.
 - **Issues parked** — per issue: number and title, the park label applied, the blocker reason, the auto-remediate outcome when the run attempted the Auto loop, and the open feature branch if applicable. Take the reason from the run's tracked context (the triage gap, the STOP/PAUSE reason, or the unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent format-matching comment, possibly from a prior run: one opening with `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
-- **Open UI PRs** awaiting human merge: those carrying `needs review`, with PR links.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section**, flagged the same way, for review before the `integrationBranch` → `protectedBranch` merge.
 - **Auto-resolved-conflict issues** (parallel mode) — those whose merge conflict the serial verified merge tail auto-resolved, for a human to sanity-check.
 - **Per-Wave parallel-set sizes** (parallel mode).
 - **The run ended because** no buildable issues remain — not because it is waiting on a human.
-- The next human step: review parked issues and the open `needs review` PRs; clear park labels once their blockers are resolved and re-run for the rest; all work merged → run Template 3's `🔴 Your move:` item 3 verbatim, then deploy manually.
+- The next human step: review parked issues; clear park labels once their blockers are resolved and re-run for the rest; all work merged → run Template 3's `🔴 Your move:` item 3 verbatim, then deploy manually.
 
 **Output ordering (clean-completion path only):** do not emit Template 3 until step 6 completes (`skills/solve-milestone/changelog-authoring.md § 6.9 Surface in the final summary "Your move" section`). On the systemic-halt path step 6 is skipped — emit Template 3 immediately.
 
@@ -295,16 +294,16 @@ Use Template 3 as the layout. On completion or systemic-failure halt, report:
 - The parked count for this run is greater than zero, OR
 - The run ended via a systemic halt
 
-The parked count comes from this run's **in-context tracking** — every issue that did not reach "merged" or "held at visual-review gate": parked at build time, skipped on triage blockers, AND excluded by the buildability check on a live blocker label (e.g. `blocked` from a prior run). It is Template 3's `⏸️ P` count. Do NOT re-derive via a live `gh issue list` query, which may find labels unrelated to this run.
+The parked count comes from this run's **in-context tracking** — every issue that did not reach "merged": parked at build time, skipped on triage blockers, AND excluded by the buildability check on a live blocker label (e.g. `blocked` from a prior run). It is Template 3's `⏸️ P` count. Do NOT re-derive via a live `gh issue list` query, which may find labels unrelated to this run.
 
-Either condition holding → post _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and go straight to `## Run-complete notification`. Visual-review holds do NOT block CHANGELOG authoring.
+Either condition holding → post _"Skipping CHANGELOG authoring — run did not fully complete (N parked)."_ and go straight to `## Run-complete notification`.
 
 **Guard passes** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/changelog-authoring.md` and run its steps 6.1–6.9 (idempotency check → PR summaries → categorize → theme → author the entry → branch name → doc-only PR → CI result → surface in the final summary). While the guard holds it is **never read**.
 
 ## Run-complete notification
 
 After Template 3, emit a `PushNotification`:
-- **Clean completion**: `🏁 <milestone-title> · ✅ M merged · 👁️ U open · ⏸️ P parked`, the counts from Template 3.
+- **Clean completion**: `🏁 <milestone-title> · ✅ M merged · ⏸️ P parked`, the counts from Template 3.
 - **Systemic halt**: `🚨 Run halted — <reason>`, where `<reason>` is the systemic-failure description, e.g. "gh auth failure".
 
 **Run-end cost record (additive, never-gating).** **Last step of this section**, on the clean-completion and systemic-halt paths alike: emit one per-run cost record, then finish. It never blocks, parks, or changes the run's outcome.

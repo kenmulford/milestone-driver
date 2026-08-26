@@ -246,7 +246,6 @@ skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
-skills/solve-issue/visual-review-hold.md             20     2500      400
 skills/solve-issue/wave-clauses.md                   25     3500      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    39500     5900
@@ -352,10 +351,11 @@ fi
 #
 # Milestone #39 split 18 more reference files out of the four SKILL.md files,
 # issue #502 added solve-issue/wave-clauses.md beside its milestone twin, and
-# issue #516 added solve-milestone/blocked-label-clear.md. 19 of those 20 are
-# EXCLUDED on the same rule, each verified against its read directive — the #39
-# set on 2026-08-10, wave-clauses.md on 2026-08-12, blocked-label-clear.md on
-# 2026-08-18 — with the branch that stands in front of the read in brackets:
+# issue #516 added solve-milestone/blocked-label-clear.md. 18 of the 19 that
+# still exist are EXCLUDED on the same rule, each verified against its read
+# directive — the #39 set on 2026-08-10, wave-clauses.md on 2026-08-12,
+# blocked-label-clear.md on 2026-08-18 — with the branch that stands in front
+# of the read in brackets:
 #   solve-issue/coherence-review.md      [coherenceReviewAgent present AND configured]
 #   solve-issue/milestone-clauses.md     [integrationGranularity: "milestone"]
 #   solve-issue/wave-clauses.md          [integrationGranularity: "wave"]
@@ -364,8 +364,7 @@ fi
 #   solve-issue/post-fix-commit.md       [>=1 in-scope review finding]
 #   solve-issue/preflight-github-ci.md   [the "github-ci" sentinel]
 #   solve-issue/resume-paths.md          [a resume, not an inline start]
-#   solve-issue/visual-capture.md        [visualCapture configured AND sequential]
-#   solve-issue/visual-review-hold.md    [UI issues]
+#   solve-issue/visual-capture.md        [diff matches uiSurfaceGlobs AND visualCapture complete]
 #   solve-milestone/abandoned-recovery.md    [non-empty `abandoned` bucket]
 #   solve-milestone/blocked-label-clear.md   [(a) held with a non-empty edge set]
 #   solve-milestone/changelog-authoring.md   [clean completion, zero parked]

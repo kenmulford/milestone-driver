@@ -1,6 +1,6 @@
 ---
 name: solve-issue
-description: This skill should be used when the user invokes "/milestone-driver:solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — triage, root-cause-or-park, dispatch the implementer subagent (TDD, citations), unit + E2E gates, code review, PR to the integration branch, auto-merge on CI green for non-UI issues (UI issues are held open for human visual sign-off), then close — never authoring application or test code on the main thread.
+description: This skill should be used when the user invokes "/milestone-driver:solve-issue <n>", or asks to "solve issue <n>", "fix issue <n>", or "drive issue <n>" through the milestone-driver gated procedure. Runs one GitHub issue end-to-end as an orchestrator — triage, root-cause-or-park, dispatch the implementer subagent (TDD, citations), unit + E2E gates, code review, PR to the integration branch, auto-merge on CI green, then close — never authoring application or test code on the main thread.
 ---
 
 # solve-issue — gated per-issue procedure
@@ -204,15 +204,14 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
 4. **Version bump.** Read `versioning` from the profile and select the mode: **Version-free mode** (`versioning: false`), **Fail-safe degradation** (versioned mode — `versioning` `true` or absent — but `.claude-plugin/plugin.json` does **not** exist), or **Versioned mode** (`versioning` `true` or absent, and `.claude-plugin/plugin.json` exists). Read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/version-bump.md` and follow its `### Modes` for that mode's mechanics, its **Code Review** annotation, and — under Versioned mode — the milestone-run vs standalone-run split.
 5. Commit on the feature branch — the `tests-green` hook (`PreToolUse` on `git commit`) re-checks the suite. Review-before-commit is enforced by audit trail (the mandatory **Code Review** section), not by a commit-time hook; `hooks/code-review-gate.sh` gates `gh pr create` / `gh pr merge`, not `git commit`.
 6. Push the feature branch and open a PR with `--base <integrationBranch>` (never `protectedBranch` — enforced by the `no-push` / `no-pr-to-protected` hooks and GitHub branch protection). Put the Decision Log and the **Code Review** section in the PR body. Add a `judgment call` label if any borderline autonomous call was made.
-7. **Visual-review gate (UI issues — Layer 2).** Determine whether this issue touches a UI surface: `uiSurfaceGlobs` is configured in the profile **and** the PR's changed files match one of those globs (an implementer `NEW_UI_ELEMENTS: yes` declaration reinforces this signal).
-   - **Not a UI issue** (`uiSurfaceGlobs` absent, or the diff matches no `uiSurfaceGlobs` path): no visual gate — proceed to auto-merge (step 6.8).
-   - **UI issue:** do **not** auto-merge. The terminal state is *PR open, awaiting human visual sign-off* — read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/visual-review-hold.md` and follow its `### The hold`.
-8. **Auto-merge on green (non-UI issues only):** once CI is green, run `gh pr merge --squash --delete-branch`. This replaces the human-choice step of `superpowers:finishing-a-development-branch`. **UI issues are skipped here** — they remain open per the visual-review gate (step 6.7) until a human merges.
-9. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`). **For a UI issue held at the visual-review gate, the issue stays open** with its PR awaiting human visual sign-off — it closes when the human merges the PR.
+8. **Auto-merge on green.** **There is no step 7** — the visual-review hold is gone, and its gap stays rather than renumber for the reason step 5's does. Once CI is green, run `gh pr merge --squash --delete-branch` for **every** issue, no UI/non-UI branch in front of it. This replaces the human-choice step of `superpowers:finishing-a-development-branch`.
+
+   **Visual evidence (optional, never-gating), before that merge.** Runs **only when the PR's diff matches `uiSurfaceGlobs`**: a logic-only issue has no surface to shoot, and would boot a server to publish an empty comment. Then, with a `visualCapture` block carrying all three required keys — `serverCmd`, `readyUrl`, `signInPath` — on a **sequential** run (a parallel run defers the capture to the serial merge tail: `skills/solve-milestone/parallel-waves.md (Deferred to the serial tail)`), read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/visual-capture.md` and follow its `### Capture flow`. No UI surface, `visualCapture` absent or incomplete, **or any failure in it** → skip with **one log line**: no capture, no PR comment, no hold. The merge proceeds regardless of the pre-filter. `uiSurfaceGlobs` still decides the E2E gate row (step 4), this capture, the step-0 triage's `design-reviewer` dispatch, and `NEW_UI_ELEMENTS` handling (step 3) — keep the key; just nothing about the merge.
+9. Confirm the issue is closed (a linked PR auto-closes it; otherwise `gh issue close <n>`) — unconditionally.
 
 ## Run-end cost record (additive, never-gating)
 
-**Last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1), the step-6.7 visual-review hold, and the step-6.9 close — emit one per-run cost record. It never blocks, parks, or changes any outcome (`.project/design-philosophy.md#Error & failure philosophy`).
+**Last action before returning to the caller** at **every** terminal exit — every park (steps 0, 2, 3, 4, 6.1) and the step-6.9 close — emit one per-run cost record. It never blocks, parks, or changes any outcome (`.project/design-philosophy.md#Error & failure philosophy`).
 
 1. **Aggregate.** Sum every Agent-dispatch `<usage>` block this run (implementer, `/code-review`, coherence-reviewer, direct triage; background completion notifications carry the same block): `subagent_tokens` per model tier (`opus` / `sonnet`, by the dispatched agent's tier), `duration_ms` across dispatches, plus the orchestrator's own run clock → `wallClockSeconds`.
 2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens` = 0; `cacheReadTokens` = `cacheWriteTokens` = 0 (the 0 sentinel, never fabricated); `provenanceNote: "unsplit-total-as-input"` marks the cost a lower-bound.
@@ -249,7 +248,7 @@ Background subagents auto-deny any tool call that would otherwise prompt, and a 
 
 ## Wave granularity (`integrationGranularity: "wave"`)
 
-Resolved at the same step-1 profile read, not from an invocation token. `integrationGranularity` resolves to `"wave"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/wave-clauses.md` and apply its `### Clauses`. **Non-UI issues only:** a **UI issue** runs the pipeline byte-unchanged, held per-issue for visual sign-off (`skills/solve-milestone/integration-granularity.md (Logic-only carve-out)`).
+Resolved at the same step-1 profile read, not from an invocation token. `integrationGranularity` resolves to `"wave"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/wave-clauses.md` and apply its `### Clauses`. Those clauses apply to **every** issue in the Wave, UI included.
 
 ## Async mode (`--async`): retired
 
@@ -262,7 +261,7 @@ Resolved at the same step-1 profile read, not from an invocation token. `integra
 ## Output spec
 
 <!-- KEEP THIS ICON LEGEND BYTE-IDENTICAL across solve-issue and solve-milestone. -->
-**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ awaiting visual review · ⚖️ judgment call · 🔴 Your move
+**Icon legend:** ✅ merged · 🔨 building · ⏭️ queued · ⏸️ parked · 👁️ UI surface / visual evidence · ⚖️ judgment call · 🔴 Your move
 
 ### Template 1 — Run start / plan board
 
@@ -290,7 +289,6 @@ One row per issue; emit only the row matching the actual outcome and suppress th
 | Issue | Result     | Gates | PR | Note                    |
 |-------|------------|-------|----|-------------------------|
 | #201  | ✅ merged  | 🔍✓(0 findings)  | #301 | —    |
-| #203  | 👁️ open   | 🔍✓(1 fixed)     | #303 | awaiting visual review  |
 | #202  | ⏸️ parked  | —                | [#pr | —] | [park label]      |
 | #204  | ✅ committed | 🔍✓(0 findings) | —    | committed on its branch |
 ```
