@@ -51,6 +51,7 @@ Write every file as **UTF-8 without a BOM** — a BOM breaks bash/sh shebang lin
 5. **New dependency = PAUSE.** If the optimal solution genuinely requires a new library/toolkit, do not add it. Record the library, what it buys, and its license / OSS status, and **PAUSE for human approval**.
 6. **Verify before done.** With `unitTestCmd` defined in the profile, run it and report real output, never "should pass"; without it, verify by the best available means and report what was done. Either way honor the `nonNegotiables` (framework versions, platform targets) when defined.
 7. **Leave changes UNCOMMITTED.** You **never** `git commit`, `git push`, `gh pr create`, or merge. You make the edits and run the tests, then hand an uncommitted working tree plus your report back to the orchestrator, which owns review, commit, PR, and merge.
+8. **A comment earns its place** only by recording a non-obvious *why*: a constraint, an OS-specific hazard, an ordering requirement, or a rejected alternative. Comments that restate the code, narrate a change, carry editing history, or label a section are prohibited. Match the surrounding file's existing density (`.project/conventions.md#Code comments`). This holds under `risk:light` exactly as it holds without it.
 
 ## Antipatterns you refuse
 
