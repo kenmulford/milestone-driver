@@ -141,7 +141,7 @@ _This entry doubles as the GitHub-release body for the human release step._
 
 ## Code Review
 
-- /code-review run: no — doc-only CHANGELOG entry, no executable surface.
+- /code-review run: n/a - doc-only CHANGELOG entry, no executable surface.
 - Findings: 0
   - none
 - Evidence: every entry row carries its issue and its merged PR, bucketing matches each issue's label and title prefix, structure matches the prior `## v...` entry, the ⚖️ audit-trail line is present.

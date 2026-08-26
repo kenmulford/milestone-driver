@@ -355,6 +355,8 @@ code-review-gate-notice
 aiprefilter-notice
 cost-record-notice
 uisurfaceglobs-notice
+visual-hold-removed-notice
+code-review-run-no-notice
 triage-cache.json
 tests-stamp
 .runtime/

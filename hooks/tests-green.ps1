@@ -100,7 +100,8 @@ if ($null -ne $key) {
                 '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.'
                 'preflight-notice'; 'trello-notice'; 'visualcapture-notice'
                 'parallel-default-notice'; 'code-review-gate-notice'; 'aiprefilter-notice'
-                'cost-record-notice'; 'uisurfaceglobs-notice'; 'triage-cache.json'
+                'cost-record-notice'; 'uisurfaceglobs-notice'; 'visual-hold-removed-notice'
+                'code-review-run-no-notice'; 'triage-cache.json'
                 'tests-stamp'; '.runtime/'; 'worktrees/'
             ) -join "`n"
             [System.IO.File]::WriteAllText($ignorePath, $ignoreBody + "`n", [System.Text.UTF8Encoding]::new($false))

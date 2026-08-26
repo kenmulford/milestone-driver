@@ -88,7 +88,8 @@ if [ -n "$stamp_key" ]; then
       '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.' \
       'preflight-notice' 'trello-notice' 'visualcapture-notice' \
       'parallel-default-notice' 'code-review-gate-notice' 'aiprefilter-notice' \
-      'cost-record-notice' 'uisurfaceglobs-notice' 'triage-cache.json' \
+      'cost-record-notice' 'uisurfaceglobs-notice' 'visual-hold-removed-notice' \
+      'code-review-run-no-notice' 'triage-cache.json' \
       'tests-stamp' '.runtime/' 'worktrees/' > "$ignore_path" 2>/dev/null || true
   fi
   if printf '%s' "$stamp_key" > "$stamp_path" 2>/dev/null; then

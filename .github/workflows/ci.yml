@@ -161,6 +161,8 @@ jobs:
           set +e
           cmd='gh pr create --base develop --body "## Code Review
 
+          /code-review run: yes
+
           LGTM"'
           out=$(jq -n --arg cmd "$cmd" --arg cwd "$PWD" '{tool_input:{command:$cmd}, cwd:$cwd}' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }

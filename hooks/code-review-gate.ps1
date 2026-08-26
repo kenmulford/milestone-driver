@@ -20,6 +20,18 @@
 # followed by a non-alphanumeric character or end-of-string, so "## Code
 # Reviewer says LGTM" does NOT satisfy the gate.
 #
+# Verdict parse (issue #604): the gate also reads the `/code-review run:`
+# value. Accepted: `yes`, `deferred (<reason>)`, `n/a - <reason>`. `no`, an
+# unrecognized value, an empty value, and a missing slot all DENY. The verdict
+# search is SCOPED to a heading span so an incidental `/code-review run:` in
+# prose ABOVE the section never false-denies: the anchored heading matches are
+# walked LAST TO FIRST and the first whose text CONTAINS the slot wins. EVERY
+# slot in that span is read, so a `no` under a wave PR's second `### #<n>`
+# block denies even when the first reads `yes`. The heading search itself
+# stays unscoped. See code-review-gate.sh for the full note, including why
+# begins-a-line was rejected and why the token is unwrapped of one quote per
+# side.
+#
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
 #
@@ -55,6 +67,7 @@ if (Test-Path $profilePath) {
 }
 
 $heading = '## Code Review'
+$runSlot = '/code-review run:'
 $suffix = " or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 
 function Deny([string]$msg) {
@@ -69,6 +82,58 @@ function Deny([string]$msg) {
 function HeadingMatch([string]$text) {
   if (-not $text) { return $false }
   return [regex]::IsMatch($text, [regex]::Escape($heading) + '($|[^A-Za-z0-9])')
+}
+
+# VerdictSpan <text>: walking the ANCHORED heading matches LAST TO FIRST, the
+# first span that holds a `/code-review run:` slot; $null when none does.
+function VerdictSpan([string]$text) {
+  if (-not $text) { return $null }
+  $spans = [System.Collections.Generic.List[string]]::new()
+  $i = 0
+  while (($i = $text.IndexOf($heading, $i)) -ge 0) {
+    $after = $text.Substring($i + $heading.Length)
+    if (-not [regex]::IsMatch($after, '^[A-Za-z0-9]')) { $spans.Add($after) }
+    $i += $heading.Length
+  }
+  for ($j = $spans.Count - 1; $j -ge 0; $j--) {
+    if ($spans[$j].IndexOf($runSlot) -ge 0) { return $spans[$j] }
+  }
+  return $null
+}
+
+# VerdictToken <after>: first whitespace-delimited token on <after>'s FIRST
+# line, unwrapped of one surrounding quote character per side.
+function VerdictToken([string]$after) {
+  $line = $after
+  $nl = $line.IndexOf("`n")
+  if ($nl -ge 0) { $line = $line.Substring(0, $nl) }
+  $line = $line.TrimEnd("`r")
+  $m = [regex]::Match($line, '^[ \t\v\f\r]*([^ \t\v\f\r]+)')
+  if (-not $m.Success) { return '' }
+  $v = $m.Groups[1].Value
+  if ($v[0] -eq '"' -or $v[0] -eq "'") { $v = $v.Substring(1) }
+  if ($v.Length -gt 0 -and ($v[-1] -eq '"' -or $v[-1] -eq "'")) { $v = $v.Substring(0, $v.Length - 1) }
+  return $v
+}
+
+# CheckVerdict <surface> <action>: reads EVERY slot in the span and denies on
+# the first one not accepted; never returns on deny.
+function CheckVerdict([string]$surface, [string]$action) {
+  $span = VerdictSpan $surface
+  if ($null -eq $span) {
+    Deny "the PR body's '$heading' section has no '$runSlot' line, so no review verdict was recorded. Add one reading yes, deferred (<reason>), or n/a - <reason> before $action,"
+  }
+  $pos = 0
+  while (($pos = $span.IndexOf($runSlot, $pos)) -ge 0) {
+    $pos += $runSlot.Length
+    $tok = VerdictToken ($span.Substring($pos))
+    if (-not $tok) {
+      Deny "the PR body's '$runSlot' line has an empty value, so no review verdict was recorded. Set it to yes, deferred (<reason>), or n/a - <reason> before $action,"
+    }
+    if ($tok -cne 'yes' -and $tok -cne 'deferred' -and $tok -cne 'n/a') {
+      Deny "the PR body records '$runSlot $tok', which is not an accepted verdict. Set it to yes, deferred (<reason>), or n/a - <reason> before $action,"
+    }
+  }
 }
 
 if ($isCreate) {
@@ -107,8 +172,8 @@ if ($isCreate) {
   # Wide-surface check: the whole command string for inline --body/-b (never
   # a narrowly extracted substring — see header note), the whole file content
   # for --body-file/-F. Either surface matching is enough to allow.
-  if ($hasBody -and (HeadingMatch $cmd)) { exit 0 }
-  if ($fileContent -and (HeadingMatch $fileContent)) { exit 0 }
+  if ($hasBody -and (HeadingMatch $cmd)) { CheckVerdict $cmd 'opening the PR'; exit 0 }
+  if ($fileContent -and (HeadingMatch $fileContent)) { CheckVerdict $fileContent 'opening the PR'; exit 0 }
 
   Deny "the PR body is missing the required '$heading' section. Add one before opening the PR,"
 }
@@ -141,7 +206,7 @@ if ($isMerge) {
     Deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
   }
 
-  if (HeadingMatch $prBody) { exit 0 }
+  if (HeadingMatch $prBody) { CheckVerdict $prBody 'merging the PR'; exit 0 }
   Deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
 }
 
