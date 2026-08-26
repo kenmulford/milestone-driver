@@ -4,6 +4,7 @@ EXCLUDED	CHANGELOG.md	skipped=0
 EXCLUDED	tests/fixtures/	skipped=0
 EXCLUDED	.milestone-config/worktrees/	skipped=0
 EXCLUDED	.milestone-feeder/	skipped=0
+EXCLUDED	(gitignored)	skipped=0
 OK	docs/citing.md:3	src/target.sh (extract_symbols() {)
 OK	docs/citing.md:4	src/target.sh (Fail-loud (fail-CLOSED))
 FAIL	docs/citing.md:5	src/gone.md (any anchor at all)	0 matches

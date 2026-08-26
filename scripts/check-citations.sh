@@ -2,9 +2,11 @@
 # milestone-driver - repo-wide citation gate (issue #432).
 #
 # Walks a checked-out repo, finds every citation this repo writes, and RESOLVES
-# the one form that can be resolved - `path (anchor)`, per
-# skills/citation-format.md (D1 - the `path (anchor)` form). An anchor that
-# matches zero lines, or more than one, fails the run.
+# the three forms that name a target inside the tree - `path (anchor)` per
+# skills/citation-format.md (D1 - the `path (anchor)` form), and the two heading
+# forms `path#Heading` and `path § Heading`. An anchor matching zero lines or
+# more than one fails the run, and so does a heading matching zero headings or
+# more than one.
 #
 # Why the gate exists: an anchor points at a literal string, so any edit to that
 # string breaks the citation SILENTLY - it still looks well-formed and still
@@ -19,7 +21,7 @@
 #   EXCLUDED    <pattern>       skipped=<N>
 #   OK          <file>:<line>   <citation>
 #   FAIL        <file>:<line>   <citation>   <N> matches
-#   UNVERIFIED  <file>:<line>   <citation>   <form> - not verified
+#   UNVERIFIED  <file>:<line>   <citation>   path:line - not verified
 #   TOTALS      unverified=<U>  excluded-files=<E>
 #   SUMMARY     ok=<N>          failed=<M>
 # EXCLUDED records come first, then citation records in byte-sorted file order,
@@ -27,29 +29,34 @@
 # exit 1 otherwise.
 #
 # ── WHAT A GREEN RUN DOES NOT VERIFY ──────────────────────────────────────────
-# A GREEN RUN VERIFIES ONLY `path (anchor)` CITATIONS. The other three forms in
-# skills/citation-format.md (The four forms) are COUNTED AND REPORTED, NEVER
-# RESOLVED, each as an UNVERIFIED record:
+# ONE form in skills/citation-format.md (The four forms) is COUNTED AND
+# REPORTED, NEVER RESOLVED:
 #   `path:line` / `path:start-end`  A line number is not checkable without an
 #     author-supplied expected token, which this repo does not carry. Reporting
 #     one and calling the run green would be the false assurance issue #407
 #     warned about.
-#   `path#Heading` / `path § Heading`  Resolvable in principle by
-#     scripts/read-doc-section.sh, but NOT resolved here. Measured on a clean
-#     tree, a heading matcher wired into this walk produced 23 FAIL records
-#     against 23 CORRECT citations: 13 GitHub-slug headings (`#the-mechanical-
-#     gates` against a real `## The mechanical gates`), 8 markdown link targets
-#     that are not citations at all, and 2 headings holding backticks that a
-#     backtick-delimited token cannot bound. A gate that fails on correct input
-#     is worse than no gate, so the heading forms are reported and left
-#     unresolved until a slug matcher exists.
-#     A THIRD shape a future slug matcher must handle, not in that count: a
-#     heading holding DOUBLE QUOTES
-#     (`#### 6.9 Surface in the final summary "Your move" section`). It is the
-#     heading text this script now prints correctly, and it is named here so the
-#     matcher's author does not rediscover it.
-# So `failed=0` means "every anchor still points at its string", NOT "every
-# citation in this repo is good".
+# So `failed=0` means "every anchor still points at its string and every cited
+# heading still exists, exactly once", NOT "every citation in this repo is
+# good". The position test is still not applied (see below), and a `path:line`
+# citation is still nobody's to check.
+#
+# THE HEADING FORMS WERE UNVERIFIED UNTIL THIS GATE LEARNED THREE THINGS, and
+# each is why the earlier measurement saw 23 FAIL records against 23 citations
+# it read as CORRECT:
+#   13 GitHub-SLUG headings (`#the-mechanical-gates` against a real
+#     `## The mechanical gates`). Those were never correct - D1's heading form
+#     names the heading TEXT, and scripts/read-doc-section.sh matches it
+#     case-sensitively and exactly, so a slug resolved nowhere. All 13 are now
+#     spelled as their heading text.
+#   8 MARKDOWN LINK TARGETS, which are not citations at all. Discriminator rule
+#     5 below drops them on the two bytes standing before the path.
+#   2 headings HOLDING BACKTICKS that a backtick-delimited token cannot bound.
+#     A citation whose heading holds a backtick has no writable spelling in
+#     either heading form; write `path:line` for that section instead.
+# A heading holding DOUBLE QUOTES is not one of those shapes and needs nothing
+# special: inside a code span only the closing backtick bounds the heading, so
+# `#### 6.9 Surface in the final summary "Your move" section` resolves as
+# written (see heading_end below).
 #
 # ── WHAT COUNTS AS A CITATION (the discriminator) ─────────────────────────────
 # skills/citation-format.md (What marks it as a citation) makes the code span
@@ -82,6 +89,13 @@
 #      scripts/read-doc-section.ps1 (if ($args.Count -ne 2) {) - and what drops
 #      a prose parenthetical that runs off the end of the line without closing
 #      (4 of them live, e.g. `.gitignore`'s wrapped settings comment).
+#   5. A MARKDOWN LINK TARGET IS NOT A CITATION. The two bytes standing
+#      immediately before the run are the whole test: `](` there means the path
+#      is the target half of `[text](path#anchor)`, which is a link the reader
+#      follows, never an evidence reference. Without the rule every such target
+#      reached the heading resolver as a slug and failed against a real heading
+#      - 8 of them when the heading forms were first measured. The rule is
+#      POSITIONAL like rules 1 to 4 and needs no markdown parser.
 # Measured against this repo on a clean tree: 168 anchor citations, all 168
 # resolving to exactly one line.
 #
@@ -97,9 +111,15 @@
 #     prose parenthetical is not a citation and never was.
 #   Heading ending in a parenthetical  A heading citation splits on the
 #     SEPARATOR, never the parenthesis: the path-class run ends at `#`, so the
-#     classifier sees the heading form and never reaches the ` (`. Reported
-#     UNVERIFIED. The live example is library-manifest's "Adding a dependency
-#     (the gate)" heading, cited seven times.
+#     classifier sees the heading form and never reaches the ` (`. The live
+#     example is library-manifest's "Adding a dependency (the gate)" heading,
+#     cited seven times, and it resolves as written.
+#   A heading form against a file that HOLDS NO HEADINGS  `0 matches`, like any
+#     other miss. A JSON or shell target has no ATX heading to name, so the
+#     anchor form is the form to write for it.
+#   A DUPLICATE heading  `<n> matches`, a FAIL. scripts/read-doc-section.sh
+#     takes the first and succeeds; this gate refuses, exactly as it refuses a
+#     non-unique anchor. See heading_count below for why the two differ.
 #   `${CLAUDE_PLUGIN_ROOT}/` paths  `$`, `{` and `}` are not path-class, so the
 #     run starts at the `/` after `}` and is dropped by rule 3 (leading `/`).
 #     Never reported as missing. None is written in the anchor form today; if
@@ -107,9 +127,9 @@
 #   Cross-repo citations  Not distinguishable from a local path by shape. Every
 #     live one is a LINE form - `skills/output-style.md` cites milestone-feeder's
 #     `agents/issue-author.md` by line range - so every live one lands in
-#     UNVERIFIED and cannot fail the build. A cross-repo ANCHOR citation fails as
-#     `0 matches`, and CONTAINMENT is what makes that true rather than
-#     accidental: see in_tree() below. Without it, an anchor citation of a
+#     UNVERIFIED and cannot fail the build. A cross-repo ANCHOR OR HEADING
+#     citation fails as `0 matches`, and CONTAINMENT is what makes that true
+#     rather than accidental: see in_tree() below. Without it, an anchor citation of a
 #     dot-dot path READ A FILE NEXT TO THE CHECKOUT and reported OK, so the same
 #     citation answered differently depending on where the tree sat on disk.
 #   Anchor paths that escape the checkout  Resolved ONLY against the walked file
@@ -173,13 +193,26 @@
 #     tools. A gate that is red BY DEFAULT on any machine with feeder scratch on
 #     disk is a gate people stop reading, and that costs more than the coverage
 #     it buys.
+#   (gitignored)   WHATEVER GIT SAYS IS IGNORED, and it is not a path pattern
+#     but a set, reported last so the six patterns above keep their counts. A
+#     gitignored file is per-clone scratch BY DEFINITION: it is absent from a
+#     fresh checkout, so anything it says is invisible to CI and visible only to
+#     the person running the tools. Measured on this repo: a per-clone
+#     `.milestone-config/triage-cache.json` produced 2 FAIL records locally
+#     against a tree CI read as clean, and a gate that is red locally and green
+#     in CI is a gate people stop reading. The six patterns above are checked
+#     FIRST and this set LAST, so a file matching both is counted once, in the
+#     pattern's row.
 # `.git/` is pruned too, as machinery rather than policy, and is not reported.
 # The exclusion applies to a file as a citation SOURCE, never as a citation
 # TARGET: a live file may still cite into `docs/superpowers/`, and that anchor
 # is resolved against the real file like any other.
 #
 # ── RESOLUTION MODEL ──────────────────────────────────────────────────────────
-# Identical to scripts/resolve-citation.sh: literal substring, case-sensitive,
+# TWO models, one per form family. The HEADING forms use
+# scripts/read-doc-section.sh's ATX heading rule, in heading_count below. The
+# ANCHOR form's is this one, identical to scripts/resolve-citation.sh: literal
+# substring, case-sensitive,
 # LINE-SCOPED, lines split on LF only. The count is the number of MATCHING
 # LINES, which is what resolve-citation emits one record per. `grep -a -c -F`
 # has exactly that model - a trailing CR and a line-1 BOM can change a
@@ -215,6 +248,9 @@ EX3='CHANGELOG.md';      EXN3=0
 EX4='tests/fixtures/';   EXN4=0
 EX5='.milestone-config/worktrees/'; EXN5=0
 EX6='.milestone-feeder/';           EXN6=0
+# EX7 is not a path pattern: it is the set git reports as IGNORED under
+# ROOT. See the gitignore note in the walk section below.
+EX7='(gitignored)';                 EXN7=0
 
 ok=0
 failed=0
@@ -267,12 +303,16 @@ balanced_end() {
 #   bare   No span exists, so no exact bound exists either and the rule is a
 #          conservative stop, FIVE of them: backtick, UNMATCHED `)`, comma,
 #          semicolon, double quote. The paren-depth guard keeps a heading
-#          holding a BALANCED parenthetical whole while still cutting a
-#          markdown link target at its closing `)`
-#          (`](../README.md#the-layered-gating-model)`). A spaced hyphen is
-#          deliberately NOT a stop, in either mode: it is ordinary text inside
-#          this repo's headings and anchors, so stopping on it would cut a
-#          correct anchor at its first hyphen and fail the gate repo-wide.
+#          holding a BALANCED parenthetical whole, which is what lets a bare
+#          reference to "Adding a dependency (the gate)" resolve from inside a
+#          shell comment. A spaced hyphen is deliberately NOT a stop, in either
+#          mode: it is ordinary text inside this repo's headings and anchors, so
+#          stopping on it would cut a correct anchor at its first hyphen and
+#          fail the gate repo-wide.
+#          A bare bound is a GUESS, and the guess is wrong the moment the
+#          sentence continues past the heading with none of the five stops in
+#          between. Wrap the citation in a code span when that happens; two
+#          comment lines in this repo needed it.
 heading_end() {
   _t="$1"; _m="$2"; _d=0; _i=0; _n="${#_t}"
   while [ "$_i" -lt "$_n" ]; do
@@ -307,6 +347,42 @@ match_count() {
     ''|*[!0-9]*) printf '0' ;;
     *) printf '%s' "$_c" ;;
   esac
+}
+
+# heading_count <file> <heading> - the number of ATX HEADING LINES in <file>
+# whose text equals <heading> exactly. The match rule is
+# scripts/read-doc-section.sh (Match rule) verbatim, and it has to be: this gate
+# is green exactly when that resolver succeeds. Leading `#`s are counted, a
+# space or end-of-line must follow them, and the remainder is compared
+# CASE-SENSITIVE after trimming whitespace at both ends. A trailing CR is
+# stripped first, so a CRLF checkout answers the same as an LF one.
+#
+# ONE DIVERGENCE FROM THE RESOLVER, DELIBERATE: read-doc-section takes the FIRST
+# of two identical headings and succeeds; this gate reports `2 matches` and
+# FAILS, the same call this gate already makes on a non-unique anchor. A
+# citation naming one of two identical sections does not say which, and only its
+# author can.
+heading_count() {
+  [ -s "$1" ] || { printf '0'; return 0; }
+  _hc=0
+  while IFS= read -r _hl || [ -n "$_hl" ]; do
+    _hl="${_hl%$'\r'}"
+    case "$_hl" in '#'*) ;; *) continue ;; esac
+    _hr="$_hl"
+    while [ "${_hr#'#'}" != "$_hr" ]; do _hr="${_hr#'#'}"; done
+    case "$_hr" in ''|' '*) ;; *) continue ;; esac
+    _ht="${_hr#"${_hr%%[![:space:]]*}"}"
+    _ht="${_ht%"${_ht##*[![:space:]]}"}"
+    [ "$_ht" = "$2" ] && _hc=$((_hc + 1))
+  done < "$1"
+  printf '%s' "$_hc"
+}
+
+# resolve_heading <run> <heading> - match count for a heading citation, and 0
+# when the target sits outside the walked file set. Containment is the same rule
+# and the same reason as the anchor form's, see in_tree below.
+resolve_heading() {
+  if in_tree "$1"; then heading_count "$ROOT/$1" "$2"; else printf '0'; fi
 }
 
 # in_tree <repo-relative-path> - CONTAINMENT. True only when the path is a
@@ -374,6 +450,23 @@ KEPT="$TMPD/kept"
 ( cd "$ROOT" && find . -name .git -prune -o ! -type d ! -type l -print 2>/dev/null ) \
   | sed 's|^\./||' | LC_ALL=C sort > "$FILELIST"
 
+# The IGNORED set: every path under ROOT git reports as ignored. ONE call, and
+# its failure mode is an EMPTY set - git absent, ROOT outside a work tree, or
+# any other nonzero exit leaves the file empty and nothing is excluded, which is
+# the direction that scans MORE rather than less. `-c core.quotePath=false`
+# stops git escaping the non-ASCII bytes of a path; it does NOT stop C-quoting a
+# path holding `"`, a backslash or a control byte, and such a path simply misses
+# the exact match below and stays in the walk.
+IGNORED="$TMPD/ignored"
+: > "$IGNORED"
+git -C "$ROOT" -c core.quotePath=false ls-files --others --ignored --exclude-standard \
+  > "$IGNORED" 2>/dev/null || : > "$IGNORED"
+
+# is_ignored <repo-relative-path> - membership in that set. `-x` anchors the
+# match to the WHOLE line and `-F` keeps it literal, so a path is never a
+# prefix-match of a longer sibling; `-e` protects a leading dash.
+is_ignored() { grep -qxF -e "$1" -- "$IGNORED" 2>/dev/null; }
+
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
   case "$rel" in
@@ -384,6 +477,7 @@ while IFS= read -r rel; do
     "$EX5"*)  EXN5=$((EXN5 + 1)); continue ;;
     "$EX6"*)  EXN6=$((EXN6 + 1)); continue ;;
   esac
+  if is_ignored "$rel"; then EXN7=$((EXN7 + 1)); continue; fi
   printf '%s\n' "$rel" >> "$KEPT"
 done < "$FILELIST"
 
@@ -393,6 +487,7 @@ printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX3" "$EXN3"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX4" "$EXN4"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX5" "$EXN5"
 printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX6" "$EXN6"
+printf 'EXCLUDED\t%s\tskipped=%s\n' "$EX7" "$EXN7"
 
 # ---------------------------------------------------------------------------
 # Scan. One pass per line, left to right: pull the next path-class run, test it
@@ -419,6 +514,11 @@ while IFS= read -r rel; do
       # backtick there means the citation opens a code span, which is the only
       # exact bound a heading citation ever has (see heading_end).
       runpos=$(( ${#line} - ${#rest} - ${#run} ))
+      # Discriminator rule 5: a MARKDOWN LINK TARGET is not a citation. `](`
+      # standing immediately before the run is the whole test - see the header.
+      if [ "$runpos" -ge 2 ] && [ "${line:$((runpos - 2)):2}" = '](' ]; then
+        continue
+      fi
       if [ "$runpos" -gt 0 ] && [ "${line:$((runpos - 1)):1}" = '`' ]; then
         hmode=span
       else
@@ -449,16 +549,28 @@ while IFS= read -r rel; do
           end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
-          printf 'UNVERIFIED\t%s:%s\t%s#%s\tpath#Heading - not verified\n' "$rel" "$lno" "$run" "$head"
-          unverified=$((unverified + 1))
+          n="$(resolve_heading "$run" "$head")"
+          if [ "$n" -eq 1 ]; then
+            printf 'OK\t%s:%s\t%s#%s\n' "$rel" "$lno" "$run" "$head"
+            ok=$((ok + 1))
+          else
+            printf 'FAIL\t%s:%s\t%s#%s\t%s matches\n' "$rel" "$lno" "$run" "$head" "$n"
+            failed=$((failed + 1))
+          fi
           ;;
         ' § '*)
           h="${rest#' § '}"
           end="$(heading_end "$h" "$hmode")"
           head="$(rtrim "${h:0:$end}")"
           rest="${h:$end}"
-          printf 'UNVERIFIED\t%s:%s\t%s § %s\tpath § Heading - not verified\n' "$rel" "$lno" "$run" "$head"
-          unverified=$((unverified + 1))
+          n="$(resolve_heading "$run" "$head")"
+          if [ "$n" -eq 1 ]; then
+            printf 'OK\t%s:%s\t%s § %s\n' "$rel" "$lno" "$run" "$head"
+            ok=$((ok + 1))
+          else
+            printf 'FAIL\t%s:%s\t%s § %s\t%s matches\n' "$rel" "$lno" "$run" "$head" "$n"
+            failed=$((failed + 1))
+          fi
           ;;
         :[0-9]*)
           spec="${rest#:}"
@@ -481,6 +593,6 @@ while IFS= read -r rel; do
   done < "$src"
 done < "$KEPT"
 
-printf 'TOTALS\tunverified=%s\texcluded-files=%s\n' "$unverified" "$((EXN1 + EXN2 + EXN3 + EXN4 + EXN5 + EXN6))"
+printf 'TOTALS\tunverified=%s\texcluded-files=%s\n' "$unverified" "$((EXN1 + EXN2 + EXN3 + EXN4 + EXN5 + EXN6 + EXN7))"
 printf 'SUMMARY\tok=%s\tfailed=%s\n' "$ok" "$failed"
 [ "$failed" -eq 0 ]

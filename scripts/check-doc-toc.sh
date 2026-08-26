@@ -45,8 +45,9 @@
 # file's `## Contents`, which is its first heading, and the scan stops at the
 # first heading it finds. tests/fixtures/check-doc-toc/fenced-pseudo-heading/
 # pins exactly that arrangement. DO NOT ADD GENERAL FENCE PARSING to widen it
-# - that is a markdown model, and .project/library-manifest.md#Adding a
-# dependency (the gate) is the reason this whole family of checkers has none.
+# - that is a markdown model, and
+# `.project/library-manifest.md#Adding a dependency (the gate)` is the reason
+# this whole family of checkers has none.
 #
 # Threshold: STRICTLY OVER 100 lines. A file at or under 100 lines passes
 # whether or not it carries the heading - a reader takes in a 100-line file
@@ -130,6 +131,7 @@ skills/notices.md
 skills/output-style.md
 skills/citation-format.md
 skills/remediate-handoff.md
+skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md

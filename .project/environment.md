@@ -1,7 +1,7 @@
 # Environment
 
 <!--
-Project doc (.project/). Cite as `.project/environment.md#<section>`. Declares what the
+Project doc (.project/). Cite it as this path plus `#` and a `##` heading's exact text. Declares what the
 project's runtime and production environment looks like - the facts downstream tools ground
 their data, test, and caching decisions in. It does NOT provision anything; it records the
 model so issues don't drift. Fill every [TBD]; a section left [TBD] is treated as "not
@@ -13,7 +13,7 @@ Captured by milestone-bootstrapper (dogfood #235), grounded in this repo's own d
 
 ## Environments
 Which environments exist (production, staging, test, local) and how they differ.
-> There is **no application runtime** and no deploy environment - this is a Claude Code plugin that runs inside a developer's Claude Code session against a GitHub repo on a gitflow-style branch model (`README.md#requirements`). The only "environments" are: a developer's **local CLI** (where the skills, hooks, and scripts execute), and **GitHub Actions CI** (`.github/workflows/ci.yml`, runs the shell test suites on every PR into `develop`). "Release" is a manual human promotion of the integration branch (`develop`) to the protected branch (`main`); the loop never performs it (`docs/consumer-setup.md#releasing-to-your-protected-branch`).
+> There is **no application runtime** and no deploy environment - this is a Claude Code plugin that runs inside a developer's Claude Code session against a GitHub repo on a gitflow-style branch model (`README.md#Requirements`). The only "environments" are: a developer's **local CLI** (where the skills, hooks, and scripts execute), and **GitHub Actions CI** (`.github/workflows/ci.yml`, runs the shell test suites on every PR into `develop`). "Release" is a manual human promotion of the integration branch (`develop`) to the protected branch (`main`); the loop never performs it (`docs/consumer-setup.md#Releasing to your protected branch`).
 
 ## Data stores
 Databases and other persistent stores: the engine(s), and the **topology** - separate prod / staging / test databases, or a shared one. **Test-data isolation:** how tests get a clean, isolated database (a dedicated test DB, a per-worker DB suffix, transactional rollback, truncate-on-start). This is the single biggest drift source if left unstated.
@@ -25,12 +25,12 @@ Whether caching exists and, if so, the layer and technology (in-memory, Redis, C
 
 ## Async & messaging
 Background jobs, queues, streams, schedulers - or "none."
-> **None.** The engine is synchronous within a Claude Code session. The closest thing to concurrency is the parallel-by-default, barrier-checked execution mode (it drops to sequential only when a barrier is present), which builds mutually-independent issues within a Wave concurrently in git worktrees (capped by the tunable `maxParallelWorkers` profile key, default 4) and then integrates them through one serial verified merge tail (`docs/architecture.md#parallel-mode`) - orchestrated worktrees, not a message queue.
+> **None.** The engine is synchronous within a Claude Code session. The closest thing to concurrency is the parallel-by-default, barrier-checked execution mode (it drops to sequential only when a barrier is present), which builds mutually-independent issues within a Wave concurrently in git worktrees (capped by the tunable `maxParallelWorkers` profile key, default 4) and then integrates them through one serial verified merge tail (`docs/architecture.md#Parallel mode`) - orchestrated worktrees, not a message queue.
 
 ## External services & integrations
 Third-party services the app depends on: auth / identity, payments, email / SMS, object storage, analytics, other APIs.
-> **GitHub** is the one hard dependency, reached through the authenticated `gh` CLI (issues, PRs, milestones, labels, branch protection). **Optional, best-effort, never-gating** integrations: a **Trello** board mirror via the `@delorenj/mcp-server-trello` MCP server when `integrations.trello` is in the profile (`README.md#optional-integrations`); the **visualCapture** render seam that attaches light/dark screenshots to held-open UI PRs (`docs/architecture.md#visual-capture-optional`); and the **milestone-coherence-reviewer** companion plugin for a post-build second opinion (`README.md#optional-integrations`). Each absent integration skips silently.
+> **GitHub** is the one hard dependency, reached through the authenticated `gh` CLI (issues, PRs, milestones, labels, branch protection). **Optional, best-effort, never-gating** integrations: a **Trello** board mirror via the `@delorenj/mcp-server-trello` MCP server when `integrations.trello` is in the profile (`README.md#Optional integrations`); the **visualCapture** render seam that attaches light/dark screenshots to held-open UI PRs (`docs/architecture.md#Visual capture (optional)`); and the **milestone-coherence-reviewer** companion plugin for a post-build second opinion (`README.md#Optional integrations`). Each absent integration skips silently.
 
 ## Runtime & hosting
 Where it runs and the runtime/version targets (hosting platform, language-runtime versions, regions). For mandated frameworks and packages, cross-reference `library-manifest.md`.
-> Runs **client-side** in a Claude Code session on the developer's machine; no hosting, no server, no regions. Runtime targets: **bash + jq** (primary) and **PowerShell 7+** (fallback) for hooks and scripts; **`gh` authenticated** and **git** for all repo operations (`README.md#requirements`). CI runs on `ubuntu-latest`, which ships bash, jq, pwsh, and python3 preinstalled (`.github/workflows/ci.yml`). Mandated runtimes are cross-referenced in `library-manifest.md#runtime--frameworks`.
+> Runs **client-side** in a Claude Code session on the developer's machine; no hosting, no server, no regions. Runtime targets: **bash + jq** (primary) and **PowerShell 7+** (fallback) for hooks and scripts; **`gh` authenticated** and **git** for all repo operations (`README.md#Requirements`). CI runs on `ubuntu-latest`, which ships bash, jq, pwsh, and python3 preinstalled (`.github/workflows/ci.yml`). Mandated runtimes are cross-referenced in `.project/library-manifest.md#Runtime & frameworks`.

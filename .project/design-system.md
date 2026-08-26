@@ -1,7 +1,7 @@
 # Design system
 
 <!--
-Project doc (.project/). Cite as `.project/design-system.md#<section>`. Machine-readable
+Project doc (.project/). Cite it as this path plus `#` and a `##` heading's exact text. Machine-readable
 design tokens live in `tokens.json` alongside this file. Absent or all-[TBD] →
 no design-lens grounding (design-reviewer / coherence-reviewer / wireframing
 skip it). Skip this file entirely for repos with no UI surface. Keep ## headings

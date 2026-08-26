@@ -1,7 +1,7 @@
 # Conventions
 
 <!--
-Project doc (.project/). Cite as `.project/conventions.md#<section>`. This is the file the
+Project doc (.project/). Cite it as this path plus `#` and a `##` heading's exact text. This is the file the
 implementer and coherence-reviewer lean on hardest - "reuse conventions" and
 "does this fit the app?" both resolve here. Prefer pointing at a canonical
 exemplar in the codebase (path:line) over prose. Keep ## headings stable - they
@@ -40,7 +40,7 @@ Message format and PR expectations.
 
 ## Versioning
 Does the project follow semantic versioning? If so, **where the version lives** and the **bump cadence**.
-> **SemVer, yes.** The version lives in **`.claude-plugin/plugin.json`** as the single source of truth - `marketplace.json` carries no `version` field (`docs/architecture.md#plugin-version`). The bump **rides the issue or milestone PR itself**, never a separate chore: a standalone `solve-issue` applies a **patch** bump; `solve-milestone` derives the target version from the **milestone title** (a deterministic, unit-tested extractor - `scripts/extract-version.{sh,ps1}`) and passes it to each issue run idempotently. `versioning: false` is version-free mode. Tagging and cutting the GitHub Release happen **manually after** the `develop`→`main` release merge (`docs/consumer-setup.md#releasing-to-your-protected-branch`).
+> **SemVer, yes.** The version lives in **`.claude-plugin/plugin.json`** as the single source of truth - `marketplace.json` carries no `version` field (`docs/architecture.md#Plugin version`). The bump **rides the issue or milestone PR itself**, never a separate chore: a standalone `solve-issue` applies a **patch** bump; `solve-milestone` derives the target version from the **milestone title** (a deterministic, unit-tested extractor - `scripts/extract-version.{sh,ps1}`) and passes it to each issue run idempotently. `versioning: false` is version-free mode. Tagging and cutting the GitHub Release happen **manually after** the `develop`→`main` release merge (`docs/consumer-setup.md#Releasing to your protected branch`).
 
 ## Code comments
 What earns a comment its place in code, and what does not.

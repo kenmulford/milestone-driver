@@ -108,7 +108,10 @@
 #     had to be told. APPLY BOTH AXES' FLOORS on every re-derivation.
 #   - When a governed file SHRINKS (a future split/trim), lower ALL THREE of
 #     its ceilings to the new actuals + headroom in the SAME change that
-#     shrinks it.
+#     shrinks it. A RECORDED RAISE below is a DATED AUTHORIZATION, not a claim
+#     about the row today: a later shrink ratchets that row down past the
+#     number the raise names, and the note is left standing as the record of
+#     why the row ever went up.
 #   - Raising a ceiling requires a recorded decision in the Decision Log of
 #     the PR body that grows the file. This script enforces whatever ceiling
 #     it is given - it has no opinion on when raising one is warranted.
@@ -142,6 +145,22 @@
 #     New actuals, all measured 2026-08-26: 43102 / 5980, 4703 / 722,
 #     40703 / 6006, 14680. Every LINE ceiling holds and none moves.
 #     Spent on these three issues' clauses: the next edit re-derives normally.
+#     RECORDED RAISE, the citation-gate change (decision 2026-08-26):
+#     skills/citation-format.md WORD 1600 -> 1700. The heading forms became
+#     gate-resolved, so the file has to state the rule that makes them
+#     resolvable - the heading's TEXT, never its markdown anchor slug - and what
+#     the gate does with a duplicate heading. New actual 1604;
+#     1604 * 1.05 = 1684.2, rounded UP to the next 100 = 1700. LINE 185/190 and
+#     BYTE 10141/10500 still hold, so neither moves.
+#     Spent on those two rules: the next edit re-derives normally.
+#     RECORDED RAISE, the same change (decision 2026-08-26):
+#     skills/solve-issue/SKILL.md CLOSURE 11600 -> 12300. Extracting the
+#     review-depth ladder out of its four copies puts skills/review-depth.md
+#     on every solve-issue run's load path, so the closure gains a member it
+#     did not carry; the three excluded files that lost their copies do not
+#     offset it, because an excluded file was never summed. New actual 11694;
+#     11694 * 1.05 = 12278.7, rounded UP to the next 100 = 12300.
+#     Spent on that membership: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -252,20 +271,20 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    45000     6300
+skills/solve-issue/SKILL.md                         320    44000     6200
 skills/solve-issue/async-mode.md                     40     4500      700
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
 skills/solve-issue/permission-preflight.md           35     2500      400
-skills/solve-issue/post-fix-commit.md                25     5000      800
+skills/solve-issue/post-fix-commit.md                25     4500      700
 skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
-skills/solve-milestone/parallel-waves.md            205    43000     6400
+skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
@@ -277,14 +296,15 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
-skills/solve-milestone/simplify-pass.md             110    11000     1700
+skills/solve-milestone/simplify-pass.md             110    11000     1600
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   270    12500     1800
 skills/output-style.md                               85     9500     1600
-skills/citation-format.md                           190    10500     1600
+skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
+skills/review-depth.md                               90     4500      700
 agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    15500     2200
@@ -342,6 +362,10 @@ fi
 #                             (version-free, fail-safe degradation, versioned)
 #                             route INTO the read, so no branch stands in front
 #                             of it.
+#   skills/review-depth.md    solve-issue step 6.1 only, and a member of that
+#                             one closure. Its `/code-review` gate row carries
+#                             no applicability flag, so no branch stands in
+#                             front of the read. Verified 2026-08-26.
 #
 # EXCLUDED, and each is excluded for the same reason - an OBSERVABLE branch
 # stands in front of the read, so the file is not on every run's load path:
@@ -403,7 +427,12 @@ fi
 # not branch-gated: solve-issue step 4 selects a mode and then reads the file in
 # every one of them, so no branch stands in front of the read. Contrast
 # version-target.md, whose directive spells out "Under `versioning: false` it is
-# **never read**"; step 4 carries no such clause.
+# **never read**"; step 4 carries no such clause. skills/review-depth.md is a
+# member of the same closure on the same rule and is summed there too; it is a
+# skills/-level peer, not one of the split set counted above. solve-milestone
+# reads it only through solve-issue or through one of the excluded,
+# branch-gated files above (parallel-waves.md step 7, simplify-pass.md), so
+# ITS closure does not sum it.
 #
 # That membership moves solve-issue's closure ceiling 11200 -> 11700, re-derived
 # by the standing rule from the corrected sum (10607 + 513 = 11120 words;
@@ -431,7 +460,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11600   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-issue/SKILL.md       12300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
