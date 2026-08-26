@@ -21,8 +21,9 @@
 # Reviewer says LGTM" does NOT satisfy the gate.
 #
 # Verdict parse (issue #604): the gate also reads the `/code-review run:`
-# value. Accepted: `yes`, `deferred (<reason>)`, `n/a - <reason>`. `no`, an
-# unrecognized value, an empty value, and a missing slot all DENY. The verdict
+# value. Accepted: `yes` and `n/a - <reason>`; `deferred` was retired by the
+# v1.24.0 simplify pass, for the reason the .sh sibling's header records. `no`,
+# an unrecognized value, an empty value, and a missing slot all DENY. The verdict
 # search is SCOPED to a heading span so an incidental `/code-review run:` in
 # prose ABOVE the section never false-denies: the anchored heading matches are
 # walked LAST TO FIRST and the first whose text CONTAINS the slot wins. EVERY
@@ -121,17 +122,17 @@ function VerdictToken([string]$after) {
 function CheckVerdict([string]$surface, [string]$action) {
   $span = VerdictSpan $surface
   if ($null -eq $span) {
-    Deny "the PR body's '$heading' section has no '$runSlot' line, so no review verdict was recorded. Add one reading yes, deferred (<reason>), or n/a - <reason> before $action,"
+    Deny "the PR body's '$heading' section has no '$runSlot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $action,"
   }
   $pos = 0
   while (($pos = $span.IndexOf($runSlot, $pos)) -ge 0) {
     $pos += $runSlot.Length
     $tok = VerdictToken ($span.Substring($pos))
     if (-not $tok) {
-      Deny "the PR body's '$runSlot' line has an empty value, so no review verdict was recorded. Set it to yes, deferred (<reason>), or n/a - <reason> before $action,"
+      Deny "the PR body's '$runSlot' line has an empty value, so no review verdict was recorded. Set it to yes or n/a - <reason> before $action,"
     }
-    if ($tok -cne 'yes' -and $tok -cne 'deferred' -and $tok -cne 'n/a') {
-      Deny "the PR body records '$runSlot $tok', which is not an accepted verdict. Set it to yes, deferred (<reason>), or n/a - <reason> before $action,"
+    if ($tok -cne 'yes' -and $tok -cne 'n/a') {
+      Deny "the PR body records '$runSlot $tok', which is not an accepted verdict. Set it to yes or n/a - <reason> before $action,"
     }
   }
 }

@@ -23,7 +23,8 @@
 #   no-diff            `git diff HEAD` failed - not a repo, or no HEAD
 #   empty-candidates   git named no changed and no untracked path
 #   no-jq              jq is not on PATH
-#   no-config          <root>/.milestone-config/driver.json is not readable
+#   no-config          neither <root>/.milestone-config/driver.json nor the
+#                      legacy <root>/milestone-driver.json is readable
 #   no-source-globs    that config yielded no usable sourceGlobs entry
 #   rejected-path:<p>  the first candidate whose shape disqualified it, so it
 #                      was matched against nothing (see PATH SHAPE)
@@ -40,9 +41,7 @@
 # `git diff --name-status HEAD` and
 # `git ls-files --others --exclude-standard --full-name`. Nothing else. No
 # `find`, no `ls -R`, no globstar expansion against the filesystem, no directory
-# recursion, no stat, no existence check. The finite list git names is in hand
-# before any matching starts, and matching is pure pattern-versus-string against
-# it.
+# recursion, no stat, no existence check.
 #
 # `HEAD`, not bare `git diff`: a denied commit at `hooks/tests-green.sh` exit 2
 # leaves the tree staged, and bare `git diff` then prints nothing. Here that
@@ -70,17 +69,13 @@
 # that matches no glob. The path-shape guard rejects that spelling outright
 # rather than letting it read as a path under no sourceGlob.
 #
-# NEW MEANS `A`, OR UNTRACKED. A staged new file shows in the delta with status
-# A; an unstaged one shows only in `ls-files --others`. Both are new; a file
-# that is merely modified is not.
-#
 # THE TWIN TEST IS PURELY SET-MEMBERSHIP, never an existence check: a `.sh`
 # candidate is deep unless its `.ps1` sibling is ALSO in the candidate set.
 # Asking the filesystem or the index whether the sibling exists at all would be
 # the more precise rule, and it is the rule this script may not have - the
 # candidate set is the only ground it is allowed to stand on. The imprecision
-# runs one way only: a `.sh` file that never had a twin classifies deep, which
-# is the safe direction.
+# runs one way only, per the SAFE DIRECTION rule above: a `.sh` file that never
+# had a twin classifies deep.
 #
 # hooks/** IS CHECKED AGAINST EVERY CANDIDATE, not only the ones under
 # sourceGlobs, and it is checked BEFORE the config is read. In this repo
@@ -89,8 +84,8 @@
 # exists to prevent. The trigger is a fixed literal prefix, not a configured
 # glob, so it needs neither sourceGlobs nor jq - and ordering it after the
 # config read would have handed a repo with no driver.json, or a jq-less host,
-# the `standard` degrade on a hook change. The highest-value trigger in the
-# table may not be the one a missing config silently disables.
+# the `standard` degrade on a hook change. The SAFE DIRECTION rule above is not
+# safe enough here: standard on hooks/** is still a downgrade.
 #
 # PATH SHAPE IS ENFORCED ON BOTH SIDES, candidates and configured globs alike:
 # a path that is absolute (leading `/`, or a `C:/` drive prefix), starts with
@@ -104,9 +99,9 @@
 # rule is aimed at git itself.
 #
 # A REJECTED CANDIDATE FLOORS THE VERDICT AT `standard` and names itself in
-# `rejected-path:<p>`. Nothing was ever matched against it, so `shallow` - the
-# least-review verdict, the one that ships a diff unreviewed - would be a claim
-# about a path this script deliberately refused to read. The floor is applied
+# `rejected-path:<p>`. Nothing was ever matched against it, so `shallow` would
+# be a claim about a path this script deliberately refused to read, and the SAFE
+# DIRECTION rule above settles which way that resolves. The floor is applied
 # LAST, after every deep trigger has had its say, so a rejection can only raise
 # a `shallow` to `standard`, never lower a `deep`.
 #
@@ -251,10 +246,15 @@ $VALID
 EOF
 
 # ---- 4. sourceGlobs, read the way
-# `scripts/build-file-index.sh (sourceGlobs: read from cwd)` reads it.
+# `scripts/build-file-index.sh (sourceGlobs: read from cwd)` reads it, over the
+# same transitional legacy-path fallback every other profile reader honors
+# (`docs/profile-schema.md (Transitional root read)`). Without it a repo still on
+# the legacy layout degrades to `standard` and loses the new-file and twin
+# triggers, the one downgrade the hooks trigger above cannot catch.
 # tr -d '\r' guards against a Windows jq build emitting CRLF.
 command -v jq >/dev/null 2>&1 || emit 'standard' 'no-jq'
 PROF="$ROOT/.milestone-config/driver.json"
+[ -r "$PROF" ] || PROF="$ROOT/milestone-driver.json"
 [ -r "$PROF" ] || emit 'standard' 'no-config'
 SRC_RE=''
 while IFS= read -r g; do
@@ -269,8 +269,7 @@ EOF
 
 # ---- 5. the sourceGlobs-scoped deep triggers, most specific signal first.
 # Within a trigger the first candidate in git's order wins, which is path order.
-SRC=''
-[ -n "$VALID" ] && SRC="$(printf '%s' "$VALID" | grep -E "^($SRC_RE)\$")"
+SRC="$(printf '%s' "$VALID" | grep -E "^($SRC_RE)\$")"
 
 while IFS= read -r p; do
   [ -n "$p" ] || continue

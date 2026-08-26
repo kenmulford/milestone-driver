@@ -60,7 +60,7 @@ A parked issue carries exactly one blocker label (`blocked` / `needs design` / `
 | tests-green | Plugin `PreToolUse` (`Bash(git commit *)`): runs `unitTestCmd` when staged files touch `sourceGlobs`; blocks the commit on red. |
 | no-push | Plugin `PreToolUse` (`Bash(git push *)`): rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
 | no-pr-to-protected | Plugin `PreToolUse` (`Bash(gh pr create *)`): blocks `gh pr create --base <protectedBranch>`. |
-| code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading, and whose `/code-review run:` verdict under it is not `yes`, `deferred (<reason>)`, or `n/a - <reason>` (`no`, an unrecognized or empty value, and a missing slot each deny). A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
+| code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading, and whose `/code-review run:` verdict under it is not `yes` or `n/a - <reason>` (`no`, an unrecognized or empty value, and a missing slot each deny). A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 

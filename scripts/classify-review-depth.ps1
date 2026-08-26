@@ -1,16 +1,7 @@
 #!/usr/bin/env pwsh
 # milestone-driver - review-depth classifier (issue #598).
-# Behavior-identical pwsh sibling of scripts/classify-review-depth.sh. That
-# file's header carries the full design rationale: why the safe direction is
-# more review and every degrade emits `standard`, what the candidate set is and
-# what it deliberately is not, why the delta is read against `HEAD` rather than
-# bare, why `--no-renames`, `--full-name` and `core.quotePath=false` are pinned
-# and what that last one does NOT cover, what counts as a new file, why the twin
-# test is set-membership rather than an existence check, why hooks/** is checked
-# against every candidate and ahead of the config read, why the path-shape guard
-# rejects on a plain `..` substring and on git's C-quoted spelling, why a
-# rejected candidate floors the verdict at `standard`, and what the
-# three-wildcard glob subset is.
+# Behavior-identical pwsh sibling of scripts/classify-review-depth.sh, whose
+# header carries the full design rationale for both legs.
 #
 # Usage:   classify-review-depth.ps1 [REPO_ROOT]
 # Output:  stdout is one newline-terminated verdict, `deep`, `standard` or
@@ -18,6 +9,9 @@
 #          is a specific trigger to name: hooks:<path>, new-file:<path>,
 #          twin:<path>, rejected-path:<path>, no-git, no-diff,
 #          empty-candidates, no-config, or no-source-globs. Exit is ALWAYS 0.
+#          `no-config` means neither `.milestone-config/driver.json` nor the
+#          legacy root `milestone-driver.json` is readable
+#          (`docs/profile-schema.md (Transitional root read)`).
 #
 # THE ONE TOKEN THIS LEG NEVER EMITS is `no-jq`. The bash leg reads sourceGlobs
 # with jq and degrades when jq is absent; this leg reads it with
@@ -125,7 +119,7 @@ foreach ($line in $delta) {
   if ([string]::IsNullOrEmpty($line)) { continue }
   $raw++
   $t = $line.IndexOf("`t", [StringComparison]::Ordinal)
-  if ($t -lt 0) { $status = $line; $p = $line } else { $status = $line.Substring(0, $t); $p = $line.Substring($t + 1) }
+  $status = $line.Substring(0, $t); $p = $line.Substring($t + 1)
   [void]$candidates.Add($p)
   if ($status.StartsWith('A', [StringComparison]::Ordinal)) { [void]$newSet.Add($p) }
 }
@@ -162,6 +156,7 @@ foreach ($p in $valid) {
 # ---- 4. sourceGlobs, read the way
 # `scripts/build-file-index.ps1 (sourceGlobs: read from cwd)` reads it.
 $prof = Join-Path $Root '.milestone-config/driver.json'
+if (-not (Test-Path -LiteralPath $prof -PathType Leaf)) { $prof = Join-Path $Root 'milestone-driver.json' }
 if (-not (Test-Path -LiteralPath $prof -PathType Leaf)) { Emit 'standard' 'no-config' }
 try {
   $rawJson = [System.IO.File]::ReadAllText($prof)

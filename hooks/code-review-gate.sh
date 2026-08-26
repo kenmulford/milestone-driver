@@ -35,10 +35,15 @@
 # Reviewer says LGTM" does NOT satisfy the gate.
 #
 # Verdict parse (issue #604): the heading alone never proved a review ran, so
-# the gate also reads the `/code-review run:` value. Accepted: `yes`,
-# `deferred (<reason>)`, `n/a - <reason>`. `no`, an unrecognized value, an
-# empty value, and a missing slot all DENY -- a body defect, like the
-# empty-PR-body deny above, not one of the environment fail-opens below.
+# the gate also reads the `/code-review run:` value. Accepted: `yes` and
+# `n/a - <reason>`, the latter only for a PR carrying no sourceGlobs change.
+# `no`, an unrecognized value, an empty value, and a missing slot all DENY -- a
+# body defect, like the empty-PR-body deny above, not one of the environment
+# fail-opens below. `deferred` was accepted until the v1.24.0 simplify pass and
+# is not: omitting `/code-review` parks the issue `blocked` and a parked issue
+# opens no PR (`skills/solve-issue/SKILL.md (treat the omission as a park trigger)`),
+# so no legitimate PR body could ever carry it, and accepting it left a
+# one-word bypass of the gate that the verdict parse exists to close.
 # The verdict search is SCOPED to a heading span, because the wide surface
 # would otherwise read an incidental `/code-review run:` in prose ABOVE the
 # section (a PR describing this gate) as the verdict and false-deny. The span
@@ -151,16 +156,16 @@ verdict_token() {
 check_verdict() {
   local span rest tok
   if ! span="$(verdict_span "$1")"; then
-    deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes, deferred (<reason>), or n/a - <reason> before $2,"
+    deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $2,"
   fi
   rest="$span"
   while [[ "$rest" == *"$runslot"* ]]; do
     rest="${rest#*"$runslot"}"
     tok="$(verdict_token "$rest")"
-    [ -z "$tok" ] && deny "the PR body's '$runslot' line has an empty value, so no review verdict was recorded. Set it to yes, deferred (<reason>), or n/a - <reason> before $2,"
+    [ -z "$tok" ] && deny "the PR body's '$runslot' line has an empty value, so no review verdict was recorded. Set it to yes or n/a - <reason> before $2,"
     case "$tok" in
-      yes|deferred|n/a) ;;
-      *) deny "the PR body records '$runslot $tok', which is not an accepted verdict. Set it to yes, deferred (<reason>), or n/a - <reason> before $2," ;;
+      yes|n/a) ;;
+      *) deny "the PR body records '$runslot $tok', which is not an accepted verdict. Set it to yes or n/a - <reason> before $2," ;;
     esac
   done
   return 0

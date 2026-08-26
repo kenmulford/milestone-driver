@@ -96,6 +96,12 @@ write_config() {
     printf '%s\n' '{"sourceGlobs":"scripts/**"}' > "$repo/.milestone-config/driver.json"
     return 0
   fi
+  # The legacy root layout, with NO .milestone-config/driver.json beside it, so
+  # the row exercises the fallback and not the canonical read.
+  if [ "$cell" = '@LEGACY@' ]; then
+    printf '%s\n' '{"sourceGlobs":["scripts/**"]}' > "$repo/milestone-driver.json"
+    return 0
+  fi
   split_pipe "$cell"
   for g in "${parts[@]}"; do
     [ -n "$json" ] && json="$json,"

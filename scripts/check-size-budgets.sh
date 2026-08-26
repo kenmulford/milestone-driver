@@ -91,11 +91,12 @@
 #     at 5000 on day one would have failed the gate on content #489 does not
 #     change. Milestone #39's splits brought TWO of the four under, and both
 #     have now taken the cap: skills/solve-milestone/SKILL.md 4976 and
-#     skills/triage/SKILL.md 4926, each ceilinged at 5000 rather than at the
-#     5300/5200 their own actuals would derive. TWO remain over and still seed
-#     from their own actuals — skills/solve-issue/SKILL.md 5703 (ceiling 6000)
-#     and skills/solve-milestone/parallel-waves.md 5647 (ceiling 6000). All
-#     four measured 2026-08-10.
+#     skills/triage/SKILL.md 4926 (measured 2026-08-10), each ceilinged at 5000
+#     rather than at the 5300/5200 their own actuals would derive. TWO remain
+#     over and still seed from their own actuals, measured 2026-08-26:
+#     skills/solve-issue/SKILL.md 5945, 945 words over the cap, at a ceiling of
+#     6300; and skills/solve-milestone/parallel-waves.md 6003, 1003 over, at
+#     6400.
 #   - BOTH AXES CARRY A MINIMUM-HEADROOM FLOOR, and the line axis needs its own
 #     because 5% of a small line count is not a usable allowance. A LINE CEILING
 #     IS NEVER LOWERED BELOW `actual + 5` ROUNDED UP TO THE NEXT 5. Without it,
@@ -129,58 +130,17 @@
 #     skills/notices.md LINE 250 -> 290, BYTE 11500 -> 13500, WORD 1600 -> 1900,
 #     and skills/solve-issue/SKILL.md's CLOSURE 11000 -> 11600, which follows
 #     from the same growth (notices.md is one of its members).
-#     #606 appends two `##` notice sections (visual-hold-removed,
-#     code-review-run-no) to the file whose own header declares it a growing
-#     list. Their bare scaffolding alone, before a sentence of content, is
-#     ~26 lines and ~724 bytes: two headings, two Marker lines, two
-#     Skills/Trigger/Legacy lines, two `**Text:**` blocks, two fences, two
-#     banner lines, two `## Contents` entries. The row had 9 lines and 971
-#     bytes free, so no phrasing of the two Texts fits, and no in-file trade
-#     exists either: this file's ONLY anchored citation points at the one
-#     `It sits here` paragraph that would otherwise be the cut, and dropping
-#     it recovers 8 lines against a 23-line gap while breaking that citation.
-#     New actuals 273 / 12533 / 1755. 273 * 1.05 = 286.65, rounded UP to the
-#     next 5 = 290 (the `actual + 5` floor gives 280, so the derivation
-#     governs); 12533 * 1.05 = 13159.65, rounded UP to the next 500 = 13500;
-#     1755 * 1.05 = 1842.75, rounded UP to the next 100 = 1900, under the
-#     5000-word cap. The BYTE number is a RESTORE, not an invention: this row
-#     read 13500 until a215feb (`chore: v1.20.0 end-of-milestone pass (#460)`)
-#     tightened it to 11500. The LINE ceiling has been 250 since the row was
-#     created and has never moved; this is its first raise. The closure sum
-#     11041 * 1.05 = 11593.05, rounded UP to the next 100 = 11600, by the
-#     closure rule below; solve-milestone's closure holds at 9167/9200 and
-#     does NOT move. Spent on this issue's two sections: the next edit
-#     re-derives normally.
+#     New actuals 273 / 12533 / 1755, closure 11041. The BYTE number is a
+#     RESTORE, not an invention: this row read 13500 until a215feb
+#     (`chore: v1.20.0 end-of-milestone pass (#460)`) tightened it to 11500.
+#     Spent on this issue's two sections: the next edit re-derives normally.
 #     RECORDED RAISE, issues #605 / #608 / #609 (decision 2026-08-26):
 #     skills/solve-issue/SKILL.md BYTE 41500 -> 45500, WORD 5800 -> 6300;
 #     skills/solve-issue/post-fix-commit.md BYTE 4500 -> 5000, WORD 700 -> 800;
 #     skills/solve-milestone/parallel-waves.md BYTE 39500 -> 43000,
 #     WORD 5900 -> 6400; agents/implementer.md BYTE 14500 -> 15500.
-#     Every LINE ceiling holds and none moves (313/325, 20/25, 197/205,
-#     129/130), as do agents/implementer.md's WORD 2174/2200 and
-#     solve-issue's CLOSURE 11304/11600.
-#     The three issues add clauses rather than restate them: the
-#     classifier-verdict review ladder (#608 in SKILL.md and
-#     post-fix-commit.md, #609 in parallel-waves.md), and the code-comment
-#     rule plus the reviewer out-of-scope sentence (#605 in SKILL.md,
-#     parallel-waves.md and implementer.md). Deleting two columns from
-#     SKILL.md's build-profile table is the only recovery available: every
-#     other paragraph in the touched regions is a shipping clause one of the
-#     three issues lists as a non-goal, so no in-file trade exists.
 #     New actuals, all measured 2026-08-26: 43102 / 5980, 4703 / 722,
-#     40703 / 6006, 14680.
-#     43102 * 1.05 = 45257.1, UP to the next 500 = 45500;
-#     5980 * 1.05 = 6279, UP to the next 100 = 6300;
-#     4703 * 1.05 = 4938.15, UP to the next 500 = 5000;
-#     722 * 1.05 = 758.1, UP to the next 100 = 800;
-#     40703 * 1.05 = 42738.15, UP to the next 500 = 43000;
-#     6006 * 1.05 = 6306.3, UP to the next 100 = 6400;
-#     14680 * 1.05 = 15414, UP to the next 500 = 15500.
-#     The 5000-word cap binds none of the four: SKILL.md and parallel-waves.md
-#     are the two files this header already records as over it and seeding
-#     from their own actuals, and the other two rows sit far under it.
-#     SKILL.md's byte raise also clears its standing CRLF WARN, which had 154
-#     bytes free against 309 lines.
+#     40703 / 6006, 14680. Every LINE ceiling holds and none moves.
 #     Spent on these three issues' clauses: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
@@ -292,7 +252,7 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         325    45500     6300
+skills/solve-issue/SKILL.md                         320    45000     6300
 skills/solve-issue/async-mode.md                     40     4500      700
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
@@ -303,7 +263,7 @@ skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 20     6000      800
-skills/solve-issue/wave-clauses.md                   25     3500      500
+skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    43000     6400
 skills/solve-milestone/trello-sync.md               400    19500     3000
@@ -317,7 +277,7 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
-skills/solve-milestone/simplify-pass.md             125    14000     2100
+skills/solve-milestone/simplify-pass.md             110    11000     1700
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
