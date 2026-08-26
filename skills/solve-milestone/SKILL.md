@@ -17,7 +17,7 @@ Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integra
 
 ## Contents
 
-Before starting · The procedure — 1. List the milestone's open issues · 2. Determine the order · 3. Determine the target version · Phase 0 — Triage · 4. Loop over issues in dependency-graph order · Permission pre-flight gate · 5. Finish · Autonomy · Output spec — Template 1 — Run start / plan board · Template 2 — Status update at each wave boundary · Template 3 — Final results · Output style · Final summary — 6. Author the CHANGELOG entry · Run-complete notification
+Before starting · The procedure — 1. List the milestone's open issues · 2. Determine the order · 3. Determine the target version · Phase 0 — Triage · 4. Loop over issues in dependency-graph order · Permission pre-flight gate · Simplify pass · 5. Finish · Autonomy · Output spec — Template 1 — Run start / plan board · Template 2 — Status update at each wave boundary · Template 3 — Final results · Output style · Final summary — 6. Author the CHANGELOG entry · Run-complete notification
 
 ## Before starting
 
@@ -70,7 +70,7 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
       b. **Read that issue's parent, checking `md-epic` in the same call:** `gh api repos/{owner}/{repo}/issues/<first-issue>/parent`. 404 → no parent. Any other successful response already includes `.labels` — check those for an exact `md-epic` match, no second call. A **non-404 failure** (auth, 5xx, network) is systemic, not "no parent" — surface it and halt per `## Autonomy`.
       c. **No parent, or a parent without `md-epic`** → fall through to step 4, no prompt.
       d. **A parent carrying `md-epic`** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/md-epic-parent-check.md` and run it: the three-option prompt (build just this milestone · hand off to `/milestone-driver:solve-issue <parent-number>` · pause), each option's branch, and the reactive-only out-of-order note. Reached on no other path.
-4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward).
+4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward). Record its tip (`git rev-parse <integrationBranch>`) as `milestoneBaseCommit`, held all run for `### Simplify pass`.
 5. **Resolve execution mode (the LAST Before-starting step).** Resolve **once**, here; hold all run. Evaluate the cascade **top-down; first match wins**:
 
    **The `--driven` token.** An **interpreted token, not a parsed CLI flag** — recognized by string presence in the invocation text, never argument parsing. No human types it; an internal caller supplies it when dispatching this skill on its own behalf. It gates **only row 4 (the DB-hazard interview)**: a driven run takes row 4′ instead of prompting. **Every other Before-starting prompt is unaffected** — step 3's numeric-title halt still halts and prompts on a driven run.
@@ -184,6 +184,10 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 
 **Auto-deny handling.** A background leaf reporting an auto-deny it could not work around is a **park**: post a `blocked` comment naming the denied tool, apply `blocked` (+ `in progress` if the branch has commits), preserve the branch, continue.
 
+### Simplify pass
+
+Runs once, after step 4's loop exhausts, on the clean-completion path only; a systemic halt skips it. Read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/simplify-pass.md` and run it.
+
 ### 5. Finish
 
 The run ends when no buildable issues remain.
@@ -192,7 +196,7 @@ The run ends when no buildable issues remain.
 ## Autonomy
 
 - **Unattended between systemic failures.** Operate autonomously within an explicit `/milestone-driver:solve-milestone` run. A `solve-issue` STOP or PAUSE **parks** that issue (label + open branch + comment) and the loop continues.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and **any reference file this skill read-directs being missing or unreadable once its condition has fired** — `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`. Best-effort integrations (`trello-sync.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the working tree clean and all in-flight issues parked, present the final summary and stop — `## Run-complete notification` emits `🚨 Run halted — <reason>`.
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and **any reference file this skill read-directs being missing or unreadable once its condition has fired** — `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`. Best-effort integrations (`trello-sync.md`, `simplify-pass.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the working tree clean and all in-flight issues parked, present the final summary and stop — `## Run-complete notification` emits `🚨 Run halted — <reason>`.
 - **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For architecture vs implementation detail, see `solve-issue`'s Autonomy model.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch`.
 
@@ -283,7 +287,7 @@ Use Template 3 as the layout. On completion or systemic-failure halt, report:
 - **The run ended because** no buildable issues remain — not because it is waiting on a human.
 - The next human step: review parked issues; clear park labels once their blockers are resolved and re-run for the rest; all work merged → run Template 3's `🔴 Your move:` item 3 verbatim, then deploy manually.
 
-**Output ordering (clean-completion path only):** do not emit Template 3 until step 6 completes (`skills/solve-milestone/changelog-authoring.md § 6.9 Surface in the final summary "Your move" section`). On the systemic-halt path step 6 is skipped — emit Template 3 immediately.
+**Output ordering (clean-completion path only):** do not emit Template 3 until `### Simplify pass` and step 6 have both completed or skipped cleanly (`skills/solve-milestone/changelog-authoring.md § 6.9 Surface in the final summary "Your move" section`). On the systemic-halt path both are skipped — emit Template 3 immediately.
 
 ### 6. Author the CHANGELOG entry
 

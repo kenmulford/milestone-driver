@@ -24,6 +24,7 @@ OK	skills/solve-milestone/integration-granularity.md	1/85	7/15000	1/2300
 OK	skills/solve-milestone/md-epic-parent-check.md	1/30	7/2500	1/400
 OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
 OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
+OK	skills/solve-milestone/simplify-pass.md	1/125	7/14000	1/2100
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
 OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
@@ -39,4 +40,4 @@ CLOSURE	skills/setup/SKILL.md	3/7200
 CLOSURE	skills/solve-issue/SKILL.md	5/11000
 CLOSURE	skills/solve-milestone/SKILL.md	4/9200
 CLOSURE	skills/triage/SKILL.md	3/8100
-SUMMARY	ok=36	failed=1
+SUMMARY	ok=37	failed=1

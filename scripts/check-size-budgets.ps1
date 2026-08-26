@@ -86,6 +86,7 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
+skills/solve-milestone/simplify-pass.md             125    14000     2100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
@@ -155,7 +156,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
 # membership rule (a file belongs to a closure when the skill reads it on EVERY
 # run, with no branch in front of the read), for the branch-gated files that are
-# deliberately EXCLUDED — the six branch-gated files plus 18 of the 19 files
+# deliberately EXCLUDED — the six branch-gated files plus 19 of the 20 files
 # later split out that still exist, each with the branch that gates it — for
 # the one remaining
 # (skills/solve-issue/version-bump.md), which is NOT branch-gated and IS summed

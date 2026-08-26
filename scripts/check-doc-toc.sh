@@ -122,6 +122,7 @@ skills/solve-milestone/integration-granularity.md
 skills/solve-milestone/md-epic-parent-check.md
 skills/solve-milestone/not-buildable.md
 skills/solve-milestone/sequential-loop.md
+skills/solve-milestone/simplify-pass.md
 skills/solve-milestone/version-target.md
 skills/triage/SKILL.md
 skills/triage/blocker-resolver-dispatch.md

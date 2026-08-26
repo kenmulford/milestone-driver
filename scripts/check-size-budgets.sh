@@ -260,6 +260,7 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
+skills/solve-milestone/simplify-pass.md             125    14000     2100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
@@ -351,8 +352,9 @@ fi
 #
 # Milestone #39 split 18 more reference files out of the four SKILL.md files,
 # issue #502 added solve-issue/wave-clauses.md beside its milestone twin, and
-# issue #516 added solve-milestone/blocked-label-clear.md. 18 of the 19 that
-# still exist are EXCLUDED on the same rule, each verified against its read
+# issue #516 added solve-milestone/blocked-label-clear.md, and issue #610 added
+# solve-milestone/simplify-pass.md. 19 of the 20 that still exist are
+# EXCLUDED on the same rule, each verified against its read
 # directive — the #39 set on 2026-08-10, wave-clauses.md on 2026-08-12,
 # blocked-label-clear.md on 2026-08-18 — with the branch that stands in front
 # of the read in brackets:
@@ -374,6 +376,9 @@ fi
 #   solve-milestone/md-epic-parent-check.md  [an `md-epic` parent]
 #   solve-milestone/not-buildable.md         [a non-buildable issue]
 #   solve-milestone/sequential-loop.md       [sequential mode only]
+#   solve-milestone/simplify-pass.md         [clean completion; a systemic halt
+#                                             skips the pass outright. Verified
+#                                             2026-08-26]
 #   solve-milestone/version-target.md        [versioning not false]
 #
 # THE ONE REMAINING, skills/solve-issue/version-bump.md, IS A MEMBER of solve-issue's

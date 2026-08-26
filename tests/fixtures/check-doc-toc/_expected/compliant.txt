@@ -24,6 +24,7 @@ OK	skills/solve-milestone/integration-granularity.md
 OK	skills/solve-milestone/md-epic-parent-check.md
 OK	skills/solve-milestone/not-buildable.md
 OK	skills/solve-milestone/sequential-loop.md
+OK	skills/solve-milestone/simplify-pass.md
 OK	skills/solve-milestone/version-target.md
 OK	skills/triage/SKILL.md
 OK	skills/triage/blocker-resolver-dispatch.md
@@ -35,4 +36,4 @@ OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=37	failed=0
+SUMMARY	ok=38	failed=0
