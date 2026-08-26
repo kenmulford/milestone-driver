@@ -67,6 +67,19 @@ function Test-ValidPath([string]$p) {
   return $true
 }
 
+# THIS IS NOT THE REPO'S ONLY sourceGlobs MATCHER, and the three do not agree
+# everywhere. `hooks/tests-green.ps1` and `hooks/force-subagent.ps1` collapse
+# `**` to `*` and match with `-like` instead. All three agree on `dir/**`, the
+# shape every sourceGlobs entry in this repo takes. They part on `**/*.ext`: the
+# `(.*/)?` below matches a ROOT-level `x.md`, and tests-green's collapsed
+# `*/*.md` does not - while force-subagent lands back on this file's answer
+# through a second test, of the ABSOLUTE path against `*/<pat>`. Pinned as
+# behavior, not endorsed as a contract:
+# `tests/classify-review-depth.cases.tsv (standard_globstar_prefix_optional)`.
+# Aligning the three is its own issue: the two hooks decide whether the unit
+# suite runs and whether a source edit is blocked, and this one only decides how
+# hard the diff is reviewed.
+#
 # Convert-GlobToRegex <byte-char glob> -> a regex body (no anchors), byte-wise.
 $MetaChars = '.^$+()[]{}|\'
 function Convert-GlobToRegex([string]$g) {

@@ -53,17 +53,21 @@ no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 # whole self-heal block). `git --version` is the unitTestCmd on BOTH legs: it
 # is a native command, so it exits 0 under `eval` here and sets $LASTEXITCODE
 # to 0 under the pwsh twin's Invoke-Expression.
+# ws [globs-json] [staged-path] - both default to the shape above; the globstar
+# case below is the only caller that overrides them.
 ws() {
-  local w
+  local w globs f
+  globs="${1:-[\"src/**\"]}"
+  f="${2:-src/a.txt}"
   w="$(mktemp -d "$TMP/ws.XXXXXX")"
   git -C "$w" init -q
   git -C "$w" config user.email tests-green@example.invalid
   git -C "$w" config user.name tests-green
-  mkdir -p "$w/.milestone-config" "$w/src"
-  printf '%s\n' '{"unitTestCmd":"git --version","sourceGlobs":["src/**"]}' \
+  mkdir -p "$w/.milestone-config" "$w/$(dirname "$f")"
+  printf '{"unitTestCmd":"git --version","sourceGlobs":%s}\n' "$globs" \
     > "$w/.milestone-config/driver.json"
-  printf 'x\n' > "$w/src/a.txt"
-  git -C "$w" add src/a.txt
+  printf 'x\n' > "$w/$f"
+  git -C "$w" add "$f"
   printf '%s' "$w"
 }
 
@@ -101,6 +105,17 @@ run_hook "$W"
 KEPT="$(cat "$W/.milestone-config/.gitignore" 2>/dev/null)"
 if [ "$RC" -eq 0 ] && [ "$KEPT" = "sentinel" ]; then ok; else
   no "gitignore-preserved: rc=$RC content=[$KEPT] err=[$ERR]"; fi
+
+# ---- a globstar-prefix glob does not match a root-level staged path --------
+# Pinned as behavior, not endorsed as a contract - `hooks/tests-green.sh (GLOB
+# DIALECT, and where the repo)` records why this gate and the repo's two other
+# sourceGlobs matchers answer `**/*.ext` differently at the repo root. The hook
+# returns before its post-green write, so an absent .gitignore is the observable
+# that no suite ran; the first case above is the control that it can be written.
+W="$(ws '["**/*.md"]' 'x.md')"
+run_hook "$W"
+if [ "$RC" -eq 0 ] && [ ! -f "$W/.milestone-config/.gitignore" ]; then ok; else
+  no "globstar-root: rc=$RC (want 0) and the hook must not reach its post-green write, err=[$ERR]"; fi
 
 echo "tests-green.sh: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -262,7 +262,7 @@ skills/solve-issue/post-fix-commit.md                25     5000      800
 skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
-skills/solve-issue/visual-capture.md                 20     6000      800
+skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
 skills/solve-milestone/parallel-waves.md            205    43000     6400
@@ -281,7 +281,7 @@ skills/solve-milestone/simplify-pass.md             110    11000     1700
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   290    13500     1900
+skills/notices.md                                   270    12500     1800
 skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           190    10500     1600
 skills/remediate-handoff.md                          90     5000      800
