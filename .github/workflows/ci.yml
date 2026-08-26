@@ -47,6 +47,8 @@ jobs:
         run: bash tests/check-citations.test.sh
       - name: classify-delta (bash)
         run: bash tests/classify-delta.test.sh
+      - name: classify-review-depth (bash)
+        run: bash tests/classify-review-depth.test.sh
       - name: read-doc-section (bash)
         run: bash tests/read-doc-section.test.sh
       - name: tests-green (bash)
@@ -55,8 +57,8 @@ jobs:
         run: bash tests/force-subagent.test.sh
       # The two scripts/check-* steps that run against THIS repo's real tree.
       # Every other checker is exercised through fixture roots only, which
-      # proves the script works without gating a citation — or a missing
-      # contents block — the repo actually broke, and both are invisible to
+      # proves the script works without gating a citation - or a missing
+      # contents block - the repo actually broke, and both are invisible to
       # every other check here.
       - name: citations resolve (bash)
         run: bash scripts/check-citations.sh .
@@ -99,6 +101,8 @@ jobs:
         run: pwsh tests/check-citations.test.ps1
       - name: classify-delta (pwsh)
         run: pwsh tests/classify-delta.test.ps1
+      - name: classify-review-depth (pwsh)
+        run: pwsh tests/classify-review-depth.test.ps1
       - name: read-doc-section (pwsh)
         run: pwsh tests/read-doc-section.test.ps1
       - name: tests-green (pwsh)
@@ -116,57 +120,59 @@ jobs:
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)
     # macOS runners still ship /bin/bash 3.2 (Apple never shipped bash 4+ over
-    # GPLv3) — the two jobs above run bash on ubuntu-latest's modern bash, so
+    # GPLv3) - the two jobs above run bash on ubuntu-latest's modern bash, so
     # neither ever exercises the actual bash-3.2 execution venue every hook
     # ships for. This job is that venue: it runs all six hooks directly (not
     # through the tests/*.test.sh golden-matrix runners) under /bin/bash with
     # representative stdin fixtures, so a `${var,,}`-class construct that
-    # crashes 3.2 — a hook that crashes is a hook that silently ALLOWS — is
+    # crashes 3.2 - a hook that crashes is a hook that silently ALLOWS - is
     # caught here, permanently, on every PR (issue #289 decision).
     runs-on: macos-latest
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
-      - name: force-subagent — allow path (docs/ is always exempt)
+      - name: force-subagent - allow path (docs/ is always exempt)
         run: |
           set +e
           out=$(printf '%s' '{"tool_input":{"file_path":"docs/smoke.md"}}' | /bin/bash hooks/force-subagent.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: no-bom — allow path (no BOM)
+      - name: no-bom - allow path (no BOM)
         run: |
           set +e
           out=$(printf '%s' '{"tool_name":"Write","tool_input":{"content":"hello"}}' | /bin/bash hooks/no-bom.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: tests-green — allow path (no unitTestCmd configured in this repo)
+      - name: tests-green - allow path (no unitTestCmd configured in this repo)
         run: |
           set +e
           out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"git commit -m x"}, cwd:$cwd}' | /bin/bash hooks/tests-green.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: no-push — allow path (non-protected branch)
+      - name: no-push - allow path (non-protected branch)
         run: |
           set +e
           out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"git push origin feature-x"}, cwd:$cwd}' | /bin/bash hooks/no-push.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: no-pr-to-protected — allow path (--base develop, not main)
+      - name: no-pr-to-protected - allow path (--base develop, not main)
         run: |
           set +e
           out=$(jq -n --arg cwd "$PWD" '{tool_input:{command:"gh pr create --base develop --title x"}, cwd:$cwd}' | /bin/bash hooks/no-pr-to-protected.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: code-review-gate — happy path (heading present)
+      - name: code-review-gate - happy path (heading present)
         run: |
           set +e
           cmd='gh pr create --base develop --body "## Code Review
 
+          /code-review run: yes
+
           LGTM"'
           out=$(jq -n --arg cmd "$cmd" --arg cwd "$PWD" '{tool_input:{command:$cmd}, cwd:$cwd}' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      - name: code-review-gate — block path (heading missing)
+      - name: code-review-gate - block path (heading missing)
         run: |
           set +e
           cmd='gh pr create --base develop --body "no heading here"'
           out=$(jq -n --arg cmd "$cmd" --arg cwd "$PWD" '{tool_input:{command:$cmd}, cwd:$cwd}' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 2 ] || { echo "FAIL rc=$rc (want 2) out=$out"; exit 1; }
-      - name: code-review-gate — garbage stdin fails open
+      - name: code-review-gate - garbage stdin fails open
         run: |
           set +e
           out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
@@ -189,7 +195,7 @@ jobs:
       # smoke steps above cover hooks/ only; the runners themselves are shell
       # too, and a bash-4-only construct in one (a `local -n` nameref, say)
       # reports 0 passed here while shell-tests-bash stays green on
-      # ubuntu-latest's bash 5 — issue #468. `bash` on this runner resolves to
+      # ubuntu-latest's bash 5 - issue #468. `bash` on this runner resolves to
       # 3.2 anyway; `/bin/bash` is explicit so the venue can never drift.
       - name: extract-version (/bin/bash 3.2)
         run: /bin/bash tests/extract-version.test.sh
@@ -221,6 +227,8 @@ jobs:
         run: /bin/bash tests/check-citations.test.sh
       - name: classify-delta (/bin/bash 3.2)
         run: /bin/bash tests/classify-delta.test.sh
+      - name: classify-review-depth (/bin/bash 3.2)
+        run: /bin/bash tests/classify-review-depth.test.sh
       - name: read-doc-section (/bin/bash 3.2)
         run: /bin/bash tests/read-doc-section.test.sh
       - name: tests-green (/bin/bash 3.2)

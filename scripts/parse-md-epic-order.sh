@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# milestone-driver — deterministic md-epic-order block parser (issue #266).
+# milestone-driver - deterministic md-epic-order block parser (issue #266).
 # stdin: a parent issue's raw body text. stdout (success): one TAB-separated
-# record per block entry, in block order — "<kind><TAB><raw>" (kind = number|
+# record per block entry, in block order - "<kind><TAB><raw>" (kind = number|
 # title). An empty block (zero non-blank interior lines) is success with empty
 # stdout. stderr is used ONLY on failure, naming the failure; exit 0 on any
 # success (including the empty-block case), exit 1 on any failure.
 #
 # Scope boundary: this script ONLY locates and structurally validates the
 # ```md-epic-order fenced block. It never calls `gh`, never touches the
-# network, and never resolves an entry to a real milestone — that lookup is
+# network, and never resolves an entry to a real milestone - that lookup is
 # deferred to skill prose (a sibling issue), per the design spec's U2 interface
 # (docs/superpowers/specs/2026-07-04-md-epic-driver-fanout-design.md, "The
 # ordered milestone list block" / U2).
@@ -21,7 +21,7 @@
 # entries): each non-blank line matches EXACTLY "number: <integer>" or
 # "title: <text>", case-sensitive. <integer> = ^(0|[1-9][0-9]*)$, mirroring
 # scripts/extract-version.sh ([[ "$c" =~ ^(0|[1-9][0-9]*)$ ]]). Any other non-blank line invalidates the
-# WHOLE block — parsing stops at the first malformed line.
+# WHOLE block - parsing stops at the first malformed line.
 # Fail-loud/fail-closed exit convention, mirroring scripts/read-doc-section.sh (Duplicate anchors).
 set -u
 # Byte-deterministic string model (mirrors extract-version.sh / read-doc-section.sh):
@@ -56,7 +56,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     continue
   fi
 
-  # state=inside — position is 1-based from the first line inside the block,
+  # state=inside - position is 1-based from the first line inside the block,
   # blank lines included in the count.
   pos=$((pos+1))
 

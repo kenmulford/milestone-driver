@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — runner for the force-subagent.ps1 hook (issue #571).
+# milestone-driver - runner for the force-subagent.ps1 hook (issue #571).
 # The pwsh twin of tests/force-subagent.test.sh: same four cases, same
 # workspace recipe, same expected exit codes. The hook takes no arguments and
-# emits no stdout record, so there is no case table to drive — every assertion
+# emits no stdout record, so there is no case table to drive - every assertion
 # is bespoke, against a fresh temp workspace, exactly like
 # tests/tests-green.test.ps1, the sibling hook runner this file is modelled on.
 #
@@ -36,24 +36,26 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-# New-Workspace — the driver.json is the whole ingredient list: an absent
+# New-Workspace - the driver.json is the whole ingredient list: an absent
 # profile (or absent sourceGlobs) exits 0, so that file is what makes the gate
-# live at all. No git repo is needed — this hook never shells out to git.
+# live at all. No git repo is needed - this hook never shells out to git.
 # 'docs/**' sits in sourceGlobs on purpose: it makes the docs/ case assert that
 # the always-exempt list wins over a matching glob, instead of passing because
 # nothing matched.
-function New-Workspace {
+# New-Workspace [globsJson] - defaults to the pair above; the globstar case below
+# is the only caller that overrides it.
+function New-Workspace([string]$globsJson = '["skills/**","docs/**"]') {
   $w = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $w | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $w '.milestone-config') | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $w 'skills' 'foo') | Out-Null
   New-Item -ItemType Directory -Path (Join-Path $w 'docs') | Out-Null
   [System.IO.File]::WriteAllText((Join-Path $w '.milestone-config' 'driver.json'),
-    '{"sourceGlobs":["skills/**","docs/**"]}' + "`n", $utf8)
+    '{"sourceGlobs":' + $globsJson + '}' + "`n", $utf8)
   return $w
 }
 
-# Invoke-Hook — feed the hook the PreToolUse payload a Write/Edit carries and
+# Invoke-Hook - feed the hook the PreToolUse payload a Write/Edit carries and
 # capture its exit code. An $agentId models the dispatched implementer: the
 # hook's subagent-context allow reads agent_id / agent_type / parent_session_id
 # off the payload, not the environment. Both streams are read asynchronously
@@ -96,7 +98,7 @@ $free = Join-Path $W 'README.md'
 
 # ---- deny: a '**' sourceGlob blocks a nested main-thread source edit --------
 # skills/foo/bar.md sits two segments deep, so this asserts the flattened '*'
-# still crosses '/' — the whole point of the '**' -> '*' rewrite.
+# still crosses '/' - the whole point of the '**' -> '*' rewrite.
 $r = Invoke-Hook $W $src ''
 if ($r.rc -eq 2 -and $r.err -match 'are blocked') { Ok }
 else { No "deny-doublestar: rc=$($r.rc) (want 2) err=[$(Show-Escaped $r.err)]" }
@@ -119,6 +121,17 @@ else { No "allow-docs: rc=$($r.rc) (want 0) err=[$(Show-Escaped $r.err)]" }
 $r = Invoke-Hook $W $src 'agent-571'
 if ($r.rc -eq 0) { Ok }
 else { No "allow-subagent-context: rc=$($r.rc) (want 0) err=[$(Show-Escaped $r.err)]" }
+
+# ---- deny: a globstar-prefix glob blocks a root-level path -----------------
+# Pinned as behavior, not endorsed as a contract - `hooks/force-subagent.ps1 (GLOB
+# DIALECT, and where the repo)` records why this gate and the repo's two other
+# sourceGlobs matchers answer `**/*.ext` differently at the repo root. The rc=2
+# here comes from the ABSOLUTE-path test alone: `**/*.md` collapses to `*/*.md`,
+# which the repo-relative `x.md` cannot match.
+$WG = New-Workspace '["**/*.md"]'
+$r = Invoke-Hook $WG (Join-Path $WG 'x.md') ''
+if ($r.rc -eq 2) { Ok }
+else { No "globstar-root: rc=$($r.rc) (want 2) err=[$(Show-Escaped $r.err)]" }
 
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
 Write-Host "force-subagent.ps1: $pass passed, $fail failed"

@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — no-PR-to-protected gate (Claude PreToolUse: Bash)
+# milestone-driver - no-PR-to-protected gate (Claude PreToolUse: Bash)
 #
 # Companion to the no-push gate: blocks `gh pr create --base <protected>`
 # so the loop never opens a PR targeting the protected branch. (no-push blocks

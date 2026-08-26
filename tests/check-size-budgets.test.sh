@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for check-size-budgets.sh (issue #295).
+# milestone-driver - golden-matrix runner for check-size-budgets.sh (issue #295).
 # Each fixture is a repo-root under tests/fixtures/check-size-budgets/<case>/
 # mirroring the governed files' real relative paths; the fixture files'
 # CONTENT is throwaway filler: only their LINE COUNT, BYTE COUNT and WORD
@@ -11,7 +11,7 @@
 # Cases prove the per-file semantics required by issue #295: a file AT both
 # ceilings passes (at-ceiling), one line OVER its line ceiling fails NAMING
 # that file (one-over), and an absent governed file fails as MISSING
-# (missing-file) — never a silent pass.
+# (missing-file) - never a silent pass.
 #
 # line-flat-byte-over covers the byte ceiling added by issue #399, and is the
 # case a line-only checker CANNOT catch: its async-mode.md is the at-ceiling
@@ -25,8 +25,8 @@
 # case NEITHER of the other two axes can catch: its async-mode.md is the
 # at-ceiling tree's file with the padding line's single 1806-character `x` run
 # re-cut into 258 six-character tokens of the same total length. Line count is
-# unchanged at 40/40 and byte count is unchanged at 4500/4500 — both still
-# exactly AT their ceilings and both still passing — while the word count moves
+# unchanged at 40/40 and byte count is unchanged at 4500/4500 - both still
+# exactly AT their ceilings and both still passing - while the word count moves
 # 469 -> 726 against a 700 ceiling, so only the word column fails it. That is
 # the growth shape #399 argued a word count would miss and #489 reversed: token
 # density moving under a flat byte total.
@@ -47,13 +47,13 @@
 #
 # missing-closure-member covers the CLOSURE records added by issue #491, whose
 # ceilings are PRINTED AND NEVER GATED. Its tree is the governed set with
-# skills/notices.md deleted — a file that is a closure MEMBER of solve-issue and
+# skills/notices.md deleted - a file that is a closure MEMBER of solve-issue and
 # solve-milestone and of neither other closure. So the one deletion asserts both
 # halves of the missing-member rule at once: those two records print MISSING
 # while setup's and triage's still print a number (the record is per-closure,
 # never a global refusal), and the exit code still comes from notices.md's own
 # `FAIL ... MISSING` row, not from the CLOSURE lines. Its files are all
-# throwaway 1-line/7-byte/1-word filler, including async-mode.md — the
+# throwaway 1-line/7-byte/1-word filler, including async-mode.md - the
 # byte-pinned 40/4500 copy only matters to the three cases above.
 #
 # parity-guard, positional-desync, empty-closure-table and the three
@@ -97,7 +97,7 @@ for spec in "${CASES[@]}"; do
   [ -f "$exp" ] || { echo "FAIL $name: missing golden $exp" >&2; fail=$((fail+1)); continue; }
   got="$(bash "$SCRIPT" "$FIX/$name" 2>&1)"; rc=$?
   # CR-normalize the golden so a CRLF checkout (Windows core.autocrlf) still
-  # compares clean — the script's own stdout is already LF. Mirrors the .ps1 runner.
+  # compares clean - the script's own stdout is already LF. Mirrors the .ps1 runner.
   want="$(tr -d '\r' < "$exp")"
   if [ "$got" = "$want" ] && [ "$rc" -eq "$wantExit" ]; then
     pass=$((pass+1))
@@ -121,7 +121,7 @@ trap 'rm -f "$GUARD_SCRIPT" "$GUARD_ERR" "$SWAP_SCRIPT" "$MAL_SCRIPT" "$MAL_ERR"
 # --- parity-guard: the length-parity refusal (issue #399) ------------------
 # The checker parses its governed-set table into four index-aligned arrays,
 # appending a ceiling only when that column is present AND all digits, so a row
-# with a dropped or garbled column leaves the four counts unequal — and the
+# with a dropped or garbled column leaves the four counts unequal - and the
 # checker refuses to run rather than measure a file against a neighbour's
 # ceiling. No fixture tree can reach that path (a fixture is input, the table
 # is the script's own source), so this case garbles ONE column in a COPY of the
@@ -159,7 +159,7 @@ fi
 # each file against the other's ceilings and still exited 0. One row per file
 # removes that edit: the smallest unit of the table that names a file carries
 # all of its ceilings. This case is the issue's reproduction expressed in the
-# new table — swap two ROWS in a COPY of the script — and asserts the stream is
+# new table - swap two ROWS in a COPY of the script - and asserts the stream is
 # the same records in a different ORDER, never the same order with reattributed
 # ceilings:
 #   sorted == at-ceiling golden  the two rows carry DIFFERENT ceilings, so a
@@ -197,7 +197,7 @@ else
     fail=$((fail+1))
     echo "FAIL positional-desync: rc=$swap_rc (want 0); the two swapped rows must reorder the stream, not reattribute ceilings" >&2
     if [ "$swap_out" = "$swap_want" ]; then
-      echo "  the row swap was a no-op — re-key it to the current table shape" >&2
+      echo "  the row swap was a no-op - re-key it to the current table shape" >&2
     fi
     diff <(printf '%s\n' "$swap_want" | sort) <(printf '%s\n' "$swap_out" | sort) >&2 || true
   fi
@@ -229,8 +229,8 @@ fi
 # surgery that no-ops fails loud, same as the two cases above: the unmodified
 # copy's stream matches neither expectation.
 #
-# BOTH rewrites are ADDRESSED TO THE ROW THE SURGERY ACTUALLY HITS — the first
-# table row, skills/setup/SKILL.md — and not applied file-wide. An unaddressed
+# BOTH rewrites are ADDRESSED TO THE ROW THE SURGERY ACTUALLY HITS - the first
+# table row, skills/setup/SKILL.md - and not applied file-wide. An unaddressed
 # `s#/4300#...#` also matches the LEADING FOUR DIGITS of any other row's
 # `/43000`, and milestone #39's ratchet gave skills/solve-issue/SKILL.md a byte
 # ceiling of exactly 43000: the expectation then carried a phantom
@@ -265,7 +265,7 @@ done
 
 # --- empty-closure-table: no closures is a no-op, not an error (issue #491) --
 # The CLOSURE records are driven by a second hardcoded table in the checker's
-# own source, so — like the governed set — no fixture tree can reach it. Delete
+# own source, so - like the governed set - no fixture tree can reach it. Delete
 # every row between the closure table's heredoc delimiters in a COPY of the
 # checker and the run must degrade to exactly the pre-#491 stream: the same
 # per-file records, ZERO CLOSURE records, the same trailing SUMMARY, empty
@@ -292,11 +292,11 @@ fi
 # --- excluded-untouched: the six branch-gated files are outside every closure
 # (issue #491) ---------------------------------------------------------------
 # A CLOSURE sum counts ONLY the files a skill read-directs on EVERY run. The
-# six reference docs that sit behind an observable branch — parallel-waves.md
+# six reference docs that sit behind an observable branch - parallel-waves.md
 # (parallel mode), milestone-granularity.md (`integrationGranularity:
 # "milestone"`), trello-sync.md (`integrations.trello`), async-mode.md
 # (retired, inert), md-epic-fanout.md (the `md-epic` label) and
-# blocker-resolver-dispatch.md (>=1 Blocker gap on a MISS-set issue) — are NOT
+# blocker-resolver-dispatch.md (>=1 Blocker gap on a MISS-set issue) - are NOT
 # part of any closure, and the executable statement of that is: perturb all six
 # and every CLOSURE line is byte-identical. A committed fixture cannot hold
 # both the perturbed and unperturbed state of the same tree, so this copies
@@ -328,7 +328,7 @@ else
   fail=$((fail+1))
   echo "FAIL excluded-untouched: editing a branch-gated file must leave every CLOSURE line unchanged" >&2
   if [ "$exc_got_rest" = "$exc_want_rest" ]; then
-    echo "  the perturbation was a no-op — re-key it to the current fixture tree" >&2
+    echo "  the perturbation was a no-op - re-key it to the current fixture tree" >&2
   fi
   diff <(printf '%s\n' "$exc_want_cl") <(printf '%s\n' "$exc_got_cl") >&2 || true
 fi

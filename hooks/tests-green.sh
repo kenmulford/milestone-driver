@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
+# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
 # Runs unitTestCmd when staged files touch sourceGlobs; blocks the commit on red.
 # Deny: exit 2. Requires jq. Escape: CLAUDE_HOOK_DISABLE_TESTS_GREEN=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_TESTS_GREEN:-}" = "1" ] && exit 0
@@ -20,10 +20,21 @@ unit_cmd="$(jq -r '.unitTestCmd // empty' "$profile" 2>/dev/null)"; unit_cmd="${
 globs=(); while IFS= read -r g; do g="${g%$'\r'}"; [ -n "$g" ] && globs+=("$g"); done \
   < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
 touched=0; [ ${#globs[@]} -eq 0 ] && touched=1
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/force-subagent.sh` collapse `**` to `*` and match with a shell
+# `case`; `scripts/classify-review-depth.sh` translates the same glob to an ERE,
+# `**/` to `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs
+# entry in this repo takes. They part on `**/*.ext`: the ERE matches a ROOT-level
+# `x.md` and the collapsed `*/*.md` does not, while force-subagent lands on the
+# ERE's answer anyway through its SECOND test, of the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment. Pinned as behavior, not endorsed
+# as a contract:
+# `tests/tests-green.test.sh (a globstar-prefix glob does not match a root-level staged path)`.
+# Aligning the three is its own issue: this gate decides whether the suite runs.
 # ** -> * ('*' in a case glob matches across '/'). Both operands of the //
 # replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
 # backslash in the replacement, so `${g//\*\*/\*}` yields `src/\*` there and
-# `src/*` on 5.x — a pattern matching a literal star, so no staged file ever
+# `src/*` on 5.x - a pattern matching a literal star, so no staged file ever
 # matched and this gate never ran the suite (#571). Quoting through
 # $STARSTAR/$STAR is byte-identical on 3.2.57 and 5.3.15.
 STARSTAR='**'; STAR='*'
@@ -52,20 +63,20 @@ if [ $? -eq 0 ] && [ -n "$tree_sha" ]; then
     read_stamp="$(cat "$old_stamp_path" 2>/dev/null | tr -d '\r\n')"
   fi
   if [ -n "$read_stamp" ] && [ "$read_stamp" = "$stamp_key" ]; then
-    echo "milestone-driver: staged tree unchanged since last green run — skipping unit suite." >&2
+    echo "milestone-driver: staged tree unchanged since last green run - skipping unit suite." >&2
     exit 0
   fi
 fi
 # --- end stamp-skip ---
-echo "milestone-driver: staged source changed — running unit suite ($unit_cmd) ..." >&2
+echo "milestone-driver: staged source changed - running unit suite ($unit_cmd) ..." >&2
 if ! ( cd "$project_dir" && eval "$unit_cmd" ) >&2; then
   # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
   [ -f "$stamp_path" ] && rm -f "$stamp_path"
   [ -f "$old_stamp_path" ] && rm -f "$old_stamp_path"
-  echo "milestone-driver: unit tests failed — commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override." >&2
+  echo "milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override." >&2
   exit 2
 fi
-# Write stamp on green to the new path (best-effort — failure does not fail the hook).
+# Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # mkdir -p first; no writer may assume .milestone-config/ exists. Remove the stale
 # legacy root stamp once the new one is written, so it stops shadowing future reads.
 if [ -n "$stamp_key" ]; then
@@ -73,7 +84,7 @@ if [ -n "$stamp_key" ]; then
   # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
   # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
   # is git-invisible in the consumer repo from the first write, while tracked config
-  # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
+  # (driver.json, feeder.json - intentionally NOT listed) stays tracked. Best-effort;
   # only created when absent, so a user-edited file is never clobbered.
   # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
   # this repo and with solve-issue / solve-milestone / scripts/triage-cache.{sh,ps1},
@@ -82,13 +93,11 @@ if [ -n "$stamp_key" ]; then
   ignore_path="$project_dir/.milestone-config/.gitignore"
   if [ ! -f "$ignore_path" ]; then
     printf '%s\n' \
-      '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.' \
+      '# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.' \
       '# Committed so per-run scratch stays out of `git status` with zero user setup.' \
       '# Patterns are relative to this .milestone-config/ directory. Tracked config' \
       '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.' \
-      'preflight-notice' 'trello-notice' 'visualcapture-notice' \
-      'parallel-default-notice' 'code-review-gate-notice' 'aiprefilter-notice' \
-      'cost-record-notice' 'uisurfaceglobs-notice' 'triage-cache.json' \
+      '*-notice' 'triage-cache.json' \
       'tests-stamp' '.runtime/' 'worktrees/' > "$ignore_path" 2>/dev/null || true
   fi
   if printf '%s' "$stamp_key" > "$stamp_path" 2>/dev/null; then

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — dependency-free anchored Markdown section reader (issue #184).
+# milestone-driver - dependency-free anchored Markdown section reader (issue #184).
 # Usage: read-doc-section.sh <doc-path> <anchor-text>
 #   <anchor-text> is the heading text WITHOUT the leading #s (e.g. "Keys" matches
 #   "## Keys"). Match rule: trim the leading #s and surrounding whitespace from a
@@ -11,10 +11,10 @@
 # Duplicate anchors (same heading text twice): match the FIRST occurrence.
 # Fail-loud (fail-CLOSED): a missing/renamed anchor or a missing/unreadable file
 #   writes a clear message to stderr (naming the anchor + file) and exits NONZERO
-#   with NO stdout — never silent empty output. (This is an INTENTIONAL divergence
+#   with NO stdout - never silent empty output. (This is an INTENTIONAL divergence
 #   from extract-version.sh, which fails OPEN on a version miss; silent empty
 #   grounding is the drift this seam exists to surface.)
-# Dependency-free: POSIX-ish bash + coreutils only — no yq/python/jq.
+# Dependency-free: POSIX-ish bash + coreutils only - no yq/python/jq.
 # (.project/library-manifest.md (**STOP-and-ask**,) forbids new tool deps.)
 # Exit codes: 0 ok · 1 missing file / missing anchor · 2 bad usage.
 set -euo pipefail
@@ -54,9 +54,9 @@ while IFS= read -r line || [ -n "$line" ]; do
       # ATX requires a space (or EOL) after the #s; otherwise it's not a heading
       # (e.g. "#hashtag"), so treat as body.
       case "$rest" in
-        '') : ;;                       # bare "###" — a heading with empty text
-        ' '*) : ;;                     # "## Keys" — standard ATX heading
-        *) level=0 ;;                  # "#hashtag" — not a heading
+        '') : ;;                       # bare "###" - a heading with empty text
+        ' '*) : ;;                     # "## Keys" - standard ATX heading
+        *) level=0 ;;                  # "#hashtag" - not a heading
       esac
       ;;
   esac
@@ -70,7 +70,7 @@ while IFS= read -r line || [ -n "$line" ]; do
       break
     fi
     if [ "$found" -eq 0 ] && [ "$in_section" -eq 0 ] && [ "$text" = "$anchor" ]; then
-      # First matching heading — open the section (first-match policy).
+      # First matching heading - open the section (first-match policy).
       found=1
       in_section=1
       matched_level="$level"

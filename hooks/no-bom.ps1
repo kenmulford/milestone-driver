@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
+# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
 # Denies writes whose content begins with the UTF-8 BOM (EF BB BF / U+FEFF).
 # Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
 
@@ -26,14 +26,14 @@ switch ($tool) {
     'Write' {
         $content = $hook.tool_input.content
         if ($content -and (Test-LeadingBom $content)) {
-            [Console]::Error.WriteLine("milestone-driver: no-bom gate — content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
+            [Console]::Error.WriteLine("milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
             exit 2
         }
     }
     'Edit' {
         $ns = $hook.tool_input.new_string
         if ($ns -and (Test-LeadingBom $ns)) {
-            [Console]::Error.WriteLine("milestone-driver: no-bom gate — new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
+            [Console]::Error.WriteLine("milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
             exit 2
         }
     }
@@ -44,7 +44,7 @@ switch ($tool) {
         foreach ($edit in $edits) {
             $ns = $edit.new_string
             if ($ns -and (Test-LeadingBom $ns)) {
-                [Console]::Error.WriteLine("milestone-driver: no-bom gate — edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
+                [Console]::Error.WriteLine("milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
                 exit 2
             }
             $i++

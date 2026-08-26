@@ -1,6 +1,6 @@
-# Trello sync — solve-milestone reference
+# Trello sync - solve-milestone reference
 
-Loaded when `integrations.trello` is present in the profile. Every operation here is **best-effort — never a gate** (Convention 1) and **main-thread only** (Convention 9).
+Loaded when `integrations.trello` is present in the profile. Every operation here is **best-effort - never a gate** (Convention 1) and **main-thread only** (Convention 9).
 
 ## Contents
 
@@ -12,52 +12,52 @@ Run-start execution order · 1 Best-effort wrapper (never a gate) · 2 Availabil
 
 When step 3.5 invokes this file's run-start card resolution, execute in this order:
 
-1. Convention 2 — Availability probe (first, before any other Trello call)
-2. Convention 3 — Misconfiguration guard
-3. Convention 4 — Ensure-list (provision the three managed lists)
-4. Convention 5 — Card resolution (back-link anchor → name-match → create)
-5. Convention 7 — Card content (on creation/adoption)
-6. Convention 8 — State machine (apply card state transition)
+1. Convention 2 - Availability probe (first, before any other Trello call)
+2. Convention 3 - Misconfiguration guard
+3. Convention 4 - Ensure-list (provision the three managed lists)
+4. Convention 5 - Card resolution (back-link anchor → name-match → create)
+5. Convention 7 - Card content (on creation/adoption)
+6. Convention 8 - State machine (apply card state transition)
 
 Conventions 1 (best-effort wrapper) and 9 (thread safety) apply throughout.
 
 ---
 
-## Convention 1 — Best-effort wrapper (never a gate)
+## Convention 1 - Best-effort wrapper (never a gate)
 
 Every Trello operation is wrapped best-effort. On any failure, log one line:
 
 ```
-Trello: <operation> skipped — <error>
+Trello: <operation> skipped - <error>
 ```
 
 and continue. Trello failures are NEVER a systemic failure. They never park an issue. They never halt the run. All skipped updates are collected and listed in the final summary.
 
 ---
 
-## Convention 2 — Availability probe
+## Convention 2 - Availability probe
 
 Before the first Trello call of a run, probe `mcp__trello__get_health`. If the `mcp__trello__*` tools are unavailable (server not loaded in this session), log once:
 
 ```
-Trello MCP tools not available in this session — all Trello steps skipped
+Trello MCP tools not available in this session - all Trello steps skipped
 ```
 
 and skip every Trello operation for the rest of the run. This one-time log distinguishes "configured but tools absent" (log line) from "not configured" (profile node absent → silent, per Convention 3).
 
 ---
 
-## Convention 3 — Misconfiguration guard
+## Convention 3 - Misconfiguration guard
 
 If `integrations.trello` is present in the profile but `boardId` is missing, treat it as not configured: log one line and skip all Trello operations for the rest of the run:
 
 ```
-Trello: integrations.trello.boardId missing — Trello steps skipped
+Trello: integrations.trello.boardId missing - Trello steps skipped
 ```
 
 ---
 
-## Convention 4 — Ensure-list (auto-create)
+## Convention 4 - Ensure-list (auto-create)
 
 Resolve each needed list by **case-sensitive name** on the configured board:
 
@@ -75,17 +75,17 @@ The three list names resolve from the profile's `integrations.trello.lists` obje
 
 ---
 
-## Convention 5 — Card resolution order (run start)
+## Convention 5 - Card resolution order (run start)
 
 Run these steps in order; stop at the first **valid** match (step 1 is a valid match only when the card ID is found in a managed list; the not-found sub-bullet falls through to step 2):
 
-1. **Back-link anchor.** Read the GitHub milestone description. If it contains `<!-- trello: <card-url> -->`, that card URL is authoritative — extract the card ID from the URL. Do NOT call `mcp__trello__get_card`; the URL is trusted as-is.
+1. **Back-link anchor.** Read the GitHub milestone description. If it contains `<!-- trello: <card-url> -->`, that card URL is authoritative - extract the card ID from the URL. Do NOT call `mcp__trello__get_card`; the URL is trusted as-is.
 
-   After extracting the card ID, scan the three managed lists (queue, inProgress, inReview — each resolved per Convention 4) via `mcp__trello__get_cards_by_list_id` in that order to determine which list the card is currently in. If the card ID is found in a managed list, proceed to Convention 8 with that list context.
+   After extracting the card ID, scan the three managed lists (queue, inProgress, inReview - each resolved per Convention 4) via `mcp__trello__get_cards_by_list_id` in that order to determine which list the card is currently in. If the card ID is found in a managed list, proceed to Convention 8 with that list context.
 
    - **Card not found in any managed list** (moved to an unmanaged list, or deleted): fall through to step 2's name search. Log one line:
      ```
-     Trello: back-link card not found in managed lists — searching by name
+     Trello: back-link card not found in managed lists - searching by name
      ```
      When step 2 or step 3 resolves a new card, call Convention 6 in **replace mode**: remove any existing `<!-- trello: ... -->` line from the description before appending the new back-link (replace, not append).
 
@@ -93,7 +93,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
    - **Ambiguity edge case:** if two or more cards in the matched list share the milestone name, adopt the first returned and log:
      ```
-     Trello: multiple cards named "<milestone-name>" in <list-name> list — adopted first returned; back-link will disambiguate future runs
+     Trello: multiple cards named "<milestone-name>" in <list-name> list - adopted first returned; back-link will disambiguate future runs
      ```
 
 3. **Create.** Create the card in the *queue* list via `mcp__trello__add_card_to_list`, populate it per Convention 7, then write the back-link via Convention 6.
@@ -102,11 +102,11 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
 ---
 
-## Convention 6 — Back-link format and idempotency
+## Convention 6 - Back-link format and idempotency
 
-**Format:** append `<!-- trello: <card-url> -->` as the **final line, on its own line** of the milestone description — trailing so it cannot interfere with Wave-order parsing.
+**Format:** append `<!-- trello: <card-url> -->` as the **final line, on its own line** of the milestone description - trailing so it cannot interfere with Wave-order parsing.
 
-**Idempotency:** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH — the back-link is already present. Never insert inside or above the Wave block. Never append a second back-link.
+**Idempotency:** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH - the back-link is already present. Never insert inside or above the Wave block. Never append a second back-link.
 
 **Replace mode (called from the step-1 not-found-in-managed-lists fallthrough):** if the description already contains `<!-- trello: ... -->`, remove that line before appending the new URL (replace, not append).
 
@@ -127,29 +127,29 @@ PowerShell 7+ here-string variant is equally acceptable.
 
 ---
 
-## Convention 7 — Card content at creation/adoption
+## Convention 7 - Card content at creation/adoption
 
 Populate the card as follows (best-effort on each sub-step). The create and adoption paths differ for the checklist:
 
 **Card description:**
 - **Creation path:** set the card description (via the `mcp__trello__add_card_to_list` content parameter) to the GitHub milestone URL followed by the milestone description text.
-- **Adoption path:** do NOT update the existing card's Trello description — no `update_card_details` call is made; the description is left as-is (recorded limitation: it may be stale).
+- **Adoption path:** do NOT update the existing card's Trello description - no `update_card_details` call is made; the description is left as-is (recorded limitation: it may be stale).
 
 **On CREATION (new card via step 3 of Convention 5):**
 
 **Checklist "Issues":**
 1. Create the checklist via `mcp__trello__create_checklist` on the card.
-2. For each **open** issue in the milestone at card-creation time, add one item via `mcp__trello__add_checklist_item` with text format: `#<n> — <issue title>`.
+2. For each **open** issue in the milestone at card-creation time, add one item via `mcp__trello__add_checklist_item` with text format: `#<n> - <issue title>`.
 
 **On ADOPTION (existing card adopted via step 2 of Convention 5):**
 
-Skip checklist creation and population entirely. The existing checklist from the original creation run is preserved as-is — no reconciliation is performed.
+Skip checklist creation and population entirely. The existing checklist from the original creation run is preserved as-is - no reconciliation is performed.
 
 **Recorded limitation (no reconciliation on re-runs):** issues added to the milestone after card creation do not appear in the checklist automatically, and manually closed issues are not auto-ticked.
 
 ---
 
-## Convention 8 — Card state machine (existing card found at run start)
+## Convention 8 - Card state machine (existing card found at run start)
 
 When a card is resolved at run start, apply the following state transition:
 
@@ -158,17 +158,17 @@ When a card is resolved at run start, apply the following state transition:
 | *queue* list | Leave in place; proceed |
 | *inProgress* list | Leave in place; proceed (re-run mid-work) |
 | *inReview* list | Move back to *inProgress* via `mcp__trello__move_card` (re-run picking up new or reopened work) |
-| any other list | Leave in place; log one line (`Trello: card in unrecognized list "<name>" — not moved; human may have repositioned it`) and proceed |
+| any other list | Leave in place; log one line (`Trello: card in unrecognized list "<name>" - not moved; human may have repositioned it`) and proceed |
 
 ---
 
-## Convention 9 — Thread safety / parallel builds
+## Convention 9 - Thread safety / parallel builds
 
 ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes **any** Trello call, in sequential or parallel runs: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
 
 ---
 
-## Convention 10 — Phase hooks
+## Convention 10 - Phase hooks
 
 ## Phase 0 hooks
 
@@ -179,19 +179,19 @@ Invoked by SKILL.md Phase 0 after step 2 (apply park labels) and before step 3 (
 If the run-start card resolution (earlier in the run) failed and no card handle exists, skip BOTH Phase 0 operations with a single log line and return:
 
 ```
-Trello: Phase 0 hooks skipped — no card handle (run-start resolution failed)
+Trello: Phase 0 hooks skipped - no card handle (run-start resolution failed)
 ```
 
 No retry is attempted.
 
-### Step 1 — Post triage summary comment
+### Step 1 - Post triage summary comment
 
 Call `mcp__trello__add_comment` on the milestone card. Compose the comment body from triage's output:
 
 **All-clear case** (no issues have `blockers == true`):
 
 ```
-✅ All clear — triage found no blocking gaps.
+✅ All clear - triage found no blocking gaps.
 
 <Wave-ordered dependency graph from triage Step 5 output>
 ```
@@ -201,7 +201,7 @@ Call `mcp__trello__add_comment` on the milestone card. Compose the comment body 
 **Gaps case** (one or more issues have `blockers == true`):
 
 ```
-<Gap table — Blockers first, then Advisories>
+<Gap table - Blockers first, then Advisories>
 
 | Issue | Lens | Severity | Gap | What's needed |
 |-------|------|----------|-----|---------------|
@@ -215,52 +215,52 @@ Call `mcp__trello__add_comment` on the milestone card. Compose the comment body 
 
 - **Gaps case:** truncate the table body (keep the table header row) and append:
   ```
-  (truncated — full table in the run output / GitHub issues)
+  (truncated - full table in the run output / GitHub issues)
   ```
 - **All-clear case:** truncate the dependency graph text (keep the `✅ All clear` header line) and append:
   ```
-  (truncated — full dependency graph in the run output / GitHub issues)
+  (truncated - full dependency graph in the run output / GitHub issues)
   ```
 
 Wrap this entire operation best-effort. On failure, log:
 
 ```
-Trello: triage summary comment skipped — <error>
+Trello: triage summary comment skipped - <error>
 ```
 
 and continue to Step 2.
 
-### Step 2 — Move card (Queue → inProgress) or stay
+### Step 2 - Move card (Queue → inProgress) or stay
 
 Evaluate the move condition using `issueStates` from triage:
 
 - **Move condition:** at least one `issueStates` entry has `blockers == false` (partial-clear counts).
 - **All-parked condition:** every entry has `blockers == true`.
 
-**If card is already in inProgress:** the move is a no-op regardless of condition — skip silently (re-run case; card already advanced).
+**If card is already in inProgress:** the move is a no-op regardless of condition - skip silently (re-run case; card already advanced).
 
 **If move condition is met and card is in queue list:** call `mcp__trello__move_card` to move the card to the inProgress list. Wrap best-effort. On failure, log:
 
 ```
-Trello: card move (Queue → In Progress) skipped — <error>
+Trello: card move (Queue → In Progress) skipped - <error>
 ```
 
 **If move condition is met and card is in any other list** (unmanaged, e.g., "Done"): leave the card in place and log one line:
 
 ```
-Trello: card in unmanaged list — not moved; human may have repositioned it
+Trello: card in unmanaged list - not moved; human may have repositioned it
 ```
 
 **If all-parked condition:** do NOT move the card regardless of which list it is in. Post one additional comment via `mcp__trello__add_comment`:
 
 ```
-All issues are parked — see triage summary above. Card remains in Queue.
+All issues are parked - see triage summary above. Card remains in Queue.
 ```
 
 Wrap this comment best-effort. On failure, log:
 
 ```
-Trello: all-parked comment skipped — <error>
+Trello: all-parked comment skipped - <error>
 ```
 
 ## Loop hooks
@@ -269,39 +269,37 @@ Two call sites fire checklist ticks during the solve-milestone loop. Both are ma
 
 ### Issue granularity
 
-**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged non-UI issue.
+**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged issue.
 
 **When a card handle is available:**
 
 1. Call `mcp__trello__get_checklist_items` with the card ID and checklist name `"Issues"`.
-2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only — titles may have been edited after checklist creation).
+2. Find the item whose text **starts with `#<n>`** (match on the leading `#<n>` token only - titles may have been edited after checklist creation).
 3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
-
-**Not ticked:** UI issues held at the visual-review gate (PR open with `needs review`, issue not yet closed) — not yet merged.
 
 **Parallel builds (the default):** ticks fire in the Phase 2 serial merge tail (main thread) as each branch squash-merges, through the same on-success tick logic as the sequential step 4 path.
 
 **Best-effort per item:** any failure logs one line and the loop continues:
 
 ```
-Trello: checklist tick #<n> skipped — <error>
+Trello: checklist tick #<n> skipped - <error>
 ```
 
-**Edge case — item not found:** the issue was added to the milestone after card creation (known non-reconciliation limitation per Convention 7). Log:
+**Edge case - item not found:** the issue was added to the milestone after card creation (known non-reconciliation limitation per Convention 7). Log:
 
 ```
-Trello: checklist tick #<n> skipped — item not found
+Trello: checklist tick #<n> skipped - item not found
 ```
 
 Do NOT add a new item. Continue.
 
-**Edge case — no card handle:** skip silently — the single run-start log was already emitted (Convention 2 tools absent, Convention 3 boardId missing, or the Convention 1 wrapper on a failed Convention 5 resolution); no per-issue log spam.
+**Edge case - no card handle:** skip silently - the single run-start log was already emitted (Convention 2 tools absent, Convention 3 boardId missing, or the Convention 1 wrapper on a failed Convention 5 resolution); no per-issue log spam.
 
 ---
 
 ### Wave granularity
 
-**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path — the wave PR merges once, then all logic issues are closed together.
+**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path - the wave PR merges once, then every issue in the Wave is closed together.
 
 **When a card handle is available:**
 
@@ -311,19 +309,19 @@ For each issue `#<n>` closed in the wave:
 2. Find the item whose text starts with `#<n>`.
 3. Call `mcp__trello__update_checklist_item` with `complete: true` on the matched item.
 
-Execute as a sequence — one tick per closed issue; the checklist-items fetch may be cached across the sequence, but each item update is a separate call.
+Execute as a sequence - one tick per closed issue; the checklist-items fetch may be cached across the sequence, but each item update is a separate call.
 
 **Best-effort per item:** each tick failure logs one line and the sequence continues to the next issue:
 
 ```
-Trello: checklist tick #<n> skipped — <error>
+Trello: checklist tick #<n> skipped - <error>
 ```
 
-**Edge case — item not found** and **edge case — no card handle:** same rules as issue granularity above.
+**Edge case - item not found** and **edge case - no card handle:** same rules as issue granularity above.
 
 ## Finish hooks
 
-Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), immediately after the loop and before step 6 (the CHANGELOG step), so the comment content matches the final run state; the clean-completion `## Final summary` Template 3 output stays deferred to step 6.9. On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
+Finish hooks fire after the run's issue loop completes (SKILL.md `### 5. Finish`), after the loop's `### Simplify pass` and before step 6 (the CHANGELOG step), so the comment content matches the final run state; the clean-completion `## Final summary` Template 3 output stays deferred to step 6.9. On a normal completion, post the summary card comment and (if the move condition is met) move the card to *inReview*. On a systemic-failure halt, take `### Systemic-halt path` below.
 
 If no card was resolved at run start (Convention 5 found or created no card), skip all Finish hooks.
 
@@ -333,10 +331,9 @@ Post a card comment that mirrors the canonical Final summary fields, condensed f
 
 **Fields to include in the comment:**
 
-- **Issues built and merged** — list each issue number and title with its PR link (e.g. `#12 Add login page — PR #45`)
-- **Issues parked** — for each parked issue: number, title, park label (one of `needs design`, `needs decision`, `blocked`), and a one-line blocker reason
-- **Open `needs review` UI PRs** — list any PRs awaiting human visual sign-off (these are built issues held at the visual gate, not parked issues)
-- **Trello updates skipped this run** — any Trello operations that failed and were skipped, from the best-effort log accumulated per Convention 1
+- **Issues built and merged** - list each issue number and title with its PR link (e.g. `#12 Add login page - PR #45`)
+- **Issues parked** - for each parked issue: number, title, park label (one of `needs design`, `needs decision`, `blocked`), and a one-line blocker reason
+- **Trello updates skipped this run** - any Trello operations that failed and were skipped, from the best-effort log accumulated per Convention 1
 
 ### Move condition: inProgress → inReview
 
@@ -350,23 +347,21 @@ gh issue list --milestone "<milestone-name>" --state open --json labels
 
 Inspect the returned labels array for each open issue. If any open issue carries `needs design`, `needs decision`, or `blocked`, the move condition fails.
 
-**`needs review` issues are NOT parked.** A UI issue held at the visual gate is built work awaiting human sign-off, not blocked work: it carries no blocker label and does NOT prevent the move.
-
 On move condition met: call `mcp__trello__move_card` to the `inReview` list (list ID resolved per Convention 4 at run start). Best-effort: move failure is logged per Convention 1.
 
 ### Parks remaining (move condition fails)
 
-When one or more open issues carry a blocker label, the card STAYS in *inProgress* — no move call is made. Post an additional card comment (best-effort):
+When one or more open issues carry a blocker label, the card STAYS in *inProgress* - no move call is made. Post an additional card comment (best-effort):
 
 ```
-Card remains In Progress — N issue(s) parked: #a Title A, #b Title B. Resolve the parks and re-run to advance to In Review.
+Card remains In Progress - N issue(s) parked: #a Title A, #b Title B. Resolve the parks and re-run to advance to In Review.
 ```
 
 Post via `mcp__trello__add_comment` on the resolved card (best-effort per Convention 1).
 
 ### Systemic-halt path
 
-When the run ends due to a systemic failure, post summary comment if Trello was reachable at run start (per Convention 2 probe result) but do NOT move the card. The move is skipped regardless of label state — the run did not finish cleanly.
+When the run ends due to a systemic failure, post summary comment if Trello was reachable at run start (per Convention 2 probe result) but do NOT move the card. The move is skipped regardless of label state - the run did not finish cleanly.
 
 ### Out-of-scope: Completed list
 
@@ -374,6 +369,6 @@ Moving the card to a Completed or Done list is a **manual human step** after the
 
 ### Edge cases
 
-**Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a **closed** issue does not block the move; on an **open** issue it does, even if no code work remains — the stays-in-Progress comment surfaces it for the human to clear.
+**Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a **closed** issue does not block the move; on an **open** issue it does, even if no code work remains - the stays-in-Progress comment surfaces it for the human to clear.
 
-**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of its current list. Convention 8's "any other list → leave-and-log" rule applies only at run START, where a human decision predates the run — at finish, the run result justifies the transition.
+**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of its current list. Convention 8's "any other list → leave-and-log" rule applies only at run START, where a human decision predates the run - at finish, the run result justifies the transition.

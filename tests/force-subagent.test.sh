@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# milestone-driver — runner for the force-subagent.sh hook (issue #571).
+# milestone-driver - runner for the force-subagent.sh hook (issue #571).
 # The hook takes no arguments and emits no stdout record, so there is no case
 # table to drive: every assertion here is bespoke, against a fresh mktemp
-# workspace, exactly like tests/tests-green.test.sh — the sibling hook runner
+# workspace, exactly like tests/tests-green.test.sh - the sibling hook runner
 # this file is modelled on. One runner per script is the layout:
 # .project/conventions.md (deterministic, unit-tested helpers).
 #
 # What it pins: the DENY path. The hook's only prior bash-3.2 coverage was
-# .github/workflows/ci.yml (force-subagent — allow path (docs/ is always exempt)),
+# .github/workflows/ci.yml (force-subagent - allow path (docs/ is always exempt)),
 # which passes whether or not the gate can still block anything at all.
 # A `**` sourceGlob is the shape every consumer profile writes,
 # and flattening it to a case glob is the one construct in this hook that read
@@ -33,7 +33,7 @@ command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 unset CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT
 
 # Hook child interpreter, resolved once. The hooks ship for whatever bash the
-# consumer has, and on macOS that is /bin/bash 3.2 — the venue this runner's
+# consumer has, and on macOS that is /bin/bash 3.2 - the venue this runner's
 # deny case exists to cover. PATH bash is NOT that venue on the macOS CI job:
 # .github/workflows/ci.yml (Put a modern bash on PATH for runner children)
 # deliberately puts a modern bash ahead of it for the runners' script children
@@ -50,22 +50,25 @@ ERRFILE="$TMP/err"
 ok() { pass=$((pass+1)); }
 no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 
-# ws — a workspace whose driver.json is the whole ingredient list: an absent
+# ws - a workspace whose driver.json is the whole ingredient list: an absent
 # profile (or absent sourceGlobs) exits 0, so that file is what makes the gate
-# live at all. No git repo is needed — this hook never shells out to git.
+# live at all. No git repo is needed - this hook never shells out to git.
 # `docs/**` sits in sourceGlobs on purpose: it makes the docs/ case assert that
 # the always-exempt list wins over a matching glob, instead of passing because
 # nothing matched.
+# ws [globs-json] - defaults to the pair above; the globstar case below is the
+# only caller that overrides it.
 ws() {
-  local w
+  local w globs
+  globs="${1:-[\"skills/**\",\"docs/**\"]}"
   w="$(mktemp -d "$TMP/ws.XXXXXX")"
   mkdir -p "$w/.milestone-config" "$w/skills/foo" "$w/docs"
-  printf '%s\n' '{"sourceGlobs":["skills/**","docs/**"]}' \
+  printf '{"sourceGlobs":%s}\n' "$globs" \
     > "$w/.milestone-config/driver.json"
   printf '%s' "$w"
 }
 
-# run_hook <root> <file_path> [agent_id] — feed the hook the PreToolUse payload
+# run_hook <root> <file_path> [agent_id] - feed the hook the PreToolUse payload
 # a Write/Edit carries and capture its exit code. Passing an agent_id models
 # the dispatched implementer: the hook's subagent-context allow reads
 # agent_id / agent_type / parent_session_id off the payload, not the
@@ -85,7 +88,7 @@ W="$(ws)"
 
 # ---- deny: a `**` sourceGlob blocks a nested main-thread source edit --------
 # skills/foo/bar.md sits two segments deep, so this asserts the flattened `*`
-# still crosses '/' — the whole point of the `**` -> `*` rewrite.
+# still crosses '/' - the whole point of the `**` -> `*` rewrite.
 run_hook "$W" "$W/skills/foo/bar.md"
 case "$ERR" in *"are blocked"*) SAW_MSG=1 ;; *) SAW_MSG=0 ;; esac
 if [ "$RC" -eq 2 ] && [ "$SAW_MSG" -eq 1 ]; then ok; else
@@ -109,6 +112,17 @@ if [ "$RC" -eq 0 ]; then ok; else
 run_hook "$W" "$W/skills/foo/bar.md" "agent-571"
 if [ "$RC" -eq 0 ]; then ok; else
   no "allow-subagent-context: rc=$RC (want 0) err=[$ERR]"; fi
+
+# ---- deny: a globstar-prefix glob blocks a root-level path -----------------
+# Pinned as behavior, not endorsed as a contract - `hooks/force-subagent.sh (GLOB
+# DIALECT, and where the repo)` records why this gate and the repo's two other
+# sourceGlobs matchers answer `**/*.ext` differently at the repo root. The rc=2
+# here comes from the ABSOLUTE-path test alone: `**/*.md` collapses to `*/*.md`,
+# which the repo-relative `x.md` cannot match.
+WG="$(ws '["**/*.md"]')"
+run_hook "$WG" "$WG/x.md"
+if [ "$RC" -eq 2 ]; then ok; else
+  no "globstar-root: rc=$RC (want 2) err=[$ERR]"; fi
 
 echo "force-subagent.sh: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

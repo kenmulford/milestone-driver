@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# milestone-driver — dependency-free citation anchor resolver (issue #417).
+# milestone-driver - dependency-free citation anchor resolver (issue #417).
 # Usage: resolve-citation.sh <file-path> <anchor-text>
 # Reports EVERY occurrence of <anchor-text> in <file-path>, one TAB-separated
 # record per line, in FILE ORDER:
 #   PRIMARY<TAB><line><TAB><text>   the FIRST occurrence in the file
 #   MATCH<TAB><line><TAB><text>     every further occurrence
-# <line> is 1-based. <text> is the ENTIRE matched line, VERBATIM — leading
-# whitespace and any embedded literal TAB included — so a consumer splits on the
+# <line> is 1-based. <text> is the ENTIRE matched line, VERBATIM - leading
+# whitespace and any embedded literal TAB included - so a consumer splits on the
 # FIRST TWO tabs only and takes the whole remainder as the text. Same TAB-record
 # convention as scripts/parse-md-epic-order.sh (printf '%s\t%s\n' "${kinds[$i]}") and
 # scripts/check-skill-frontmatter.sh (printf 'FAIL\t%s\tMISSING\n' "$f").
-# Match rule: LITERAL SUBSTRING, CASE-SENSITIVE, exact bytes. NOT a regex — a
-# '.' or '*' in the anchor matches only itself. Matching is LINE-SCOPED — the
+# Match rule: LITERAL SUBSTRING, CASE-SENSITIVE, exact bytes. NOT a regex - a
+# '.' or '*' in the anchor matches only itself. Matching is LINE-SCOPED - the
 # per-line scan loop mirrors scripts/read-doc-section.sh (while IFS= read -r line)
-# — so an anchor containing a real newline can never match: no line holds one.
+# - so an anchor containing a real newline can never match: no line holds one.
 # PRIMARY is a LABEL, NOT A FILTER. A bare method-name anchor legitimately hits
 # its declaration and its call sites, and every hit is reported, so a
 # poorly-chosen anchor costs a scan rather than a wrong answer. The fix for a
 # multi-match anchor is a better anchor at authoring time, not machinery here.
 # First-occurrence-wins mirrors scripts/read-doc-section.sh (Duplicate anchors); there is no hint-line
 # argument and no nearest-match logic.
-# One citation per invocation: no stdin, no batch mode — the caller loops.
+# One citation per invocation: no stdin, no batch mode - the caller loops.
 #
-# LINE MODEL — identical on both legs by construction, because a <line> that
+# LINE MODEL - identical on both legs by construction, because a <line> that
 # differs between the twins is the worst answer a citation resolver can give:
 #   - Lines split on LF ONLY. A lone CR is ORDINARY TEXT, never a terminator:
 #     it stays inside <text> and never shifts a line number. (The pwsh twin
-#     reads -Raw and splits by hand for exactly this reason — Get-Content's
+#     reads -Raw and splits by hand for exactly this reason - Get-Content's
 #     default line splitting ALSO breaks on a lone CR, which would report a
 #     different line number than this leg for the same bytes.)
 #   - A single trailing CR per line is stripped, so a CRLF working tree
@@ -37,23 +37,23 @@
 #     arbitrary repo files, where a BOM is a real possibility.
 # OUT OF CONTRACT: files containing NUL bytes. `read` DISCARDS NUL bytes from
 #   the line while the pwsh twin keeps them, so <text> differs and the two legs
-#   can return DIFFERENT EXIT CODES for the same binary input — measured: on a
+#   can return DIFFERENT EXIT CODES for the same binary input - measured: on a
 #   line reading "before<NUL>after", the anchor "beforeafter" matches here
 #   (exit 0) and not on the twin (exit 1). Binary files are not citation
 #   targets; this divergence is documented, not aligned.
 #
 # Fail-loud (fail-CLOSED), mirroring scripts/read-doc-section.sh (Fail-loud (fail-CLOSED)): a missing anchor,
 #   a missing/unreadable file, or bad usage writes a clear message to stderr
-#   (naming the anchor and/or the file) and exits NONZERO with NO stdout —
+#   (naming the anchor and/or the file) and exits NONZERO with NO stdout -
 #   never silent empty output, and never a partial record set.
-# Dependency-free: POSIX-ish bash + coreutils only — no yq/python/jq. Adding a
+# Dependency-free: POSIX-ish bash + coreutils only - no yq/python/jq. Adding a
 #   tool dependency is a STOP-and-ask gate, and this plugin's stated
-#   non-negotiable is "no new tool dependency" — the same posture
+#   non-negotiable is "no new tool dependency" - the same posture
 #   check-size-budgets.sh and the CI-preflight parser take over their own narrow
 #   surfaces (.project/library-manifest.md#Adding a dependency (the gate);
 #   docs/architecture.md#preflight-optional).
 # Exit codes: 0 at least one match · 1 missing/unreadable file, or anchor not
-#   found · 2 bad usage — an argument count other than 2, or a present-but-EMPTY
+#   found · 2 bad usage - an argument count other than 2, or a present-but-EMPTY
 #   anchor (an empty substring matches every line, so it is a usage error rather
 #   than a whole-file answer; same exit code scripts/read-doc-section.sh (usage: read-doc-section.sh <doc-path>) uses).
 set -euo pipefail
@@ -83,7 +83,7 @@ recs=()
 
 while IFS= read -r line || [ -n "$line" ]; do
   lineno=$((lineno+1))
-  # BOM applies to line 1 only — see LINE MODEL above.
+  # BOM applies to line 1 only - see LINE MODEL above.
   if [ "$lineno" -eq 1 ]; then line="${line#"$BOM"}"; fi
   line="${line%$'\r'}"
   # Literal substring test. Quoting "$anchor" inside the case pattern is what

@@ -1,4 +1,4 @@
-# Fixture stand-in for skills/solve-issue/visual-review-hold.md
+# Fixture stand-in for skills/solve-milestone/simplify-pass.md
 
 ## Overview
 A short file, well under the threshold, carrying no `## Contents` heading.

@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — no-push gate (Claude PreToolUse: Bash, if: Bash(git push *)).
+# milestone-driver - no-push gate (Claude PreToolUse: Bash, if: Bash(git push *)).
 if ($env:CLAUDE_HOOK_DISABLE_NO_PUSH -eq '1') { exit 0 }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }

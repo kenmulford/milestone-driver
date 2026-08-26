@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
-# milestone-driver — CI table-of-contents gate (issue #490).
-# Behavior-identical pwsh sibling of scripts/check-doc-toc.sh — see its header
+# milestone-driver - CI table-of-contents gate (issue #490).
+# Behavior-identical pwsh sibling of scripts/check-doc-toc.sh - see its header
 # for the full rationale: the standard being satisfied, why the scan takes the
 # first level-2-or-higher heading rather than an H1 (three agents/*.md files
 # carry no `^# ` line at all; three skills files carry `^# ` bash comments
@@ -31,7 +31,7 @@ $threshold = 100
 
 # The governed set, PATH ONLY. MUST stay in sync with
 # scripts/check-doc-toc.sh's GOVERNED_PATHS heredoc, row for row, and with the
-# path column of scripts/check-size-budgets.sh's GOVERNED_TABLE — the one
+# path column of scripts/check-size-budgets.sh's GOVERNED_TABLE - the one
 # definition of "a governed file" in this repo.
 $governedPaths = @'
 skills/setup/SKILL.md
@@ -46,7 +46,6 @@ skills/solve-issue/preflight-github-ci.md
 skills/solve-issue/resume-paths.md
 skills/solve-issue/version-bump.md
 skills/solve-issue/visual-capture.md
-skills/solve-issue/visual-review-hold.md
 skills/solve-issue/wave-clauses.md
 skills/solve-milestone/SKILL.md
 skills/solve-milestone/parallel-waves.md
@@ -61,6 +60,7 @@ skills/solve-milestone/integration-granularity.md
 skills/solve-milestone/md-epic-parent-check.md
 skills/solve-milestone/not-buildable.md
 skills/solve-milestone/sequential-loop.md
+skills/solve-milestone/simplify-pass.md
 skills/solve-milestone/version-target.md
 skills/triage/SKILL.md
 skills/triage/blocker-resolver-dispatch.md
@@ -102,7 +102,7 @@ foreach ($f in $files) {
   }
 
   # Count newline (0x0A) bytes to match `wc -l` exactly, regardless of the
-  # checkout's line-ending style (CRLF vs LF) — a trailing line with no final
+  # checkout's line-ending style (CRLF vs LF) - a trailing line with no final
   # newline is not counted, same as wc -l.
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $lines = 0
@@ -132,8 +132,8 @@ foreach ($f in $files) {
       continue
     }
 
-    # Level 2 or higher only. A `# ...` line — an H1, or a bash comment inside
-    # a fence, which this scanner cannot tell apart — is ordinary content.
+    # Level 2 or higher only. A `# ...` line - an H1, or a bash comment inside
+    # a fence, which this scanner cannot tell apart - is ordinary content.
     if (-not $line.StartsWith('##', [System.StringComparison]::Ordinal)) { continue }
     $hashes = 0
     while ($hashes -lt $line.Length -and $line[$hashes] -eq '#') { $hashes++ }
@@ -142,7 +142,7 @@ foreach ($f in $files) {
     # text, matching scripts/read-doc-section.ps1's heading rule.
     # ORDINAL, not culture-sensitive. .NET's default StartsWith uses ICU
     # collation, under which zero-width characters (U+200B, U+00AD, U+FEFF)
-    # are ignorable — so `"##<U+200B> Bogus"` reports a leading space here and
+    # are ignorable - so `"##<U+200B> Bogus"` reports a leading space here and
     # is read as a heading, while the bash twin compares bytes and reads it as
     # body text. Measured: the two legs returned OK and FAIL for the same file,
     # which is one CI leg green and the other red. Same ordinal discipline the

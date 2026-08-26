@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
-# milestone-driver — CI SKILL.md frontmatter YAML-validity lint (issue #314).
-# Behavior-identical pwsh sibling of scripts/check-skill-frontmatter.sh — see
+# milestone-driver - CI SKILL.md frontmatter YAML-validity lint (issue #314).
+# Behavior-identical pwsh sibling of scripts/check-skill-frontmatter.sh - see
 # its header for the full defect-class rationale and the narrow, line-oriented,
 # dependency-free heuristic (no YAML library; block/quoted scalars are skipped;
 # only an unquoted colon+space in a plain scalar fails).
@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $Root = ($Root -replace '[\\/]+$', '')
 
-# Governed set — MUST stay in sync with scripts/check-skill-frontmatter.sh's
+# Governed set - MUST stay in sync with scripts/check-skill-frontmatter.sh's
 # FILES. Fixed list: a renamed/deleted governed file is a FAILURE (MISSING).
 $files = @(
   'skills/setup/SKILL.md',
@@ -32,8 +32,8 @@ $files = @(
 function Scan-Frontmatter([string]$path) {
   # Read as UTF-8 text and split on LF so a multibyte char and CRLF/LF both
   # survive byte-exact; TrimEnd `r normalizes a CRLF checkout. ReadAllText
-  # detects and strips a leading UTF-8 BOM — byte-parity with the .sh sibling's
-  # explicit line-1 BOM strip — so a stray BOM never diverges the twins.
+  # detects and strips a leading UTF-8 BOM - byte-parity with the .sh sibling's
+  # explicit line-1 BOM strip - so a stray BOM never diverges the twins.
   $text = [System.IO.File]::ReadAllText($path, [System.Text.UTF8Encoding]::new($false))
   $lines = $text -split "`n"
   $inFm = $false

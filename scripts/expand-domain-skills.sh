@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — expand a profile's domainSkills entries into exact,
+# milestone-driver - expand a profile's domainSkills entries into exact,
 # invocable plugin:skill names (issue #589).
 #
 # usage: expand-domain-skills.sh <plugin-cache-root> <entry>...
@@ -18,7 +18,7 @@
 # Version-directory selection, among the plugin's immediate child directories:
 # the highest name matching ^[0-9]+(\.[0-9]+)+$ by COMPONENT-WISE NUMERIC
 # compare (1.10.0 beats 1.9.0, which byte order gets wrong); if no name matches,
-# the byte-last name. A non-version name is never a skip — the live install's
+# the byte-last name. A non-version name is never a skip - the live install's
 # plugin-dev sits in a directory literally named `unknown`, and it is the
 # selection there.
 #
@@ -36,7 +36,7 @@ export LC_ALL=C
 root="${1:-}"
 [ "$#" -gt 0 ] && shift
 
-# A leading `~/` only ever arrives QUOTED — an unquoted `~/…` is expanded by the
+# A leading `~/` only ever arrives QUOTED - an unquoted `~/…` is expanded by the
 # shell before exec. Resolving it here puts this leg on the same literal the
 # .ps1 twin gets, where no shell expands anything, so the two legs agree on one
 # input. Only the `~/<path>` shape resolves: every caller site writes
@@ -46,10 +46,10 @@ case "$root" in
   '~/'*) root="${HOME:-}/${root#'~/'}";;
 esac
 
-# resolved — newline-terminated accumulator, sorted and deduplicated at exit.
+# resolved - newline-terminated accumulator, sorted and deduplicated at exit.
 resolved=""
 
-# strip_zeros <digits> — echo the value with leading zeros removed, so `08` and
+# strip_zeros <digits> - echo the value with leading zeros removed, so `08` and
 # `8` compare as the same magnitude below.
 strip_zeros() {
   local d="$1"
@@ -59,12 +59,12 @@ strip_zeros() {
   printf '%s' "$d"
 }
 
-# version_gt <a> <b> — 0 when dotted-numeric <a> ranks above <b>, comparing
+# version_gt <a> <b> - 0 when dotted-numeric <a> ranks above <b>, comparing
 # component by component by MAGNITUDE. A missing component counts as 0, so 1.10
 # ranks above 1.9 and 1.2.1 above 1.2. NEVER `[ -gt ]`: a component wider than
 # Int64 makes it print `integer expected` on stderr, the channel the caller reads
 # `unresolved:` records from. Zeros stripped, a longer digit string is the larger
-# value and equal lengths compare bytewise — arbitrary width, no conversion.
+# value and equal lengths compare bytewise - arbitrary width, no conversion.
 version_gt() {
   local a="$1." b="$2." ac bc
   while [ -n "$a" ] || [ -n "$b" ]; do
@@ -85,7 +85,7 @@ version_gt() {
   return 1
 }
 
-# select_version_dir <plugin-dir> — echo the selected child directory NAME, or
+# select_version_dir <plugin-dir> - echo the selected child directory NAME, or
 # nothing when the plugin directory holds no child directory at all.
 select_version_dir() {
   local pdir="$1" d name best="" have_version=0 bytelast=""
@@ -121,7 +121,7 @@ for entry in "$@"; do
   # every top-level directory of the filesystem once per wildcard entry,
   # `/Volumes` and its network mounts included. The .ps1 twin's
   # `Directory.Exists('')` is already False, so skipping the scan holds the two
-  # legs to one behavior and one cost — the entry simply goes unresolved.
+  # legs to one behavior and one cost - the entry simply goes unresolved.
   if [ -n "$root" ]; then
     for mp in "$root"/*/; do
       [ -d "$mp$plugin" ] || continue

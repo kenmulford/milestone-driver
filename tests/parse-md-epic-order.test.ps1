@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — golden-matrix runner for parse-md-epic-order.ps1 (issue #266).
+# milestone-driver - golden-matrix runner for parse-md-epic-order.ps1 (issue #266).
 # Each row's body/expected_stdout/expected_stderr carry real newlines/tabs
 # encoded as literal "\n"/"\t" (backslashes as "\\"), decoded here with a single
-# regex pass before piping to the script under test — mirrors the .sh runner's
+# regex pass before piping to the script under test - mirrors the .sh runner's
 # printf '%b' decode (tests/parse-md-epic-order.test.sh) so both legs assert the
 # SAME case table (cross-impl parity).
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -40,7 +40,7 @@ foreach ($line in Get-Content $cases) {
   # Read the captured stdout via -Raw (whole file as ONE string, no line
   # splitting) rather than `$out = ($body | pwsh ... )` pipeline capture. .NET's
   # line-reader (which backs that capture form) treats a lone \r as a line
-  # terminator exactly like \n — it would silently split and drop an embedded
+  # terminator exactly like \n - it would silently split and drop an embedded
   # CR (e.g. the title_embeds_lone_cr case), corrupting the very byte the CR
   # golden case exists to check. -Raw mirrors the bash runner's $(...), which
   # only strips a trailing newline and never touches an interior \r.

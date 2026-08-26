@@ -11,7 +11,7 @@ nonversion_byte_last	cache1	nonver-multi:*	nonver-multi:second
 # exceeds Int64, so any integer conversion throws or errors, and byte order picks
 # the 9s where numeric order picks the 1-and-20-zeros. `zeropad` holds 1.08.0 and
 # 1.9.0: 08 must lose its zero BEFORE the compare, or a length-first rule selects
-# 1.08.0. Both rows assert exit 0 and an EMPTY stderr — the script is fail-open,
+# 1.08.0. Both rows assert exit 0 and an EMPTY stderr - the script is fail-open,
 # and its stderr carries `unresolved:` records and nothing else. The exact name
 # riding along in `overflow_component` is what a throwing leg loses.
 overflow_component	cache1	overflow:* superpowers:writing-skills	overflow:higher\nsuperpowers:writing-skills

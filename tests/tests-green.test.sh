@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — runner for the tests-green.sh hook (issue #499).
+# milestone-driver - runner for the tests-green.sh hook (issue #499).
 # The hook takes no arguments and emits no stdout record, so there is no case
 # table to drive: every assertion here is bespoke, against a fresh mktemp
 # workspace, exactly like the `write` blocks below the loop in
@@ -29,7 +29,7 @@ REPO_GITIGNORE="$ROOT/.milestone-config/.gitignore"
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 command -v git >/dev/null 2>&1 || { echo "FATAL: git required" >&2; exit 3; }
 # Hook child interpreter, resolved once. The hooks ship for whatever bash the
-# consumer has, and on macOS that is /bin/bash 3.2 — a live venue this runner
+# consumer has, and on macOS that is /bin/bash 3.2 - a live venue this runner
 # must keep covering. PATH bash is NOT that venue on the macOS CI job:
 # .github/workflows/ci.yml (Put a modern bash on PATH for runner children)
 # deliberately puts a modern bash ahead of it for the runners' script children
@@ -46,28 +46,32 @@ ERRFILE="$TMP/err"
 ok() { pass=$((pass+1)); }
 no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 
-# ws — a workspace staged so the hook reaches its post-green write. Every
+# ws - a workspace staged so the hook reaches its post-green write. Every
 # ingredient is load-bearing: a driver.json with a unitTestCmd (absent → exit
 # 0), a staged path matching sourceGlobs (no match → exit 0), and a real git
 # repo (`git write-tree` failing leaves the stamp key empty, which gates the
 # whole self-heal block). `git --version` is the unitTestCmd on BOTH legs: it
 # is a native command, so it exits 0 under `eval` here and sets $LASTEXITCODE
 # to 0 under the pwsh twin's Invoke-Expression.
+# ws [globs-json] [staged-path] - both default to the shape above; the globstar
+# case below is the only caller that overrides them.
 ws() {
-  local w
+  local w globs f
+  globs="${1:-[\"src/**\"]}"
+  f="${2:-src/a.txt}"
   w="$(mktemp -d "$TMP/ws.XXXXXX")"
   git -C "$w" init -q
   git -C "$w" config user.email tests-green@example.invalid
   git -C "$w" config user.name tests-green
-  mkdir -p "$w/.milestone-config" "$w/src"
-  printf '%s\n' '{"unitTestCmd":"git --version","sourceGlobs":["src/**"]}' \
+  mkdir -p "$w/.milestone-config" "$w/$(dirname "$f")"
+  printf '{"unitTestCmd":"git --version","sourceGlobs":%s}\n' "$globs" \
     > "$w/.milestone-config/driver.json"
-  printf 'x\n' > "$w/src/a.txt"
-  git -C "$w" add src/a.txt
+  printf 'x\n' > "$w/$f"
+  git -C "$w" add "$f"
   printf '%s' "$w"
 }
 
-# run_hook <root> — feed the hook the PreToolUse payload a `git commit` carries
+# run_hook <root> - feed the hook the PreToolUse payload a `git commit` carries
 # and capture its exit code. The hook writes only to stderr, so both streams go
 # to one file; the assertions read the tree it left, not its chatter.
 run_hook() {
@@ -93,7 +97,7 @@ elif cmp -s "$EMITTED" "$REPO_GITIGNORE"; then ok; else
 
 # ---- an EXISTING .gitignore is never rewritten ------------------------------
 # The self-heal is create-only at every site, so a user-edited file must survive
-# untouched — not overwritten, not appended to, not truncated. Precedent:
+# untouched - not overwritten, not appended to, not truncated. Precedent:
 # tests/triage-cache.test.sh (write: an EXISTING .gitignore is never rewritten).
 W="$(ws)"
 printf 'sentinel\n' > "$W/.milestone-config/.gitignore"
@@ -101,6 +105,17 @@ run_hook "$W"
 KEPT="$(cat "$W/.milestone-config/.gitignore" 2>/dev/null)"
 if [ "$RC" -eq 0 ] && [ "$KEPT" = "sentinel" ]; then ok; else
   no "gitignore-preserved: rc=$RC content=[$KEPT] err=[$ERR]"; fi
+
+# ---- a globstar-prefix glob does not match a root-level staged path --------
+# Pinned as behavior, not endorsed as a contract - `hooks/tests-green.sh (GLOB
+# DIALECT, and where the repo)` records why this gate and the repo's two other
+# sourceGlobs matchers answer `**/*.ext` differently at the repo root. The hook
+# returns before its post-green write, so an absent .gitignore is the observable
+# that no suite ran; the first case above is the control that it can be written.
+W="$(ws '["**/*.md"]' 'x.md')"
+run_hook "$W"
+if [ "$RC" -eq 0 ] && [ ! -f "$W/.milestone-config/.gitignore" ]; then ok; else
+  no "globstar-root: rc=$RC (want 0) and the hook must not reach its post-green write, err=[$ERR]"; fi
 
 echo "tests-green.sh: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

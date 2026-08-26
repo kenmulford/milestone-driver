@@ -1,0 +1,112 @@
+# Golden matrix for scripts/classify-review-depth.{sh,ps1} (issue #598).
+#
+# One throwaway git repo per row. `base` files and the driver.json a row names are
+# committed, then `ops` runs against the working tree, then the classifier runs
+# against the row's run root - the repo root, or the `R:` subdirectory.
+#
+# Columns: name  globs  base  ops  expected_stdout  expected_stderr
+#   globs  the driver config to commit, one sourceGlobs entry per `|` field:
+#            -         write no .milestone-config/driver.json at all
+#            @EMPTY@   write `{}` - a config carrying no sourceGlobs key
+#            @SCALAR@  write `{"sourceGlobs":"scripts/**"}` - the key as a JSON
+#                      scalar where the schema says array
+#            @LEGACY@  write `{"sourceGlobs":["scripts/**"]}` to the LEGACY root
+#                      `milestone-driver.json` and no `.milestone-config/`
+#                      config at all
+#   base   files to create and commit at HEAD, `|`-separated, or `-` for none.
+#          Every repo also gets a committed README.md seed so HEAD exists.
+#   ops    working-tree operations applied after the base commit, `|`-separated,
+#          or `-` for none:
+#            M:<path>  rewrite a tracked file, leave it unstaged
+#            E:<path>  rewrite a tracked file and `git add` it
+#            S:<path>  create a new file and `git add` it
+#            N:<path>  create a new file and leave it untracked
+#            D:<path>  delete a tracked file
+#            R:<dir>   run the classifier against <repo>/<dir> instead of the
+#                      repo root, and write the row's driver.json there - a
+#                      package subdir carrying its own config. At most one per
+#                      row. Every other op path stays relative to the REPO root.
+#
+# A reason token naming a path names the FIRST candidate that fires it, and the
+# candidate list is `git diff --name-status HEAD` order then
+# `git ls-files --others` order - git sorts both by path, so `foo.ps1` always
+# precedes `foo.sh`. Rows below expect the .ps1 leg for that reason.
+#
+# A non-repo root, a repo with no commits, and a PATH stripped of git or of jq
+# have no TSV-expressible shape and ride as bespoke cases at the end of the
+# runner.
+#
+# name	globs	base	ops	expected_stdout	expected_stderr
+# --- the three verdicts ----------------------------------------------------
+standard_twin_pair_modified	scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	
+shallow_outside_source_globs	scripts/**	docs/x.md	M:docs/x.md	shallow	
+shallow_new_file_outside_globs	scripts/**	scripts/a.sh|scripts/a.ps1	N:docs/new.md	shallow	
+standard_non_twin_extension	skills/**	skills/s/SKILL.md	M:skills/s/SKILL.md	standard	
+# --- deep: hooks/** -------------------------------------------------------
+deep_hooks_leg	hooks/**|scripts/**	hooks/gate.sh|hooks/gate.ps1	M:hooks/gate.sh|M:hooks/gate.ps1	deep	hooks:hooks/gate.ps1
+deep_hooks_outside_source_globs	scripts/**	hooks/gate.sh|hooks/gate.ps1	M:hooks/gate.sh|M:hooks/gate.ps1	deep	hooks:hooks/gate.ps1
+deep_hooks_beats_new_file	hooks/**|scripts/**	hooks/gate.sh|hooks/gate.ps1	N:hooks/new.sh|N:hooks/new.ps1	deep	hooks:hooks/new.ps1
+deep_hooks_without_config	-	hooks/gate.sh	M:hooks/gate.sh	deep	hooks:hooks/gate.sh
+# --- deep: a new file under sourceGlobs -----------------------------------
+deep_new_untracked_pair	scripts/**	scripts/a.sh|scripts/a.ps1	N:scripts/b.sh|N:scripts/b.ps1	deep	new-file:scripts/b.ps1
+deep_new_staged_pair	scripts/**	scripts/a.sh|scripts/a.ps1	S:scripts/b.sh|S:scripts/b.ps1	deep	new-file:scripts/b.ps1
+deep_new_file_beats_twin	scripts/**	scripts/a.sh	N:scripts/b.sh	deep	new-file:scripts/b.sh
+# --- deep: one leg of a .sh/.ps1 twin pair --------------------------------
+deep_twin_sh_only	scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh	deep	twin:scripts/a.sh
+deep_twin_ps1_only	scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.ps1	deep	twin:scripts/a.ps1
+deep_twin_deleted_one_leg	scripts/**	scripts/a.sh|scripts/a.ps1	D:scripts/a.sh	deep	twin:scripts/a.sh
+standard_deleted_pair	scripts/**	scripts/a.sh|scripts/a.ps1	D:scripts/a.sh|D:scripts/a.ps1	standard	
+# --- the staged tree, which bare `git diff` cannot see --------------------
+standard_staged_edit_pair	scripts/**	scripts/a.sh|scripts/a.ps1	E:scripts/a.sh|E:scripts/a.ps1	standard	
+deep_staged_edit_one_leg	scripts/**	scripts/a.sh|scripts/a.ps1	E:scripts/a.sh	deep	twin:scripts/a.sh
+# --- the fail-open degrades ------------------------------------------------
+standard_empty_candidate_set	scripts/**	scripts/a.sh	-	standard	empty-candidates
+standard_missing_config	-	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-config
+standard_config_without_source_globs	@EMPTY@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+standard_scalar_source_globs	@SCALAR@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+# --- the legacy root profile layout ---------------------------------------
+# Same ops as deep_twin_sh_only above, config at the legacy root instead. The
+# verdicts must match, or a repo mid-migration silently loses every
+# sourceGlobs-scoped trigger.
+deep_legacy_profile_twin_sh_only	@LEGACY@	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh	deep	twin:scripts/a.sh
+# --- rejected path shapes, candidate side and glob side --------------------
+glob_absolute_rejected	/scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+glob_drive_letter_rejected	C:/scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+glob_dotdot_rejected	scripts/../scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+glob_tilde_rejected	~/scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	no-source-globs
+glob_invalid_dropped_valid_kept	/nope/**|scripts/**	scripts/a.sh|scripts/a.ps1	M:scripts/a.sh|M:scripts/a.ps1	standard	
+glob_invalid_dropped_still_shallow	/docs/**|scripts/**	docs/x.md	M:docs/x.md	shallow	
+candidate_dotdot_rejected	scripts/**	scripts/a..b.sh	M:scripts/a..b.sh	standard	rejected-path:scripts/a..b.sh
+candidate_dotdot_rejected_in_hooks	hooks/**	hooks/a..b.sh	M:hooks/a..b.sh	standard	rejected-path:hooks/a..b.sh
+# `scripts/a"b.md` arrives from git as `"scripts/a\"b.md"`, a C-quoting that
+# `core.quotePath=false` does not suppress. The fixture needs a filesystem that
+# permits `"` in a name - which is also why the candidate this row pins cannot
+# arise on Windows, where such a name is illegal.
+candidate_quoted_rejected	scripts/**	scripts/a"b.md	M:scripts/a"b.md	standard	rejected-path:"scripts/a\"b.md"
+# The floor is applied LAST, so a rejected candidate can only raise a `shallow`
+# to `standard`: it never outranks a deep trigger, and it does outrank the bare
+# `standard` a matched sourceGlob earns, because it is the one candidate whose
+# depth this run never established.
+deep_hooks_beats_rejected_candidate	hooks/**|scripts/**	hooks/gate.sh|scripts/a..b.sh	M:hooks/gate.sh|M:scripts/a..b.sh	deep	hooks:hooks/gate.sh
+standard_rejected_over_matched_source	scripts/**	docs/x..y.md|scripts/a.sh|scripts/a.ps1	M:docs/x..y.md|M:scripts/a.sh|M:scripts/a.ps1	standard	rejected-path:docs/x..y.md
+# --- a run root below the git top level -----------------------------------
+# Both git reads have to name paths from the repo top. `diff --name-status`
+# always does; ls-files does only under `--full-name`, and without it the
+# untracked file below reads as `scripts/new.md`, matches no glob, and the row
+# answers `shallow`.
+deep_nested_root_untracked	sub/**	sub/scripts/a.sh|sub/scripts/a.ps1	R:sub|N:sub/scripts/new.md	deep	new-file:sub/scripts/new.md
+standard_nested_root_modified	sub/**	sub/scripts/a.sh|sub/scripts/a.ps1	R:sub|M:sub/scripts/a.sh|M:sub/scripts/a.ps1	standard	
+# --- the glob subset: ** crosses /, * and ? do not ------------------------
+standard_star_matches_one_segment	scripts/*.md	scripts/a.md|scripts/sub/b.md	M:scripts/a.md	standard	
+shallow_star_does_not_cross_slash	scripts/*.md	scripts/a.md|scripts/sub/b.md	M:scripts/sub/b.md	shallow	
+standard_globstar_prefix_optional	**/*.md	x.md	M:x.md	standard	
+standard_globstar_prefix_present	**/*.md	sub/x.md	M:sub/x.md	standard	
+standard_question_mark_one_byte	scripts/?.md	scripts/a.md|scripts/ab.md	M:scripts/a.md	standard	
+shallow_question_mark_not_two	scripts/?.md	scripts/a.md|scripts/ab.md	M:scripts/ab.md	shallow	
+# --- the byte model, path side and glob side -------------------------------
+# `€` is U+20AC, three UTF-8 bytes and no decomposed form, so these rows
+# read the same on a normalizing filesystem as on a byte-preserving one.
+standard_multibyte_path	scripts/**	scripts/café.md	M:scripts/café.md	standard	
+standard_multibyte_glob_literal	scripts/€*.md	scripts/€uro.md	M:scripts/€uro.md	standard	
+standard_multibyte_glob_byte_wide	scripts/???.md	scripts/€.md	M:scripts/€.md	standard	
+shallow_multibyte_glob_not_char_wide	scripts/?.md	scripts/€.md	M:scripts/€.md	shallow	

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — golden-matrix runner for check-doc-toc.sh (issue #490).
+# milestone-driver - golden-matrix runner for check-doc-toc.sh (issue #490).
 # Each fixture is a repo-root under tests/fixtures/check-doc-toc/<case>/
 # mirroring the governed files' real relative paths; the fixture files'
 # CONTENT is throwaway filler apart from their LINE COUNT and the POSITION of
@@ -15,7 +15,7 @@
 #                         over the threshold with frontmatter and intro prose
 #                         ahead of `## Contents` (skills/setup/SKILL.md, 120
 #                         lines); one with an H1 ahead of it (solve-issue/
-#                         SKILL.md, 101 — one line over); one with NO `^# `
+#                         SKILL.md, 101 - one line over); one with NO `^# `
 #                         line anywhere, the real agents/*.md shape (agents/
 #                         design-reviewer.md, 110); one whose H1-shaped bash
 #                         comments sit inside a fence BEFORE `## Contents`
@@ -29,7 +29,7 @@
 #                         is measured.
 #   fenced-pseudo-heading same stream, exit 0, with solve-milestone/SKILL.md
 #                         rewritten to carry a ```markdown fence holding
-#                         `## v<target-version> — <milestone theme>` AFTER its
+#                         `## v<target-version> - <milestone theme>` AFTER its
 #                         `## Contents`. That is the real file's shape (its
 #                         `## Contents` is line 18, the fenced pseudo-heading
 #                         line 459). The scan stops at the FIRST heading, so
@@ -52,7 +52,7 @@
 #                         grep-for-the-string checker cannot tell from
 #                         compliant.
 #   missing-file          that path absent from disk -> FAIL <path> MISSING,
-#                         exit 1 — never a silent pass.
+#                         exit 1 - never a silent pass.
 #
 # The last three trees are copies of the compliant tree with ONE file mutated
 # or omitted, so every FAIL golden differs from compliant.txt in exactly one
@@ -85,7 +85,7 @@ for spec in "${CASES[@]}"; do
   [ -f "$exp" ] || { echo "FAIL $name: missing golden $exp" >&2; fail=$((fail+1)); continue; }
   got="$(bash "$SCRIPT" "$FIX/$name" 2>&1)"; rc=$?
   # CR-normalize the golden so a CRLF checkout (Windows core.autocrlf) still
-  # compares clean — the script's own stdout is already LF. Mirrors the .ps1
+  # compares clean - the script's own stdout is already LF. Mirrors the .ps1
   # runner. stderr is folded into stdout, so a case that starts emitting on
   # stderr fails here as well as on the pwsh twin.
   want="$(tr -d '\r' < "$exp")"

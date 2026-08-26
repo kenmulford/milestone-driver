@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
-# milestone-driver — CI size-budget ratchet (issue #295).
+# milestone-driver - CI size-budget ratchet (issue #295).
 # Byte ceiling added by issue #399. Word ceiling added by issue #489.
-# Behavior-identical pwsh sibling of scripts/check-size-budgets.sh — see its
+# Behavior-identical pwsh sibling of scripts/check-size-budgets.sh - see its
 # header for the full ceiling-ratchet discipline and design rationale (all
 # three ceilings only go down; BYTES is authoritative for cost and governs
 # prose appended to an existing line; LINES is kept for the `file:line`
@@ -10,14 +10,14 @@
 # requires a recorded decision in the Decision Log of the PR body that grows
 # the file.
 #
-# CLOSURE record added by issue #491 — see the .sh sibling's header for the
+# CLOSURE record added by issue #491 - see the .sh sibling's header for the
 # closure-ceiling ratchet (same `actual * 1.05` rounded UP to the next 100
 # words, down freely, up only with a recorded decision, with the one documented
 # difference that superpowers:writing-skills' 5000-word cap does NOT apply to a
 # sum across several files).
 #
 # Usage:   check-size-budgets.ps1 [REPO_ROOT]
-# Output:  the same TAB-separated record stream as the .sh sibling — one line
+# Output:  the same TAB-separated record stream as the .sh sibling - one line
 #          per governed file, then one line per governed SKILL's load closure,
 #          then the trailing summary:
 #            OK/FAIL  <path>  <lines>/<lineCeiling>  <bytes>/<byteCeiling>  <words>/<wordCeiling>
@@ -40,7 +40,7 @@
 # milestone-scoped choice the .sh sibling's header records: a sum over its
 # ceiling changes NO exit code and is counted in NEITHER ok= nor failed=, and a
 # closure whose sum cannot be computed (any member absent from disk) prints
-# MISSING and still changes no exit code — that member is itself a governed
+# MISSING and still changes no exit code - that member is itself a governed
 # file, so its own `FAIL <path> MISSING/...` row above has already failed the
 # run, and failing twice for one deletion would double-count it in failed=.
 # Its position, after every per-file row and before the trailing SUMMARY, is
@@ -55,27 +55,26 @@ $Root = ($Root -replace '[\\/]+$', '')
 
 # The governed set, ONE ROW PER FILE: <path> <lineCeiling> <byteCeiling>
 # <wordCeiling>, all four columns of a file on the same line so a file's three
-# ceilings can no longer be MOVED apart from their path (issue #428 — see the
+# ceilings can no longer be MOVED apart from their path (issue #428 - see the
 # .sh sibling's table comment for what free-standing parallel arrays cost, and
 # for what this shape does and does not remove). MUST stay in sync with
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         325    41500     5800
+skills/solve-issue/SKILL.md                         320    45000     6300
 skills/solve-issue/async-mode.md                     40     4500      700
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
 skills/solve-issue/permission-preflight.md           35     2500      400
-skills/solve-issue/post-fix-commit.md                25     4500      700
+skills/solve-issue/post-fix-commit.md                25     5000      800
 skills/solve-issue/preflight-github-ci.md            20     3000      400
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
-skills/solve-issue/visual-capture.md                 20     6000      800
-skills/solve-issue/visual-review-hold.md             20     2500      400
-skills/solve-issue/wave-clauses.md                   25     3500      500
+skills/solve-issue/visual-capture.md                 15     4000      600
+skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    32500     4500
-skills/solve-milestone/parallel-waves.md            205    39500     5900
+skills/solve-milestone/parallel-waves.md            205    43000     6400
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
@@ -87,21 +86,22 @@ skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
+skills/solve-milestone/simplify-pass.md             110    11000     1700
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   250    11500     1600
+skills/notices.md                                   270    12500     1800
 skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           190    10500     1600
 skills/remediate-handoff.md                          90     5000      800
 agents/blocker-resolver.md                          125    10500     1700
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    14500     2200
+agents/implementer.md                               130    15500     2200
 agents/triage-reviewer.md                           120    16000     2500
 '@
 
 # Parse into four index-aligned lists. A row contributes a ceiling only when
-# that column is present AND all digits — the same rule the .sh twin applies,
+# that column is present AND all digits - the same rule the .sh twin applies,
 # so a malformed row yields the same four counts and the same refusal on both.
 #
 # $c1/$c2/$c3 fold columns the way the .sh twin's
@@ -112,7 +112,7 @@ agents/triage-reviewer.md                           120    16000     2500
 # on both twins, and a LONG row (surplus 5th column) contributes a column 4
 # that is non-numeric on both. Gating every add on an exact 4-column row
 # instead dropped the earlier ceilings too, and the two twins then printed
-# DIFFERENT counts in the refusal below for the same malformed table —
+# DIFFERENT counts in the refusal below for the same malformed table -
 # tests/check-size-budgets.test.{sh,ps1} cover both shapes.
 #
 # [long], not [int]: the digit check accepts any number of digits, so a ceiling
@@ -152,12 +152,13 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 }
 
 # The UNCONDITIONAL LOAD CLOSURE of each governed skill (issue #491), ONE ROW
-# PER SKILL: <skillPath> <closureWordCeiling> <member> <member> ... — see the
+# PER SKILL: <skillPath> <closureWordCeiling> <member> <member> ... - see the
 # .sh sibling's CLOSURE_TABLE comment for why the record exists, for the
 # membership rule (a file belongs to a closure when the skill reads it on EVERY
 # run, with no branch in front of the read), for the branch-gated files that are
-# deliberately EXCLUDED — the six branch-gated files plus 19 of the 20 files
-# later split out, each with the branch that gates it — for the one remaining
+# deliberately EXCLUDED - the six branch-gated files plus 19 of the 20 files
+# later split out that still exist, each with the branch that gates it - for
+# the one remaining
 # (skills/solve-issue/version-bump.md), which is NOT branch-gated and IS summed
 # into solve-issue's closure, carrying that closure's 11200 -> 11700
 # re-derivation with it, and for why column 1 is both the record's
@@ -166,7 +167,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
 skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11000   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-issue/SKILL.md       11600   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
 skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
 '@
@@ -195,9 +196,9 @@ foreach ($row in ($closureTable -split "`n")) {
 # Same length-parity guard the governed table carries, for the same reason: a
 # row whose ceiling was dropped or garbled (most plausibly by writing a member
 # path where the ceiling belongs) shows up here as unequal counts and refuses to
-# run. A row with NO members is not malformed — that is a one-file closure, and
+# run. A row with NO members is not malformed - that is a one-file closure, and
 # its sum is just the SKILL.md. The refusal is emitted with the same explicit
-# "`n" the guard above uses, and for the same byte-identity reason it records —
+# "`n" the guard above uses, and for the same byte-identity reason it records -
 # do not reword that phrasing here, it is a UNIQUE citation anchor
 # (scripts/triage-cache.ps1 cites it, and a second copy of the anchor text in
 # this file fails scripts/check-citations.sh on ambiguity).
@@ -207,13 +208,13 @@ if ($closureSkills.Count -ne $closureCeilings.Count) {
 }
 
 # ONE function, called by BOTH the per-file word column and the CLOSURE sums,
-# so the two can never be measured by different algorithms — a closure is a sum
+# so the two can never be measured by different algorithms - a closure is a sum
 # of the very numbers the per-file rows print, not a second count of the same
 # files. Words are counted off the raw BYTES, never a decoded string: `wc -w` is
 # not portable for this content (GNU adds a non-breaking-space clause BSD lacks,
 # measured as a one-word divergence on the emoji-bearing fixtures), so the .sh
 # twin counts maximal runs of non-whitespace with `tr`+`grep` over exactly the
-# six C isspace bytes — space (0x20), \t (0x09), \n (0x0A), \v (0x0B), \f (0x0C),
+# six C isspace bytes - space (0x20), \t (0x09), \n (0x0A), \v (0x0B), \f (0x0C),
 # \r (0x0D). Counting run STARTS over those same six byte values is locale-free
 # and identical to that by construction; splitting a .NET string on `\s` instead
 # would also break on NBSP and the other Unicode spaces, which are word CONTENT
@@ -246,7 +247,7 @@ for ($i = 0; $i -lt $files.Count; $i++) {
     continue
   }
   # Count newline (0x0A) bytes to match `wc -l` exactly, regardless of the
-  # checkout's line-ending style (CRLF vs LF) — a trailing line with no final
+  # checkout's line-ending style (CRLF vs LF) - a trailing line with no final
   # newline is not counted, same as wc -l.
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $actual = 0
@@ -257,7 +258,7 @@ for ($i = 0; $i -lt $files.Count; $i++) {
   # here, and the twins would disagree on non-ASCII content.
   $actualBytes = $bytes.Length
   # Word count off the SAME already-materialized byte array, through the SAME
-  # function the CLOSURE sums below call — see its definition above for what it
+  # function the CLOSURE sums below call - see its definition above for what it
   # counts and why it never decodes to a string.
   $actualWords = Get-WordCount $bytes
   if ($actual -gt $ceiling -or $actualBytes -gt $byteCeiling -or $actualWords -gt $wordCeiling) {

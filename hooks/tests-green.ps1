@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
+# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
 if ($env:CLAUDE_HOOK_DISABLE_TESTS_GREEN -eq '1') { exit 0 }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
@@ -21,6 +21,17 @@ if (-not $unitCmd) { exit 0 }
 $globs = $cfg.sourceGlobs
 $staged = @(git -C $projectDir diff --cached --name-only)
 $touched = $false
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/force-subagent.ps1` collapse `**` to `*` and match with `-like`;
+# `scripts/classify-review-depth.ps1` translates the same glob to a regex, `**/`
+# to `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs entry in
+# this repo takes. They part on `**/*.ext`: the regex matches a ROOT-level
+# `x.md` and the collapsed `*/*.md` does not, while force-subagent lands on the
+# regex's answer anyway through its SECOND test, of the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment. Pinned as behavior, not endorsed
+# as a contract:
+# `tests/tests-green.test.ps1 (a globstar-prefix glob does not match a root-level staged path)`.
+# Aligning the three is its own issue: this gate decides whether the suite runs.
 if (-not $globs) { $touched = $true } else {
     foreach ($f in $staged) {
         $rel = ([string]$f) -replace '\\', '/'
@@ -47,14 +58,14 @@ if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
         $readStamp = ([string](Get-Content $oldStampPath -Raw -ErrorAction SilentlyContinue)) -replace '[\r\n]', ''
     }
     if ($readStamp -eq $key) {
-        [Console]::Error.WriteLine("milestone-driver: staged tree unchanged since last green run — skipping unit suite.")
+        [Console]::Error.WriteLine("milestone-driver: staged tree unchanged since last green run - skipping unit suite.")
         exit 0
     }
 } else {
-    $key = $null  # write-tree failed — fall through, no stamp read/write
+    $key = $null  # write-tree failed - fall through, no stamp read/write
 }
 # --- end stamp-skip ---
-[Console]::Error.WriteLine("milestone-driver: staged source changed — running unit suite ($unitCmd) ...")
+[Console]::Error.WriteLine("milestone-driver: staged source changed - running unit suite ($unitCmd) ...")
 # Reset first so a pure-PowerShell unitTestCmd (no native exe) can't inherit a
 # stale exit code; capture output and SNAPSHOT the exit code immediately (a
 # trailing pipeline/try-finally would obscure $LASTEXITCODE); then surface the
@@ -70,10 +81,10 @@ if ($testCode -ne 0) {
     # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
     if (Test-Path $stampPath) { Remove-Item $stampPath -ErrorAction SilentlyContinue }
     if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
-    [Console]::Error.WriteLine("milestone-driver: unit tests failed — commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
+    [Console]::Error.WriteLine("milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
     exit 2
 }
-# Write stamp on green to the new path (best-effort — failure does not fail the hook).
+# Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # Ensure .milestone-config/ exists first; remove the stale legacy root stamp once the
 # new one is written, so it stops shadowing future reads.
 if ($null -ne $key) {
@@ -82,7 +93,7 @@ if ($null -ne $key) {
         # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
         # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
         # is git-invisible in the consumer repo from the first write, while tracked config
-        # (driver.json, feeder.json — intentionally NOT listed) stays tracked. Best-effort;
+        # (driver.json, feeder.json - intentionally NOT listed) stays tracked. Best-effort;
         # only created when absent, so a user-edited file is never clobbered.
         # KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in
         # this repo and with solve-issue / solve-milestone / scripts/triage-cache.{sh,ps1},
@@ -94,13 +105,11 @@ if ($null -ne $key) {
         $ignorePath = Join-Path $projectDir '.milestone-config' '.gitignore'
         if (-not (Test-Path $ignorePath)) {
             $ignoreBody = @(
-                '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.'
+                '# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.'
                 '# Committed so per-run scratch stays out of `git status` with zero user setup.'
                 '# Patterns are relative to this .milestone-config/ directory. Tracked config'
                 '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.'
-                'preflight-notice'; 'trello-notice'; 'visualcapture-notice'
-                'parallel-default-notice'; 'code-review-gate-notice'; 'aiprefilter-notice'
-                'cost-record-notice'; 'uisurfaceglobs-notice'; 'triage-cache.json'
+                '*-notice'; 'triage-cache.json'
                 'tests-stamp'; '.runtime/'; 'worktrees/'
             ) -join "`n"
             [System.IO.File]::WriteAllText($ignorePath, $ignoreBody + "`n", [System.Text.UTF8Encoding]::new($false))

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — triage-cache mechanics, extracted from skills/triage/SKILL.md
+# milestone-driver - triage-cache mechanics, extracted from skills/triage/SKILL.md
 # Steps 2.5 and 6.5 (issue #441).
 #
 # Usage:
@@ -15,12 +15,12 @@
 # (tests/triage-cache.cases.tsv) could not run one if they did.
 #
 # `write` COMPUTES each entry's `key` itself, from the same `query keys`
-# response the caller already handed `lookup` — one livekey definition per leg,
+# response the caller already handed `lookup` - one livekey definition per leg,
 # so what write stores is by construction what lookup compares against, and the
 # caller never handles a key at all (issue #462). Pass the SAVED Step 2.5 file,
 # never a fresh fetch: that file predates the Blocker comments Step 6 posts, and
 # recomputing from it is what keeps the pre-comment key semantics.
-# Pass the KEYS response, never the `query edges` one — an edges response has
+# Pass the KEYS response, never the `query edges` one - an edges response has
 # none of the key's fields, so every key it covers computes to "<n>::0:"
 # (measured on both legs: empty timestamp, the 0 comment-count default, empty
 # label list) and misses forever at exit 0.
@@ -55,7 +55,7 @@
 # lookup: degrade to an empty cache. The cache is read from the canonical
 #   <root>/.milestone-config/triage-cache.json, falling back to the legacy root
 #   <root>/.milestone-driver-triage-cache.json ONLY when the canonical path is
-#   ABSENT — a present-but-corrupt canonical file does NOT fall back, because
+#   ABSENT - a present-but-corrupt canonical file does NOT fall back, because
 #   falling back would silently answer from a file the writer stopped
 #   maintaining. Absent, unreadable, non-object, or invalid JSON all resolve to
 #   an empty cache, every issue then reports MISS no-entry, and no path errors
@@ -69,13 +69,13 @@
 #   just this run's HIT set: a number that was already a MISS is unaffected by a
 #   second MISS record, so scoping it costs an argument and buys nothing.
 # write: ALWAYS EXITS 0. Every failure path prints one SKIP record and returns
-#   success — a cache write must never abort a triage run.
+#   success - a cache write must never abort a triage run.
 #
 # Exit codes: 0 every subcommand's normal and degraded paths · 2 bad usage
 #   (unknown subcommand, wrong argument count, non-numeric issue number, owner
-#   or repo outside [A-Za-z0-9._-]) — never for `write`, which is exit 0 always.
+#   or repo outside [A-Za-z0-9._-]) - never for `write`, which is exit 0 always.
 #
-# Dependency: jq on the read/write paths (already permitted —
+# Dependency: jq on the read/write paths (already permitted -
 #   .project/library-manifest.md#Adding a dependency (the gate)); no new tool
 #   dependency. `query` needs no jq at all. When jq is absent the read/write
 #   paths print SKIP no-jq and exit 0.
@@ -96,7 +96,7 @@ usage() {
   exit 2
 }
 
-# read_cache <root> — echo the live cache object as compact JSON, or {}.
+# read_cache <root> - echo the live cache object as compact JSON, or {}.
 # The first PRESENT path wins; only ABSENCE falls through to the legacy root.
 read_cache() {
   local root="$1" p parsed
@@ -127,14 +127,14 @@ def aliases: basedoc | (if type == "object" then . else {} end) | [ to_entries[]
 # against the cached key) and `write` (which stamps it). Two copies would drift
 # invisibly: the only symptom of a drifted key is a 100% cache miss at exit 0.
 # obj/arr are J-Get parity for CONTAINER access. The pwsh twin returns null
-# when it indexes a non-object, but jq ERRORS — and a jq error aborts the
+# when it indexes a non-object, but jq ERRORS - and a jq error aborts the
 # whole program, so one wrong-typed field (`"comments": 5`) collapsed this
 # leg to SKIP bad-response while the pwsh leg kept going. Guarding only the
 # LEAF with select(...) never ran, because jq aborted one step earlier.
 JQ_LIVEKEY='def obj($v): if ($v | type) == "object" then $v else {} end;
 def arr($v): if ($v | type) == "array"  then $v else [] end;
 # select(type == …) before each // : the fallback fires when the field is
-# absent, null, OR the wrong JSON type — exactly what the pwsh twin can
+# absent, null, OR the wrong JSON type - exactly what the pwsh twin can
 # express over a JsonElement. An EMPTY lastEditedAt IS a string, so it is
 # still kept verbatim rather than replaced by createdAt, on both legs.
 def livekey($n; $x):
@@ -191,7 +191,7 @@ case "$sub" in
     ;;
 
   # `write` alone takes FOUR: it recomputes each entry's key from the response.
-  # The response is NOT optional — an optional argument would restore exactly
+  # The response is NOT optional - an optional argument would restore exactly
   # the "the key can be omitted" hole this signature exists to close (#462).
   write)
     [ "$#" -eq 4 ] || usage
@@ -306,7 +306,7 @@ case "$sub" in
     # Number -> live key, from the SHARED livekey definition `lookup` compares
     # with. An absent, unreadable, or unparseable response yields an EMPTY map:
     # entries are then stored exactly as supplied, with no new SKIP reason and
-    # still exit 0 — fail-open, the same posture as the cache read itself. The
+    # still exit 0 - fail-open, the same posture as the cache read itself. The
     # cost of that degradation is one extra re-triage next run, never a wrong key.
     keys="$(jq -c "$JQ_BASE$JQ_LIVEKEY"'
       aliases
@@ -314,7 +314,7 @@ case "$sub" in
       | from_entries' "$respfile" 2>/dev/null)" || keys=""
     [ -n "$keys" ] || keys="{}"
     # Entry-level overwrite, matching the recorded rule "write or overwrite its
-    # entry" — a re-triaged issue replaces its own entry and touches no other.
+    # entry" - a re-triaged issue replaces its own entry and touches no other.
     # The key is stamped onto the INJECTED entries only: an untouched cache entry
     # keeps its stored key (and its byte-preserved triaged_at) verbatim, and an
     # injected entry the response does not cover keeps whatever it was handed.
@@ -337,24 +337,17 @@ case "$sub" in
     # feeder setup / plan.
     # The redirect sits INSIDE a group whose 2>/dev/null covers it: a plain
     # `cat > file 2>/dev/null` silences cat but NOT the redirect's own
-    # open-failure, which bash reports on real fd2 — a stray diagnostic line
+    # open-failure, which bash reports on real fd2 - a stray diagnostic line
     # from a best-effort step, on a leg whose stderr is byte-pinned against the
     # pwsh twin's (same group idiom as
     # scripts/write-cost-record.sh (is swallowed by the group's 2>/dev/null)).
     if [ ! -e "$dir/.gitignore" ]; then
       { cat > "$dir/.gitignore" <<'GITIGNORE_BLOCK'
-# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.
+# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.
 # Committed so per-run scratch stays out of `git status` with zero user setup.
 # Patterns are relative to this .milestone-config/ directory. Tracked config
 # (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.
-preflight-notice
-trello-notice
-visualcapture-notice
-parallel-default-notice
-code-review-gate-notice
-aiprefilter-notice
-cost-record-notice
-uisurfaceglobs-notice
+*-notice
 triage-cache.json
 tests-stamp
 .runtime/

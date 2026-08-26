@@ -1,8 +1,8 @@
-# Parallel-wave contingencies — solve-milestone reference
+# Parallel-wave contingencies - solve-milestone reference
 
 Four procedures `parallel-waves.md` reaches **only in a named, observable state**. Each section below states the condition that sends a run here; a Wave in none of those states never reads this file. `parallel-waves.md` keeps every condition inline, so a reader always knows the branch exists before deciding to follow it.
 
-**Missing or unreadable** once one of those conditions has fired is a **systemic failure** — surface it and halt the run per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run". Do **not** improvise a substitute: each procedure below carries a cap or a discard rule whose omission loses work.
+**Missing or unreadable** once one of those conditions has fired is a **systemic failure** - surface it and halt the run per core `SKILL.md`'s `## Autonomy` → "Systemic failures that halt the run". Do **not** improvise a substitute: each procedure below carries a cap or a discard rule whose omission loses work.
 
 ## Contents
 
@@ -18,9 +18,9 @@ Pre-clean guard · Wave-state checkpoint freshness · Red unit suite retry loop 
 
 | Leftover state | Test | Action |
 |---|---|---|
-| **No leftover at all (cold case)** | — | The plain `git worktree add … -b issue/<n>-<slug> <base>` form of step 2 |
+| **No leftover at all (cold case)** | - | The plain `git worktree add … -b issue/<n>-<slug> <base>` form of step 2 |
 | **Leftover branch carries commits ahead of `<base>` that are not yet pushed/merged** | `git rev-list --count <base>..issue/<n>-<slug>` non-zero, those commits absent from `origin/issue/<n>-<slug>` | Never `git branch -D`. **Attach a worktree to the existing branch:** `git worktree add .milestone-config/worktrees/issue-<n> issue/<n>-<slug>` (no `-b`), and drive that issue against it; the `solve-issue` branch-state probe (resume paths (a)/(b)/(c)), run on the main line, **resumes** that work. A stale worktree **directory** registered at that path → `git worktree remove --force .milestone-config/worktrees/issue-<n>` / `git worktree prune` the directory entry first; the **branch and its commits are preserved** |
-| **Leftover is provably safe to discard** | **0 commits ahead** of `<base>`, **or** already merged, **or** already pushed | Clear it fully — `git worktree remove --force .milestone-config/worktrees/issue-<n>` (if present), `git worktree prune`, `git branch -D issue/<n>-<slug>` — **then** create fresh with the `-b` form |
+| **Leftover is provably safe to discard** | **0 commits ahead** of `<base>`, **or** already merged, **or** already pushed | Clear it fully - `git worktree remove --force .milestone-config/worktrees/issue-<n>` (if present), `git worktree prune`, `git branch -D issue/<n>-<slug>` - **then** create fresh with the `-b` form |
 
 ---
 
@@ -30,11 +30,11 @@ Pre-clean guard · Wave-state checkpoint freshness · Red unit suite retry loop 
 
 **Trust only if not older than the artifact it names, and ONLY for `built-green` entries** (mirrors the triage cache's stale-edge trust-but-verify posture, `scripts/triage-cache.sh (check-edges: closed but not merged)`):
 
-- **Scope: `built-green` only — a `parked` or `abandoned` entry is NEVER trusted from the checkpoint, at any freshness.** Park/unpark is a **label change** (`gh issue edit --add-label` / `--remove-label`), not a commit, so a stale `parked` entry could never self-invalidate and would exclude that issue from Phase 2 **forever**; an `abandoned` entry names the one state the recover-once ladder exists to resolve. Both fall through to step 9's full probe (live labels plus the `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment), exactly as if no entry existed.
-- For a `built-green` entry, convert **both sides to epoch seconds and compare as integers** — never a raw ISO-string compare:
+- **Scope: `built-green` only - a `parked` or `abandoned` entry is NEVER trusted from the checkpoint, at any freshness.** Park/unpark is a **label change** (`gh issue edit --add-label` / `--remove-label`), not a commit, so a stale `parked` entry could never self-invalidate and would exclude that issue from Phase 2 **forever**; an `abandoned` entry names the one state the recover-once ladder exists to resolve. Both fall through to step 9's full probe (live labels plus the `🔴 Parked` / `🔴 Triage` / `🔴 Blocked` comment), exactly as if no entry existed.
+- For a `built-green` entry, convert **both sides to epoch seconds and compare as integers** - never a raw ISO-string compare:
   - Entry's `pr` present: `derived_epoch=$(jq -rn --arg d "<derivedAt>" '$d | fromdateiso8601')`; `updated_epoch=$(jq -rn --arg u "$(gh pr view <pr> --json updatedAt --jq .updatedAt)" '$u | fromdateiso8601')` (confirmed valid `--json` field; `gh` always returns a `Z`-suffixed UTC timestamp). Fresh iff `[ "$derived_epoch" -ge "$updated_epoch" ]`.
-  - Entry's `pr` absent: `derived_epoch=$(jq -rn --arg d "<derivedAt>" '$d | fromdateiso8601')`; `branch_epoch=$(git for-each-ref --format='%(committerdate:unix)' "refs/heads/<branch>")` against the entry's own **concrete** `branch` field — `committerdate:unix` is already epoch. Fresh iff `[ "$derived_epoch" -ge "$branch_epoch" ]`. **Never** a bare glob revision — `git log -1 --format=%cI 'issue/<n>-*'` is not a valid `git log` revision and silently returns empty output at exit 0 (verified). **`for-each-ref` returning empty** (branch deleted, e.g. merged-and-pruned since capture) → treat the entry as **stale**: fall through to the full live re-probe.
-- Fresh (`derived_epoch -ge` the reference epoch, entry is `built-green`) → **trust the entry directly**: use its `{issue, wave, status, branch, pr, isUI}` in place of the probe — a **checkable predicate**, not a self-report.
+  - Entry's `pr` absent: `derived_epoch=$(jq -rn --arg d "<derivedAt>" '$d | fromdateiso8601')`; `branch_epoch=$(git for-each-ref --format='%(committerdate:unix)' "refs/heads/<branch>")` against the entry's own **concrete** `branch` field - `committerdate:unix` is already epoch. Fresh iff `[ "$derived_epoch" -ge "$branch_epoch" ]`. **Never** a bare glob revision - `git log -1 --format=%cI 'issue/<n>-*'` is not a valid `git log` revision and silently returns empty output at exit 0 (verified). **`for-each-ref` returning empty** (branch deleted, e.g. merged-and-pruned since capture) → treat the entry as **stale**: fall through to the full live re-probe.
+- Fresh (`derived_epoch -ge` the reference epoch, entry is `built-green`) → **trust the entry directly**: use its `{issue, wave, status, branch, pr, isUI}` in place of the probe - a **checkable predicate**, not a self-report.
 - Stale, **any `parked` or `abandoned` entry**, or **no entry for this issue** → fall through to step 9's probe.
 
 ---
@@ -43,7 +43,7 @@ Pre-clean guard · Wave-state checkpoint freshness · Red unit suite retry loop 
 
 **Condition:** a returned implementer leaf's report shows `unitTestCmd` **red** in its own worktree (`parallel-waves.md` step 6). Every leaf returning green skips this section.
 
-The leaf ran `unitTestCmd` as its TDD green step (step 5) but cannot loop on a red result — it may not start a second suite while one is running (`agents/implementer.md`'s antipatterns), and re-dispatching itself is the depth-2 shape `parallel-waves.md` exists to avoid. **The orchestrator owns the loop.** Run the **Unit** row of `solve-issue` `### 4. Verification gates` for that issue: re-dispatch its implementer leaf into the same worktree with the failure attached, **at most 2 re-dispatches**, invoking `superpowers:verification-before-completion` on each result and reporting real output. Each re-dispatch is a row-1 claim on step 6's shared-slot ladder.
+The leaf ran `unitTestCmd` as its TDD green step (step 5) but cannot loop on a red result - it may not start a second suite while one is running (`agents/implementer.md`'s antipatterns), and re-dispatching itself is the depth-2 shape `parallel-waves.md` exists to avoid. **The orchestrator owns the loop.** Run the **Unit** row of `solve-issue` `### 4. Verification gates` for that issue: re-dispatch its implementer leaf into the same worktree with the failure attached, **at most 2 re-dispatches**, invoking `superpowers:verification-before-completion` on each result and reporting real output. Each re-dispatch is a row-1 claim on step 6's shared-slot ladder.
 
 Still red after the second re-dispatch: park **`blocked`** (`needs design` instead when the failure shows the plan is wrong), comment, preserve the branch, and drop the issue from Stage B and the per-issue tail. The `tests-green` hook at the orchestrator's own commit (step 8) is the backstop, not this loop: it blocks rather than retries, and fires after review and version bump.
 

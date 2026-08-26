@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — triage-cache mechanics, extracted from skills/triage/SKILL.md
+# milestone-driver - triage-cache mechanics, extracted from skills/triage/SKILL.md
 # Steps 2.5 and 6.5 (issue #441).
 #
 # Usage:
@@ -8,12 +8,12 @@
 #   triage-cache.ps1 check-edges <repo-root> <graphql-response.json>
 #   triage-cache.ps1 write       <repo-root> <entries.json> <graphql-response.json>
 #
-# Behavior twin of scripts/triage-cache.sh — see that file's header for the full
+# Behavior twin of scripts/triage-cache.sh - see that file's header for the full
 # record contract, the degradation rules, the exit codes, and why `write` takes
 # the SAVED Step 2.5 keys response and stamps each entry's `key` itself (#462).
 # Every subcommand emits BYTE-IDENTICAL stdout and stderr on both legs;
 # tests/triage-cache.test.{sh,ps1} drive the same cases table against the same
-# goldens to hold that — EXCEPT for one hazard the table cannot express: an argv
+# goldens to hold that - EXCEPT for one hazard the table cannot express: an argv
 # value containing a NEWLINE. The table's args column is a space-separated word
 # list, so no row can carry one, and .NET's `$` anchor matches before a trailing
 # newline while the .sh twin's `case` patterns do not. Every regex validator here
@@ -33,7 +33,7 @@
 # twice over and both times silently:
 #   - the cache key embeds lastEditedAt, so `$x.lastEditedAt` came back as a
 #     [datetime] and interpolated to the CULTURE format ("08/01/2026 00:00:00"),
-#     making every live key mismatch its cached twin — a permanent 100% miss
+#     making every live key mismatch its cached twin - a permanent 100% miss
 #     rate that still exits 0 and still looks like a working cache;
 #   - `write` round-trips entries it does not touch, so every `triaged_at` an
 #     existing entry carried would be rewritten in .NET's date format, silently
@@ -66,7 +66,7 @@ $KArray = [System.Text.Json.JsonValueKind]::Array
 $KString = [System.Text.Json.JsonValueKind]::String
 $KNumber = [System.Text.Json.JsonValueKind]::Number
 
-# J-Get — a property's value as a JsonElement, or $null when absent or when the
+# J-Get - a property's value as a JsonElement, or $null when absent or when the
 # receiver is not an object. Mirrors jq, where indexing an absent key is null.
 # EnumerateObject rather than TryGetProperty: no `out` parameter to marshal, and
 # these objects hold a handful of keys.
@@ -75,7 +75,7 @@ function J-Get($el, [string]$name) {
   foreach ($p in $el.EnumerateObject()) { if ($p.Name -ceq $name) { return $p.Value } }
   return $null
 }
-# J-Str — the value when it is a JSON string, else $null. Non-string is treated
+# J-Str - the value when it is a JSON string, else $null. Non-string is treated
 # as absent on BOTH legs (the .sh twin's `select(type == "string")`), so a
 # malformed timestamp degrades the same way here.
 function J-Str($el) {
@@ -90,7 +90,7 @@ function Read-JsonRoot([string]$path) {
   try { return ([System.Text.Json.JsonDocument]::Parse($raw)).RootElement } catch { return $null }
 }
 
-# Read-Cache — the live cache object as a JsonElement, or $null for "empty
+# Read-Cache - the live cache object as a JsonElement, or $null for "empty
 # cache". The FIRST PRESENT path wins; only ABSENCE falls through to the legacy
 # root (see the .sh twin's "lookup: degrade to an empty cache" note for why a
 # corrupt canonical file must not fall back).
@@ -106,10 +106,10 @@ function Read-Cache([string]$root) {
   return $null
 }
 
-# Get-Aliases — the response's issue_<n> aliases as {n, x} records sorted by
+# Get-Aliases - the response's issue_<n> aliases as {n, x} records sorted by
 # issue number, so the record order never depends on the response's key order or
 # on the host parser's property ordering. $x is $null when the alias carries no
-# issue object (a deleted or unreadable issue) — that becomes no-live-key.
+# issue object (a deleted or unreadable issue) - that becomes no-live-key.
 function Get-Aliases($resp) {
   $doc = $resp
   $d = J-Get $resp 'data'
@@ -137,23 +137,23 @@ function Get-Aliases($resp) {
 # and back, losslessly (scripts/check-citations.ps1 (Latin1 is the byte<->char)).
 $LKU8 = [System.Text.Encoding]::UTF8
 $LKL1 = [System.Text.Encoding]::Latin1
-# Get-ByteKey — a name respelled as the byte-chars of its UTF-8 encoding, so
+# Get-ByteKey - a name respelled as the byte-chars of its UTF-8 encoding, so
 # StringComparer.Ordinal over the result compares BYTES.
 function Get-ByteKey([string]$s) { return $LKL1.GetString($LKU8.GetBytes($s)) }
 
-# Get-LiveKey — "<n>:<lastEditedAt // createdAt>:<comments>:<labels>".
+# Get-LiveKey - "<n>:<lastEditedAt // createdAt>:<comments>:<labels>".
 # The fallback fires when lastEditedAt is absent, null, or not a string,
 # matching the .sh twin's `select(type == "string") // …` chain.
 #
 # LABELS SORT IN CODEPOINT ORDER, matching the .sh twin's jq `sort` under
 # LC_ALL=C. The keys are the names' UTF-8 BYTES as byte-chars, so Ordinal over
-# them IS a byte sort, and UTF-8 byte order IS codepoint order — the byte-domain
+# them IS a byte sort, and UTF-8 byte order IS codepoint order - the byte-domain
 # model scripts/check-citations.ps1 (THE SORT) already ships. Neither of the
 # obvious alternatives works: Sort-Object is culture-sensitive, and Ordinal over
 # the DECODED names is UTF-16 code-unit order, which ranks an astral name (lead
 # surrogate U+D800-DBFF) BEFORE every U+E000-FFFF name where codepoint order
 # ranks it after. Getting this wrong changes the key on ONE leg only, and the
-# sole symptom is a `MISS … key-mismatch` at exit 0 — indistinguishable from a
+# sole symptom is a `MISS … key-mismatch` at exit 0 - indistinguishable from a
 # genuinely edited issue. ASCII-only label sets agree under all three orders, so
 # ASCII agreement is NOT evidence of parity: the pin is
 # tests/triage-cache.cases.tsv (lookup-astral-vs-bmp-labels).
@@ -182,7 +182,7 @@ function Get-LiveKey([long]$n, $x) {
   return "${n}:${ts}:${cc}:" + ($arr -join ',')
 }
 
-# Get-Edges — a cache entry's result.edges as integers, or an empty list for any
+# Get-Edges - a cache entry's result.edges as integers, or an empty list for any
 # shape that is not an array of numbers (parity with the .sh twin's edges_of).
 function Get-Edges($entry) {
   $out = New-Object System.Collections.Generic.List[long]
@@ -209,7 +209,7 @@ if ($sub -ceq 'query') {
   # Validate rather than escape: every real owner/repo already sits inside this
   # set, and a validated value cannot break out of the GraphQL string literal.
   # \z, NOT $: .NET's `$` also matches BEFORE a final newline, so "acme`n" passed
-  # here while the .sh twin's `case` pattern rejected it — the value then reached
+  # here while the .sh twin's `case` pattern rejected it - the value then reached
   # the emitted GraphQL and the two legs diverged (exit 0 + a query vs exit 2 +
   # usage). \z is the only anchor that means end-of-string in .NET.
   if ($owner -notmatch '^[A-Za-z0-9._-]+\z') { Show-Usage }
@@ -225,7 +225,7 @@ if ($sub -ceq 'query') {
   $body = ''
   for ($i = 4; $i -lt $args.Count; $i++) {
     $n = [string]$args[$i]
-    if ($n -notmatch '^[0-9]+\z') { Show-Usage }   # \z, not $ — see the owner/repo note above
+    if ($n -notmatch '^[0-9]+\z') { Show-Usage }   # \z, not $ - see the owner/repo note above
     if ($seen.Contains($n)) { continue }
     $seen.Add($n)
     $body += " issue_${n}: repository(owner:`"$owner`", name:`"$repo`") { issue(number:$n) { $fields } }"
@@ -237,7 +237,7 @@ if ($sub -ceq 'query') {
 
 if ($sub -cne 'lookup' -and $sub -cne 'check-edges' -and $sub -cne 'write') { Show-Usage }
 # `write` alone takes FOUR: it recomputes each entry's key from the response.
-# The response is NOT optional — an optional argument would restore exactly the
+# The response is NOT optional - an optional argument would restore exactly the
 # "the key can be omitted" hole this signature exists to close (#462).
 $wantArgc = if ($sub -ceq 'write') { 4 } else { 3 }
 if ($args.Count -ne $wantArgc) { Show-Usage }
@@ -324,11 +324,11 @@ $entries = Read-JsonRoot $argfile
 if ($null -eq $entries -or $entries.ValueKind -ne $KObject) { Skip 'bad-entries' }
 
 # Number -> live key, through Read-JsonRoot and the SAME Get-LiveKey `lookup`
-# compares with — never ConvertFrom-Json, which would coerce every ISO-8601
+# compares with - never ConvertFrom-Json, which would coerce every ISO-8601
 # timestamp to a [datetime] and culture-format it straight back into the key
 # (see this file's header). An absent, unreadable, or unparseable response
 # leaves the map EMPTY: entries are then stored exactly as supplied, with no new
-# SKIP reason and still exit 0 — fail-open, matching the .sh twin.
+# SKIP reason and still exit 0 - fail-open, matching the .sh twin.
 $liveKeys = @{}
 $respRoot = Read-JsonRoot $respfile
 if ($null -ne $respRoot) {
@@ -359,7 +359,7 @@ foreach ($p in $entries.EnumerateObject()) {
 $dir = Join-Path $root '.milestone-config'
 try { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null } catch { Skip 'mkdir-failed' }
 # -Force does NOT throw when a regular FILE already occupies $dir, so the throw
-# alone is not the test — the .sh twin's `mkdir -p` fails there and reports
+# alone is not the test - the .sh twin's `mkdir -p` fails there and reports
 # mkdir-failed, and without this check this leg fell through to the write and
 # reported write-failed for the same tree.
 if (-not (Test-Path -LiteralPath $dir -PathType Container)) { Skip 'mkdir-failed' }
@@ -376,18 +376,11 @@ if (-not (Test-Path -LiteralPath $dir -PathType Container)) { Skip 'mkdir-failed
 # this repo and with solve-issue / solve-milestone / hooks/tests-green.{sh,ps1},
 # feeder setup / plan.
 $gitignore = @(
-  '# milestone-driver / milestone-feeder per-clone scratch — git-invisible by default.',
+  '# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.',
   '# Committed so per-run scratch stays out of `git status` with zero user setup.',
   '# Patterns are relative to this .milestone-config/ directory. Tracked config',
   '# (driver.json, feeder.json) is intentionally NOT listed, so it stays tracked.',
-  'preflight-notice',
-  'trello-notice',
-  'visualcapture-notice',
-  'parallel-default-notice',
-  'code-review-gate-notice',
-  'aiprefilter-notice',
-  'cost-record-notice',
-  'uisurfaceglobs-notice',
+  '*-notice',
   'triage-cache.json',
   'tests-stamp',
   '.runtime/',
@@ -431,7 +424,7 @@ try {
       if (-not $wroteKey) { $w.WriteString('key', $liveKeys[$k]) }
       $w.WriteEndObject()
     } else {
-      # Everything else — untouched pre-existing entries above all — keeps the
+      # Everything else - untouched pre-existing entries above all - keeps the
       # verbatim WriteTo that byte-preserves values this script does not own.
       $v.WriteTo($w)
     }

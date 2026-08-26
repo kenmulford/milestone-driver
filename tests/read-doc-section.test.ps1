@@ -1,8 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver — behavior matrix runner for read-doc-section.ps1 (issue #184).
+# milestone-driver - behavior matrix runner for read-doc-section.ps1 (issue #184).
 # Each case builds a tiny Markdown fixture in a per-run temp dir and asserts the
 # stdout, the exit code, AND (on failure cases) that stdout is empty + stderr
-# names the anchor/file. Mirrors tests/read-doc-section.test.sh — the .sh and
+# names the anchor/file. Mirrors tests/read-doc-section.test.sh - the .sh and
 # .ps1 runners assert the SAME contract (cross-impl parity).
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $here '..' 'scripts' 'read-doc-section.ps1'
@@ -27,7 +27,7 @@ Keys body line 1.
 
 ### Sub
 
-Nested deeper than ## — stays inside Keys.
+Nested deeper than ## - stays inside Keys.
 
 ## Other
 
@@ -35,7 +35,7 @@ Other body.
 
 ## Keys
 
-Duplicate Keys — must NOT be reached (first-match policy).
+Duplicate Keys - must NOT be reached (first-match policy).
 
 ## Last
 
@@ -81,7 +81,7 @@ Keys body line 1.
 
 ### Sub
 
-Nested deeper than ## — stays inside Keys.
+Nested deeper than ## - stays inside Keys.
 '@ -replace "`r`n", "`n"
   Check 'happy' 0 $wantKeys @($doc, 'Keys')
 

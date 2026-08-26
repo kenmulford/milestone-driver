@@ -17,7 +17,7 @@ The pipeline runs on the **caller's own main line**, and that session fans out:
 | Caller | What now happens |
 |---|---|
 | `solve-milestone`, sequential mode | Runs `solve-issue <n>` in-thread, one issue at a time (`skills/solve-milestone/SKILL.md`'s `### 4. Loop over issues in dependency-graph order`, step 2). It dispatches the implementer and the reviewers itself, as leaves. |
-| `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, then each issue's reviewer the moment its implementer returns (`skills/solve-milestone/parallel-waves.md § Parallel mode — Phase 1: concurrent stage dispatch`). |
+| `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, then each issue's reviewer the moment its implementer returns (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 1: concurrent stage dispatch`). |
 | A user session | Invokes `solve-issue <n>` directly. The token, if typed, is ignored. |
 
 ## Delta A1 retired with it

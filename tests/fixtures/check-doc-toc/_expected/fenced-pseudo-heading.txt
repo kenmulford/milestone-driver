@@ -10,7 +10,6 @@ OK	skills/solve-issue/preflight-github-ci.md
 OK	skills/solve-issue/resume-paths.md
 OK	skills/solve-issue/version-bump.md
 OK	skills/solve-issue/visual-capture.md
-OK	skills/solve-issue/visual-review-hold.md
 OK	skills/solve-issue/wave-clauses.md
 OK	skills/solve-milestone/SKILL.md
 OK	skills/solve-milestone/parallel-waves.md
@@ -25,6 +24,7 @@ OK	skills/solve-milestone/integration-granularity.md
 OK	skills/solve-milestone/md-epic-parent-check.md
 OK	skills/solve-milestone/not-buildable.md
 OK	skills/solve-milestone/sequential-loop.md
+OK	skills/solve-milestone/simplify-pass.md
 OK	skills/solve-milestone/version-target.md
 OK	skills/triage/SKILL.md
 OK	skills/triage/blocker-resolver-dispatch.md

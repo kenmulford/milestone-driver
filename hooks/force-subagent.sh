@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver — force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
+# milestone-driver - force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
 #
 # Bash parity of force-subagent.ps1. Blocks main-thread edits to the consuming
 # repo's source/test globs so application/test code is authored only by the
@@ -44,10 +44,22 @@ case "$norm" in
   "$project_dir"/*) rel="${norm#"$project_dir"/}" ;;
 esac
 
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/tests-green.sh` collapse `**` to `*` and match with a shell `case`;
+# `scripts/classify-review-depth.sh` translates the same glob to an ERE, `**/` to
+# `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs entry in
+# this repo takes. They part on `**/*.ext`: the ERE matches a ROOT-level `x.md`
+# and tests-green's collapsed `*/*.md` does not. This gate lands on the ERE's
+# answer anyway, through the SECOND test below - the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment tests-green has no source for.
+# Pinned as behavior, not endorsed as a contract:
+# `tests/force-subagent.test.sh (a globstar-prefix glob blocks a root-level path)`.
+# Aligning the three is its own issue: this gate decides whether a source edit
+# is blocked at all.
 # ** -> * ('*' in a case glob matches across '/'). Both operands of the //
 # replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
 # backslash in the replacement, so `${g//\*\*/\*}` yields `skills/\*` there and
-# `skills/*` on 5.x — a pattern matching a literal star, so every `**` glob
+# `skills/*` on 5.x - a pattern matching a literal star, so every `**` glob
 # stopped matching and this gate silently allowed source edits (#571). Quoting
 # through $STARSTAR/$STAR is byte-identical on 3.2.57 and 5.3.15.
 STARSTAR='**'; STAR='*'

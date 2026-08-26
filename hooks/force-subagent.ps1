@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# milestone-driver — force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
+# milestone-driver - force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
 #
 # Blocks main-thread edits to the consuming repo's source/test globs so that
 # application and test code is authored only by the dispatched implementer
@@ -52,6 +52,18 @@ if (-not $globs) { exit 0 }
 $rel = $norm
 if ($norm.StartsWith("$projectDir/")) { $rel = $norm.Substring($projectDir.Length + 1) }
 
+# GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
+# and `hooks/tests-green.ps1` collapse `**` to `*` and match with `-like`;
+# `scripts/classify-review-depth.ps1` translates the same glob to a regex, `**/`
+# to `(.*/)?`. All three agree on `dir/**`, the shape every sourceGlobs entry in
+# this repo takes. They part on `**/*.ext`: the regex matches a ROOT-level `x.md`
+# and tests-green's collapsed `*/*.md` does not. This gate lands on the regex's
+# answer anyway, through the SECOND test below - the ABSOLUTE path against
+# `*/<pat>`, which supplies the leading segment tests-green has no source for.
+# Pinned as behavior, not endorsed as a contract:
+# `tests/force-subagent.test.ps1 (a globstar-prefix glob blocks a root-level path)`.
+# Aligning the three is its own issue: this gate decides whether a source edit
+# is blocked at all.
 foreach ($g in $globs) {
     $pattern = ([string]$g) -replace '\\', '/'
     $pattern = $pattern -replace '\*\*', '*'   # ** -> * ; PowerShell -like '*' already crosses '/'
