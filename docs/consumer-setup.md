@@ -325,6 +325,7 @@ When the integration branch is ready to ship, run the tail in order:
    ```
    gh pr merge <release-PR> --merge
    ```
+   `code-review-gate` exempts this merge on the PR's **fetched `baseRefName`**, read through `gh pr view`, not on any flag of the command above: only the create leg reads `--base`, and this exemption additionally needs `gh` on `PATH` and that view to succeed. Write a `/code-review run:` line into the release PR's body by hand anyway, for the audit trail. Do not copy step 3's value: this PR carries the whole milestone's `sourceGlobs` changes, so `n/a` would be a false claim. Record what happened, e.g. `/code-review run: yes (per-issue reviews on the merges into <integrationBranch>)`.
 2. **Tag and cut the GitHub Release** on `protectedBranch`, AFTER the merge, so the Releases page tracks what shipped. If your repo carries a `CHANGELOG.md` (this plugin does — `solve-milestone` authors the release entry, which doubles as the release body), pass that entry as the notes:
    ```
    gh release create v<version> --target <protectedBranch> --notes "$(<this release's CHANGELOG.md section>)"
@@ -336,7 +337,15 @@ When the integration branch is ready to ship, run the tail in order:
    In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to. Version-free repos can tag the date or skip this.
 3. **Back-merge `protectedBranch` → `integrationBranch`.** After tagging/cutting the Release, merge `protectedBranch` back into `integrationBranch` (a PR, or a direct merge if your `integrationBranch` is not PR-locked) so `integrationBranch` carries the release merge-node **and** the tag. It is history-only (no content delta, since `--merge` already kept the content in sync), so it is conflict-free. This is what keeps `integrationBranch` topologically even with `protectedBranch` and `git describe --tags` on `integrationBranch` current with the latest release. Open the back-merge PR with `protectedBranch` as the head, then merge it with `--merge` (same no-squash rule as step 1):
    ```
-   gh pr create --base <integrationBranch> --head <protectedBranch> --title "Back-merge <protectedBranch> into <integrationBranch>"
+   gh pr create --base <integrationBranch> --head <protectedBranch> --title "Back-merge <protectedBranch> into <integrationBranch>" --body "$(cat <<'EOF'
+## Code Review
+
+- /code-review run: n/a - release-ritual PR, no sourceGlobs change.
+- Findings: 0
+  - none
+- No park-triggering findings.
+EOF
+)"
    gh pr merge <back-merge-PR> --merge
    ```
 4. **Close the milestone object**: the loop closes the milestone's *issues* and authors the CHANGELOG, but never closes the milestone itself.
@@ -362,7 +371,7 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `git commit` with the unit suite red (staged source) — **when `unitTestCmd` is defined** | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
-| `gh pr create` whose body has no `## Code Review` section | **blocked** (code-review-gate) — exempt when `--base` targets `protectedBranch` |
+| `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) — exempt when `--base` targets `protectedBranch` |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op — there is no unit gate to verify.
 

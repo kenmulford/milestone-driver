@@ -42,13 +42,15 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
       aiprefilter-notice
       cost-record-notice
       uisurfaceglobs-notice
+      visual-hold-removed-notice
+      code-review-run-no-notice
       triage-cache.json
       tests-stamp
       .runtime/
       worktrees/
       ```
 
-   1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record, uisurfaceglobs), applying that section's `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics. Never evaluate a section scoped only to `solve-milestone` (today: trello, parallel-default).
+   1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue` (today: preflight, visualcapture, code-review-gate, aiprefilter, cost-record, uisurfaceglobs, visual-hold-removed, code-review-run-no), applying that section's `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics. Never evaluate a section scoped only to `solve-milestone` (today: trello, parallel-default).
    1.1.2. **Remediate handoff (feeder only).** Probe once: is `/milestone-feeder:remediate` resolvable in this session? **Not resolvable → skip this sub-step**: no question, no read, no error. Resolvable, and the caller supplied no answer → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The feeder-installed gate` and `## The run-start question`; hold the answer for the whole run. A caller-supplied answer (a `solve-milestone` run's own run-start question) is reused, **never re-asked** — the held-value shape step 0's Branch A uses for the triage result.
 2. **Require a clean working tree** (cold-start precondition) **and a current local `integrationBranch`** (`git fetch`, fast-forward). One exception, never stashed or discarded: step 3's probe finding an existing `issue/<n>-*` branch (committed or uncommitted prior work) skips this enforcement. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** `git fetch` first, then classify prior progress from git + gh before cutting anything; first match wins:
@@ -192,7 +194,7 @@ Unit, E2E, and preflight share one shape — **act → verify → retry (cap 2) 
    ```text
    ## Code Review
 
-   - /code-review run: yes (omission is a park trigger — a submitted PR always carries a real review; a parked run opens no PR)
+   - /code-review run: yes | deferred (<reason>) | n/a - <reason> (`n/a` only for a PR carrying no `sourceGlobs` change; omission is a park trigger: a submitted PR always carries a real review; a parked run opens no PR)
    - Findings: <count> in-scope finding(s) at <effort> effort
      - <finding> — <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
      - … (one line per finding, or "none" when count is 0)

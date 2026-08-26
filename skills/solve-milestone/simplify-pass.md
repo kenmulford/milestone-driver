@@ -79,7 +79,7 @@ Simplify-Pass: <milestone-number>
 
 **Review the pass like any other source change, on both paths.** A `/simplify` diff changes source, so step 9 runs `/code-review` over the working tree at `medium` effort, one cycle, and records that run truthfully. Its slots are `skills/output-style.md (run + effort · finding count)`'s, the **evidence** slot being each finding's ref, or the effort level at count 0; dropping one to shorten the block is incomplete, not concise (`skills/solve-milestone/milestone-granularity.md (The Code Review block is copied, not re-derived)`).
 
-**PR body**, beneath the `## Simplify pass` block. Without the heading, `hooks/code-review-gate.sh (heading='## Code Review')` denies both the create and the merge:
+**PR body**, beneath the `## Simplify pass` block. `hooks/code-review-gate.sh (heading='## Code Review')` denies both the create and the merge without this heading, and denies again when the verdict beneath it is not `yes`, `deferred`, or `n/a`:
 
 ```text
 ## Code Review
@@ -102,7 +102,7 @@ Code-Review:
   - No park-triggering findings. | Park-triggering findings: <list>
 ```
 
-**No Decision Log** on either path, the same non-issue-PR exemption the CHANGELOG PR carries (`skills/solve-milestone/changelog-authoring.md (/code-review run: no)`).
+**No Decision Log** on either path, the same non-issue-PR exemption the CHANGELOG PR carries (`skills/solve-milestone/changelog-authoring.md (doc-only CHANGELOG entry, no executable surface)`).
 
 ## Surface it
 

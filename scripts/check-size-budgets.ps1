@@ -90,7 +90,7 @@ skills/solve-milestone/simplify-pass.md             125    14000     2100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   250    11500     1600
+skills/notices.md                                   290    13500     1900
 skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           190    10500     1600
 skills/remediate-handoff.md                          90     5000      800
@@ -167,7 +167,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
 skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11000   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-issue/SKILL.md       11600   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
 skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
 '@

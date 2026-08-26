@@ -125,6 +125,32 @@
 #     New actual 3263; 3263 * 1.05 = 3426.15, rounded UP to the next 500 =
 #     3500. LINE 18/25 and WORD 471/500 still hold, so neither moves.
 #     Spent on this issue's two rows: the next edit re-derives normally.
+#     RECORDED RAISE, issue #606 (decision 2026-08-26):
+#     skills/notices.md LINE 250 -> 290, BYTE 11500 -> 13500, WORD 1600 -> 1900,
+#     and skills/solve-issue/SKILL.md's CLOSURE 11000 -> 11600, which follows
+#     from the same growth (notices.md is one of its members).
+#     #606 appends two `##` notice sections (visual-hold-removed,
+#     code-review-run-no) to the file whose own header declares it a growing
+#     list. Their bare scaffolding alone, before a sentence of content, is
+#     ~26 lines and ~724 bytes: two headings, two Marker lines, two
+#     Skills/Trigger/Legacy lines, two `**Text:**` blocks, two fences, two
+#     banner lines, two `## Contents` entries. The row had 9 lines and 971
+#     bytes free, so no phrasing of the two Texts fits, and no in-file trade
+#     exists either: this file's ONLY anchored citation points at the one
+#     `It sits here` paragraph that would otherwise be the cut, and dropping
+#     it recovers 8 lines against a 23-line gap while breaking that citation.
+#     New actuals 273 / 12533 / 1755. 273 * 1.05 = 286.65, rounded UP to the
+#     next 5 = 290 (the `actual + 5` floor gives 280, so the derivation
+#     governs); 12533 * 1.05 = 13159.65, rounded UP to the next 500 = 13500;
+#     1755 * 1.05 = 1842.75, rounded UP to the next 100 = 1900, under the
+#     5000-word cap. The BYTE number is a RESTORE, not an invention: this row
+#     read 13500 until a215feb (`chore: v1.20.0 end-of-milestone pass (#460)`)
+#     tightened it to 11500. The LINE ceiling has been 250 since the row was
+#     created and has never moved; this is its first raise. The closure sum
+#     11041 * 1.05 = 11593.05, rounded UP to the next 100 = 11600, by the
+#     closure rule below; solve-milestone's closure holds at 9167/9200 and
+#     does NOT move. Spent on this issue's two sections: the next edit
+#     re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass — the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -264,7 +290,7 @@ skills/solve-milestone/simplify-pass.md             125    14000     2100
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   250    11500     1600
+skills/notices.md                                   290    13500     1900
 skills/output-style.md                               85     9500     1600
 skills/citation-format.md                           190    10500     1600
 skills/remediate-handoff.md                          90     5000      800
@@ -414,7 +440,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       11000   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
+skills/solve-issue/SKILL.md       11600   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md
 skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE

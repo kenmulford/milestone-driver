@@ -27,6 +27,8 @@ section below, never restated inline in either SKILL.md.
 - [aiprefilter](#aiprefilter)
 - [cost-record](#cost-record)
 - [uisurfaceglobs](#uisurfaceglobs)
+- [visual-hold-removed](#visual-hold-removed)
+- [code-review-run-no](#code-review-run-no)
 
 ## Section fields
 
@@ -238,4 +240,35 @@ Examples:
 |      | triage, and visual capture.
 | How  | Run `/milestone-driver:setup` or add "uiSurfaceGlobs" to
 |      | .milestone-config/driver.json. Optional — a repo with no UI skips it.
+```
+
+## visual-hold-removed
+
+- **Marker:** `.milestone-config/visual-hold-removed-notice`
+- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+
+**Text:**
+
+```text
+▶ New in 1.24.0: the visual-review hold is gone (one-time notice)
+
+| What | No issue class is held open for human visual sign-off any more, at any granularity. Whichever PR your "integrationGranularity" opens (one per issue, one per wave, or one per milestone) merges on CI green, with no UI/non-UI branch in front of it.
+| Break | The "visualHold" profile key is RETIRED, not deprecated: a profile that still sets it carries a dead key that nothing reads. Remove it.
+| Label | "needs review" is no longer applied for visual sign-off. It still means exactly one thing, unchanged: a PR whose CI came back red and needs a human before it can merge.
+| Shots | A configured "visualCapture" still posts screenshots as a PR comment, now only when the PR's diff matches "uiSurfaceGlobs", and it never changes the merge decision. Any capture failure degrades to one log line.
+```
+
+## code-review-run-no
+
+- **Marker:** `.milestone-config/code-review-run-no-notice`
+- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+
+**Text:**
+
+```text
+▶ New in 1.24.0: the code-review gate now reads the verdict (one-time notice)
+
+| What | code-review-gate no longer stops at the '## Code Review' heading. It parses that section's "/code-review run:" value and DENIES `gh pr create` / `gh pr merge` when the value reads "no", is empty, or is missing entirely.
+| OK   | Accepted values, matched EXACTLY and case-sensitively: "yes", "deferred (<reason token>)", and "n/a - <reason>" for a PR carrying no sourceGlobs change. Any other value denies, "Yes" and "YES" included.
+| Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 is unchanged. A missing jq or gh, an unreadable --body-file, and a failed `gh pr view` all still fail open.
 ```

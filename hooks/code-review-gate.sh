@@ -34,6 +34,36 @@
 # followed by a non-alphanumeric character or end-of-string, so "## Code
 # Reviewer says LGTM" does NOT satisfy the gate.
 #
+# Verdict parse (issue #604): the heading alone never proved a review ran, so
+# the gate also reads the `/code-review run:` value. Accepted: `yes`,
+# `deferred (<reason>)`, `n/a - <reason>`. `no`, an unrecognized value, an
+# empty value, and a missing slot all DENY -- a body defect, like the
+# empty-PR-body deny above, not one of the environment fail-opens below.
+# The verdict search is SCOPED to a heading span, because the wide surface
+# would otherwise read an incidental `/code-review run:` in prose ABOVE the
+# section (a PR describing this gate) as the verdict and false-deny. The span
+# is chosen by walking the anchored heading matches LAST TO FIRST and taking
+# the first whose text CONTAINS the slot. Anchoring on the last match alone
+# false-blocked two real shapes: a findings line citing this file's own
+# heading-variable anchor, which quotes the heading text verbatim, and a
+# --title carrying the heading after the body on the command line. Requiring the
+# heading to BEGIN A LINE was rejected instead: on the inline --body surface
+# the heading is preceded by the shell's opening quote on the same line, so
+# that rule blocks the repo's most common PR shape outright. The heading
+# search itself stays unscoped.
+# This is NOT the rejected quote-matched extraction: there is no section-end
+# boundary and no attempt to delimit the value -- the verdict is the first
+# whitespace-delimited token on the slot's own line, with ONE surrounding
+# `"`/`'` stripped per side, since the wide surface glues the command's closing
+# quote to a value that ends the body. That strip is bounded in the direction
+# that matters: no accepted value contains a quote, so it can never turn a
+# rejected token into an accepted one, and a self-quoted `'yes'` ending a body
+# still denies.
+# EVERY slot in the span is read, not just the first: a wave or milestone PR
+# body carries ONE heading with one `### #<n>` block per issue
+# (`skills/output-style.md (Wave PR body)`), so a `no` under the second issue
+# must deny even when the first reads `yes`.
+#
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt — Ken's manual
 # release-PR flow must never fight this gate.
@@ -70,6 +100,7 @@ if [ -f "$profile" ]; then
 fi
 
 heading='## Code Review'
+runslot='/code-review run:'
 
 deny() {
   echo "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override." >&2
@@ -81,6 +112,58 @@ deny() {
 # does not match; end-of-string also satisfies the anchor).
 heading_match() {
   [[ "$1" =~ "$heading"([^A-Za-z0-9]|$) ]]
+}
+
+# verdict_span <text>: walking the ANCHORED heading matches LAST TO FIRST,
+# the first span that holds a `/code-review run:` slot; returns 1 when none
+# does. Requiring the slot is what stops a LATER mention of the heading (a
+# findings line citing it, a --title after the body) stealing the span.
+verdict_span() {
+  local rest="$1" i
+  local spans; spans=()
+  while [[ "$rest" == *"$heading"* ]]; do
+    rest="${rest#*"$heading"}"
+    [[ "$rest" =~ ^[A-Za-z0-9] ]] || spans+=("$rest")
+  done
+  i=$(( ${#spans[@]} - 1 ))
+  while [ "$i" -ge 0 ]; do
+    case "${spans[$i]}" in
+      *"$runslot"*) printf '%s' "${spans[$i]}"; return 0 ;;
+    esac
+    i=$((i - 1))
+  done
+  return 1
+}
+
+# verdict_token <after>: first whitespace-delimited token on <after>'s FIRST
+# line, unwrapped of one surrounding quote character per side.
+verdict_token() {
+  local line="${1%%$'\n'*}" tok=""
+  line="${line%$'\r'}"
+  [[ "$line" =~ ^[[:space:]]*([^[:space:]]+) ]] && tok="${BASH_REMATCH[1]}"
+  tok="${tok#[\"\']}"
+  tok="${tok%[\"\']}"
+  printf '%s' "$tok"
+}
+
+# check_verdict <surface> <action>: reads EVERY slot in the span and denies on
+# the first one not accepted; never returns on deny.
+check_verdict() {
+  local span rest tok
+  if ! span="$(verdict_span "$1")"; then
+    deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes, deferred (<reason>), or n/a - <reason> before $2,"
+  fi
+  rest="$span"
+  while [[ "$rest" == *"$runslot"* ]]; do
+    rest="${rest#*"$runslot"}"
+    tok="$(verdict_token "$rest")"
+    [ -z "$tok" ] && deny "the PR body's '$runslot' line has an empty value, so no review verdict was recorded. Set it to yes, deferred (<reason>), or n/a - <reason> before $2,"
+    case "$tok" in
+      yes|deferred|n/a) ;;
+      *) deny "the PR body records '$runslot $tok', which is not an accepted verdict. Set it to yes, deferred (<reason>), or n/a - <reason> before $2," ;;
+    esac
+  done
+  return 0
 }
 
 # ---- gh pr create -----------------------------------------------------------
@@ -126,8 +209,12 @@ if [ "$is_create" = "1" ]; then
   # Wide-surface check: the whole command string for inline --body/-b (never
   # a narrowly extracted substring — see header note), the whole file content
   # for --body-file/-F. Either surface matching is enough to allow.
-  if [ "$has_body" = "1" ] && heading_match "$cmd"; then exit 0; fi
-  if [ "$have_file_content" = "1" ] && heading_match "$file_content"; then exit 0; fi
+  if [ "$has_body" = "1" ] && heading_match "$cmd"; then
+    check_verdict "$cmd" "opening the PR"; exit 0
+  fi
+  if [ "$have_file_content" = "1" ] && heading_match "$file_content"; then
+    check_verdict "$file_content" "opening the PR"; exit 0
+  fi
 
   deny "the PR body is missing the required '$heading' section. Add one before opening the PR,"
 fi
@@ -160,7 +247,9 @@ if [ "$is_merge" = "1" ]; then
     deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
   fi
 
-  heading_match "$pr_body" && exit 0
+  if heading_match "$pr_body"; then
+    check_verdict "$pr_body" "merging the PR"; exit 0
+  fi
   deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
 fi
 

@@ -28,7 +28,7 @@ OK	skills/solve-milestone/simplify-pass.md	1/125	7/14000	1/2100
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
 OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
-OK	skills/notices.md	1/250	7/11500	1/1600
+OK	skills/notices.md	1/290	7/13500	1/1900
 OK	skills/output-style.md	1/85	7/9500	1/1600
 OK	skills/citation-format.md	1/190	7/10500	1/1600
 OK	skills/remediate-handoff.md	1/90	7/5000	1/800
@@ -37,7 +37,7 @@ OK	agents/design-reviewer.md	1/120	7/16000	1/2400
 OK	agents/implementer.md	1/130	7/14500	1/2200
 FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/16000	MISSING/2500
 CLOSURE	skills/setup/SKILL.md	3/7200
-CLOSURE	skills/solve-issue/SKILL.md	5/11000
+CLOSURE	skills/solve-issue/SKILL.md	5/11600
 CLOSURE	skills/solve-milestone/SKILL.md	4/9200
 CLOSURE	skills/triage/SKILL.md	3/8100
 SUMMARY	ok=37	failed=1

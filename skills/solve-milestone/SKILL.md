@@ -49,6 +49,8 @@ Before starting · The procedure — 1. List the milestone's open issues · 2. D
       aiprefilter-notice
       cost-record-notice
       uisurfaceglobs-notice
+      visual-hold-removed-notice
+      code-review-run-no-notice
       triage-cache.json
       tests-stamp
       .runtime/
