@@ -23,11 +23,18 @@
 #                       because every skill file in this repo is SKILL.md).
 #   line-citation       `path:line` and `path:start-end` are UNVERIFIED and do
 #                       NOT move the exit code
-#   heading-forms       `path#Heading` and `path § Heading` are UNVERIFIED, with
-#                       the heading text bounded correctly in all four live
-#                       shapes: backtick-terminated, ending in a balanced
-#                       parenthetical, a markdown link cut at its `)`, and a
-#                       bare prose reference cut at its comma
+#   heading-forms       `path#Heading` and `path § Heading` RESOLVE against the
+#                       target's ATX headings, with the heading text bounded
+#                       correctly in every live shape: backtick-terminated,
+#                       ending in a balanced parenthetical, holding double
+#                       quotes inside a span, and a bare prose reference cut at
+#                       its comma. The markdown link target in the same file
+#                       emits NO record at all - discriminator rule 5
+#   heading-dangling    the four ways a heading citation fails: a renamed
+#                       `#Heading`, a renamed `§ Heading`, an AMBIGUOUS heading
+#                       (`2 matches`, where read-doc-section.sh would take the
+#                       first and succeed), and a target carrying no ATX heading
+#                       at all. Exit 1
 #   nested-and-missing  paren balance recovers an anchor holding `()` and one
 #                       holding a nested parenthetical; a citation whose TARGET
 #                       FILE does not exist is FAIL 0 matches
@@ -39,7 +46,7 @@
 #                       visible EXCLUDED count, while a live file in the same
 #                       tree still resolves
 #
-# Two bespoke cases follow the table: a missing REPO_ROOT (fail-loud on stderr,
+# Three bespoke case families follow the table: a missing REPO_ROOT (fail-loud on stderr,
 # empty stdout, exit 1) and a DEFAULT root (no argument at all, run from inside
 # the fixture), which is the one path the table cannot drive and the one where
 # `${1:-$PWD}` and the pwsh twin's `(Get-Location).Path` could diverge.
@@ -66,6 +73,31 @@ BASH_BIN="$(command -v bash)"
 pass=0; fail=0
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/cct.$$")"; mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
+# HERMETIC GIT EXCLUDES, for every case below. The gate under test runs
+# `git ls-files --others --ignored --exclude-standard`, and `--exclude-standard`
+# honors the developer's PERSONAL excludes alongside the tree's own .gitignore.
+# Measured: a `docs/` line in a developer's ~/.config/git/ignore turned
+# gen-ignored into `skipped=2 ok=0` against a golden expecting `skipped=1 ok=1`
+# - red on that machine, green in CI, which is the exact split the exclusion was
+# added to close.
+#
+# THREE LAYERS, AND THE THIRD IS THE ONE THAT ACTUALLY BITES. GIT_CONFIG_GLOBAL
+# naming a path that is never created drops ~/.gitconfig, and GIT_CONFIG_NOSYSTEM
+# drops /etc/gitconfig - but NEITHER touches `core.excludesFile`, whose DEFAULT
+# is $XDG_CONFIG_HOME/git/ignore and applies precisely because no config sets it.
+# Probed: with the poisoned XDG file above, both variables set, `ls-files` still
+# reported docs/citing.md. Only an explicit override closes it, so the
+# GIT_CONFIG_COUNT triple sets `core.excludesFile` to a path that does not exist
+# (git ignores a missing excludes file rather than failing).
+# The tree's own .gitignore and .git/info/exclude are UNAFFECTED by all three,
+# and those are what the cases actually exercise.
+# Keep this identical to the .ps1 runner's block.
+export GIT_CONFIG_GLOBAL="$TMP/absent-global-gitconfig"
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_CONFIG_COUNT=1
+export GIT_CONFIG_KEY_0=core.excludesFile
+export GIT_CONFIG_VALUE_0="$TMP/absent-global-gitexcludes"
+
 OUTFILE="$TMP/out"
 ERRFILE="$TMP/err"
 
@@ -250,6 +282,34 @@ build_gen_unix() {
   return 0
 }
 
+# build_gen_ignored <base> - a REAL git work tree, which is the only place the
+# gitignore exclusion can be exercised. `git ls-files --others --ignored` reports
+# UNTRACKED ignored files only, so a committed fixture is never ignored however
+# its own .gitignore reads; `git init` here is what makes `scratch.md` untracked
+# AND ignored. No commit and no user identity are needed for that query.
+#   scratch.md   ignored, and carrying an anchor that resolves NOWHERE. Before
+#                the exclusion this file was one FAIL record on every clone that
+#                had it and none in CI, which is the split the exclusion exists
+#                to close. The run is green WITH the file present
+# build_gen_ignored returns nonzero when `git init` fails, and the case then
+# reports SKIPPED rather than failing.
+build_gen_ignored() {
+  b="$1"
+  mkdir -p "$b/gen/docs" "$b/gen/src"
+  git init -q "$b/gen" 2>/dev/null || return 1
+  printf 'scratch.md\n' > "$b/gen/.gitignore"
+  {
+    printf '# Citing\n\n'
+    cite_line 1 'src/target.md' 'live anchor'
+  } > "$b/gen/docs/citing.md"
+  {
+    printf '# Scratch\n\n'
+    cite_line 1 'src/target.md' 'anchor that was reworded away'
+  } > "$b/gen/scratch.md"
+  printf '# Target\nlive anchor lives here\n' > "$b/gen/src/target.md"
+  return 0
+}
+
 # run_generated <name> <root> <golden> <want_exit>
 run_generated() {
   gname="$1"; groot="$2"; ggold="$3"; gwant="$4"
@@ -281,9 +341,22 @@ else
   chmod 755 "$UNIXTMP/gen/locked" 2>/dev/null || true
 fi
 
-if [ "$gen_unix_skipped" -eq 1 ]; then
-  echo "check-citations.sh: $pass passed, $fail failed (parsed $case_count TSV cases + 3 bespoke, gen-unix SKIPPED on this platform)"
+IGNTMP="$TMP/i"
+mkdir -p "$IGNTMP"
+gen_ignored_skipped=0
+if build_gen_ignored "$IGNTMP"; then
+  run_generated gen-ignored "$IGNTMP/gen" gen-ignored.txt 0
 else
-  echo "check-citations.sh: $pass passed, $fail failed (parsed $case_count TSV cases + 4 bespoke)"
+  gen_ignored_skipped=1
 fi
+
+bespoke=5
+skipnote=''
+if [ "$gen_unix_skipped" -eq 1 ]; then
+  bespoke=$((bespoke - 1)); skipnote="$skipnote, gen-unix SKIPPED on this platform"
+fi
+if [ "$gen_ignored_skipped" -eq 1 ]; then
+  bespoke=$((bespoke - 1)); skipnote="$skipnote, gen-ignored SKIPPED (no usable git)"
+fi
+echo "check-citations.sh: $pass passed, $fail failed (parsed $case_count TSV cases + $bespoke bespoke$skipnote)"
 [ "$fail" -eq 0 ]

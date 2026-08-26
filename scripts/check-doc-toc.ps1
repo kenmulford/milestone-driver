@@ -68,6 +68,7 @@ skills/notices.md
 skills/output-style.md
 skills/citation-format.md
 skills/remediate-handoff.md
+skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md

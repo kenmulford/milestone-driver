@@ -6,7 +6,7 @@
 # Both runners drive THIS table and assert against THESE goldens, so the bash
 # and pwsh legs are held byte-identical.
 #
-# FOUR MORE CASES ARE NOT IN THIS TABLE because they cannot be git-tracked, and
+# FIVE MORE CASES ARE NOT IN THIS TABLE because they cannot be git-tracked, and
 # each runner BUILDS them instead - byte for byte, identically, asserting the
 # same committed goldens:
 #   missing-root   a REPO_ROOT that is not a directory (fail-loud on stderr)
@@ -22,12 +22,19 @@
 #                  git-storable. Reports SKIPPED on Windows, where a FIFO and an
 #                  unprivileged symlink do not exist; CI runs both legs on
 #                  Linux. Goldens: gen-unix.txt
+#   gen-ignored    a real git work tree carrying a .gitignore and an ignored
+#                  file whose anchor is stale. It CANNOT be a tracked fixture:
+#                  `git ls-files --others --ignored` reports only UNTRACKED
+#                  files, so a committed fixture file is never ignored no matter
+#                  what its own .gitignore says. Reports SKIPPED where `git init`
+#                  fails. Goldens: gen-ignored.txt
 resolves-once	resolves-once.txt	0
 zero-matches	zero-matches.txt	1
 two-matches	two-matches.txt	1
 same-file	same-file.txt	1
 line-citation	line-citation.txt	0
 heading-forms	heading-forms.txt	0
+heading-dangling	heading-dangling.txt	1
 nested-and-missing	nested-and-missing.txt	1
 prose-not-citation	prose-not-citation.txt	0
 frozen-excluded	frozen-excluded.txt	0

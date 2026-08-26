@@ -4,6 +4,7 @@ EXCLUDED	CHANGELOG.md	skipped=0
 EXCLUDED	tests/fixtures/	skipped=0
 EXCLUDED	.milestone-config/worktrees/	skipped=0
 EXCLUDED	.milestone-feeder/	skipped=2
+EXCLUDED	(gitignored)	skipped=0
 OK	.milestone-feeder-archive/kept.md:8	src/target.md (unique-anchor-alpha)
 TOTALS	unverified=0	excluded-files=2
 SUMMARY	ok=1	failed=0

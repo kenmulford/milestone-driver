@@ -32,8 +32,9 @@ OK	skills/notices.md
 OK	skills/output-style.md
 OK	skills/citation-format.md
 OK	skills/remediate-handoff.md
+OK	skills/review-depth.md
 OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=37	failed=1
+SUMMARY	ok=38	failed=1

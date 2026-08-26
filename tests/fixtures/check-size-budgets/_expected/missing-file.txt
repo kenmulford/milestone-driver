@@ -1,18 +1,18 @@
 OK	skills/setup/SKILL.md	1/280	7/28000	1/4000
-OK	skills/solve-issue/SKILL.md	1/320	7/45000	1/6300
+OK	skills/solve-issue/SKILL.md	1/320	7/44000	1/6200
 OK	skills/solve-issue/async-mode.md	40/40	200/4500	40/700
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/8500	1/1200
 OK	skills/solve-issue/coherence-review.md	1/15	7/2500	1/300
 OK	skills/solve-issue/milestone-clauses.md	1/30	7/6000	1/900
 OK	skills/solve-issue/permission-preflight.md	1/35	7/2500	1/400
-OK	skills/solve-issue/post-fix-commit.md	1/25	7/5000	1/800
+OK	skills/solve-issue/post-fix-commit.md	1/25	7/4500	1/700
 OK	skills/solve-issue/preflight-github-ci.md	1/20	7/3000	1/400
 OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/15	7/4000	1/600
 OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
 OK	skills/solve-milestone/SKILL.md	1/320	7/32500	1/4500
-OK	skills/solve-milestone/parallel-waves.md	1/205	7/43000	1/6400
+OK	skills/solve-milestone/parallel-waves.md	1/205	7/41500	1/6200
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
 OK	skills/solve-milestone/milestone-granularity.md	1/165	7/23500	1/3300
 OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/5500	1/900
@@ -24,20 +24,21 @@ OK	skills/solve-milestone/integration-granularity.md	1/85	7/15000	1/2300
 OK	skills/solve-milestone/md-epic-parent-check.md	1/30	7/2500	1/400
 OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
 OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
-OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1700
+OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1600
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
 OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
 OK	skills/notices.md	1/270	7/12500	1/1800
 OK	skills/output-style.md	1/85	7/9500	1/1600
-OK	skills/citation-format.md	1/190	7/10500	1/1600
+OK	skills/citation-format.md	1/190	7/10500	1/1700
 OK	skills/remediate-handoff.md	1/90	7/5000	1/800
+OK	skills/review-depth.md	1/90	7/4500	1/700
 OK	agents/blocker-resolver.md	1/125	7/10500	1/1700
 OK	agents/design-reviewer.md	1/120	7/16000	1/2400
 OK	agents/implementer.md	1/130	7/15500	1/2200
 FAIL	agents/triage-reviewer.md	MISSING/120	MISSING/16000	MISSING/2500
 CLOSURE	skills/setup/SKILL.md	3/7200
-CLOSURE	skills/solve-issue/SKILL.md	5/11600
+CLOSURE	skills/solve-issue/SKILL.md	6/12300
 CLOSURE	skills/solve-milestone/SKILL.md	4/9200
 CLOSURE	skills/triage/SKILL.md	3/8100
-SUMMARY	ok=37	failed=1
+SUMMARY	ok=38	failed=1
