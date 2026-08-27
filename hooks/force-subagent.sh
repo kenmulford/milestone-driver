@@ -53,7 +53,7 @@ esac
 # answer anyway, through the SECOND test below - the ABSOLUTE path against
 # `*/<pat>`, which supplies the leading segment tests-green has no source for.
 # Pinned as behavior, not endorsed as a contract:
-# `tests/force-subagent.test.sh (a globstar-prefix glob blocks a root-level path)`.
+# `tests/force-subagent.test.ps1 (a globstar-prefix glob blocks a root-level path)`.
 # Aligning the three is its own issue: this gate decides whether a source edit
 # is blocked at all.
 # ** -> * ('*' in a case glob matches across '/'). Both operands of the //

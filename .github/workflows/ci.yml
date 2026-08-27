@@ -1,136 +1,38 @@
 name: CI
 
-# Run the repo's shell test suites on every PR into develop or main, so both
-# the driver's own auto-merge gate and the develop->main release PR have a
-# real check to wait on. Two jobs cover the cross-platform nonNegotiable: a
-# bash leg and its PowerShell 7+ (pwsh) twin. Both run on ubuntu-latest, which
-# ships bash, jq, pwsh, and python3 preinstalled (the render-daemon
-# stub-backed cases boot a python3 HTTP server).
+# Every PR into develop or main runs each suite on both legs. One runner per
+# suite (tests/<suite>.test.ps1 -Leg ps1|sh, helpers in tests/_lib.ps1): the
+# ps1 leg runs in-process, the sh leg as a bash child. ubuntu-latest ships
+# bash, jq, pwsh, and python3 (render-daemon's stub cases boot an HTTP server).
 on:
   pull_request:
     branches: [main, develop]
 
 jobs:
-  shell-tests-bash:
-    name: shell-tests (bash)
+  suites:
+    name: suites (ubuntu, both legs)
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
-      - name: extract-version (bash)
-        run: bash tests/extract-version.test.sh
-      - name: expand-domain-skills (bash)
-        run: bash tests/expand-domain-skills.test.sh
-      - name: ci-preflight-steps (bash)
-        run: bash tests/ci-preflight-steps.test.sh
-      - name: parse-md-epic-order (bash)
-        run: bash tests/parse-md-epic-order.test.sh
-      - name: render-daemon (bash)
-        run: bash tests/render-daemon.test.sh
-      - name: check-size-budgets (bash)
-        run: bash tests/check-size-budgets.test.sh
-      - name: check-doc-toc (bash)
-        run: bash tests/check-doc-toc.test.sh
-      - name: check-skill-frontmatter (bash)
-        run: bash tests/check-skill-frontmatter.test.sh
-      - name: code-review-gate (bash)
-        run: bash tests/code-review-gate.test.sh
-      - name: build-file-index (bash)
-        run: bash tests/build-file-index.test.sh
-      - name: write-cost-record (bash)
-        run: bash tests/write-cost-record.test.sh
-      - name: resolve-citation (bash)
-        run: bash tests/resolve-citation.test.sh
-      - name: triage-cache (bash)
-        run: bash tests/triage-cache.test.sh
-      - name: check-citations (bash)
-        run: bash tests/check-citations.test.sh
-      - name: classify-delta (bash)
-        run: bash tests/classify-delta.test.sh
-      - name: classify-review-depth (bash)
-        run: bash tests/classify-review-depth.test.sh
-      - name: read-doc-section (bash)
-        run: bash tests/read-doc-section.test.sh
-      - name: tests-green (bash)
-        run: bash tests/tests-green.test.sh
-      - name: force-subagent (bash)
-        run: bash tests/force-subagent.test.sh
-      - name: dispatch-cap (bash)
-        run: bash tests/dispatch-cap.test.sh
-      # The two scripts/check-* steps that run against THIS repo's real tree.
-      # Every other checker is exercised through fixture roots only, which
-      # proves the script works without gating a citation - or a missing
-      # contents block - the repo actually broke, and both are invisible to
-      # every other check here.
-      - name: citations resolve (bash)
-        run: bash scripts/check-citations.sh .
-      - name: doc TOCs present (bash)
-        run: bash scripts/check-doc-toc.sh .
-
-  shell-tests-pwsh:
-    name: shell-tests (pwsh)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      - name: extract-version (pwsh)
-        run: pwsh tests/extract-version.test.ps1
-      - name: expand-domain-skills (pwsh)
-        run: pwsh tests/expand-domain-skills.test.ps1
-      - name: ci-preflight-steps (pwsh)
-        run: pwsh tests/ci-preflight-steps.test.ps1
-      - name: parse-md-epic-order (pwsh)
-        run: pwsh tests/parse-md-epic-order.test.ps1
-      - name: render-daemon (pwsh)
-        run: pwsh tests/render-daemon.test.ps1
-      - name: check-size-budgets (pwsh)
-        run: pwsh tests/check-size-budgets.test.ps1
-      - name: check-doc-toc (pwsh)
-        run: pwsh tests/check-doc-toc.test.ps1
-      - name: check-skill-frontmatter (pwsh)
-        run: pwsh tests/check-skill-frontmatter.test.ps1
-      - name: code-review-gate (pwsh)
-        run: pwsh tests/code-review-gate.test.ps1
-      - name: build-file-index (pwsh)
-        run: pwsh tests/build-file-index.test.ps1
-      - name: write-cost-record (pwsh)
-        run: pwsh tests/write-cost-record.test.ps1
-      - name: resolve-citation (pwsh)
-        run: pwsh tests/resolve-citation.test.ps1
-      - name: triage-cache (pwsh)
-        run: pwsh tests/triage-cache.test.ps1
-      - name: check-citations (pwsh)
-        run: pwsh tests/check-citations.test.ps1
-      - name: classify-delta (pwsh)
-        run: pwsh tests/classify-delta.test.ps1
-      - name: classify-review-depth (pwsh)
-        run: pwsh tests/classify-review-depth.test.ps1
-      - name: read-doc-section (pwsh)
-        run: pwsh tests/read-doc-section.test.ps1
-      - name: tests-green (pwsh)
-        run: pwsh tests/tests-green.test.ps1
-      - name: force-subagent (pwsh)
-        run: pwsh tests/force-subagent.test.ps1
-      - name: dispatch-cap (pwsh)
-        run: pwsh tests/dispatch-cap.test.ps1
-      # Twins of the bash leg's real-tree steps. Both legs run them because a
-      # <line> that differs between the twins is the worst answer a citation
-      # checker can give, and only running both catches that.
-      - name: citations resolve (pwsh)
-        run: pwsh scripts/check-citations.ps1 .
-      - name: doc TOCs present (pwsh)
-        run: pwsh scripts/check-doc-toc.ps1 .
+      - name: all suites, ps1 leg
+        run: pwsh tests/run-all.ps1 -Leg ps1
+      - name: all suites, sh leg
+        run: pwsh tests/run-all.ps1 -Leg sh
+      # The two scripts/check-* steps that run against THIS repo's real tree,
+      # on both legs, so a <line> that differs between twins is caught.
+      - name: citations resolve
+        run: bash scripts/check-citations.sh . && pwsh scripts/check-citations.ps1 .
+      - name: doc TOCs present
+        run: bash scripts/check-doc-toc.sh . && pwsh scripts/check-doc-toc.ps1 .
 
   hook-smoke-macos:
     name: hook smoke (macOS /bin/bash 3.2)
-    # macOS runners still ship /bin/bash 3.2 (Apple never shipped bash 4+ over
-    # GPLv3) - the two jobs above run bash on ubuntu-latest's modern bash, so
-    # neither ever exercises the actual bash-3.2 execution venue every hook
-    # ships for. This job is that venue: it runs all six hooks directly (not
-    # through the tests/*.test.sh golden-matrix runners) under /bin/bash with
-    # representative stdin fixtures, so a `${var,,}`-class construct that
-    # crashes 3.2 - a hook that crashes is a hook that silently ALLOWS - is
-    # caught here, permanently, on every PR (issue #289 decision).
+    # macOS still ships /bin/bash 3.2, the venue every hook ships for (a hook
+    # that crashes is a hook that silently ALLOWS). The smoke steps run each
+    # hook directly under it; the hook suites then run their sh leg with
+    # /bin/bash as the child (MD_BASH_BIN), and the script suites with a modern
+    # PATH bash, since scripts may need bash 4+ (mapfile).
     runs-on: macos-latest
     steps:
       - name: Check out the repository
@@ -181,63 +83,13 @@ jobs:
           set +e
           out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
-      # Venue split, deliberate. The steps below name `/bin/bash` explicitly,
-      # so every runner itself executes on this job's 3.2 venue. Each runner
-      # then launches the script under test through PATH (`bash "$SCRIPT"`, or
-      # `BASH_BIN="$(command -v bash)"`), and the scripts under test are
-      # allowed to need bash 4+ (`mapfile`, in extract-version.sh and
-      # build-file-index.sh today). PATH `bash` on macOS is 3.2 as well, so
-      # those children died on "mapfile: command not found"; PATH therefore
-      # carries a modern bash, for the children only. Only the RUNNERS are the
-      # 3.2 surface. The hook smoke steps above are unaffected: they name
-      # `/bin/bash hooks/...` outright.
-      - name: Put a modern bash on PATH for runner children
+      - name: Put a modern bash on PATH for script children
         run: |
           brew list bash >/dev/null 2>&1 || brew install bash
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
-      # The golden-matrix runners, under the SAME 3.2 interpreter. The hook
-      # smoke steps above cover hooks/ only; the runners themselves are shell
-      # too, and a bash-4-only construct in one (a `local -n` nameref, say)
-      # reports 0 passed here while shell-tests-bash stays green on
-      # ubuntu-latest's bash 5 - issue #468. `bash` on this runner resolves to
-      # 3.2 anyway; `/bin/bash` is explicit so the venue can never drift.
-      - name: extract-version (/bin/bash 3.2)
-        run: /bin/bash tests/extract-version.test.sh
-      - name: expand-domain-skills (/bin/bash 3.2)
-        run: /bin/bash tests/expand-domain-skills.test.sh
-      - name: ci-preflight-steps (/bin/bash 3.2)
-        run: /bin/bash tests/ci-preflight-steps.test.sh
-      - name: parse-md-epic-order (/bin/bash 3.2)
-        run: /bin/bash tests/parse-md-epic-order.test.sh
-      - name: render-daemon (/bin/bash 3.2)
-        run: /bin/bash tests/render-daemon.test.sh
-      - name: check-size-budgets (/bin/bash 3.2)
-        run: /bin/bash tests/check-size-budgets.test.sh
-      - name: check-doc-toc (/bin/bash 3.2)
-        run: /bin/bash tests/check-doc-toc.test.sh
-      - name: check-skill-frontmatter (/bin/bash 3.2)
-        run: /bin/bash tests/check-skill-frontmatter.test.sh
-      - name: code-review-gate (/bin/bash 3.2)
-        run: /bin/bash tests/code-review-gate.test.sh
-      - name: build-file-index (/bin/bash 3.2)
-        run: /bin/bash tests/build-file-index.test.sh
-      - name: write-cost-record (/bin/bash 3.2)
-        run: /bin/bash tests/write-cost-record.test.sh
-      - name: resolve-citation (/bin/bash 3.2)
-        run: /bin/bash tests/resolve-citation.test.sh
-      - name: triage-cache (/bin/bash 3.2)
-        run: /bin/bash tests/triage-cache.test.sh
-      - name: check-citations (/bin/bash 3.2)
-        run: /bin/bash tests/check-citations.test.sh
-      - name: classify-delta (/bin/bash 3.2)
-        run: /bin/bash tests/classify-delta.test.sh
-      - name: classify-review-depth (/bin/bash 3.2)
-        run: /bin/bash tests/classify-review-depth.test.sh
-      - name: read-doc-section (/bin/bash 3.2)
-        run: /bin/bash tests/read-doc-section.test.sh
-      - name: tests-green (/bin/bash 3.2)
-        run: /bin/bash tests/tests-green.test.sh
-      - name: force-subagent (/bin/bash 3.2)
-        run: /bin/bash tests/force-subagent.test.sh
-      - name: dispatch-cap (/bin/bash 3.2)
-        run: /bin/bash tests/dispatch-cap.test.sh
+      - name: hook suites, sh leg, children on /bin/bash 3.2
+        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,tests-green,dispatch-cap,code-review-gate
+        env:
+          MD_BASH_BIN: /bin/bash
+      - name: script suites, sh leg
+        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,tests-green,dispatch-cap,code-review-gate

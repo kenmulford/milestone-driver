@@ -1,11 +1,24 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for check-size-budgets.ps1 (issue #295).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
 $root = (Resolve-Path (Join-Path $here '..')).Path
-$script = Join-Path $root 'scripts/check-size-budgets.ps1'
+$script = Join-Path $root 'scripts/check-size-budgets'
 $fix = 'tests/fixtures/check-size-budgets'
 $gold = Join-Path $root "$fix/_expected"
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
+$u8 = [System.Text.UTF8Encoding]::new($false)
+
+# The edited-copy cases rewrite one table row of the leg's own script; the
+# governed table has the same row shape in both legs.
+function Read-Src { return [System.IO.File]::ReadAllText("$script.$Leg", $u8) }
+function New-CopyBase([string]$tag) { return (Join-Path ([System.IO.Path]::GetTempPath()) ("csb_${tag}_" + [System.Guid]::NewGuid().ToString('N'))) }
+function Invoke-Copy([string]$base, [string]$text, [string]$arg) {
+  [System.IO.File]::WriteAllText("$base.$Leg", $text, $u8)
+  $r = Invoke-Leg -Script $base -Args @($arg)
+  Remove-Item "$base.$Leg" -Force -ErrorAction SilentlyContinue
+  return $r
+}
 
 $cases = @(
   'at-ceiling|0',
@@ -24,14 +37,9 @@ try {
     $name = $parts[0]; $wantExit = [int]$parts[1]
     $exp = Join-Path $gold "$name.txt"
     if (-not (Test-Path $exp)) { Write-Host "FAIL ${name}: missing golden $exp"; $fail++; continue }
-    $tmp = New-TemporaryFile
-    $tmpErr = New-TemporaryFile
-    $p = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, "$fix/$name") -NoNewWindow -Wait -RedirectStandardOutput $tmp.FullName -RedirectStandardError $tmpErr.FullName -PassThru
-    $rc = $p.ExitCode
-    $gotOut = [System.IO.File]::ReadAllText($tmp.FullName, [System.Text.UTF8Encoding]::new($false))
-    $gotErr = [System.IO.File]::ReadAllText($tmpErr.FullName, [System.Text.UTF8Encoding]::new($false))
-    $got = $gotOut + $gotErr
-    Remove-Item $tmp.FullName, $tmpErr.FullName -Force
+    $r = Invoke-Leg -Script $script -Args @("$fix/$name")
+    $rc = $r.rc
+    $got = $r.out + $r.err
     $gotN = ($got -replace "`r`n", "`n").TrimEnd("`n")
     $want = ([System.IO.File]::ReadAllText($exp, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
     if ($gotN -eq $want -and $rc -eq $wantExit) { $pass++ }
@@ -47,18 +55,13 @@ try {
   $guardGold = Join-Path $gold 'parity-guard.stderr.txt'
   if (-not (Test-Path $guardGold)) { Write-Host "FAIL parity-guard: missing golden $guardGold"; $fail++ }
   else {
-    $src = [System.IO.File]::ReadAllText($script, [System.Text.UTF8Encoding]::new($false))
+    $src = Read-Src
     $rowRx = [regex]'(?m)^((?:skills|agents)/\S+[ \t]+)\d+(?=[ \t]+\d+[ \t]+\d+[ \t]*\r?$)'
     $desynced = $rowRx.Replace($src, '${1}-', 1)
-    $guardScript = Join-Path ([System.IO.Path]::GetTempPath()) ("csb_guard_" + [System.Guid]::NewGuid().ToString('N') + ".ps1")
-    [System.IO.File]::WriteAllText($guardScript, $desynced, [System.Text.UTF8Encoding]::new($false))
-    $gOut = New-TemporaryFile
-    $gErr = New-TemporaryFile
-    $gp = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $guardScript, "$fix/at-ceiling") -NoNewWindow -Wait -RedirectStandardOutput $gOut.FullName -RedirectStandardError $gErr.FullName -PassThru
-    $grc = $gp.ExitCode
-    $guardOut = [System.IO.File]::ReadAllText($gOut.FullName, [System.Text.UTF8Encoding]::new($false))
-    $guardErr = ([System.IO.File]::ReadAllText($gErr.FullName, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
-    Remove-Item $gOut.FullName, $gErr.FullName, $guardScript -Force
+    $gr = Invoke-Copy (New-CopyBase 'guard') $desynced "$fix/at-ceiling"
+    $grc = $gr.rc
+    $guardOut = $gr.out
+    $guardErr = ($gr.err -replace "`r`n", "`n").TrimEnd("`n")
     $guardWant = ([System.IO.File]::ReadAllText($guardGold, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
     if ($guardOut -eq '' -and $grc -eq 1 -and $guardErr -eq $guardWant) { $pass++ }
     else {
@@ -73,7 +76,7 @@ try {
   $swapGold = Join-Path $gold 'at-ceiling.txt'
   if (-not (Test-Path $swapGold)) { Write-Host "FAIL positional-desync: missing golden $swapGold"; $fail++ }
   else {
-    $lines = [System.IO.File]::ReadAllText($script, [System.Text.UTF8Encoding]::new($false)) -split "`n"
+    $lines = (Read-Src) -split "`n"
     $ia = -1; $ib = -1
     for ($j = 0; $j -lt $lines.Count; $j++) {
       $first = ($lines[$j].Trim() -split '\s+')[0]
@@ -81,15 +84,9 @@ try {
       if ($first -eq 'agents/implementer.md') { $ib = $j }
     }
     if ($ia -ge 0 -and $ib -ge 0) { $tmpRow = $lines[$ia]; $lines[$ia] = $lines[$ib]; $lines[$ib] = $tmpRow }
-    $swapScript = Join-Path ([System.IO.Path]::GetTempPath()) ("csb_swap_" + [System.Guid]::NewGuid().ToString('N') + ".ps1")
-    [System.IO.File]::WriteAllText($swapScript, ($lines -join "`n"), [System.Text.UTF8Encoding]::new($false))
-    $sOut = New-TemporaryFile
-    $sErr = New-TemporaryFile
-    $sp = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $swapScript, "$fix/at-ceiling") -NoNewWindow -Wait -RedirectStandardOutput $sOut.FullName -RedirectStandardError $sErr.FullName -PassThru
-    $swapRc = $sp.ExitCode
-    $swapRaw = [System.IO.File]::ReadAllText($sOut.FullName, [System.Text.UTF8Encoding]::new($false)) +
-               [System.IO.File]::ReadAllText($sErr.FullName, [System.Text.UTF8Encoding]::new($false))
-    Remove-Item $sOut.FullName, $sErr.FullName, $swapScript -Force
+    $sr = Invoke-Copy (New-CopyBase 'swap') ($lines -join "`n") "$fix/at-ceiling"
+    $swapRc = $sr.rc
+    $swapRaw = $sr.out + $sr.err
     $swapOut = ($swapRaw -replace "`r`n", "`n").TrimEnd("`n")
     $swapWant = ([System.IO.File]::ReadAllText($swapGold, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
     $sortedGot = (($swapOut -split "`n") | Sort-Object) -join "`n"
@@ -105,7 +102,6 @@ try {
   }
 
   # --- malformed-row parity: the other three single-row edits (#428) --------
-  $u8 = [System.Text.UTF8Encoding]::new($false)
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
     'CEILINGS(38), BYTE_CEILINGS(39) and WORD_CEILINGS(39)', 'CEILINGS(39), BYTE_CEILINGS(39) and WORD_CEILINGS(38)')
   $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
@@ -120,17 +116,11 @@ try {
        rx = '(?m)^((?:skills|agents)/\S+[ \t]+\d+[ \t]+)\d+[ \t]+\d+(?=[ \t]*\r?$)' }
   )
   foreach ($mal in $malCases) {
-    $malSrc = [System.IO.File]::ReadAllText($script, $u8)
-    $edited = ([regex]$mal.rx).Replace($malSrc, $mal.rep, 1)
-    $malScript = Join-Path ([System.IO.Path]::GetTempPath()) ("csb_mal_" + [System.Guid]::NewGuid().ToString('N') + ".ps1")
-    [System.IO.File]::WriteAllText($malScript, $edited, $u8)
-    $mOut = New-TemporaryFile
-    $mErr = New-TemporaryFile
-    $mp = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $malScript, "$fix/at-ceiling") -NoNewWindow -Wait -RedirectStandardOutput $mOut.FullName -RedirectStandardError $mErr.FullName -PassThru
-    $mrc = $mp.ExitCode
-    $malOut = ([System.IO.File]::ReadAllText($mOut.FullName, $u8) -replace "`r`n", "`n").TrimEnd("`n")
-    $malErr = ([System.IO.File]::ReadAllText($mErr.FullName, $u8) -replace "`r`n", "`n").TrimEnd("`n")
-    Remove-Item $mOut.FullName, $mErr.FullName, $malScript -Force
+    $edited = ([regex]$mal.rx).Replace((Read-Src), $mal.rep, 1)
+    $mr = Invoke-Copy (New-CopyBase 'mal') $edited "$fix/at-ceiling"
+    $mrc = $mr.rc
+    $malOut = ($mr.out -replace "`r`n", "`n").TrimEnd("`n")
+    $malErr = ($mr.err -replace "`r`n", "`n").TrimEnd("`n")
     if ($mrc -eq $mal.rc -and $malOut -eq $mal.out -and $malErr -eq $mal.err) { $pass++ }
     else {
       $fail++
@@ -146,18 +136,13 @@ try {
   $atGold = ([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")
   $isClosure = { param($l) $l.StartsWith("CLOSURE`t", [System.StringComparison]::Ordinal) }
   $emptyWant = ((($atGold -split "`n") | Where-Object { -not (& $isClosure $_) }) -join "`n")
-  $emptySrc = [System.IO.File]::ReadAllText($script, $u8)
-  $emptyRx = [regex]'(?s)(\$closureTable = @''\r?\n).*?(\r?\n''@)'
-  $emptied = $emptyRx.Replace($emptySrc, '${1}${2}', 1)
-  $emptyScript = Join-Path ([System.IO.Path]::GetTempPath()) ("csb_empty_" + [System.Guid]::NewGuid().ToString('N') + ".ps1")
-  [System.IO.File]::WriteAllText($emptyScript, $emptied, $u8)
-  $eOut = New-TemporaryFile
-  $eErr = New-TemporaryFile
-  $ep = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $emptyScript, "$fix/at-ceiling") -NoNewWindow -Wait -RedirectStandardOutput $eOut.FullName -RedirectStandardError $eErr.FullName -PassThru
-  $erc = $ep.ExitCode
-  $emptyOut = ([System.IO.File]::ReadAllText($eOut.FullName, $u8) -replace "`r`n", "`n").TrimEnd("`n")
-  $emptyErr = ([System.IO.File]::ReadAllText($eErr.FullName, $u8) -replace "`r`n", "`n").TrimEnd("`n")
-  Remove-Item $eOut.FullName, $eErr.FullName, $emptyScript -Force
+  $emptyRx = if ($Leg -eq 'ps1') { [regex]'(?s)(\$closureTable = @''\r?\n).*?(\r?\n''@)' }
+             else { [regex]"(?s)(done <<'CLOSURE_TABLE'\r?\n).*?(CLOSURE_TABLE\r?\n)" }
+  $emptied = $emptyRx.Replace((Read-Src), '${1}${2}', 1)
+  $er = Invoke-Copy (New-CopyBase 'empty') $emptied "$fix/at-ceiling"
+  $erc = $er.rc
+  $emptyOut = ($er.out -replace "`r`n", "`n").TrimEnd("`n")
+  $emptyErr = ($er.err -replace "`r`n", "`n").TrimEnd("`n")
   if ($erc -eq 0 -and $emptyOut -eq $emptyWant -and $emptyErr -eq '') { $pass++ }
   else {
     $fail++
@@ -178,11 +163,8 @@ try {
                    'skills/triage/blocker-resolver-dispatch.md')) {
     [System.IO.File]::AppendAllText((Join-Path $excTree $x), "excluded branch gated padding words`n", $u8)
   }
-  $xOut = New-TemporaryFile
-  $xErr = New-TemporaryFile
-  $xp = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, $excTree) -NoNewWindow -Wait -RedirectStandardOutput $xOut.FullName -RedirectStandardError $xErr.FullName -PassThru
-  $excRaw = [System.IO.File]::ReadAllText($xOut.FullName, $u8) + [System.IO.File]::ReadAllText($xErr.FullName, $u8)
-  Remove-Item $xOut.FullName, $xErr.FullName -Force
+  $xr = Invoke-Leg -Script $script -Args @($excTree)
+  $excRaw = $xr.out + $xr.err
   Remove-Item $excTree -Recurse -Force
   $excOut = ($excRaw -replace "`r`n", "`n").TrimEnd("`n")
   $excGotCl = ((($excOut -split "`n") | Where-Object { & $isClosure $_ }) -join "`n")
@@ -197,5 +179,5 @@ try {
     Write-Host "--- got  closure ---"; Write-Host $excGotCl
   }
 } finally { Pop-Location }
-Write-Host "check-size-budgets.ps1: $pass passed, $fail failed"
+Write-Host "check-size-budgets ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

@@ -1,10 +1,11 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for classify-review-depth.ps1 (issue #598).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'classify-review-depth.ps1'
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'classify-review-depth'
 $cases = Join-Path $here 'classify-review-depth.cases.tsv'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error 'FATAL: git required'; exit 3 }
 
 $pass = 0; $fail = 0
@@ -85,19 +86,13 @@ function Invoke-Ops([string]$repo, [string]$cell) {
   }
 }
 
-$PwshBin = (Get-Command pwsh).Source
 function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wantErr, $pathOverride = $null) {
-  $savedPath = $env:PATH
-  if ($null -ne $pathOverride) { $env:PATH = $pathOverride }
-  try {
-    $out = (& $PwshBin -NoProfile -File $script $repo 2> $errFile)
-    $rc = $LASTEXITCODE
-  } finally {
-    $env:PATH = $savedPath
-  }
-  $out = ("$out") -replace '\r?\n$', ''
-  $err = (Get-Content $errFile -Raw)
-  $err = if ($null -eq $err) { '' } else { $err -replace '\r?\n$', '' }
+  $envs = @{}
+  if ($null -ne $pathOverride) { $envs['PATH'] = $pathOverride }
+  $r = Invoke-Leg -Script $script -Args @($repo) -Env $envs
+  $rc = $r.rc
+  $out = $r.out -replace '\r?\n$', ''
+  $err = $r.err -replace '\r?\n$', ''
   if ($rc -eq 0 -and $out -ceq $wantOut -and $err -ceq $wantErr) {
     $script:pass++
   } else {
@@ -161,6 +156,21 @@ Commit-All $b3 'base'
 Write-Fixture (Join-Path $b3 'scripts/a.sh') "changed`n"
 Invoke-Case 'git_absent_from_path' $b3 'standard' 'no-git' ''
 
+# ---- bespoke: jq absent from PATH (sh leg only; the pwsh leg has no jq) -----
+$bespoke = 4
+if ($Leg -eq 'sh') {
+  $bespoke = 5
+  $nojq = Join-Path $tmp 'bin-nojq'; New-Item -ItemType Directory -Path $nojq -Force | Out-Null
+  $g = Get-Command git -CommandType Application
+  Copy-Item -LiteralPath $g.Source -Destination (Join-Path $nojq (Split-Path -Leaf $g.Source))
+  $b4 = Join-Path $tmp 'b-nojq'; New-Repo $b4
+  Write-Fixture (Join-Path $b4 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
+  Write-Fixture (Join-Path $b4 'scripts/a.sh') "seed`n"
+  Commit-All $b4 'base'
+  Write-Fixture (Join-Path $b4 'scripts/a.sh') "changed`n"
+  Invoke-Case 'jq_absent_from_path' $b4 'standard' 'no-jq' $nojq
+}
+
 # ---- bespoke: a binary change, `-` in numstat, is never small.
 $b5 = Join-Path $tmp 'b-binary'; New-Repo $b5
 Write-Fixture (Join-Path $b5 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
@@ -171,5 +181,5 @@ Commit-All $b5 'base'
 Invoke-Case 'binary_diff_is_not_small' $b5 'standard' ''
 
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "classify-review-depth.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 4 bespoke)"
+Write-Host "classify-review-depth ($Leg): $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke)"
 if ($fail -ne 0) { exit 1 }

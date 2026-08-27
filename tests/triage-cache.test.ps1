@@ -1,21 +1,20 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for triage-cache.ps1 (issue #441).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
-$Script = Join-Path $Root 'scripts' 'triage-cache.ps1'
+$Script = Join-Path $Root 'scripts' 'triage-cache'
 $Cases = Join-Path $Here 'triage-cache.cases.tsv'
 $Fix = Join-Path $Here 'fixtures' 'triage-cache'
 $Gold = Join-Path $Fix '_expected'
-$ScriptName = 'triage-cache.ps1'
+$ScriptName = "triage-cache.$Leg"
 $RepoGitignore = Join-Path $Root '.milestone-config' '.gitignore'
-if (-not (Test-Path $Script)) { Write-Error "FATAL: missing $Script"; exit 3 }
 if (-not (Test-Path $Cases)) { Write-Error "FATAL: missing $Cases"; exit 3 }
 if (-not (Test-Path $Fix)) { Write-Error "FATAL: missing $Fix"; exit 3 }
-$Script = (Resolve-Path $Script).Path
 $Fix = (Resolve-Path $Fix).Path
-$pwshBin = (Get-Command pwsh).Source
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $TAB = "`t"
@@ -44,27 +43,10 @@ function Read-Golden([string]$path) {
 function Ok { $script:pass++ }
 function No([string]$msg) { $script:fail++; Write-Host "FAIL $msg" }
 
-function Invoke-Tc([string[]]$scriptArgs, [string]$workDir, [string]$envPath = $null) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Script)) { [void]$psi.ArgumentList.Add($a) }
-  foreach ($a in $scriptArgs) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $workDir
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
-  if ($null -ne $envPath) { $psi.Environment['PATH'] = $envPath }
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+function Invoke-Tc([string[]]$scriptArgs, [string]$workDir, $envPath = $null) {
+  $envs = @{}
+  if ($null -ne $envPath) { $envs['PATH'] = $envPath }
+  return Invoke-Leg -Script $Script -Args $scriptArgs -Cwd $workDir -Env $envs
 }
 
 $caseCount = 0
@@ -245,13 +227,30 @@ if ($r.rc -eq 0 -and (Eq-Exact $r.out "OK$TAB.milestone-config/triage-cache.json
 else { No "write-absent-response: rc=$($r.rc) out=[$(Show-Escaped $r.out)] key=[$keptKey]" }
 
 # ---- pwsh-only: no external tool is consulted --------------------------------
-$r = Invoke-Tc @('lookup', (Join-Path $Fix 'roots' 'hit'), (Join-Path $Fix 'resp' 'ts-two.json')) $Fix ''
-$expOut = Read-Golden (Join-Path $Gold 'lookup-hit.out')
-if ($r.rc -eq 0 -and (Eq-Exact $r.out $expOut) -and (Eq-Exact $r.err '')) { Ok }
-else { No "empty-PATH-lookup: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
+if ($Leg -eq 'ps1') {
+  $r = Invoke-Tc @('lookup', (Join-Path $Fix 'roots' 'hit'), (Join-Path $Fix 'resp' 'ts-two.json')) $Fix ''
+  $expOut = Read-Golden (Join-Path $Gold 'lookup-hit.out')
+  if ($r.rc -eq 0 -and (Eq-Exact $r.out $expOut) -and (Eq-Exact $r.err '')) { Ok }
+  else { No "empty-PATH-lookup: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
+}
+
+# ---- bash-only: jq absent -> SKIP no-jq on every jq-backed subcommand --------
+if ($Leg -eq 'sh') {
+  $W = New-Workspace
+  foreach ($subcmd in @('lookup', 'check-edges', 'write')) {
+    $argv = if ($subcmd -eq 'write') { @($subcmd, $W, (Join-Path $Fix 'entries-two.json'), (Join-Path $Fix 'resp' 'ts-two.json')) }
+            else { @($subcmd, $W, (Join-Path $Fix 'entries-two.json')) }
+    $r = Invoke-Tc $argv $Fix '/nonexistent'
+    if ($r.rc -eq 0 -and $r.out.TrimEnd("`n") -ceq "SKIP`tno-jq" -and $r.err -eq '') { Ok }
+    else { No "no-jq/${subcmd}: rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }
+  }
+  $r = Invoke-Tc @('query', 'keys', 'acme', 'widgets', '7') $Fix '/nonexistent'
+  if ($r.rc -eq 0 -and $r.out -ne '' -and $r.err -eq '') { Ok }
+  else { No "no-jq/query: rc=$($r.rc) out=[$(Show-Escaped $r.out)]" }
+}
 
 if (-not $IsWindows) { chmod -R u+w $Tmp 2>$null }
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
 $bespoke = $pass + $fail - $caseCount
-Write-Host "triage-cache.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke)"
+Write-Host "triage-cache ($Leg): $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke)"
 if ($fail -ne 0) { exit 1 }

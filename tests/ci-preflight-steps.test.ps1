@@ -1,11 +1,12 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for ci-preflight-steps.ps1 (issue #162).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
 $root = (Resolve-Path (Join-Path $here '..')).Path
-$script = Join-Path $root 'scripts/ci-preflight-steps.ps1'
+$script = Join-Path $root 'scripts/ci-preflight-steps'
 $fix = 'tests/fixtures/ci-preflight'
 $gold = Join-Path $root "$fix/_expected"
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 
 $cases = @(
   'clean-run||',
@@ -31,14 +32,8 @@ try {
     if ([string]::IsNullOrEmpty($goldName)) { $goldName = $name }
     $exp = Join-Path $gold "$goldName.txt"
     if (-not (Test-Path $exp)) { Write-Host "FAIL ${name}: missing golden $exp"; $fail++; continue }
-    $tmp = New-TemporaryFile
-    if ($only -ne '') {
-      Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, "$fix/$name", $only) -NoNewWindow -Wait -RedirectStandardOutput $tmp.FullName | Out-Null
-    } else {
-      Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, "$fix/$name") -NoNewWindow -Wait -RedirectStandardOutput $tmp.FullName | Out-Null
-    }
-    $got = [System.IO.File]::ReadAllText($tmp.FullName, [System.Text.UTF8Encoding]::new($false))
-    Remove-Item $tmp.FullName -Force
+    $argv = @("$fix/$name"); if ($only -ne '') { $argv += $only }
+    $got = (Invoke-Leg -Script $script -Args $argv).out
     $gotN = ($got -replace "`r`n", "`n").TrimEnd("`n")
     $want = ([System.IO.File]::ReadAllText($exp, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
     if ($gotN -eq $want) { $pass++ }
@@ -50,5 +45,5 @@ try {
     }
   }
 } finally { Pop-Location }
-Write-Host "ci-preflight-steps.ps1: $pass passed, $fail failed"
+Write-Host "ci-preflight-steps ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

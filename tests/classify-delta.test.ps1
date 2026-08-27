@@ -1,10 +1,11 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for classify-delta.ps1 (issues #476,
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'classify-delta.ps1'
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'classify-delta'
 $cases = Join-Path $here 'classify-delta.cases.tsv'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error 'FATAL: git required'; exit 3 }
 
 $pass = 0; $fail = 0; $skipped = 0
@@ -52,20 +53,16 @@ function Invoke-Op([string]$repo, [string]$op) {
 }
 
 function Get-Snapshot([string]$repo) {
-  $t = (& pwsh -NoProfile -File $script '--snapshot' $repo 2>$null)
+  $t = (Invoke-Leg -Script $script -Args @('--snapshot', $repo)).out
   return ("$t") -replace '\r?\n$', ''
 }
 
 function Invoke-Case([string]$name, [string]$repo, [string]$pre, [string]$wantOut, [string]$wantErr) {
-  if ($pre -ceq '@NONE@') {
-    $out = (& pwsh -NoProfile -File $script $repo 2> $errFile)
-  } else {
-    $out = (& pwsh -NoProfile -File $script $repo $pre 2> $errFile)
-  }
-  $rc = $LASTEXITCODE
-  $out = ("$out") -replace '\r?\n$', ''
-  $err = (Get-Content $errFile -Raw)
-  $err = if ($null -eq $err) { '' } else { $err -replace '\r?\n$', '' }
+  $argv = if ($pre -ceq '@NONE@') { @($repo) } else { @($repo, $pre) }
+  $r = Invoke-Leg -Script $script -Args $argv
+  $rc = $r.rc
+  $out = $r.out -replace '\r?\n$', ''
+  $err = $r.err -replace '\r?\n$', ''
   if ($rc -eq 0 -and $out -ceq $wantOut -and $err -ceq $wantErr) {
     $script:pass++
   } else {
@@ -272,11 +269,10 @@ if ($snapType -ceq 'tree' -and $before -ceq $after) {
 }
 
 $b14 = Join-Path $tmp 'b-snapshot-notrepo'; New-Item -ItemType Directory -Path $b14 -Force | Out-Null
-$snapOut = (& pwsh -NoProfile -File $script '--snapshot' $b14 2> $errFile)
-$snapRc = $LASTEXITCODE
-$snapOut = ("$snapOut") -replace '\r?\n$', ''
-$snapErr = (Get-Content $errFile -Raw)
-$snapErr = if ($null -eq $snapErr) { '' } else { $snapErr -replace '\r?\n$', '' }
+$r = Invoke-Leg -Script $script -Args @('--snapshot', $b14)
+$snapRc = $r.rc
+$snapOut = $r.out -replace '\r?\n$', ''
+$snapErr = $r.err -replace '\r?\n$', ''
 if ($snapRc -ne 0 -and $snapOut -ceq '' -and $snapErr -ceq 'snapshot-failed') {
   $script:pass++
 } else {
@@ -300,11 +296,10 @@ if (-not $canDeny) {
 } else {
   $snapRoot = [System.IO.Path]::GetTempPath()
   $beforeDirs = @(Get-ChildItem -Path $snapRoot -Filter 'cd-snap-*' -Directory -ErrorAction SilentlyContinue).Count
-  $snapOut = (& pwsh -NoProfile -File $script '--snapshot' $b20 2> $errFile)
-  $snapRc = $LASTEXITCODE
-  $snapOut = ("$snapOut") -replace '\r?\n$', ''
-  $snapErr = (Get-Content $errFile -Raw)
-  $snapErr = if ($null -eq $snapErr) { '' } else { $snapErr -replace '\r?\n$', '' }
+  $r = Invoke-Leg -Script $script -Args @('--snapshot', $b20)
+  $snapRc = $r.rc
+  $snapOut = $r.out -replace '\r?\n$', ''
+  $snapErr = $r.err -replace '\r?\n$', ''
   & chmod 600 $idx20 2>$null | Out-Null
   $afterDirs = @(Get-ChildItem -Path $snapRoot -Filter 'cd-snap-*' -Directory -ErrorAction SilentlyContinue).Count
   if ($snapRc -ne 0 -and $snapOut -ceq '' -and $snapErr -ceq 'snapshot-failed' -and $beforeDirs -eq $afterDirs) {
@@ -316,5 +311,5 @@ if (-not $canDeny) {
 }
 
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "classify-delta.ps1: $pass passed, $fail failed, $skipped skipped (parsed $caseCount TSV cases + 19 bespoke)"
+Write-Host "classify-delta ($Leg): $pass passed, $fail failed, $skipped skipped (parsed $caseCount TSV cases + 19 bespoke)"
 if ($fail -ne 0) { exit 1 }

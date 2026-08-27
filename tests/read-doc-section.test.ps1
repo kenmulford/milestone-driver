@@ -1,8 +1,9 @@
 #!/usr/bin/env pwsh
 # milestone-driver - behavior matrix runner for read-doc-section.ps1 (issue #184).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'read-doc-section.ps1'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'read-doc-section'
 
 $pass = 0; $fail = 0
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("rds_" + [System.Guid]::NewGuid().ToString('N'))
@@ -38,14 +39,10 @@ Last body, runs to EOF.
   [System.IO.File]::WriteAllText($doc, ($fixture -replace "`r`n", "`n"), (New-Object System.Text.UTF8Encoding($false)))
 
   function Check([string]$name, [int]$wantExit, [string]$wantOut, [string[]]$cliArgs) {
-    $errFile = New-TemporaryFile
-    $out = (& pwsh -NoProfile -File $script @cliArgs 2> $errFile.FullName)
-    $rc = $LASTEXITCODE
-    if ($out -is [array]) { $out = ($out -join "`n") }
-    $out = ("$out") -replace '\r?\n$', ''
-    $err = (Get-Content $errFile.FullName -Raw)
-    if ($null -eq $err) { $err = '' }
-    Remove-Item $errFile.FullName -Force
+    $r = Invoke-Leg -Script $script -Args $cliArgs
+    $rc = $r.rc
+    $out = $r.out -replace '\r?\n$', ''
+    $err = $r.err
     if ($wantOut -eq '__FAIL__') {
       if ($rc -ne 0 -and [string]::IsNullOrEmpty($out) -and -not [string]::IsNullOrEmpty($err)) {
         $script:pass++
@@ -91,5 +88,5 @@ finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }
 
-Write-Host "read-doc-section.ps1: $pass passed, $fail failed"
+Write-Host "read-doc-section ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

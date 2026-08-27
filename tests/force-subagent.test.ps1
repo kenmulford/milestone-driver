@@ -1,13 +1,12 @@
 #!/usr/bin/env pwsh
 # milestone-driver - runner for the force-subagent.ps1 hook (issue #571).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
-$Hook = Join-Path $Root 'hooks' 'force-subagent.ps1'
-if (-not (Test-Path -LiteralPath $Hook)) { Write-Error "FATAL: missing $Hook"; exit 3 }
-$Hook = (Resolve-Path $Hook).Path
-$pwshBin = (Get-Command pwsh).Source
+$Hook = Join-Path $Root 'hooks' 'force-subagent'
 $env:CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT = $null
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
@@ -35,31 +34,10 @@ function New-Workspace([string]$globsJson = '["skills/**","docs/**"]') {
 }
 
 function Invoke-Hook([string]$root, [string]$filePath, [string]$agentId) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Hook)) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $Tmp
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardInputEncoding = $utf8
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
   $obj = @{ tool_input = @{ file_path = $filePath }; cwd = $root }
   if ($agentId) { $obj['agent_id'] = $agentId }
   $payload = $obj | ConvertTo-Json -Compress
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $p.StandardInput.Write($payload)
-  $p.StandardInput.Close()
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+  return Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp
 }
 
 $W = New-Workspace
@@ -94,5 +72,5 @@ if ($r.rc -eq 2) { Ok }
 else { No "globstar-root: rc=$($r.rc) (want 2) err=[$(Show-Escaped $r.err)]" }
 
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
-Write-Host "force-subagent.ps1: $pass passed, $fail failed"
+Write-Host "force-subagent ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

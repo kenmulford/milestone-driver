@@ -1,16 +1,15 @@
 #!/usr/bin/env pwsh
 # milestone-driver - runner for the tests-green.ps1 hook (issue #499).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
-$Hook = Join-Path $Root 'hooks' 'tests-green.ps1'
+$Hook = Join-Path $Root 'hooks' 'tests-green'
 $RepoGitignore = Join-Path $Root '.milestone-config' '.gitignore'
-if (-not (Test-Path -LiteralPath $Hook)) { Write-Error "FATAL: missing $Hook"; exit 3 }
 if (-not (Test-Path -LiteralPath $RepoGitignore)) { Write-Error "FATAL: missing $RepoGitignore"; exit 3 }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error 'FATAL: git required'; exit 3 }
-$Hook = (Resolve-Path $Hook).Path
-$pwshBin = (Get-Command pwsh).Source
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $pass = 0; $fail = 0
@@ -42,29 +41,8 @@ function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 
 }
 
 function Invoke-Hook([string]$root) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Hook)) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $Tmp
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardInputEncoding = $utf8
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
   $payload = @{ tool_input = @{ command = 'git commit -m x' }; cwd = $root } | ConvertTo-Json -Compress
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $p.StandardInput.Write($payload)
-  $p.StandardInput.Close()
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+  return Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp
 }
 
 # ---- self-healed .gitignore is byte-identical to the committed one ----------
@@ -98,5 +76,5 @@ else { No "globstar-root: rc=$($r.rc) (want 0) and the hook must not reach its p
 
 if (-not $IsWindows) { chmod -R u+w $Tmp 2>$null }
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
-Write-Host "tests-green.ps1: $pass passed, $fail failed"
+Write-Host "tests-green ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

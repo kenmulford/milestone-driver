@@ -1,8 +1,10 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for check-citations.ps1 (issue #432).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
-$Script = Join-Path $Root 'scripts' 'check-citations.ps1'
+$Script = Join-Path $Root 'scripts' 'check-citations'
 $Cases = Join-Path $Here 'check-citations.cases.tsv'
 
 $env:GIT_CONFIG_GLOBAL = Join-Path ([System.IO.Path]::GetTempPath()) 'absent-global-gitconfig'
@@ -12,10 +14,8 @@ $env:GIT_CONFIG_KEY_0 = 'core.excludesFile'
 $env:GIT_CONFIG_VALUE_0 = Join-Path ([System.IO.Path]::GetTempPath()) 'absent-global-gitexcludes'
 $Fix = 'tests/fixtures/check-citations'
 $Gold = Join-Path $Root $Fix '_expected'
-if (-not (Test-Path $Script)) { Write-Error "FATAL: missing $Script"; exit 3 }
 if (-not (Test-Path $Cases)) { Write-Error "FATAL: missing $Cases"; exit 3 }
 if (-not (Test-Path (Join-Path $Root $Fix))) { Write-Error "FATAL: missing $Root/$Fix"; exit 3 }
-$pwshBin = (Get-Command pwsh).Source
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $pass = 0; $fail = 0
@@ -41,25 +41,7 @@ function Read-Golden([string]$name) {
 }
 
 function Invoke-Checker([string[]]$scriptArgs, [string]$workDir) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Script)) { [void]$psi.ArgumentList.Add($a) }
-  foreach ($a in $scriptArgs) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $workDir
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+  return Invoke-Spawn -Script $Script -Args $scriptArgs -Cwd $workDir
 }
 
 $caseCount = 0
@@ -231,5 +213,5 @@ $bespoke = 5
 $skipNote = ''
 if (-not $genUnixRan) { $bespoke--; $skipNote += ', gen-unix SKIPPED on this platform' }
 if (-not $genIgnoredRan) { $bespoke--; $skipNote += ', gen-ignored SKIPPED (no usable git)' }
-Write-Host "check-citations.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke$skipNote)"
+Write-Host "check-citations ($Leg): $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke$skipNote)"
 if ($fail -ne 0) { exit 1 }

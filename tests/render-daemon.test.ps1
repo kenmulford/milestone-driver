@@ -1,10 +1,11 @@
 #!/usr/bin/env pwsh
 # milestone-driver - behavior matrix runner for render-daemon.ps1 (issue #208).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'render-daemon.ps1'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'render-daemon'
 
 $pass = 0; $fail = 0; $skipped = 0
 function Pass-T { $script:pass++ }
@@ -20,14 +21,8 @@ $port = 8732
 $readyUrl = "http://127.0.0.1:$port/"
 
 function Run-Daemon([string[]]$daemonArgs, [hashtable]$envVars = @{}) {
-  $old = @{}
-  foreach ($k in $envVars.Keys) { $old[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, [string]$envVars[$k]) }
-  try {
-    $out = & pwsh -NoProfile -File $script @daemonArgs 2>&1 | Out-String
-    return @{ out = $out; rc = $LASTEXITCODE }
-  } finally {
-    foreach ($k in $envVars.Keys) { [Environment]::SetEnvironmentVariable($k, $old[$k]) }
-  }
+  $r = Invoke-Spawn -Script $script -Args $daemonArgs -Env $envVars
+  return @{ out = ($r.out + $r.err); rc = $r.rc }
 }
 
 function Write-Profile([string]$serverCmd, [string]$url) {
@@ -87,7 +82,7 @@ try {
       $p = State-Field 'port'; $tok = State-Field 'token'; $pidv = State-Field 'pid'
       $rurl = State-Field 'readyUrl'
       $raw = Get-Content -LiteralPath $state -Raw
-      $stOk = $raw -match '"startedAt":"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"'
+      $stOk = $raw -match '"startedAt":\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"'
       if ([int]$p -eq $port -and $tok -and $pidv -and $rurl -eq $readyUrl -and $stOk) { Pass-T }
       else { Fail-T "autostart-state: port=$p tok=$tok pid=$pidv url=$rurl startedAt-raw-ok=$stOk raw=[$raw]" }
     } else { Fail-T "autostart: rc=$($r.rc) out=[$($r.out)]" }
@@ -155,5 +150,5 @@ try {
   Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "render-daemon.ps1: $pass passed, $fail failed, $skipped skipped"
+Write-Host "render-daemon ($Leg): $pass passed, $fail failed, $skipped skipped"
 if ($fail -ne 0) { exit 1 }

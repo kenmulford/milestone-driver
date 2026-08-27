@@ -1,11 +1,12 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for check-doc-toc.ps1 (issue #490).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
 $root = (Resolve-Path (Join-Path $here '..')).Path
-$script = Join-Path $root 'scripts/check-doc-toc.ps1'
+$script = Join-Path $root 'scripts/check-doc-toc'
 $fix = 'tests/fixtures/check-doc-toc'
 $gold = Join-Path $root "$fix/_expected"
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 
 $cases = @(
   'compliant|0',
@@ -23,14 +24,9 @@ try {
     $name = $parts[0]; $wantExit = [int]$parts[1]
     $exp = Join-Path $gold "$name.txt"
     if (-not (Test-Path $exp)) { Write-Host "FAIL ${name}: missing golden $exp"; $fail++; continue }
-    $tmp = New-TemporaryFile
-    $tmpErr = New-TemporaryFile
-    $p = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $script, "$fix/$name") -NoNewWindow -Wait -RedirectStandardOutput $tmp.FullName -RedirectStandardError $tmpErr.FullName -PassThru
-    $rc = $p.ExitCode
-    $gotOut = [System.IO.File]::ReadAllText($tmp.FullName, [System.Text.UTF8Encoding]::new($false))
-    $gotErr = [System.IO.File]::ReadAllText($tmpErr.FullName, [System.Text.UTF8Encoding]::new($false))
-    $got = $gotOut + $gotErr
-    Remove-Item $tmp.FullName, $tmpErr.FullName -Force
+    $r = Invoke-Leg -Script $script -Args @("$fix/$name")
+    $rc = $r.rc
+    $got = $r.out + $r.err
     $gotN = ($got -replace "`r`n", "`n").TrimEnd("`n")
     $want = ([System.IO.File]::ReadAllText($exp, [System.Text.UTF8Encoding]::new($false)) -replace "`r`n", "`n").TrimEnd("`n")
     if ($gotN -eq $want -and $rc -eq $wantExit) { $pass++ }
@@ -42,5 +38,5 @@ try {
     }
   }
 } finally { Pop-Location }
-Write-Host "check-doc-toc.ps1: $pass passed, $fail failed"
+Write-Host "check-doc-toc ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

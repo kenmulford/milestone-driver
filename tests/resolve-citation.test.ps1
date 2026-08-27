@@ -1,17 +1,16 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for resolve-citation.ps1 (issue #417).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Script = (Join-Path $Here '..' 'scripts' 'resolve-citation.ps1')
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
+$Script = Join-Path (Resolve-Path (Join-Path $Here '..' 'scripts')).Path 'resolve-citation'
 $Cases = Join-Path $Here 'resolve-citation.cases.tsv'
 $Fix = Join-Path $Here 'fixtures' 'resolve-citation'
 $Gold = Join-Path $Fix '_expected'
-$ScriptName = 'resolve-citation.ps1'
-if (-not (Test-Path $Script)) { Write-Error "FATAL: missing $Script"; exit 3 }
+$ScriptName = "resolve-citation.$Leg"
 if (-not (Test-Path $Cases)) { Write-Error "FATAL: missing $Cases"; exit 3 }
 if (-not (Test-Path $Fix)) { Write-Error "FATAL: missing $Fix"; exit 3 }
-$Script = (Resolve-Path $Script).Path
 $Fix = (Resolve-Path $Fix).Path
-$pwshBin = (Get-Command pwsh).Source
 
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $pass = 0; $fail = 0
@@ -43,25 +42,7 @@ function Read-Golden([string]$path) {
 }
 
 function Invoke-Resolver([string[]]$scriptArgs, [string]$workDir) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Script)) { [void]$psi.ArgumentList.Add($a) }
-  foreach ($a in $scriptArgs) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $workDir
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+  return Invoke-Leg -Script $Script -Args $scriptArgs -Cwd $workDir
 }
 
 $caseCount = 0
@@ -123,5 +104,5 @@ else {
 }
 
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
-Write-Host "resolve-citation.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 1 bespoke)"
+Write-Host "resolve-citation ($Leg): $pass passed, $fail failed (parsed $caseCount TSV cases + 1 bespoke)"
 if ($fail -ne 0) { exit 1 }

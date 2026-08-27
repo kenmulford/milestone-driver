@@ -1,9 +1,10 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for parse-md-epic-order.ps1 (issue #266).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'parse-md-epic-order.ps1'
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'parse-md-epic-order'
 $cases = Join-Path $here 'parse-md-epic-order.cases.tsv'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 
 function Decode([string]$s) {
   [regex]::Replace($s, '\\(.)', {
@@ -28,13 +29,10 @@ foreach ($line in Get-Content $cases) {
   $expErr = if ($f.Count -gt 3) { Decode $f[3] } else { '' }
   $expExit = if ($f.Count -gt 4) { [int]$f[4] } else { 0 }
 
-  $outFile = New-TemporaryFile
-  $errFile = New-TemporaryFile
-  $body | pwsh -NoProfile -File $script > $outFile.FullName 2> $errFile.FullName
-  $gotExit = $LASTEXITCODE
-  $out = (Get-Content $outFile.FullName -Raw); $out = if ($null -eq $out) { '' } else { $out -replace '\r?\n$', '' }
-  $err = (Get-Content $errFile.FullName -Raw); $err = if ($null -eq $err) { '' } else { $err -replace '\r?\n$', '' }
-  Remove-Item $outFile.FullName, $errFile.FullName -Force
+  $r = Invoke-Leg -Script $script -Stdin ($body + "`n")
+  $gotExit = $r.rc
+  $out = $r.out -replace '\r?\n$', ''
+  $err = $r.err -replace '\r?\n$', ''
 
   if ($out -eq $expOut -and $err -eq $expErr -and $gotExit -eq $expExit) { $pass++ }
   else {
@@ -42,5 +40,5 @@ foreach ($line in Get-Content $cases) {
     Write-Host "FAIL $name got[exit=$gotExit out=$out err=$err] want[exit=$expExit out=$expOut err=$expErr]"
   }
 }
-Write-Host "parse-md-epic-order.ps1: $pass passed, $fail failed"
+Write-Host "parse-md-epic-order ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }

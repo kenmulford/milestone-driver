@@ -1,10 +1,11 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for expand-domain-skills.ps1 (issue #589).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script = Join-Path $here '..' 'scripts' 'expand-domain-skills.ps1'
+. (Join-Path $here '_lib.ps1'); Set-Leg $Leg
+$script = Join-Path $here '..' 'scripts' 'expand-domain-skills'
 $cases = Join-Path $here 'expand-domain-skills.cases.tsv'
 $fix = Join-Path $here 'fixtures' 'expand-domain-skills'
-if (-not (Test-Path $script)) { Write-Error "FATAL: missing $script"; exit 3 }
 if (-not (Test-Path $cases)) { Write-Error "FATAL: missing $cases"; exit 3 }
 if (-not (Test-Path $fix)) { Write-Error "FATAL: missing $fix"; exit 3 }
 $pass = 0; $fail = 0
@@ -27,19 +28,10 @@ foreach ($line in Get-Content $cases) {
     elseif ($rootname.StartsWith('~/', [System.StringComparison]::Ordinal)) { $rootname }
     else { Join-Path $fix $rootname }
   $argv = @($entries -split ' ' | Where-Object { $_ -ne '' })
-  $psi = [System.Diagnostics.ProcessStartInfo]::new('pwsh')
-  foreach ($a in @('-NoProfile', '-File', $script, $root) + $argv) { [void]$psi.ArgumentList.Add($a) }
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.UseShellExecute = $false
-  $psi.Environment['HOME'] = $tmpHome
-  $psi.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
-  $psi.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $out = Strip-Trailing $p.StandardOutput.ReadToEnd()
-  $err = Strip-Trailing $p.StandardError.ReadToEnd()
-  $p.WaitForExit()
-  $rc = $p.ExitCode
+  $r = Invoke-Spawn -Script $script -Args (@($root) + $argv) -Env @{ HOME = $tmpHome }
+  $out = Strip-Trailing $r.out
+  $err = Strip-Trailing $r.err
+  $rc = $r.rc
   $okOut = [System.StringComparer]::Ordinal.Compare($out, $expOut) -eq 0
   $okErr = [System.StringComparer]::Ordinal.Compare($err, $expErr) -eq 0
   if ($rc -eq 0 -and $okOut -and $okErr) { $pass++ }
@@ -49,5 +41,5 @@ foreach ($line in Get-Content $cases) {
   }
 }
 Remove-Item -LiteralPath $tmpHome -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "expand-domain-skills.ps1: $pass passed, $fail failed"
+Write-Host "expand-domain-skills ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }
