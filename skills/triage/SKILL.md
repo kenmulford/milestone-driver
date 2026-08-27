@@ -103,15 +103,14 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 
 1. **Source the docs root.** Use `projectDocs` already resolved at Step 1 (defaults to `.project/`). Do **not** re-resolve the profile here.
 2. **Parse the cited anchors.** From each MISS issue's body + its acceptance criteria (gathered in Step 2), collect the `.project/<doc>#<section>` anchors the issue cites - `<doc>` is the path under the docs root, `<section>` is the heading text (e.g. `design-system.md#data-tables`).
-3. **Pull a superset via the primitive.** For each cited anchor - plus its plausibly-relevant **sibling** sections - invoke `read-doc-section.{sh,ps1}` (pwsh on Windows, bash elsewhere) once per section: `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, where `<doc-path>` is the doc under the docs root and `<anchor-text>` is the heading text **without** leading `#`s. It prints **only** that section to stdout. **Bias toward over-inclusion**: under-retrieval is the real risk. Never inline a whole file. The reviewers keep their own `Read`/grep tools for any **additional** on-demand anchor.
-4. **Feed the result into both dispatch briefs.** Collect the printed sections per MISS issue and pass the **same** resolved sections into BOTH the `triageAgent` and `designReviewAgent` briefs composed in Step 3 as **the resolved `.project/` sections**. Resolve once per issue, not once per reviewer.
-5. **Resolve the prose contract (once per run).** Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - not once per issue, not once per reviewer - and pass its `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, and `## The two anti-criteria` sections into **BOTH** Step 3 briefs as **the resolved prose contract**. It governs each reviewer's returned `description` and `to_clear` lines - the text this skill renders verbatim into the `🔴 Triage` comment at Step 6 - and each agent's own `## Communication style` may specialize it but never replace it.
+3. **Pass the anchors, not the sections.** Put each MISS issue's cited anchors - plus plausibly-relevant **sibling** section names - into BOTH the `triageAgent` and `designReviewAgent` briefs composed in Step 3 as **the cited `.project/` anchors**, with the absolute path of `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}`. Each reviewer reads them with that primitive (`read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<doc-path>` the doc under the docs root, `<anchor-text>` the heading text **without** leading `#`s; it prints **only** that section) and keeps its own `Read`/grep tools for any **additional** anchor. **Bias toward over-inclusion** in the list: under-retrieval is the real risk. Never inline a section, never a whole file.
+4. **Name the prose contract (once per run).** Put the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` into **BOTH** Step 3 briefs as **the prose contract path**, naming the sections each reviewer reads: `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, `## The two anti-criteria`. Never paste them. They govern each reviewer's returned `description` and `to_clear` lines - the text this skill renders verbatim into the `🔴 Triage` comment at Step 6 - and each agent's own `## Communication style` may specialize them but never replace them.
 
 **Degradation (no error, ever):**
 - **Absent `projectDocs`** → defaults to `.project/` (resolved at Step 1).
 - **Absent `.project/` directory** (or no cited anchors on an issue) → **no-op** for that issue: dispatch proceeds with no project grounding and **no error**.
 - **Missing/renamed cited anchor** → the primitive **fails loud** (non-zero exit, naming the anchor + file on stderr) so a drifted heading surfaces instead of silent empty grounding. Do not swallow it.
-- **Absent or unreadable `skills/output-style.md`** → **no-op**: both dispatches proceed with **no prose contract** and **no error**, leaving each reviewer's own `## Communication style` as its only prose rule.
+- **Absent or unreadable `skills/output-style.md`** → **no-op**: the briefs name no path, **no error**, each reviewer's own `## Communication style` its only prose rule.
 
 ### Resolve cited `path (anchor)` citations (once per issue, before dispatch)
 
@@ -134,8 +133,8 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - Its recorded design decisions: all comments and any `design-cleared` notes fetched in Step 2.
 - The milestone description (the declared Wave/dependency order) - batch mode only; pass an empty string in single mode.
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step - after the framework's own docs, before repo patterns - in the agent's research path for verifying a found convention is a genuine framework idiom; omit when the expansion is empty).
-- The resolved `.project/` sections for this issue - omit when that block was a no-op for this issue.
-- The resolved prose contract (the `skills/output-style.md` sections resolved once per run); omit when that resolution was a no-op.
+- The cited `.project/` anchors for this issue, with the `read-doc-section` path - omit when that block was a no-op for this issue.
+- The prose contract path and its four section names; omit when `skills/output-style.md` is absent.
 - The resolved citations for this issue; omit when that block was a no-op.
 - `citationFormatPath` - the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md`; always passed, never omitted.
 - The repo root - it bounds the agent's read scope; a re-triage running inside an issue worktree names that worktree instead.
@@ -164,7 +163,7 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 - Its recorded design decisions: all comments and any `design-cleared` notes.
 - Pointers to existing UI surfaces the issue neighbors - via `uiSurfaceGlobs` from the profile.
 - The profile: `uiSurfaceGlobs`, `domainSkills` (the same research-path step as the `triageAgent` brief above; omit when the expansion is empty).
-- The resolved `.project/` sections, prose contract, and citations - the **same** ones passed to the `triageAgent` above; omit each when its block was a no-op. Plus `citationFormatPath`, never omitted.
+- The cited `.project/` anchors, the prose contract path, and the resolved citations - the **same** ones passed to the `triageAgent` above; omit each when its block was a no-op. Plus `citationFormatPath`, never omitted.
 - The repo root - it bounds the agent's read scope; a re-triage running inside an issue worktree names that worktree instead.
 
 **The design agent returns:**

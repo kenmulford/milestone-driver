@@ -14,7 +14,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
 | Blocker-resolver agent | `agents/blocker-resolver.md` | Triage Step 3.5: returns `RESOLVED` or `NEEDS_HUMAN` per Blocker gap, so only a Blocker needing a human parks (read-only; profile-overridable) |
-| Hooks | `hooks/` | The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` - all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
+| Hooks | `hooks/` | The seven shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`, `dispatch-cap` - all `PreToolUse` hooks invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). The triage / declaration layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 
 ## Plugin version
@@ -61,6 +61,7 @@ A parked issue carries exactly one blocker label (`blocked` / `needs design` / `
 | no-push | Plugin `PreToolUse` (`Bash(git push *)`): rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
 | no-pr-to-protected | Plugin `PreToolUse` (`Bash(gh pr create *)`): blocks `gh pr create --base <protectedBranch>`. |
 | code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading, and whose `/code-review run:` verdict under it is not `yes` or `n/a - <reason>` (`no`, an unrecognized or empty value, and a missing slot each deny). A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
+| dispatch-cap | Plugin `PreToolUse` (`Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch for one issue - the first build plus 2 fixes, across every gate and the review loop - the caps `skills/review-depth.md` states. Counter under the git common dir, keyed by issue (branch `issue/<n>-*`, else the brief), reset when HEAD moves. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 
@@ -188,6 +189,7 @@ The six mechanical gates behave correctly inside a worktree with no worktree-spe
 | no-push | Unaffected. It guards only `protectedBranch`; feature-branch pushes from a worktree are allowed. |
 | no-pr-to-protected | Unaffected. The orchestrator opens PRs with `--base <integrationBranch>`, so they pass. |
 | code-review-gate | The profile is a committed file present in every worktree and the hook resolves it from the tool call's `cwd`, so `protectedBranch` reads correctly per-worktree; a relative `--body-file` path resolves against that same directory. PRs opened with `--base <integrationBranch>` are not exempt, so both the `## Code Review` check and the `/code-review run:` verdict parse apply as normal. |
+| dispatch-cap | The counter lives under the git common dir, shared by every worktree, and is keyed by the issue number the brief names when the orchestrator dispatches from the integration branch, so concurrent issues never share a budget. |
 | **Shared external services (test DB, caches, fixed ports)** | A worktree isolates the **filesystem**, not external services. In a parallel run, all N concurrent `unitTestCmd` runs share external services (notably `DATABASE_URL` / the test DB) unless the consumer's harness provides per-worker isolation (e.g. `parallel_tests` / `TEST_ENV_NUMBER` DB-suffix pattern, or per-worker `DATABASE_URL`). The driver surfaces this hazard up front: when `unitTestCmd` is set and `parallel` is absent, the run-start DB-hazard interview asks once whether the harness is safe to run concurrently and records the answer to the `parallel` key, rather than proceeding blind. Per-worker isolation stays a **consumer responsibility** - the interview raises the risk, it does not inject isolation. See [consumer setup - DB isolation](consumer-setup.md#db-isolation-consumer-responsibility). |
 
 One per-clone marker becomes per-worktree: the `.milestone-config/preflight-notice` one-time notice marker is per-clone, so inside a worktree it becomes per-worktree (the notice could print once per worktree). This is acceptable, and the worktree setup can `touch` the marker to suppress it.

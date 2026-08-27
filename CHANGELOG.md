@@ -3,6 +3,30 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.25.0 - the ladder's caps become a hook, and briefs carry paths
+
+**Theme:** The caps the orchestrator overran were text. The review→fix cycle cap and the implementer re-dispatch cap are now a hook; a small diff classifies `shallow` and skips the coherence pass; briefs name the docs an agent reads instead of pasting them.
+
+### ✨ Added
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `hooks/dispatch-cap.{sh,ps1}` (PreToolUse `Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch per issue. Main thread only. Key: branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the brief. Counter under `<git-common-dir>/milestone-driver/dispatch-cap/`, reset when HEAD moves. Escape `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1`. 27 cases per leg. |
+
+### 🔧 Changed
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `scripts/classify-review-depth.{sh,ps1}`: no deep trigger, no rejected candidate, and at most 20 changed lines (`git diff --numstat HEAD`) is `shallow`, `small-diff:<n>` on stderr. Binary or failed reads stay `standard`. 7 rows plus a binary case per leg. |
+| - | - | `solve-issue` section 6 runs the classifier before the coherence pass and skips it on `shallow`; `review-depth.md` allows that earlier run. |
+| - | - | The per-gate "2 re-dispatches" budgets and the review loop's fixes share one budget: 3 implementer dispatches per issue. `solve-issue` step 4, `parallel-waves.md`, and `contingencies.md` point at the hook. |
+| - | - | Briefs carry paths. `solve-issue` and `triage` name the prose-contract path and the cited `.project/` anchors (with the `read-doc-section` path) instead of pasting section text; the agent reads them. The code-comment rule is no longer quoted into the brief. Agent input lists updated. |
+
+### Consumer notes (upgrading from v1.24.3)
+
+- **A new gate loads at session start.** Restart Claude Code after updating. A repo with no profile is never gated.
+- **A denied dispatch is the park signal.** To re-run one issue by hand, delete its counter file or set the escape variable.
+- **Small diffs get one low-effort review and no coherence pass.** No knob; the deep triggers still win.
 ## v1.24.3 - squash commits and aggregate PR bodies stop carrying every issue's prose
 
 **Theme:** The driver's squash merges pass an explicit subject and body, and the milestone and wave PR bodies carry a choice-only Decision Log with collapsed Code Review sub-entries, so a release PR pre-fills from a one-line commit instead of 41 KB of concatenated fold commits.

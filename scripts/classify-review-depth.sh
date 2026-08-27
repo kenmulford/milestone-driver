@@ -12,13 +12,17 @@
 #   deep        the diff touches hooks/**, adds a file under sourceGlobs, or
 #               changes only one leg of a .sh/.ps1 twin pair
 #   standard    the diff touches some other path under sourceGlobs
-#   shallow     the diff touches no path under sourceGlobs
+#   shallow     the diff touches no path under sourceGlobs, or no deep trigger
+#               fired and the whole tracked diff is at most
+#               SMALL_DIFF_MAX_LINES changed lines
 # Output (stderr), exactly one token, and only when there is a specific trigger
 # to name:
 #   hooks:<path>       the first candidate under hooks/
 #   new-file:<path>    the first added candidate under sourceGlobs
 #   twin:<path>        a .sh or .ps1 candidate under sourceGlobs whose opposite
 #                      leg is not in the candidate set
+#   small-diff:<n>     the sourceGlobs verdict was demoted to shallow: n changed
+#                      lines in total, n <= SMALL_DIFF_MAX_LINES
 #   no-git             git is not on PATH
 #   no-diff            `git diff HEAD` failed - not a repo, or no HEAD
 #   empty-candidates   git named no changed and no untracked path
@@ -101,6 +105,10 @@
 # those two are really aimed at a hand-edited sourceGlobs entry; the C-quote
 # rule is aimed at git itself.
 #
+# THE SMALL-DIFF DEMOTION: no deep trigger, no rejected candidate, and at most
+# SMALL_DIFF_MAX_LINES changed lines (`git diff --numstat HEAD`, added plus
+# deleted, whole tree) is `shallow`. A `-` count (binary) or a failed read is over.
+#
 # A REJECTED CANDIDATE FLOORS THE VERDICT AT `standard` and names itself in
 # `rejected-path:<p>`. Nothing was ever matched against it, so `shallow` would
 # be a claim about a path this script deliberately refused to read, and the SAFE
@@ -139,6 +147,7 @@ export LC_ALL=C
 ROOT="${1:-$PWD}"
 ROOT="${ROOT%/}"
 TAB=$'\t'
+SMALL_DIFF_MAX_LINES=20
 
 # emit <verdict> [reason]
 emit() {
@@ -310,5 +319,23 @@ EOF
 # sourceGlobs verdict: it is the one candidate whose depth is unknown, and it
 # is the reason this run cannot claim `shallow`.
 [ -n "$REJECTED" ] && emit 'standard' "rejected-path:$REJECTED"
-[ -n "$SRC" ] && emit 'standard'
-emit 'shallow'
+[ -n "$SRC" ] || emit 'shallow'
+
+# ---- 7. under sourceGlobs with no deep trigger: standard, unless the whole
+# tracked diff is small enough for the demotion.
+over=0
+total=0
+numstat="$(git -C "$ROOT" --no-pager diff --no-color --no-renames --numstat HEAD 2>/dev/null)" || over=1
+[ -n "$numstat" ] || over=1
+while IFS= read -r line; do
+  [ -n "$line" ] || continue
+  a="${line%%"$TAB"*}"; rest="${line#*"$TAB"}"; d="${rest%%"$TAB"*}"
+  case "$a$d" in ''|*[!0-9]*) over=1; break ;; esac
+  total=$((total + a + d))
+done <<EOF
+$numstat
+EOF
+if [ "$over" -eq 0 ] && [ "$total" -le "$SMALL_DIFF_MAX_LINES" ]; then
+  emit 'shallow' "small-diff:$total"
+fi
+emit 'standard'

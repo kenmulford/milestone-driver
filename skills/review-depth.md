@@ -20,9 +20,10 @@ Minor one.
 ## Running the classifier
 
 Run `${CLAUDE_PLUGIN_ROOT}/scripts/classify-review-depth.<sh|ps1> <root>`
-(pwsh on Windows, bash elsewhere) **immediately before each `/code-review`
-dispatch and never earlier**, since it reads the diff the implementer just
-returned. **Take the printed verdict verbatim: never re-derived, never
+(pwsh on Windows, bash elsewhere) once the implementer's diff exists: before
+the coherence pass (`solve-issue` section 6 skips that pass on `shallow`), and
+again **immediately before each `/code-review` dispatch**, since a fix changes
+the diff. **Take the printed verdict verbatim: never re-derived, never
 overridden.**
 
 **Fail-open.** Every failure prints `standard` on stdout with one reason token
@@ -41,6 +42,9 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 `medium` is the ceiling. A cycle is one `/code-review` run **plus the fix it
 triggers**, so a review returning no in-scope finding spends none, and on a
 `code-changed` delta the fresh review is the last action before commit.
+`shallow` is a diff touching no `sourceGlobs` path, or one of at most 20
+changed lines with no deep trigger
+(`scripts/classify-review-depth.sh (THE SMALL-DIFF DEMOTION)`).
 
 ## Re-classify before a second cycle
 
@@ -49,15 +53,14 @@ It decides whether that cycle happens at all: a verdict dropping to `shallow`
 ends the loop, one rising to `deep` runs the 2nd cycle **already granted** but
 grants no 3rd. **The cap stays whatever the first verdict set.**
 
-The re-run is reachable: the candidate set is **not monotone**. A fix restoring
-a file to its HEAD content drops it out of `git diff HEAD`, so a partial revert
-leaving a non-source path changed reaches `shallow`.
-
 ## The second-cycle park
 
 **A second cycle returning any Critical or Important finding parks the issue
 `needs design`**, the park comment stating that a second review round returned
-a Critical or Important finding. **No third cycle runs.**
+a Critical or Important finding. **No third cycle runs**: `hooks/dispatch-cap.sh`
+denies the 4th `/code-review` run and the 4th implementer dispatch per issue
+(the first build plus 2 fixes, across every gate and this loop), so the cap
+holds whatever the orchestrator concludes. A denied dispatch is the park.
 
 ## Which findings get fixed
 
