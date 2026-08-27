@@ -23,12 +23,12 @@
 # (some other flag's value coincidentally containing the heading) in exchange
 # for never false-blocking a real PR body - see tests/code-review-gate.cases.tsv
 # create_escaped_quote_before_heading / create_heredoc_pattern.
-# merge: `gh pr merge` has its own -b/--body/-F flags, but those set the
-# MERGE COMMIT message, not the PR body - every real invocation in this repo
-# (skills/solve-issue/SKILL.md, skills/solve-milestone/SKILL.md,
-# .project/conventions.md) is a bare `gh pr merge [<n>] --squash
-# --delete-branch` with no body flag at all. So the merge path always fetches
-# the PR's own body via `gh pr view` instead of parsing the merge command.
+# merge: the driver's own squash merges (skills/solve-issue/SKILL.md,
+# skills/solve-milestone/*, .project/conventions.md) pass --subject and --body;
+# the release and back-merge rituals do not, merging with a bare --merge
+# (docs/consumer-setup.md). Both flags set the MERGE COMMIT message, never the
+# PR body, so the merge path fetches the PR's own body via `gh pr view` instead
+# of parsing the merge command.
 #
 # Heading match is ANCHORED, not a bare substring: `## Code Review` must be
 # followed by a non-alphanumeric character or end-of-string, so "## Code

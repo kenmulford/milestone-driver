@@ -11,10 +11,10 @@
 # the --body value via quote-matched capture truncated early on an escaped
 # quote or this repo's own `--body "$(cat <<'EOF' ... EOF)"` heredoc pattern
 # with any quote before the heading, producing a false BLOCK on the repo's own
-# documented PR shape. merge: gh's own -b/--body/-F on `gh pr merge` set the
-# MERGE COMMIT message, not the PR body, and every real invocation in this
-# repo passes neither - so the merge path always fetches the PR's current
-# body via `gh pr view`.
+# documented PR shape. merge: the driver's own squash merges pass --subject and
+# --body; the release and back-merge rituals merge with a bare --merge and pass
+# neither. Both flags set the MERGE COMMIT message, never the PR body - so the
+# merge path fetches the PR's current body via `gh pr view`.
 #
 # Heading match is ANCHORED, not a bare substring: `## Code Review` must be
 # followed by a non-alphanumeric character or end-of-string, so "## Code

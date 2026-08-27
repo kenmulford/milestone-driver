@@ -155,10 +155,14 @@ The `## Code Review` heading is required - without it `hooks/code-review-gate.sh
 
 ## 6.8 Handle CI result
 
-The PR is doc-only; CI is typically vacuously green. Immediately attempt:
+The PR is doc-only, CI typically vacuously green. Immediately attempt step 8's one-call shape (`skills/solve-issue/SKILL.md (passes an explicit subject and body)`) - no Decision Log, and a `--body` carrying this section's CHANGELOG line. `$heading` is the entry 6.5 authored, matched by **6.1's mode-specific rule** against the docs branch, never the file's first h2; version-free mode swaps the `grep` for `grep -m1 -F '## <milestone title>'`.
 
 ```bash
-gh pr merge <pr-number> --squash --delete-branch
+body="Code Review: PR #<pr-number>"
+heading="$(git show docs/changelog-<slug>:CHANGELOG.md | grep -m1 -E '^## v<version>( |$)' | sed 's/^## //')"
+body="$body"$'\n'"CHANGELOG: $heading"
+title="$(gh pr view <pr-number> --json title --jq .title)" && [ -n "$title" ] \
+  && gh pr merge <pr-number> --squash --delete-branch --subject "$title (#<pr-number>)" --body "$body"
 ```
 
 - **Success (CI green or no CI):** record _"CHANGELOG entry merged."_ and record the merge for the final summary. Then clean up the working tree:
