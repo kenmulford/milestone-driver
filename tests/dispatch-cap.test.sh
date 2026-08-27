@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # milestone-driver - runner for the dispatch-cap.sh hook. Bespoke cases against
-# throwaway git repos (the counter lives under .git and HEAD resets it), the
-# layout of tests/force-subagent.test.sh. bash-3.2-safe.
 set -u
 export LC_ALL=C
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,8 +23,6 @@ no() { fail=$((fail+1)); printf 'FAIL %s\n' "$*" >&2; }
 
 IMPL='milestone-driver:implementer'
 
-# ws [branch] [profile-json] - one-commit repo on <branch> (default issue/7-x)
-# with <profile-json> as .milestone-config/driver.json; `-` writes none.
 ws() {
   local w branch profile
   branch="${1:-issue/7-x}"
@@ -48,7 +44,6 @@ ws() {
   printf '%s' "$w"
 }
 
-# run_hook <root> <tool_name> <subagent_type|skill> <prompt|args> [agent_id]
 run_hook() {
   local root="$1" tool="$2" who="$3" text="$4" agent="${5:-}"
   if [ "$tool" = "Skill" ]; then
@@ -96,7 +91,6 @@ run_hook "$W" Bash "" ""; expect "allow-other-tool" 0
 run_hook "$W" Agent "$IMPL" "Build issue #7" "agent-1"; expect "allow-subagent-context" 0
 
 # ---- allow: the escape hatch on the capped key -----------------------------
-# From a file: the hook exits before reading stdin when the hatch is set.
 jq -n --arg cwd "$W" --arg s "$IMPL" '{tool_name:"Agent", tool_input:{subagent_type:$s, prompt:"x"}, cwd:$cwd}' > "$TMP/payload.json"
 CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1 "$BASH_BIN" "$HOOK" < "$TMP/payload.json" > "$ERRFILE" 2>&1
 RC=$?; ERR="$(cat "$ERRFILE")"; expect "allow-escape-hatch" 0
@@ -130,7 +124,6 @@ run_hook "$WP" Agent "$IMPL" "Issue #11: add the thing. Depends on #3."; expect 
 case "$ERR" in *"for issue 11 "*) ok ;; *) no "brief-key-is-11: err=[$ERR]" ;; esac
 run_hook "$WP" Agent "$IMPL" "issue 12 - the other thing"; expect "brief-key-other-issue-allowed" 0
 [ -f "$WP/.git/milestone-driver/dispatch-cap/implementer-12" ] && ok || no "brief-key-12-counter"
-# With nothing to name the issue, the branch is the key.
 run_hook "$WP" Skill code-review ""; expect "branch-key-fallback" 0
 [ -f "$WP/.git/milestone-driver/dispatch-cap/review-develop" ] && ok || no "branch-key-counter"
 for i in 1 2; do run_hook "$WP" Skill code-review ""; done

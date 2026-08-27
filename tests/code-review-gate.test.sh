@@ -1,22 +1,11 @@
 #!/usr/bin/env bash
 # milestone-driver - golden-matrix runner for code-review-gate.sh (issue #289).
-# Drives tests/code-review-gate.cases.tsv: each row builds a PreToolUse stdin
-# JSON (tool_input.command + cwd), seeds a throwaway .milestone-config/driver.json
-# (protectedBranch), and - for merge cases - a stub `gh` shadowing the real one
-# on PATH (OK: echoes canned `gh pr view` JSON; ERROR: exits nonzero; NOGH: PATH
-# excludes gh entirely). Asserts exit code + stderr exactly (stdout is always
-# asserted empty - this hook never writes stdout). A trailing, non-TSV case
-# proves the missing-jq fail-open path (needs a PATH with no jq at all, so it
-# cannot be driven by the same jq-built JSON as the table rows).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT="$HERE/../hooks/code-review-gate.sh"
 CASES="$HERE/code-review-gate.cases.tsv"
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required" >&2; exit 3; }
 [ -f "$SCRIPT" ] || { echo "FATAL: missing $SCRIPT" >&2; exit 3; }
-# Resolved ONCE, up front - several cases run the hook under a deliberately
-# restricted PATH (missing jq / missing gh), so invocations below use this
-# absolute path rather than a bare `bash` that PATH restriction would hide.
 BASH_BIN="$(command -v bash)"
 
 pass=0; fail=0
@@ -27,23 +16,14 @@ trap cleanup EXIT
 
 TAB=$'\t'
 EXPECT_COLS=11
-# split_tab <row> - bash-3.2-safe TAB split (NO mapfile/readarray: those are
-# bash-4+ builtins; under macOS system bash 3.2 `mapfile` doesn't exist, the
-# command silently fails, and every column would fall through to its `:-`
-# default - a runner that "passes" while testing nothing, the exact failure
-# class this rewrite closes). Sets the GLOBAL `cols` array directly (no
-# command-substitution subshell, so no builtin dependency is needed to
-# populate it).
 split_tab() {
   local rest="$1$TAB"
   cols=()
   while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 
-# unescape <str> - turns the TSV's literal \n 2-char sequences into real newlines.
 unescape() { printf '%b' "$1"; }
 
-# make_gh_stub <mode> <view_json> -> prints the stub bin dir to use on PATH.
 make_gh_stub() {
   local mode="$1" json="$2"
   local dir; dir="$(mktemp -d)"
@@ -81,9 +61,6 @@ while IFS= read -r row || [ -n "$row" ]; do
   case "$row" in ''|\#*) continue;; esac
   row="${row%$'\r'}"
   split_tab "$row"
-  # Self-guard: a row that doesn't parse into exactly the expected column
-  # count is a runner bug (or a corrupt fixture), not a silently-defaulted
-  # pass - fail loudly instead of testing nothing for that row.
   if [ "${#cols[@]}" -ne "$EXPECT_COLS" ]; then
     echo "FATAL: row failed to parse (got ${#cols[@]} fields, want $EXPECT_COLS): [$row]" >&2
     exit 1
@@ -97,8 +74,6 @@ while IFS= read -r row || [ -n "$row" ]; do
 
   cmd="$(unescape "$command_raw")"
 
-  # __BODYFILE_REL__ / __BODYFILE_ABS__ placeholders -> write the fixture and
-  # substitute the real path into the command string.
   if [[ "$cmd" == *"__BODYFILE_REL__"* ]]; then
     rel="${name}-body.md"
     unescape "$bodyfile_content" > "$TMP/$rel"
@@ -140,16 +115,12 @@ while IFS= read -r row || [ -n "$row" ]; do
   fi
 done < "$CASES"
 
-# Self-guard: zero parsed cases means every row above was skipped (blank/#)
-# or the file is empty/missing content - the suite would otherwise report
-# "0 passed, 0 failed" as a clean, misleadingly-green exit.
 if [ "$case_count" -eq 0 ]; then
   echo "FATAL: parsed 0 cases from $CASES - this run tested nothing" >&2
   exit 1
 fi
 
 # ---- bespoke case: missing jq -> fail open (needs a PATH with no jq at all,
-# so it cannot be driven through the jq-built JSON the table rows share).
 NOJQ_DIR="$(mktemp -d)"
 ln -sf "$(command -v cat)" "$NOJQ_DIR/cat"
 raw_json='{"tool_input":{"command":"gh pr create --base develop --title \"x\""},"cwd":"'"$TMP"'"}'

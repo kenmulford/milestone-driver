@@ -1,13 +1,5 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for code-review-gate.ps1 (issue #289).
-# Bash parity of code-review-gate.test.sh - drives the SAME
-# tests/code-review-gate.cases.tsv and asserts the SAME exit code + stderr,
-# proving the bash/pwsh twins behave identically. The stub `gh` written for
-# the merge cases is a bash-shebang script (Linux-executable); CI runs both
-# legs on ubuntu-latest (.github/workflows/ci.yml), which is what this proves
-# - a native-Windows run of this file would need bash/WSL on PATH for the
-# merge-verb stub cases, the same cross-platform-helper posture already used
-# by tests/render-daemon.test.sh (a trivial python3 HTTP server).
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script = Join-Path $Here '../hooks/code-review-gate.ps1'
@@ -29,7 +21,6 @@ function New-GhStub([string]$mode, [string]$json) {
   New-Item -ItemType Directory -Path $dir | Out-Null
   switch ($mode) {
     'NOGH' {
-      # No gh stub at all -> caller sets PATH to just this (gh-less) dir.
     }
     'ERROR' {
       Set-Content -Path (Join-Path $dir 'gh') -Value "#!/usr/bin/env bash`nexit 1`n" -NoNewline -Encoding utf8NoBOM
@@ -114,12 +105,6 @@ foreach ($row in $rows) {
 }
 
 # ---- bespoke case: missing jq -> N/A for pwsh (native JSON, no jq dependency)
-# The pwsh twin never shells out to jq, so there is no equivalent fail-open
-# path to prove here - parity is about IDENTICAL observable behavior for every
-# case the TWO IMPLEMENTATIONS SHARE, not about mirroring an implementation
-# detail (jq) that only one twin has. See code-review-gate.ps1's ConvertFrom-Json
-# try/catch for its own fail-open-on-parse-error path (exercised by every
-# TSV row's ordinary JSON, which is why no dedicated row is needed).
 
 Write-Output "code-review-gate.ps1: $pass passed, $fail failed"
 if ($fail -eq 0) { exit 0 } else { exit 1 }

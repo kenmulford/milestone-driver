@@ -1,13 +1,5 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for build-file-index.ps1 (issue #318).
-# Twin of build-file-index.test.sh: asserts against the SAME build-file-index.cases.tsv
-# registry and _expected/ golden files so the bash and pwsh legs stay byte-identical.
-# The child is launched with Start-Process -WorkingDirectory <fixture root> so its
-# cwd-relative resolution matches the bash leg's subshell cd, and stdin/stdout/stderr
-# are redirected through temp files read back as UTF-8 (no-BOM). The goldens and
-# fixture names cover three UTF-8 width classes deliberately: 2-byte (U+00B7 in
-# the folded description), 3-byte (the U+2192 separator, U+FF21 in a sort-order
-# filename) and 4-byte (an astral emoji filename). All must survive byte-exact.
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $here '..' 'scripts' 'build-file-index.ps1'
 $cases = Join-Path $here 'build-file-index.cases.tsv'
@@ -20,7 +12,6 @@ $utf8 = [System.Text.UTF8Encoding]::new($false)
 function Read-Text([string]$path) {
   if (-not (Test-Path -LiteralPath $path)) { return '' }
   $t = [System.IO.File]::ReadAllText($path, $utf8)
-  # CR-strip and drop a single trailing newline to match the bash $(...) capture.
   ($t -replace "`r", '') -replace "`n$", ''
 }
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env pwsh
 # milestone-driver - runner for the dispatch-cap.ps1 hook; the pwsh twin of
-# tests/dispatch-cap.test.sh: same cases, same exit codes.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -26,8 +25,6 @@ function Show-Escaped([string]$s) {
 
 $Impl = 'milestone-driver:implementer'
 
-# New-Workspace [branch] [profileJson] - one-commit repo on <branch> with
-# <profileJson> as .milestone-config/driver.json; '-' writes none.
 function New-Workspace([string]$branch = 'issue/7-x', [string]$profileJson = '{"sourceGlobs":["src/**"]}') {
   $w = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $w | Out-Null
@@ -47,7 +44,6 @@ function New-Workspace([string]$branch = 'issue/7-x', [string]$profileJson = '{"
   return $w
 }
 
-# Invoke-Hook <root> <tool_name> <subagent_type|skill> <prompt|args> [agentId] [envOff]
 function Invoke-Hook([string]$root, [string]$tool, [string]$who, [string]$text, [string]$agentId = '', [bool]$envOff = $false) {
   $psi = [System.Diagnostics.ProcessStartInfo]::new()
   $psi.FileName = $pwshBin

@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 # milestone-driver - golden-matrix runner for ci-preflight-steps.sh (issue #162).
-# Each fixture is a repo-root under tests/fixtures/ci-preflight/<case>/ with a
-# .github/workflows/*.yml tree; the expected emitted output lives in
-# tests/fixtures/ci-preflight/_expected/<case>.txt. The .sh and .ps1 runners
-# assert against the SAME golden files (cross-impl parity).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -12,7 +8,6 @@ FIX="tests/fixtures/ci-preflight"
 GOLD="$ROOT/$FIX/_expected"
 [ -f "$SCRIPT" ] || { echo "FATAL: missing $SCRIPT" >&2; exit 3; }
 
-# case <name> [ciWorkflow] [goldenBasename]
 declare -a CASES=(
   "clean-run"
   "skip-rules"
@@ -22,9 +17,6 @@ declare -a CASES=(
   "block-scalar"
   "inline-comment"
   "multi-workflow"
-  # COLLATION (issue #471): alpha.yml + Zeta.yml rank differently under culture
-  # order and codepoint order. multi-workflow cannot catch it - alpha.yml/zeta.yml
-  # rank identically under both, and ASCII agreement is not evidence of parity.
   "sort-order"
   "services"
   "no-workflows-dir"
@@ -32,8 +24,6 @@ declare -a CASES=(
 )
 
 pass=0; fail=0
-# Paths are passed RELATIVE to the repo root (and we cd there) so the WARN path
-# text is checkout-independent and matches the committed golden exactly.
 cd "$ROOT"
 for spec in "${CASES[@]}"; do
   IFS='|' read -r name only gold <<< "$spec"
@@ -45,8 +35,6 @@ for spec in "${CASES[@]}"; do
   else
     got="$(bash "$SCRIPT" "$FIX/$name" 2>&1)"
   fi
-  # CR-normalize the golden so a CRLF checkout (Windows core.autocrlf) still
-  # compares clean - the script's own stdout is already LF. Mirrors the .ps1 runner.
   want="$(tr -d '\r' < "$exp")"
   if [ "$got" = "$want" ]; then
     pass=$((pass+1))

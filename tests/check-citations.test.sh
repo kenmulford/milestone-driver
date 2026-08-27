@@ -1,63 +1,5 @@
 #!/usr/bin/env bash
 # milestone-driver - golden-matrix runner for check-citations.sh (issue #432).
-# Each row of check-citations.cases.tsv is: name<TAB>golden<TAB>want_exit.
-# <name> is a fixture REPO ROOT under tests/fixtures/check-citations/<name>/ and
-# <golden> is its expected stdout under .../_expected/. The runner cd's to the
-# repo root and passes the fixture root as a RELATIVE path, so every path in the
-# emitted stream is checkout-independent and the golden can be asserted
-# literally (same rationale as tests/check-size-budgets.test.sh's per-case
-# relative root and tests/resolve-citation.test.sh's per-case cd).
-#
-# What the nine cases prove, one property each:
-#   resolves-once       an anchor matching exactly one line is OK, exit 0
-#   zero-matches        a stale anchor is FAIL 0 matches, exit 1
-#   two-matches         an anchor matching twice is FAIL 2 matches, exit 1 -
-#                       the uniqueness property. Exit status alone would never
-#                       catch it: issue #431 landed two anchors that resolved at
-#                       exit 0 onto the WRONG line.
-#   same-file           a same-file anchor citation reproduces its own anchor,
-#                       so the citing line is itself a match and the count is 2.
-#                       This is the DOCUMENTED behavior, asserted: the checker
-#                       carries no syntactic same-file rule (a basename
-#                       comparison flagged 3 cross-file citations as same-file,
-#                       because every skill file in this repo is SKILL.md).
-#   line-citation       `path:line` and `path:start-end` are UNVERIFIED and do
-#                       NOT move the exit code
-#   heading-forms       `path#Heading` and `path § Heading` RESOLVE against the
-#                       target's ATX headings, with the heading text bounded
-#                       correctly in every live shape: backtick-terminated,
-#                       ending in a balanced parenthetical, holding double
-#                       quotes inside a span, and a bare prose reference cut at
-#                       its comma. The markdown link target in the same file
-#                       emits NO record at all - discriminator rule 5
-#   heading-dangling    the four ways a heading citation fails: a renamed
-#                       `#Heading`, a renamed `§ Heading`, an AMBIGUOUS heading
-#                       (`2 matches`, where read-doc-section.sh would take the
-#                       first and succeed), and a target carrying no ATX heading
-#                       at all. Exit 1
-#   nested-and-missing  paren balance recovers an anchor holding `()` and one
-#                       holding a nested parenthetical; a citation whose TARGET
-#                       FILE does not exist is FAIL 0 matches
-#   prose-not-citation  one line per measured prose lookalike, and the whole
-#                       fixture emits NOTHING - a false positive here is the
-#                       failure mode that made a naive matcher unusable
-#   frozen-excluded     docs/superpowers/**, docs/briefs/**, CHANGELOG.md and
-#                       tests/fixtures/** are skipped as SOURCES, each with a
-#                       visible EXCLUDED count, while a live file in the same
-#                       tree still resolves
-#
-# Three bespoke case families follow the table: a missing REPO_ROOT (fail-loud on stderr,
-# empty stdout, exit 1) and a DEFAULT root (no argument at all, run from inside
-# the fixture), which is the one path the table cannot drive and the one where
-# `${1:-$PWD}` and the pwsh twin's `(Get-Location).Path` could diverge.
-#
-# RAW vs NORMALIZED - same rule as tests/resolve-citation.test.sh (RAW vs NORMALIZED - the distinction):
-#   * ACTUAL stdout/stderr is captured RAW and compared byte-for-byte, never
-#     rebuilt from a line array - otherwise the runner is blind to CRLF creep
-#     and to a missing trailing newline, the twin-parity bugs this matrix
-#     exists to catch.
-#   * The GOLDEN gets ONE normalization, CRLF -> LF, because a CRLF working
-#     tree (Windows core.autocrlf) rewrites the committed goldens.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -73,25 +15,6 @@ BASH_BIN="$(command -v bash)"
 pass=0; fail=0
 TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/cct.$$")"; mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
-# HERMETIC GIT EXCLUDES, for every case below. The gate under test runs
-# `git ls-files --others --ignored --exclude-standard`, and `--exclude-standard`
-# honors the developer's PERSONAL excludes alongside the tree's own .gitignore.
-# Measured: a `docs/` line in a developer's ~/.config/git/ignore turned
-# gen-ignored into `skipped=2 ok=0` against a golden expecting `skipped=1 ok=1`
-# - red on that machine, green in CI, which is the exact split the exclusion was
-# added to close.
-#
-# THREE LAYERS, AND THE THIRD IS THE ONE THAT ACTUALLY BITES. GIT_CONFIG_GLOBAL
-# naming a path that is never created drops ~/.gitconfig, and GIT_CONFIG_NOSYSTEM
-# drops /etc/gitconfig - but NEITHER touches `core.excludesFile`, whose DEFAULT
-# is $XDG_CONFIG_HOME/git/ignore and applies precisely because no config sets it.
-# Probed: with the poisoned XDG file above, both variables set, `ls-files` still
-# reported docs/citing.md. Only an explicit override closes it, so the
-# GIT_CONFIG_COUNT triple sets `core.excludesFile` to a path that does not exist
-# (git ignores a missing excludes file rather than failing).
-# The tree's own .gitignore and .git/info/exclude are UNAFFECTED by all three,
-# and those are what the cases actually exercise.
-# Keep this identical to the .ps1 runner's block.
 export GIT_CONFIG_GLOBAL="$TMP/absent-global-gitconfig"
 export GIT_CONFIG_NOSYSTEM=1
 export GIT_CONFIG_COUNT=1
@@ -103,24 +26,14 @@ ERRFILE="$TMP/err"
 
 TAB=$'\t'
 EXPECT_COLS=3
-# split_tab <row> - bash-3.2-safe TAB split preserving empty fields. Copied from
-# tests/resolve-citation.test.sh (split_tab <row>).
 split_tab() {
   local rest="$1$TAB"
   cols=()
   while [ -n "$rest" ]; do cols+=("${rest%%"$TAB"*}"); rest="${rest#*"$TAB"}"; done
 }
 
-# slurp_x <path> - a file's contents with a literal 'X' sentinel appended, so
-# the caller's $(...) cannot strip the trailing newline off the capture.
 slurp_x() { cat "$1"; printf X; }
 
-# read_golden <name> - the named golden, CRLF -> LF only, with the same trailing
-# 'X' sentinel slurp_x uses: this function is itself called through $(...), so
-# WITHOUT the sentinel the caller's command substitution strips the golden's
-# final newline and every case fails on a phantom one-byte diff. A
-# named-but-missing golden is FATAL - returning '' would silently turn the case
-# into "expect empty stdout", i.e. a green run that asserts nothing.
 read_golden() {
   [ -f "$GOLD/$1" ] || { echo "FATAL: case names a missing golden: $GOLD/$1" >&2; exit 3; }
   local g; g="$(slurp_x "$GOLD/$1")"; g="${g%X}"
@@ -151,8 +64,6 @@ while IFS= read -r row || [ -n "$row" ]; do
   else
     fail=$((fail+1))
     printf 'FAIL %s: rc=%s (want %s)\n' "$name" "$rc" "$want_exit" >&2
-    # od -c so a CR / missing-newline mismatch is visible in the diff rather
-    # than rendering identically to the expected text.
     diff <(printf '%s' "$exp_out" | od -c) <(printf '%s' "$out" | od -c) >&2 || true
     printf '  stderr got[%s] (want empty)\n' "$err" >&2
   fi
@@ -164,8 +75,6 @@ if [ "$case_count" -eq 0 ]; then
 fi
 
 # ---- bespoke: a REPO_ROOT that is not a directory. Fail-loud, and the stderr
-# golden is SHARED with the .ps1 runner so the two twins' refusal messages are
-# held byte-identical the way the record-stream goldens are.
 ROOT_GOLD="$GOLD/missing-root.stderr.txt"
 if [ ! -f "$ROOT_GOLD" ]; then
   echo "FATAL: missing golden $ROOT_GOLD" >&2; fail=$((fail+1))
@@ -185,9 +94,6 @@ else
 fi
 
 # ---- bespoke: NO argument at all, run from inside the fixture root. The table
-# always passes a root explicitly, so this is the only exercise of the
-# `${1:-$PWD}` default - and the only place it can diverge from the pwsh twin's
-# `(Get-Location).Path`.
 exp_out="$(read_golden "resolves-once.txt")"; exp_out="${exp_out%X}"
 ( cd "$ROOT/$FIX/resolves-once" && "$BASH_BIN" "$SCRIPT" >"$OUTFILE" 2>"$ERRFILE" ); rc=$?
 out="$(slurp_x "$OUTFILE")"; out="${out%X}"
@@ -202,35 +108,7 @@ else
 fi
 
 # ---- bespoke: GENERATED byte-level trees ------------------------------------
-# These inputs CANNOT live in a git-tracked fixture. .gitattributes pins
-# `tests/fixtures/** text eol=lf`, so a committed CRLF file is renormalized on
-# checkout and a committed UTF-16 file would be corrupted by that same
-# conversion; a FIFO, a symlink target and a chmod-000 directory are not
-# git-storable at all. They are built here byte for byte, and the .ps1 runner
-# builds the IDENTICAL trees and asserts the SAME committed goldens - which is
-# what holds the two legs' decoders and walks together. Before these cases the
-# fixture set had zero CRLF files, zero BOMs, zero files missing a final
-# newline, zero non-UTF-8 bytes, zero symlinks and zero non-regular files, and
-# that blind spot is exactly why the golden matrix stayed green through four
-# twin-splitting defects.
 
-# build_gen_bytes <base> - <base>/gen is the repo root; <base>/outside.md sits
-# OUTSIDE it, which is what the containment case reaches for.
-#   crlf.md       a trailing CR must not shift a line number or a match
-#   bom.md        a UTF-8 BOM is three ORDINARY BYTES; neither leg may strip it
-#   nonewline.md  a final line with no terminator still counts
-#   highbyte.md   a raw 0xE9 inside the anchor must reach stdout AS 0xE9 (the
-#                 pwsh leg used to emit EF BF BD, a U+FFFD substitution)
-#   utf16.md      a UTF-16 target. The pwsh leg used to DECODE it and report OK
-#                 while this leg reported FAIL 0 matches: same tree, one leg red
-#                 and one green
-#   ../outside.md containment: an anchor may not read a file next to the checkout
-# cite_line <n> <path> <anchor> - emits "<n> `<path> (<anchor>)`" plus a
-# newline. The citation is ASSEMBLED from arguments and never spelled out
-# literally anywhere in this file, because tests/ IS SCANNED by the gate under
-# test: a literal would be a real citation here, resolved against a fixture path
-# that does not exist in this repo, and the repo-wide run would fail on its own
-# test runner. Measured: spelling them out cost 18 FAIL records.
 cite_line() { printf '%s `%s (%s)`\n' "$1" "$2" "$3"; }
 
 build_gen_bytes() {
@@ -254,17 +132,6 @@ build_gen_bytes() {
   printf '\377\376u\000t\000f\0001\0006\000 \000a\000n\000c\000h\000o\000r\000\n\000' > "$b/gen/src/utf16.md"
 }
 
-# build_gen_unix <base> - non-regular entries and an unreadable directory.
-# Unix-only: a FIFO and an unprivileged symlink do not exist on Windows, so the
-# case reports SKIPPED there rather than failing. CI runs both legs on Linux.
-#   link.md    a symlink is LISTED BY NEITHER leg, so citing it is 0 matches
-#   pipe.md    a FIFO is listed but NEVER OPENED. Opening one blocks forever:
-#              this leg finished while the pwsh leg hung to a CI timeout with
-#              zero output
-#   locked/    a chmod-000 directory must be skipped, not fatal. It holds a
-#              CITATION-FREE file on purpose, so the golden is identical whether
-#              or not the chmod bit takes effect (it does not when the suite
-#              runs as root), while a leg that ABORTS on it still fails loudly
 build_gen_unix() {
   b="$1"
   mkdir -p "$b/gen/docs" "$b/gen/src" "$b/gen/locked"
@@ -282,17 +149,6 @@ build_gen_unix() {
   return 0
 }
 
-# build_gen_ignored <base> - a REAL git work tree, which is the only place the
-# gitignore exclusion can be exercised. `git ls-files --others --ignored` reports
-# UNTRACKED ignored files only, so a committed fixture is never ignored however
-# its own .gitignore reads; `git init` here is what makes `scratch.md` untracked
-# AND ignored. No commit and no user identity are needed for that query.
-#   scratch.md   ignored, and carrying an anchor that resolves NOWHERE. Before
-#                the exclusion this file was one FAIL record on every clone that
-#                had it and none in CI, which is the split the exclusion exists
-#                to close. The run is green WITH the file present
-# build_gen_ignored returns nonzero when `git init` fails, and the case then
-# reports SKIPPED rather than failing.
 build_gen_ignored() {
   b="$1"
   mkdir -p "$b/gen/docs" "$b/gen/src"
@@ -310,7 +166,6 @@ build_gen_ignored() {
   return 0
 }
 
-# run_generated <name> <root> <golden> <want_exit>
 run_generated() {
   gname="$1"; groot="$2"; ggold="$3"; gwant="$4"
   gexp="$(read_golden "$ggold")"; gexp="${gexp%X}"

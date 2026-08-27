@@ -1,11 +1,5 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for classify-review-depth.ps1 (issue #598).
-# Behavior-identical pwsh sibling of tests/classify-review-depth.test.sh: same
-# tests/classify-review-depth.cases.tsv table (including its `|`-separated
-# multi-value cells, its working-tree `ops` column and that column's `R:` run
-# root), then three bespoke cases rather than the bash leg's four: this leg
-# reads sourceGlobs with ConvertFrom-Json, so it has no jq dependency to strip
-# and no `no-jq` to assert.
 $ErrorActionPreference = 'Continue'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $here '..' 'scripts' 'classify-review-depth.ps1'
@@ -18,11 +12,7 @@ $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("crd-" + [guid]::NewGuid().T
 New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 $errFile = Join-Path $tmp 'err'
 
-# Byte-exact writes: UTF-8 without a BOM and LF line endings, so the fixture
-# tree the classifier sees is identical to what the bash runner builds.
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-# 24-line fixture bodies keep every M/E/D diff past the small-diff cap; only
-# `m<k>:` (rewrite the first k lines, a 2k-line diff) reaches it.
 function Get-SeedBlock { return (((1..24) | ForEach-Object { "seed $_" }) -join "`n") + "`n" }
 function Get-ChangedBlock { return (((1..24) | ForEach-Object { "changed $_" }) -join "`n") + "`n" }
 function Get-MixedBlock([int]$k) {
@@ -35,10 +25,6 @@ function Write-Fixture([string]$path, [string]$content) {
   [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 }
 
-# New-Repo <dir> - a throwaway repo pinned against the developer's global git
-# config: no hooks, no signing, no CRLF translation, fixed identity.
-# core.quotePath is deliberately left at its default, because the classifier has
-# to pin it itself and a pre-pinned fixture would hide that.
 function New-Repo([string]$d) {
   New-Item -ItemType Directory -Path $d -Force | Out-Null
   & git -C $d init -q 2>$null | Out-Null
@@ -55,17 +41,11 @@ function Commit-All([string]$d, [string]$msg) {
   & git -C $d commit -q -m $msg 2>$null | Out-Null
 }
 
-# The row's driver config. No glob in the table carries a character JSON
-# escapes, so the array is assembled by hand rather than through a serializer.
 function Write-Config([string]$repo, [string]$cell) {
   if ($cell -ceq '-') { return }
   $target = Join-Path $repo '.milestone-config/driver.json'
   if ($cell -ceq '@EMPTY@') { Write-Fixture $target "{}`n"; return }
-  # A JSON scalar where the schema says array. Spelled as a sentinel because the
-  # cell's `|` split can only ever build an array.
   if ($cell -ceq '@SCALAR@') { Write-Fixture $target "{`"sourceGlobs`":`"scripts/**`"}`n"; return }
-  # The legacy root layout, with NO .milestone-config/driver.json beside it, so
-  # the row exercises the fallback and not the canonical read.
   if ($cell -ceq '@LEGACY@') {
     Write-Fixture (Join-Path $repo 'milestone-driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
     return
@@ -75,8 +55,6 @@ function Write-Config([string]$repo, [string]$cell) {
   Write-Fixture $target ('{"sourceGlobs":[' + ($quoted -join ',') + "]}`n")
 }
 
-# The row's `R:<subdir>` argument, or ''. Read BEFORE the repo is populated,
-# because the run root is where driver.json has to land.
 function Get-RootSub([string]$cell) {
   if ($cell -ceq '-') { return '' }
   foreach ($op in ($cell -split '\|')) {
@@ -85,9 +63,6 @@ function Get-RootSub([string]$cell) {
   return ''
 }
 
-# The row's working-tree operations, applied after the base commit. Paths are
-# relative to the REPO root, never to the run root, so a row reads the same
-# whether or not it carries an `R:` op.
 function Invoke-Ops([string]$repo, [string]$cell) {
   if ($cell -ceq '-') { return }
   foreach ($op in ($cell -split '\|')) {
@@ -110,12 +85,7 @@ function Invoke-Ops([string]$repo, [string]$cell) {
   }
 }
 
-# $PwshBin is the resolved absolute path, so a stripped PATH override still
-# launches the child (`tests/code-review-gate.test.sh (restricted PATH)`).
 $PwshBin = (Get-Command pwsh).Source
-# $pathOverride is deliberately UNTYPED: a [string] parameter coerces a $null
-# default to '', which reads as "override PATH with nothing" on every
-# ordinary call.
 function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wantErr, $pathOverride = $null) {
   $savedPath = $env:PATH
   if ($null -ne $pathOverride) { $env:PATH = $pathOverride }
@@ -125,8 +95,6 @@ function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wa
   } finally {
     $env:PATH = $savedPath
   }
-  # Match the bash runner's $(...) capture, which strips only a trailing
-  # newline - NOT a broad .Trim(), which would mask a whitespace divergence.
   $out = ("$out") -replace '\r?\n$', ''
   $err = (Get-Content $errFile -Raw)
   $err = if ($null -eq $err) { '' } else { $err -replace '\r?\n$', '' }
@@ -144,8 +112,6 @@ foreach ($row in (Get-Content $cases)) {
   if ($row -match '^\s*#' -or $row.Trim() -eq '') { continue }
   $r = $row -replace "`r$", ''
   $cols = $r -split "`t"
-  # A row that does not parse into exactly $expectCols fields is a corrupt
-  # fixture, not a silently-defaulted pass.
   if ($cols.Count -ne $expectCols) {
     Write-Error "FATAL: row failed to parse (got $($cols.Count) fields, want $expectCols): [$r]"
     exit 1
@@ -163,7 +129,6 @@ foreach ($row in (Get-Content $cases)) {
     New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
   }
   Write-Config $runRoot $globs
-  # A committed seed, so HEAD exists even for a row naming no base file.
   Write-Fixture (Join-Path $repo 'README.md') "seed`n"
   if ($base -cne '-') {
     foreach ($bp in ($base -split '\|')) { Write-Fixture (Join-Path $repo $bp) (Get-SeedBlock) }
@@ -180,21 +145,16 @@ if ($caseCount -eq 0) {
 }
 
 # ---- bespoke: a root that is not a git repo at all. Fail open to standard,
-# never a crash.
 $b1 = Join-Path $tmp 'b-notrepo'; New-Item -ItemType Directory -Path $b1 -Force | Out-Null
 Invoke-Case 'not_a_git_repo' $b1 'standard' 'no-diff'
 
 # ---- bespoke: an initialized repo with no commit. `git diff HEAD` has no HEAD
-# to name and fails, so the candidate set is unreadable even though the tree
-# holds files.
 $b2 = Join-Path $tmp 'b-nohead'; New-Repo $b2
 Write-Fixture (Join-Path $b2 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
 Write-Fixture (Join-Path $b2 'scripts/a.sh') "seed`n"
 Invoke-Case 'repo_without_commits' $b2 'standard' 'no-diff'
 
 # ---- bespoke: git absent from PATH. There is no jq sibling to this case: this
-# leg reads sourceGlobs with ConvertFrom-Json, so it has no jq to lose and never
-# emits `no-jq`. That is the one token the two legs do not share.
 $b3 = Join-Path $tmp 'b-nogit'; New-Repo $b3
 Write-Fixture (Join-Path $b3 'scripts/a.sh') "seed`n"
 Commit-All $b3 'base'
