@@ -1,25 +1,40 @@
 #!/usr/bin/env bash
-# milestone-driver - comment-only delta classifier (issue #476).
+# milestone-driver - comment-only delta classifier (issues #476, #625).
 #
 # Answers ONE question for `skills/solve-issue/SKILL.md (After a fix, before
-# committing)`: is the working-tree delta comment text only, or did it change
-# code? The answer picks the post-fix branch, so it must be mechanical. It used
-# to be prose rules an agent applied by eye, and that prose failed two review
-# rounds on input shapes it had not enumerated. This script IS the enumeration.
+# committing)`: is the delta between a pre-fix tree and the tree now comment
+# text only, or did it change code? The answer picks the post-fix branch, so it
+# must be mechanical. It used to be prose rules an agent applied by eye, and
+# that prose failed two review rounds on input shapes it had not enumerated.
+# This script IS the enumeration.
 #
-# Usage:   classify-delta.sh [REPO_ROOT]
+# Usage:   classify-delta.sh --snapshot [REPO_ROOT]
+#          classify-delta.sh [REPO_ROOT] [PRE_TREE]
+#   --snapshot  write the working tree to a tree object and print its hash. The
+#               caller takes this immediately BEFORE dispatching the fix and
+#               passes the hash back as PRE_TREE once the fix returns.
 #   REPO_ROOT   path to a checked-out repo root (default: CWD).
+#   PRE_TREE    the hash a --snapshot call printed before the fix.
 #
-# Output (stdout), exactly one line, newline-terminated:
+# Output, snapshot mode: the tree hash on stdout, newline-terminated, exit 0.
+# On any failure: nothing on stdout, `snapshot-failed` on stderr, exit 1. This
+# is the one LOUD path here, deliberately - a classify degrade is safe because
+# it resolves to code-changed, but a silently empty hash would come back on the
+# next call as `no-pre` and hide the failure behind a plausible verdict.
+#
+# Output (stdout), classify mode, exactly one line, newline-terminated:
 #   comment-only    every changed line is comment text, in a mapped language
 #   code-changed    anything else
 # Output (stderr), only when the verdict is code-changed, exactly one token:
-#   untracked:<path>     an untracked file exists (see "Untracked" below)
-#   no-delta             git could not produce a delta (not a repo, no HEAD)
+#   no-pre               no PRE_TREE was given
+#   bad-pre:<tree>       PRE_TREE names no object, or names a non-tree
+#   no-delta             the post-fix snapshot failed, or git could not diff
 #   empty-delta          the delta is empty
 #   binary               a "Binary files ... differ" hunk
 #   unmapped-ext:<path>  a changed file whose extension is not in the mapping
-#   deleted:<path>       a tracked file the delta removes
+#   added:<path>         a file the pre-tree does not hold (see "A FILE THE
+#                        PRE-TREE DOES NOT HOLD" below)
+#   deleted:<path>       a file the post-tree does not hold
 #   rename:<path>        a file whose path changed, at its new path
 #   mode:<path>          an "old mode" / "new mode" header
 #   heredoc:<path>       a .sh file carrying a heredoc, so a column-0 comment
@@ -27,24 +42,77 @@
 #   directive:<path>     a machine-read directive behind a comment prefix
 #   code:<path>          a changed line that is not comment text
 #   no-content:<path>    a file whose diff block carries zero content lines
-#   no-content           a non-empty delta with no file block at all
-# Exit is ALWAYS 0. The verdict is the output, not the exit code, so a caller
-# never has to tell "code-changed" apart from "the script broke".
+# In classify mode Exit is ALWAYS 0. The verdict is the output, not the exit
+# code, so a caller never has to tell "code-changed" apart from "the script
+# broke".
 #
 # The safe direction is code-changed. Every uncertainty resolves that way,
 # because code-changed only costs a re-run of the unit suite and /code-review,
 # while a wrong comment-only skips both.
 #
-# WHAT THE DELTA IS. `git diff -U0 HEAD`, not bare `git diff -U0`: a denied
-# commit at `hooks/tests-green.sh` exit 2 leaves the tree staged, and bare
-# `git diff` then prints nothing, which would read as comment-only vacuously.
-# Diffing against HEAD sees staged and unstaged work alike.
+# WHAT THE DELTA IS. Two tree objects: the PRE_TREE a --snapshot call wrote
+# before the fix was dispatched, and a POST tree this run writes the same way.
+# NOT `git diff HEAD`, which this script read until #625: in the driver's
+# procedure the issue's own diff is still uncommitted while the review and its
+# fix happen, so HEAD is the state before the ISSUE and never the state before
+# the FIX. The delta was then the whole issue plus the fix, and `comment-only`
+# was reachable only when the entire issue was comment text.
 #
-# UNTRACKED FILES COUNT, and are checked first. `git diff HEAD` does not show
-# an untracked file at all, so a new source file would otherwise be invisible
-# and the delta around it would classify comment-only. A file that has been
-# staged IS visible in the delta, and is classified on its content like any
-# other. Visibility is the whole rule.
+# A snapshot is `GIT_INDEX_FILE=<temp> git add -A` then `git write-tree`, over a
+# temp index SEEDED from the repo's real one, so it sees staged, unstaged, and
+# untracked work alike. The real index is only ever READ, so this is safe to run
+# against a tree an agent is mid-way through. One consequence is not a read:
+# under `core.splitIndex` git resolves the shared index against the REAL gitdir,
+# so writing the seeded temp index can leave a new `sharedindex.*` file there
+# (measured 2026-08-27). The real index itself still parses and still describes
+# the same state.
+#
+# THE SEED IS LOAD-BEARING, not an optimization. `.gitignore` decides only what
+# an UNTRACKED path contributes; a TRACKED file the ignore rules also name stays
+# tracked, and its changes stay visible. Into an EMPTY index that is not what
+# happens: git reads a path with no index entry as untracked, `add -A` then
+# honors the ignore rule and drops it, and a code change in a tracked-and-
+# ignored file (a generated script, a committed .env) would be missing from BOTH
+# trees and classify comment-only (verified 2026-08-27). The seed keeps the
+# entry, so the file stays tracked in the tree this writes.
+#
+# THE SEED MUST KEEP THE REAL INDEX'S MTIME, which is why the copy is `cp -p`
+# (the pwsh leg restamps the copy). Git decides whether to trust an entry's
+# cached stat by comparing that entry's mtime against the mtime of the INDEX
+# FILE it was read from: an entry at or after it is "racily clean" and its
+# content is re-read. A copy stamped `now` makes every entry look safely old, so
+# `add -A` trusts the stat - and a same-size edit made in the same second as the
+# indexed write then has identical stat fields and is skipped, putting the
+# unchanged blob in the tree. Measured at 2 misses in 200 runs with a plain
+# copy, 0 in 200 with -p (2026-08-27). `git status` and `git diff HEAD` are not
+# exposed to it because they read the real index at its own mtime.
+#
+# Three hazards. The temp index must sit OUTSIDE the repo, or `add -A` records
+# the index's own lock file as a tree entry. Its path must not exist yet,
+# because git rejects a zero-length index file ("index file smaller than
+# expected") - exactly what a plain `mktemp` leaves behind - so the temp is a
+# DIRECTORY and the index is a name inside it. And the real index is located
+# with `git rev-parse --git-path index`, never a hardcoded `.git/index`: a
+# linked worktree keeps its index under `.git/worktrees/<name>/`, which is
+# precisely where the driver builds in parallel mode.
+#
+# A mode change is then whatever the seeded index plus `add -A` produce: an
+# index-only `git update-index --chmod` is visible because the seed carries that
+# entry, and a bare on-disk chmod only where `core.filemode` is true.
+#
+# Plain `git diff <tree>` was rejected: against a working tree it reports a path
+# the tree holds and the working tree leaves untracked as a DELETION (verified
+# 2026-08-26), so every untracked file in the pre-tree would read as `deleted:`.
+#
+# A FILE THE PRE-TREE DOES NOT HOLD IS `added:<path>`, whatever its content, and
+# that fires before the extension gate and before any content line is read.
+# Existence is behavior - a sourced, required, or CI-referenced path appearing
+# changes what runs - and it is the symmetric twin of `deleted:`. The rule this
+# replaces was a separate `ls-files --others` pre-scan emitting `untracked:`,
+# which `git diff HEAD` needed because it could not see an untracked file at
+# all. A tree pair sees one as an ordinary add, so both that pre-scan and that
+# token are retired, and a staged new file no longer classifies differently from
+# an unstaged one.
 #
 # HOW THE DIFF IS PARSED. A unified diff at -U0 has no context lines, so inside
 # a hunk every line starting with + or - is content and everything else is a
@@ -67,9 +135,10 @@
 #
 # A PATH CHANGE IS NOT A COMMENT EDIT, and neither is a deletion. The "+++"
 # path is compared against the "---" path: a differing pair is a rename carrying
-# an edit, and "+++ /dev/null" is a deletion. A file's existence is behavior,
-# because a sourced, required, or CI-referenced path disappearing changes what
-# runs.
+# an edit, "+++ /dev/null" is a deletion, and a "---" side of "/dev/null" is the
+# addition the paragraph above resolves. A file's existence is behavior, because
+# a sourced, required, or CI-referenced path appearing or disappearing changes
+# what runs.
 #
 # THE MARKER IS STRIPPED BEFORE THE PREFIX TEST, exactly one character. A
 # removed SQL comment "-- one" arrives as "--- one"; stripping one - leaves the
@@ -106,7 +175,11 @@ set -u
 # (`scripts/extract-version.sh (Force a deterministic byte model)`).
 export LC_ALL=C
 
-ROOT="${1:-$PWD}"
+if [ "${1:-}" = '--snapshot' ]; then
+  MODE='snapshot'; ROOT="${2:-$PWD}"; PRE=''
+else
+  MODE='classify'; ROOT="${1:-$PWD}"; PRE="${2:-}"
+fi
 ROOT="${ROOT%/}"
 
 # emit <verdict> [reason]
@@ -238,9 +311,58 @@ has_heredoc() {
   grep -q '<<' "$f" 2>/dev/null
 }
 
-# ---- 1. untracked files, before anything else.
-untracked="$(git -C "$ROOT" ls-files --others --exclude-standard 2>/dev/null | head -n 1)"
-[ -n "$untracked" ] && emit 'code-changed' "untracked:$untracked"
+# snapshot <root> - prints the tree hash for that root's working tree, or
+# returns 1 having printed nothing. The temp index is a name inside a temp
+# DIRECTORY, seeded from the real index, for the three hazards the header
+# records; the index and its lock are removed by name whichever way this goes.
+# A seed that cannot be copied returns 1 rather than falling back to an empty
+# index, which would silently reinstate the tracked-and-ignored blind spot.
+snapshot() {
+  local root="$1" dir idx real src tmproot tree='' seeded=1
+  # Named, not the default template: a leaked snapshot dir has to be findable
+  # (the suite counts cd-snap-* before and after), and the pwsh twin names its
+  # own the same way.
+  tmproot="${TMPDIR:-/tmp}"; tmproot="${tmproot%/}"
+  dir="$(mktemp -d "$tmproot/cd-snap-XXXXXX" 2>/dev/null)" || return 1
+  idx="$dir/index"
+  real="$(git -C "$root" rev-parse --git-path index 2>/dev/null)" || real=''
+  if [ -n "$real" ]; then
+    # --git-path prints a path relative to <root> unless it is already absolute,
+    # which it is for a linked worktree. The drive-letter patterns are the
+    # Windows spelling of absolute, where LC_ALL=C keeps the range byte-exact.
+    case "$real" in
+      /*|[A-Za-z]:/*|[A-Za-z]:\\*) src="$real" ;;
+      *) src="$root/$real" ;;
+    esac
+    # -p, not a bare cp: the copy must carry the real index's mtime, or git
+    # trusts a stat cache it would otherwise have re-checked (see THE SEED MUST
+    # KEEP THE REAL INDEX'S MTIME).
+    [ -f "$src" ] && { cp -p "$src" "$idx" 2>/dev/null || seeded=0; }
+  fi
+  if [ "$seeded" = '1' ] && GIT_INDEX_FILE="$idx" git -C "$root" add -A >/dev/null 2>&1; then
+    tree="$(GIT_INDEX_FILE="$idx" git -C "$root" write-tree 2>/dev/null)" || tree=''
+  fi
+  # Unconditional: git leaves an index.lock behind on some failure paths, and a
+  # by-name removal would then leave the directory standing forever.
+  rm -rf "$dir"
+  [ -n "$tree" ] || return 1
+  printf '%s' "$tree"
+}
+
+if [ "$MODE" = 'snapshot' ]; then
+  snapshot_tree="$(snapshot "$ROOT")" || { printf '%s' 'snapshot-failed' >&2; exit 1; }
+  printf '%s\n' "$snapshot_tree"
+  exit 0
+fi
+
+# ---- 1. the tree pair, pre-fix first.
+[ -n "$PRE" ] || emit 'code-changed' 'no-pre'
+# The type test rejects a name no object answers to and a real object of the
+# wrong kind alike. Outside a repo it fails too, which is why a non-repo root
+# reports bad-pre and never reaches the snapshot below.
+[ "$(git -C "$ROOT" cat-file -t "$PRE" 2>/dev/null)" = 'tree' ] \
+  || emit 'code-changed' "bad-pre:$PRE"
+POST="$(snapshot "$ROOT")" || emit 'code-changed' 'no-delta'
 
 # ---- 2. the delta.
 # The -c and -- flags pin the output shape against any repo/user config that
@@ -248,10 +370,12 @@ untracked="$(git -C "$ROOT" ls-files --others --exclude-standard 2>/dev/null | h
 # codes, an external diff driver, or a textconv filter. -M forces rename
 # detection ON, so a rename reports as a rename (no content lines, hence
 # code-changed) instead of decomposing into a delete plus an add whose
-# all-comment content would read as comment-only.
-delta="$(git -C "$ROOT" -c core.quotePath=false --no-pager diff -U0 --no-color \
-  --no-ext-diff --no-textconv -M --src-prefix=a/ --dst-prefix=b/ HEAD 2>/dev/null)" \
-  || emit 'code-changed' 'no-delta'
+# all-comment content would read as comment-only. -r is redundant beside -p,
+# which recurses on its own, and is written anyway: diff-tree does NOT recurse
+# by default, and a reader should not have to know which flag implies it.
+delta="$(git -C "$ROOT" -c core.quotePath=false --no-pager diff-tree -r -p -U0 \
+  -M --no-color --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/ \
+  "$PRE" "$POST" 2>/dev/null)" || emit 'code-changed' 'no-delta'
 [ -n "$delta" ] || emit 'code-changed' 'empty-delta'
 
 # ---- 3. walk it.
@@ -354,6 +478,9 @@ while IFS= read -r line; do
       if [ -n "$a_path" ] && [ "$a_path" != "$new_path" ]; then
         verdict='code-changed'; reason="rename:$new_path"; break
       fi
+      if [ -z "$a_path" ]; then
+        verdict='code-changed'; reason="added:$new_path"; break
+      fi
       set_file "$new_path"
       # The extension gate fires at registration, not at the first content
       # line, so an unmapped file that changed with no readable content still
@@ -368,9 +495,13 @@ while IFS= read -r line; do
 done < <(printf '%s\n' "$delta")
 
 [ -n "$verdict" ] && emit "$verdict" "$reason"
-if [ "$block_open" = '1' ]; then
-  [ "$block_content" -eq 0 ] && emit 'code-changed' "no-content:$block_path"
-else
-  emit 'code-changed' 'no-content'
-fi
+# The first line is an UNREACHABLE fail-safe and is kept as one: `diff-tree -r
+# -p` opens every non-empty output with a `diff --git` header (verified against
+# a mode-only change, an empty-file add, and a symlink typechange in both
+# directions), so no input arrives here with no block open. One ever doing so
+# would mean the delta was not parsed at all, where the safe answer is
+# code-changed - and that is why its token is absent from the list above, which
+# documents only what a caller can actually be handed.
+[ "$block_open" = '1' ] || emit 'code-changed' 'no-content'
+[ "$block_content" -eq 0 ] && emit 'code-changed' "no-content:$block_path"
 emit 'comment-only'

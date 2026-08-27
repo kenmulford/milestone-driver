@@ -1,8 +1,12 @@
-# Golden matrix for scripts/classify-delta.{sh,ps1} (issue #476).
+# Golden matrix for scripts/classify-delta.{sh,ps1} (issues #476, #625).
 #
-# One throwaway git repo per row. `base` is committed, then `work` is written to
-# the working tree, then `ops` runs, then the classifier runs against the repo
-# root.
+# One throwaway git repo per row. `base` is committed, then the row takes a
+# PRE-fix snapshot through the classifier's own `--snapshot` mode - so every row
+# exercises that path - then `work` is written to the working tree, then the
+# untracked file lands, then `ops` runs, then the classifier runs as
+# `<repo-root> <pre-tree>`. The snapshot sits at the commit here, so a row's
+# delta is what `git diff HEAD` used to show; the bespoke cases at the end of
+# the runner are where the snapshot moves off HEAD.
 #
 # Columns: name  path  base  work  untracked  ops  expected_stdout  expected_stderr
 #   path       one file, or several separated by `|`
@@ -15,8 +19,10 @@
 #                chmodx:<path>    git update-index --chmod=+x
 #
 # Header shapes with no TSV-expressible input (new file mode, similarity index,
-# Binary files, \ No newline at end of file, staged deltas, a non-repo root)
-# ride as bespoke cases at the end of the runner.
+# Binary files, \ No newline at end of file, staged deltas, an ignored file, a
+# linked worktree, a snapshot taken anywhere but the commit, an unresolvable
+# pre-tree, a bare repo, a non-repo root) ride as bespoke cases at the end of
+# the runner.
 #
 # name	path	base	work	untracked	ops	expected_stdout	expected_stderr
 # --- .sh -------------------------------------------------------------------
@@ -68,10 +74,10 @@ sql_code_changed	a.sql	-- c\nSELECT 1;\n	-- c\nSELECT 2;\n	-	-	code-changed	code
 # --- extension mapping -----------------------------------------------------
 unmapped_extension	a.txt	hello\n	world\n	-	-	code-changed	unmapped-ext:a.txt
 no_extension_at_all	Makefile	all:\n	all: x\n	-	-	code-changed	unmapped-ext:Makefile
-# --- untracked and empty ---------------------------------------------------
-untracked_only	a.sh	# c\n	=	new.sh	-	code-changed	untracked:new.sh
-untracked_plus_comment_edit	a.sh	# old\n	# new\n	new.sh	-	code-changed	untracked:new.sh
-untracked_unmapped_ext	a.sh	# c\n	=	notes.txt	-	code-changed	untracked:notes.txt
+# --- an added file, and an empty delta -------------------------------------
+untracked_only	a.sh	# c\n	=	new.sh	-	code-changed	added:new.sh
+untracked_plus_comment_edit	a.sh	# old\n	# new\n	new.sh	-	code-changed	added:new.sh
+untracked_unmapped_ext	a.sh	# c\n	=	notes.txt	-	code-changed	added:notes.txt
 empty_delta	a.sh	# c\n	=	-	-	code-changed	empty-delta
 # --- content is counted per file, not across the delta (#476 defect 1) ------
 # A 100%-similar rename emits no content lines at all, so a comment reword in
@@ -82,6 +88,8 @@ per_file_content_control	a.sh|b.sh	# old\nexit 0\n|# one\n# two\n	# new\nexit 0\
 rename_with_comment_edit	a.sh	# old\nx=1\ny=2\nz=3\nexit 0\n	# new\nx=1\ny=2\nz=3\nexit 0\n	-	mv:a.sh:b.sh	code-changed	rename:b.sh
 rename_control_same_path	a.sh	# old\nx=1\ny=2\nz=3\nexit 0\n	# new\nx=1\ny=2\nz=3\nexit 0\n	-	-	comment-only	
 # --- mode headers (#476 defect 3) -------------------------------------------
+# The snapshot seeds its throwaway index from the real one, so an index-only
+# chmod is a mode change in the tree it writes, on every platform.
 mode_change_with_comment_edit	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	chmodx:a.sh	code-changed	mode:a.sh
 mode_control_no_chmod	a.sh	# old\nexit 0\n	# new\nexit 0\n	-	-	comment-only	
 # --- a block comment that closes mid-line (#476 defect 4) -------------------
