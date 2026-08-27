@@ -161,8 +161,7 @@ $bespoke = 4
 if ($Leg -eq 'sh') {
   $bespoke = 5
   $nojq = Join-Path $tmp 'bin-nojq'; New-Item -ItemType Directory -Path $nojq -Force | Out-Null
-  $g = Get-Command git -CommandType Application
-  Copy-Item -LiteralPath $g.Source -Destination (Join-Path $nojq (Split-Path -Leaf $g.Source))
+  Add-ToolStub git $nojq
   $b4 = Join-Path $tmp 'b-nojq'; New-Repo $b4
   Write-Fixture (Join-Path $b4 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
   Write-Fixture (Join-Path $b4 'scripts/a.sh') "seed`n"

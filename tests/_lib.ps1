@@ -13,6 +13,15 @@ function Set-Leg([string]$leg) {
   $script:MdLeg = $leg
 }
 function Get-Leg { return $script:MdLeg }
+# First PATH hit for a real executable, placed in $dir under its own name.
+function Add-ToolStub([string]$name, [string]$dir) {
+  $c = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $c) { return }
+  $dest = Join-Path $dir (Split-Path -Leaf $c.Source)
+  if ($IsWindows) { Copy-Item -LiteralPath $c.Source -Destination $dest }
+  else { New-Item -ItemType SymbolicLink -Path $dest -Target $c.Source | Out-Null }
+}
+
 function Get-BashBin {
   if ($env:MD_BASH_BIN) { return $env:MD_BASH_BIN }
   if ($IsWindows) {

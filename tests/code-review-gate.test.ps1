@@ -22,10 +22,7 @@ function New-GhStub([string]$mode, [string]$json) {
   switch ($mode) {
     'NOGH' {
       if ($Leg -eq 'sh') {
-        foreach ($b in @('jq', 'cat')) {
-          $c = Get-Command $b -CommandType Application -ErrorAction SilentlyContinue
-          if ($c) { Copy-Item -LiteralPath $c.Source -Destination (Join-Path $dir (Split-Path -Leaf $c.Source)) }
-        }
+        foreach ($b in @('jq', 'cat')) { Add-ToolStub $b $dir }
       }
     }
     'ERROR' {
