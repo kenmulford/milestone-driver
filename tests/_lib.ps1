@@ -30,7 +30,9 @@ function Get-BashBin {
       if (Test-Path -LiteralPath $c) { return $c }
     }
   }
-  return 'bash'
+  # Absolute: .NET resolves a bare name against the child's PATH, which cases may empty.
+  $c = Get-Command bash -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  return $(if ($c) { $c.Source } else { 'bash' })
 }
 # Invoke-Leg -Script <path without extension> [-Args] [-Stdin] [-Cwd] [-Env]
 function Invoke-Leg {
