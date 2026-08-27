@@ -15,7 +15,7 @@ The ordered sequence · Resolve the target, and re-sync it · Run it on this mai
 | # | Step | Detail |
 |---|---|---|
 | 1 | Resolve `<target>` | from the granularity resolved at run start, per the next section |
-| 2 | Re-run guard | milestone path: `git log <target> --grep='^Simplify-Pass: ' --format=%H`. PR path: `gh pr list --head "chore/simplify-<milestone-slug>" --state all --json number --jq '.[0].number // empty'`. Either one hitting: log one line, end the pass |
+| 2 | Re-run guard | **Exactly one path runs, by granularity.** Milestone path: `base="$(git merge-base <ref> <target>)" && [ -n "$base" ] && git log "$base".."<target>" --grep='^Simplify-Pass: ' --format=%H` (`skills/solve-milestone/milestone-granularity.md § Resume and buildability from the trailer`). PR path, `<target>` being `integrationBranch`, where the milestone query is inert: `gh pr list --head "chore/simplify-<milestone-slug>" --state all --json number --jq '.[0].number // empty'`. A hit: log one line, end the pass |
 | 3 | Re-sync `<target>` | `integrationBranch` only; a failure ends the pass here |
 | 4 | Diff | `git diff <milestoneBaseCommit>...<target>`, read-only |
 | 5 | Findings | `/simplify` on this main line, taken only as far as its review output |
