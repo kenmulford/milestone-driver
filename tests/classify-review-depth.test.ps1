@@ -21,6 +21,14 @@ $errFile = Join-Path $tmp 'err'
 # Byte-exact writes: UTF-8 without a BOM and LF line endings, so the fixture
 # tree the classifier sees is identical to what the bash runner builds.
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+# 24-line fixture bodies keep every M/E/D diff past the small-diff cap; only
+# `m<k>:` (rewrite the first k lines, a 2k-line diff) reaches it.
+function Get-SeedBlock { return (((1..24) | ForEach-Object { "seed $_" }) -join "`n") + "`n" }
+function Get-ChangedBlock { return (((1..24) | ForEach-Object { "changed $_" }) -join "`n") + "`n" }
+function Get-MixedBlock([int]$k) {
+  return (((1..24) | ForEach-Object { if ($_ -le $k) { "changed $_" } else { "seed $_" } }) -join "`n") + "`n"
+}
+
 function Write-Fixture([string]$path, [string]$content) {
   $dir = Split-Path -Parent $path
   if ($dir) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
@@ -88,13 +96,16 @@ function Invoke-Ops([string]$repo, [string]$cell) {
     $p = $op.Substring($i + 1)
     $full = Join-Path $repo $p
     switch -CaseSensitive ($kind) {
-      'M' { Write-Fixture $full "changed`n" }
-      'N' { Write-Fixture $full "changed`n" }
-      'E' { Write-Fixture $full "changed`n"; & git -C $repo add $p 2>$null | Out-Null }
-      'S' { Write-Fixture $full "changed`n"; & git -C $repo add $p 2>$null | Out-Null }
+      'M' { Write-Fixture $full (Get-ChangedBlock) }
+      'N' { Write-Fixture $full (Get-ChangedBlock) }
+      'E' { Write-Fixture $full (Get-ChangedBlock); & git -C $repo add $p 2>$null | Out-Null }
+      'S' { Write-Fixture $full (Get-ChangedBlock); & git -C $repo add $p 2>$null | Out-Null }
       'D' { Remove-Item -LiteralPath $full -Force }
       'R' { }
-      default { Write-Error "FATAL: unknown op [$op]"; exit 1 }
+      default {
+        if ($kind -cmatch '^m(\d+)$') { Write-Fixture $full (Get-MixedBlock ([int]$Matches[1])) }
+        else { Write-Error "FATAL: unknown op [$op]"; exit 1 }
+      }
     }
   }
 }
@@ -155,7 +166,7 @@ foreach ($row in (Get-Content $cases)) {
   # A committed seed, so HEAD exists even for a row naming no base file.
   Write-Fixture (Join-Path $repo 'README.md') "seed`n"
   if ($base -cne '-') {
-    foreach ($bp in ($base -split '\|')) { Write-Fixture (Join-Path $repo $bp) "seed`n" }
+    foreach ($bp in ($base -split '\|')) { Write-Fixture (Join-Path $repo $bp) (Get-SeedBlock) }
   }
   Commit-All $repo 'base'
   Invoke-Ops $repo $ops
@@ -190,6 +201,15 @@ Commit-All $b3 'base'
 Write-Fixture (Join-Path $b3 'scripts/a.sh') "changed`n"
 Invoke-Case 'git_absent_from_path' $b3 'standard' 'no-git' ''
 
+# ---- bespoke: a binary change, `-` in numstat, is never small.
+$b5 = Join-Path $tmp 'b-binary'; New-Repo $b5
+Write-Fixture (Join-Path $b5 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
+New-Item -ItemType Directory -Path (Join-Path $b5 'scripts') -Force | Out-Null
+[System.IO.File]::WriteAllBytes((Join-Path $b5 'scripts/blob.bin'), [byte[]](0x73, 0x65, 0x65, 0x64, 0x00, 0x01))
+Commit-All $b5 'base'
+[System.IO.File]::WriteAllBytes((Join-Path $b5 'scripts/blob.bin'), [byte[]](0x63, 0x68, 0x61, 0x6E, 0x67, 0x65, 0x64, 0x00, 0x01))
+Invoke-Case 'binary_diff_is_not_small' $b5 'standard' ''
+
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "classify-review-depth.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 3 bespoke)"
+Write-Host "classify-review-depth.ps1: $pass passed, $fail failed (parsed $caseCount TSV cases + 4 bespoke)"
 if ($fail -ne 0) { exit 1 }

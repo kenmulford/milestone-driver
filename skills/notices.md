@@ -28,6 +28,7 @@ section below, never restated inline in either SKILL.md.
 - [uisurfaceglobs](#uisurfaceglobs)
 - [visual-hold-removed](#visual-hold-removed)
 - [code-review-run-no](#code-review-run-no)
+- [dispatch-cap](#dispatch-cap)
 
 ## Section fields
 
@@ -250,4 +251,19 @@ Examples:
 | What | code-review-gate no longer stops at the '## Code Review' heading. It parses that section's "/code-review run:" value and DENIES `gh pr create` / `gh pr merge` when the value reads "no", is empty, or is missing entirely.
 | OK   | Accepted values, matched EXACTLY and case-sensitively: "yes", and "n/a - <reason>" for a PR carrying no sourceGlobs change. Any other value denies, "Yes" and "YES" included.
 | Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 is unchanged. A missing jq or gh, an unreadable --body-file, and a failed `gh pr view` all still fail open.
+```
+
+## dispatch-cap
+
+- **Marker:** `.milestone-config/dispatch-cap-notice`
+- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+
+**Text:**
+
+```text
+▶ New in 1.25.0: the review ladder's caps are a hook (one-time notice)
+
+| What | dispatch-cap DENIES the 4th `/code-review` run and the 4th implementer dispatch per issue (the first build plus 2 fixes, shared across every gate). A denied dispatch means park.
+| Also | A diff of at most 20 changed lines with no deep trigger now classifies `shallow`: one low-effort review, no coherence pass.
+| Opt-out | CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1; missing jq/git fails open. Reset one issue: delete `.git/milestone-driver/dispatch-cap/<kind>-<issue>`.
 ```

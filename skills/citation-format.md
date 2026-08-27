@@ -27,8 +27,8 @@ not gated; the `](` before its path is what separates them.
 
 **Where a heading exists, a heading form remains the form to write.**
 `path#Heading` is resolved by `scripts/read-doc-section.{sh,ps1}`, which fails
-loud on a miss; `skills/solve-issue/SKILL.md (Pull a superset via the primitive)`
-and `skills/triage/SKILL.md (Pull a superset via the primitive)` invoke that
+loud on a miss; `skills/solve-issue/SKILL.md (Pass the anchors, not the sections)`
+and `skills/triage/SKILL.md (Pass the anchors, not the sections)` name that
 resolver once per run over the anchors an issue cites. `path § Heading` is the
 prose spelling of the same target - one lives at
 `skills/solve-milestone/SKILL.md (parallel-waves.md § Parallelizable-set selection)`

@@ -42,6 +42,7 @@ $ErrorActionPreference = 'Continue'
 # and so git's own output decodes as UTF-8 before Get-ByteKey re-encodes it.
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $Root = ($Root -replace '/+$', '')
+$SmallDiffMaxLines = 20
 
 # Latin1 is the byte<->char bijection: every byte 0x00-0xFF maps to the char of
 # the same value and back, losslessly
@@ -225,5 +226,26 @@ foreach ($p in $src) {
 # sourceGlobs verdict: it is the one candidate whose depth is unknown, and it
 # is the reason this run cannot claim `shallow`.
 if ($null -ne $rejected) { Emit 'standard' ('rejected-path:' + $rejected) }
-if ($src.Count -gt 0) { Emit 'standard' '' }
-Emit 'shallow' ''
+if ($src.Count -eq 0) { Emit 'shallow' '' }
+
+# ---- 7. under sourceGlobs with no deep trigger: standard, unless the whole
+# tracked diff is small enough for the demotion (`scripts/classify-review-depth.sh
+# (THE SMALL-DIFF DEMOTION)`). A `-` count (binary) or a failed read is over.
+$over = $false
+$total = 0
+try {
+  $numstat = @(& git -C $Root --no-pager diff --no-color --no-renames --numstat HEAD 2>$null)
+  if ($LASTEXITCODE -ne 0 -or $numstat.Count -eq 0) { $over = $true }
+} catch {
+  $over = $true
+}
+if (-not $over) {
+  foreach ($line in $numstat) {
+    if ([string]::IsNullOrEmpty($line)) { continue }
+    $f = $line.Split("`t")
+    if ($f.Count -lt 3 -or $f[0] -notmatch '^\d+$' -or $f[1] -notmatch '^\d+$') { $over = $true; break }
+    $total += [int]$f[0] + [int]$f[1]
+  }
+}
+if (-not $over -and $total -le $SmallDiffMaxLines) { Emit 'shallow' ('small-diff:' + $total) }
+Emit 'standard' ''

@@ -1,6 +1,6 @@
 ## Post-build coherence pass
 
-The branch that reaches this file belongs to the caller, which resolves `coherenceReviewAgent` and tests both presence and configuration before reading it (`skills/solve-issue/SKILL.md (Coherence review)`). Reaching this file therefore means the coherence-reviewer agent is **both** dispatchable in this session **and** configured; a run where either test fails silently skips and never reads this file.
+The branch that reaches this file belongs to the caller, which runs the review-depth classifier and, on `standard` or `deep`, resolves `coherenceReviewAgent` and tests both presence and configuration before reading it (`skills/solve-issue/SKILL.md (Coherence review)`). Reaching this file therefore means the coherence-reviewer agent is **both** dispatchable in this session **and** configured; a `shallow` diff, or a run where either test fails, silently skips and never reads this file.
 
 ### The pass
 
