@@ -9,16 +9,22 @@ on:
     branches: [main, develop]
 
 jobs:
-  suites:
-    name: suites (ubuntu, both legs)
+  shell-tests:
+    # "shell-tests (bash)" and "shell-tests (pwsh)" are the required checks on
+    # develop and main; renaming the job means editing branch protection too.
+    name: shell-tests (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: bash, leg: sh }
+          - { name: pwsh, leg: ps1 }
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
-      - name: all suites, ps1 leg
-        run: pwsh tests/run-all.ps1 -Leg ps1
-      - name: all suites, sh leg
-        run: pwsh tests/run-all.ps1 -Leg sh
+      - name: all suites, ${{ matrix.leg }} leg
+        run: pwsh tests/run-all.ps1 -Leg ${{ matrix.leg }}
       # The two scripts/check-* steps that run against THIS repo's real tree,
       # on both legs, so a <line> that differs between twins is caught.
       - name: citations resolve
