@@ -3,6 +3,34 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.24.2 - the comment-only fix branch becomes reachable
+
+**Theme:** The post-fix classifier stops diffing against HEAD, which in the driver's own procedure is the state before the *issue*, and diffs the post-fix tree against a snapshot taken immediately before the fix.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #625 classify-delta diffs against HEAD, so comment-only is unreachable in the driver | #626 | `scripts/classify-delta.{sh,ps1}` gain `--snapshot <root>`: the working tree (staged, unstaged, untracked; `.gitignore` honored) is written to a tree object through a throwaway index seeded from the real one (`git rev-parse --git-path index`, mtime preserved) and the hash is printed; the real index is never written. Classify mode is `<root> <pre-tree>`: it snapshots the post side and runs `git diff-tree -r -p -U0 -M` over the pair; the parser and every reason token are unchanged. Snapshot failure is loud: no hash, `snapshot-failed` on stderr, exit 1. Classify still exits 0 always and fails safe to `code-changed` with `no-pre`, `bad-pre:<tree>`, or `no-delta`. `untracked:<path>` is retired; a file the pre-tree does not hold is `added:<path>` whatever its content, symmetric with `deleted:`. `solve-issue` step 6.1 takes the snapshot before the fix re-dispatch; `post-fix-commit.md` and `parallel-waves.md` step 7 classify against the held hash, and a nonzero `--snapshot` takes the `code-changed` branch. 66 golden rows plus 19 bespoke cases per leg, byte-identical across legs. |
+
+### Consumer notes (upgrading from v1.24.1)
+
+- **The classifier's call shape changed.** `classify-delta.<sh|ps1> <repo-root>` with no second argument now prints `code-changed` with `no-pre` on stderr instead of classifying: the tree hash from `--snapshot`, taken before the fix is dispatched, is a required second argument. Both skills that call it were updated; a consumer or wrapper calling it directly must take the snapshot itself.
+- **One reason token is retired.** `untracked:<path>` is gone: a new file reports `added:<path>` instead, staged or not, whatever its content. The bare `no-content` is no longer documented, having no reachable input; `no-content:<path>` is unchanged.
+- **Under `core.splitIndex`, taking a snapshot can leave a new `sharedindex.*` file in `.git/`.** Git resolves the shared index against the real gitdir even when the index being written is a throwaway one. The real index still parses and still describes the same state; `git gc` removes the extra file.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- **The seed's mtime is pinned by a golden case, but only on the bash leg.** `racily_clean_same_size_edit` fixes the indexed mtime, the file's post-edit mtime, and the index file's own mtime to one instant and sets `core.checkStat minimal`, so the racily-clean rule is git's only remaining reason to re-read the content; removing `cp -p` reddens it on every run. The pwsh mutation does not redden on macOS, because `Copy-Item` preserves the timestamp there on its own: the explicit `LastWriteTimeUtc` restamp is what makes that guarantee platform-independent, and the bash mutation is what proves the property is load-bearing.
+- **`unreadable_seed_is_loud` cannot run everywhere.** It needs a real index the process cannot read, which `chmod 000` gives on Unix and Windows does not, so the case skips on Windows and on any root user, and the rule is enforced there only by the bash leg. A `FileShare::None` handle was considered and rejected: it blocks a copy on Windows but not on macOS, so it moves the gap rather than closing it, and it could not be verified from here. Swallowing the pwsh copy error does not redden the case either, because `Copy-Item` leaves a zero-byte destination behind and git then rejects that index outright ("index file smaller than expected"), so the pwsh leg fails loud by a second route rather than by the rule under test.
+- A snapshot failure on a healthy repo (an unwritable temp dir, a full disk) has no golden case: the two that exist reach the branch through a directory that is not a repo and through a bare one. Classify mode degrades to `code-changed` `no-delta` there, and snapshot mode exits 1, but neither path is exercised under a real write failure.
+- The seed is deliberately a hard failure: a real index that exists and cannot be copied returns no hash rather than falling back to an empty index, because that fallback is exactly the tracked-and-ignored blind spot the release fixes.
+- `CHANGELOG.md` carries no `## v1.24.1` section. 1.24.1 shipped in `3502b37` (#623) without one, and this entry does not invent one.
+- Ceiling state a contributor's next edit hits: `skills/solve-issue/post-fix-commit.md` measures 4310/4500 bytes and 649/700 words, `skills/solve-issue/SKILL.md` 41983/44000 bytes and 5862/6200 words. No ceiling was raised on any axis. The advisory CRLF `WARN` on `skills/solve-milestone/changelog-authoring.md` (85 bytes free) predates this change and is untouched.
+
 ## v1.24.0 - diff-classified review depth, unconditional merge, /simplify at milestone end
 
 **Theme:** Review effort stops being guessed from an issue's pre-build risk label and starts being classified from the diff the implementer actually returned. The visual-review hold is gone at every integration granularity, so a UI issue auto-merges on green CI exactly like a logic issue. `/simplify` runs once at milestone end. The code-review gate stops accepting a bare heading as proof a review happened.
