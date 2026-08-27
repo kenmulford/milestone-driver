@@ -11,6 +11,8 @@ $script:MdUtf8 = [System.Text.UTF8Encoding]::new($false)
 function Set-Leg([string]$leg) {
   if ($leg -notin @('ps1', 'sh')) { throw "unknown leg [$leg]" }
   $script:MdLeg = $leg
+  # Resolved once here, on the real PATH: cases may replace PATH before Invoke-Leg runs.
+  $script:MdBashBin = if ($leg -eq 'sh') { Get-BashBin } else { $null }
 }
 function Get-Leg { return $script:MdLeg }
 # First PATH hit for a real executable, placed in $dir under its own name.
@@ -30,7 +32,7 @@ function Get-BashBin {
       if (Test-Path -LiteralPath $c) { return $c }
     }
   }
-  # Absolute: .NET resolves a bare name against the child's PATH, which cases may empty.
+  # Absolute: .NET resolves a bare name against the child's PATH.
   $c = Get-Command bash -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   return $(if ($c) { $c.Source } else { 'bash' })
 }
@@ -46,7 +48,7 @@ function Invoke-Leg {
   $target = if ($script:MdLeg -eq 'sh') { "$Script.sh" } else { "$Script.ps1" }
   if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw "FATAL: missing $target" }
   if ($script:MdLeg -eq 'sh') {
-    return Invoke-Child -Exe (Get-BashBin) -Argv (@($target) + $Args) -Stdin $Stdin -Cwd $Cwd -Env $Env
+    return Invoke-Child -Exe $script:MdBashBin -Argv (@($target) + $Args) -Stdin $Stdin -Cwd $Cwd -Env $Env
   }
   return Invoke-InProcess -Path "$Script.ps1" -Argv $Args -Stdin $Stdin -Cwd $Cwd -Env $Env
 }
@@ -60,7 +62,7 @@ function Invoke-Spawn {
     [hashtable]$Env = @{}
   )
   if ($script:MdLeg -eq 'sh') {
-    return Invoke-Child -Exe (Get-BashBin) -Argv (@("$Script.sh") + $Args) -Stdin $Stdin -Cwd $Cwd -Env $Env
+    return Invoke-Child -Exe $script:MdBashBin -Argv (@("$Script.sh") + $Args) -Stdin $Stdin -Cwd $Cwd -Env $Env
   }
   return Invoke-Child -Exe (Get-Command pwsh).Source -Argv (@('-NoProfile', '-File', "$Script.ps1") + $Args) -Stdin $Stdin -Cwd $Cwd -Env $Env
 }
