@@ -169,6 +169,21 @@
 #     CLOSUREs output-style.md belongs to - setup 7200 -> 7600, solve-milestone
 #     9200 -> 9900, triage 8100 -> 8600. New actuals 11260 / 1762, 14605 /
 #     2235, closures 7263 / 9435 / 8212. The next edit re-derives normally.
+#     RECORDED RAISE, issue #639 (decision 2026-08-27):
+#     agents/triage-reviewer.md BYTE 16000 -> 16500, WORD 2500 -> 2600, for the
+#     severity table's Advisory/Blocker row split and the criterion-4 sentence
+#     and example commentary that re-key an undeclared dependency's severity
+#     to groundability rather than to absence from the body. New actuals
+#     16357 / 2523. LINE 119/120 still holds and does not move.
+#     agents/blocker-resolver.md BYTE 10500 -> 11500, WORD 1700 -> 1800, for
+#     the `undeclared-dependency` row rewrite that now names only the two
+#     cases the resolver actually receives under that same severity rule -
+#     ungrounded-after-source-set and cyclic - since the grounded case moved
+#     to Advisory and no longer reaches it. New actuals 10783 / 1709;
+#     10783 * 1.05 = 11322.15, rounded UP to the next 500 = 11500;
+#     1709 * 1.05 = 1794.45, rounded UP to the next 100 = 1800. LINE 115/125
+#     still holds and does not move. Spent on this issue's four edits: the
+#     next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -313,10 +328,10 @@ skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
-agents/blocker-resolver.md                          125    10500     1700
+agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    15500     2200
-agents/triage-reviewer.md                           120    16000     2500
+agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each

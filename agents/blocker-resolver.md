@@ -27,7 +27,7 @@ One question per Blocker: **does the record already answer it?** Answering it is
 | Blocker type | What resolving it means |
 |---|---|
 | `contradiction` | Name which of the two recorded statements governs, grounded in the **authoritative** one - the issue that defines the artifact, a decision recorded as the decision, or the cited source. Recency alone is never the tiebreaker. |
-| `undeclared-dependency` | Name the edge and the sibling issue that introduces the artifact, read at `file:line`. |
+| `undeclared-dependency` - ungrounded-after-source-set or cyclic only (`agents/triage-reviewer.md § Severity rule`) | Ungrounded: search the record (sibling bodies, milestone description, cited `.project/` docs) for the introducing issue; found states the edge with the missing reference, as the edit; not found is `NEEDS_HUMAN`. Cyclic: name the cycle and the recorded decision breaking it (a `Non-goals` line, an `after` edge, a recorded ordering); none is `NEEDS_HUMAN` - a Wave-order change is a human call. |
 | `not-buildable` | Supply the conventional default the search finds, cited, stated as the value the builder writes. |
 | `missing-criteria` | Supply the criterion an established convention already fixes - the empty state, the error path, the discovery path - cited. |
 | `risky-design` | Name the established pattern the issue diverges from, cited, or the recorded justification for diverging. |

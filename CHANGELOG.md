@@ -3,6 +3,20 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.26.0 - grounded edges stay Advisory, the orchestrator keeps its context small
+
+**Theme:** A dependency the triage reviewer grounds at `file:line` stays Advisory instead of parking the issue and dispatching the resolver (#639); the orchestrator's own context footprint gets the same discipline next (#640).
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #639 An undeclared dependency the reviewer grounds at `file:line` no longer parks the issue or dispatches the resolver | #<pr> | `agents/triage-reviewer.md`'s criterion 4 and severity table re-key an undeclared dependency's severity to groundability: grounded at `file:line` is Advisory (`type: undeclared-dependency`, its edge in `DEPENDS_ON`, `to_clear` the `Depends on #<n> - <reference>` line to add), Blocker only when it cannot be grounded once the source set is exhausted or would cycle with the declared Wave order or the other edges returned. The issue-#37 example re-keys to the same verdict. `skills/triage/SKILL.md` Step 4's graph note and Step 6's park-label row follow: only the Blocker variant surfaces as a Blocker or parks `needs decision` - an Advisory never parks. `agents/blocker-resolver.md`'s `undeclared-dependency` row now covers only the two cases that still reach it - ungrounded after the source set, or cyclic with the Wave order - and what resolving each means. |
+
+### Consumer notes (upgrading from v1.25.0)
+
+- **An issue whose only gap is a grounded missing `Depends on` line no longer parks or dispatches the resolver.** The edge lands in the validated dependency graph as an Advisory instead.
+
 ## v1.25.0 - the ladder's caps become a hook, and briefs carry paths
 
 **Theme:** The caps the orchestrator overran were text. The review→fix cycle cap and the implementer re-dispatch cap are now a hook; a small diff classifies `shallow` and skips the coherence pass; briefs name the docs an agent reads instead of pasting them.
