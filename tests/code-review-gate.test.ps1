@@ -112,8 +112,7 @@ foreach ($row in $rows) {
 if ($Leg -eq 'sh') {
   $nojq = Join-Path $Tmp 'nojq'
   New-Item -ItemType Directory -Path $nojq -Force | Out-Null
-  $c = Get-Command cat -CommandType Application -ErrorAction SilentlyContinue
-  if ($c) { Copy-Item -LiteralPath $c.Source -Destination (Join-Path $nojq (Split-Path -Leaf $c.Source)) }
+  Add-ToolStub cat $nojq
   $rawJson = @{ tool_input = @{ command = 'gh pr create --base develop --title "x"' }; cwd = $Tmp } | ConvertTo-Json -Compress
   $r = Invoke-Leg -Script $Script -Stdin $rawJson -Cwd $Tmp -Env @{ PATH = $nojq }
   if ($r.rc -eq 0 -and $r.err -eq '' -and $r.out -eq '') { Pass-T } else { Fail-T 'missing_jq_failopen' $r.rc 0 $r.err '' $r.out }
