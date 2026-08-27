@@ -1,14 +1,12 @@
 #!/usr/bin/env pwsh
 # milestone-driver - runner for the dispatch-cap.ps1 hook; the pwsh twin of
-# tests/dispatch-cap.test.sh: same cases, same exit codes.
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
 $Root = (Resolve-Path (Join-Path $Here '..')).Path
-$Hook = Join-Path $Root 'hooks' 'dispatch-cap.ps1'
-if (-not (Test-Path -LiteralPath $Hook)) { Write-Error "FATAL: missing $Hook"; exit 3 }
-$Hook = (Resolve-Path $Hook).Path
-$pwshBin = (Get-Command pwsh).Source
+$Hook = Join-Path $Root 'hooks' 'dispatch-cap'
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Error 'FATAL: git required'; exit 3 }
 $env:CLAUDE_HOOK_DISABLE_DISPATCH_CAP = $null
 
@@ -26,8 +24,6 @@ function Show-Escaped([string]$s) {
 
 $Impl = 'milestone-driver:implementer'
 
-# New-Workspace [branch] [profileJson] - one-commit repo on <branch> with
-# <profileJson> as .milestone-config/driver.json; '-' writes none.
 function New-Workspace([string]$branch = 'issue/7-x', [string]$profileJson = '{"sourceGlobs":["src/**"]}') {
   $w = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $w | Out-Null
@@ -47,36 +43,15 @@ function New-Workspace([string]$branch = 'issue/7-x', [string]$profileJson = '{"
   return $w
 }
 
-# Invoke-Hook <root> <tool_name> <subagent_type|skill> <prompt|args> [agentId] [envOff]
 function Invoke-Hook([string]$root, [string]$tool, [string]$who, [string]$text, [string]$agentId = '', [bool]$envOff = $false) {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $pwshBin
-  foreach ($a in @('-NoProfile', '-File', $Hook)) { [void]$psi.ArgumentList.Add($a) }
-  $psi.WorkingDirectory = $Tmp
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  $psi.StandardInputEncoding = $utf8
-  $psi.StandardOutputEncoding = $utf8
-  $psi.StandardErrorEncoding = $utf8
-  if ($envOff) { $psi.Environment['CLAUDE_HOOK_DISABLE_DISPATCH_CAP'] = '1' }
   if ($tool -eq 'Skill') { $ti = @{ skill = $who; args = $text } }
   else { $ti = @{ subagent_type = $who; prompt = $text } }
   $obj = @{ tool_name = $tool; tool_input = $ti; cwd = $root }
   if ($agentId) { $obj['agent_id'] = $agentId }
   $payload = $obj | ConvertTo-Json -Compress
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $p.StandardInput.Write($payload)
-  $p.StandardInput.Close()
-  $outTask = $p.StandardOutput.ReadToEndAsync()
-  $errTask = $p.StandardError.ReadToEndAsync()
-  $p.WaitForExit()
-  return @{
-    out = $outTask.GetAwaiter().GetResult()
-    err = $errTask.GetAwaiter().GetResult()
-    rc  = $p.ExitCode
-  }
+  $envs = @{}
+  if ($envOff) { $envs['CLAUDE_HOOK_DISABLE_DISPATCH_CAP'] = '1' }
+  return Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp -Env $envs
 }
 
 function Expect([string]$label, $r, [int]$want) {
@@ -156,5 +131,5 @@ foreach ($i in 1..3) { [void](Invoke-Hook $WM 'Agent' $Impl 'x') }
 Expect 'malformed-profile-deny-4th' (Invoke-Hook $WM 'Agent' $Impl 'x') 2
 
 Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "dispatch-cap.ps1: $pass passed, $fail failed"
+Write-Host "dispatch-cap ($Leg): $pass passed, $fail failed"
 if ($fail -ne 0) { exit 1 }
