@@ -3,6 +3,58 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.25.0 - the ladder's caps become a hook, and briefs carry paths
+
+**Theme:** The caps the orchestrator overran were text. The review→fix cycle cap and the implementer re-dispatch cap are now a hook; a small diff classifies `shallow` and skips the coherence pass; briefs name the docs an agent reads instead of pasting them.
+
+### ✨ Added
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `hooks/dispatch-cap.{sh,ps1}` (PreToolUse `Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch per issue. Main thread only. Key: branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the brief. Counter under `<git-common-dir>/milestone-driver/dispatch-cap/`, reset when HEAD moves. Escape `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1`. 27 cases per leg. |
+
+### 🔧 Changed
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `scripts/classify-review-depth.{sh,ps1}`: no deep trigger, no rejected candidate, and at most 20 changed lines (`git diff --numstat HEAD`) is `shallow`, `small-diff:<n>` on stderr. Binary or failed reads stay `standard`. 7 rows plus a binary case per leg. |
+| - | - | `solve-issue` section 6 runs the classifier before the coherence pass and skips it on `shallow`; `review-depth.md` allows that earlier run. |
+| - | - | The per-gate "2 re-dispatches" budgets and the review loop's fixes share one budget: 3 implementer dispatches per issue. `solve-issue` step 4, `parallel-waves.md`, and `contingencies.md` point at the hook. |
+| - | - | Briefs carry paths. `solve-issue` and `triage` name the prose-contract path and the cited `.project/` anchors (with the `read-doc-section` path) instead of pasting section text; the agent reads them. The code-comment rule is no longer quoted into the brief. Agent input lists updated. |
+
+### Consumer notes (upgrading from v1.24.3)
+
+- **A new gate loads at session start.** Restart Claude Code after updating. A repo with no profile is never gated.
+- **A denied dispatch is the park signal.** To re-run one issue by hand, delete its counter file or set the escape variable.
+- **Small diffs get one low-effort review and no coherence pass.** No knob; the deep triggers still win.
+## v1.24.3 - squash commits and aggregate PR bodies stop carrying every issue's prose
+
+**Theme:** The driver's squash merges pass an explicit subject and body, and the milestone and wave PR bodies carry a choice-only Decision Log with collapsed Code Review sub-entries, so a release PR pre-fills from a one-line commit instead of 41 KB of concatenated fold commits.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #629 Squash merges pass an explicit subject and body; milestone and wave PR bodies shrink to a choice-only Decision Log and collapsed Code Review sub-entries | #632 | Every squash site in `skills/` (solve-issue step 8, parallel-waves Phase 2 step 2, changelog-authoring 6.8, milestone-granularity step 4, integration-granularity wave disposition, simplify-pass PR path) runs one `&&`-joined call: `title="$(gh pr view <pr-number> --json title --jq .title)" && [ -n "$title" ] && gh pr merge <pr-number> --squash --delete-branch --subject "$title (#<pr-number>)" --body "$body"`, the shape defined once at step 8. `$body` is `Decision Log and Code Review: PR #<pr-number>` (or `Code Review: PR #<pr-number>` for the CHANGELOG and simplify PRs); 6.8 owns the `CHANGELOG: <heading>` second line, conditional at milestone end. Step 6.2 posts the four-slot Decision Log on the issue as the `📋 Decision Log` comment (idempotent on resume); the milestone and wave PR bodies carry a choice-only Decision Log pointing at it and `<details>`-collapsed `### #<n>` Code Review sub-entries with `#<n>` alone as the summary, both shapes defined once in `skills/output-style.md`. `hooks/code-review-gate.{sh,ps1}` headers record that merge flags set the merge commit, not the PR body; four golden rows cover the one-call shape, a `<details>`-wrapped body, a `run: no` inside the wrapper, and a newline body. |
+| #630 Every trailer query reads the milestone window, not the milestone branch's whole history | #633 | The four `git log --grep` trailer queries in `skills/` take a **guarded** merge-base window - `base="$(git merge-base <ref> <milestone-branch>)" && [ -n "$base" ] && git log "$base".."<milestone-branch>" --grep=...` - at the resume-and-buildability query, milestone end step 3's `Simplify-Pass:` sub-entry query, `simplify-pass.md` step 2's re-run guard, and `milestone-clauses.md` row 3. `skills/solve-milestone/milestone-granularity.md § Resume and buildability from the trailer` defines it once: `<ref>` is `origin/<integrationBranch>` where that ref resolves, else the local `<integrationBranch>`, and a failed `merge-base` or an empty `base` is a loud stop taking the pre-clean guard's leg-4 systemic-halt shape, never the empty state. `milestone-clauses.md` row 2 adds the ref-resolves check a standalone `solve-issue` run needs; `simplify-pass.md` step 2 scopes each path to its own granularity, the milestone query being inert where `<target>` is `integrationBranch`. `integration-granularity.md`'s buildable condition (a), its step 2 pre-clean guard, and its Step 9 `built-green` / `abandoned` rows name the window; `docs/architecture.md` cites the defining section instead of publishing the unbounded query. `^...$` anchoring on every pattern is unchanged. |
+
+### Consumer notes (upgrading from v1.24.2)
+
+- **Squash commits on your integration branch are now one subject line plus a pointer.** The Decision Log and Code Review live on the PR (and the Decision Log on the issue's `📋 Decision Log` comment), not in the commit message. A repo setting of `squash_merge_commit_message: COMMIT_MESSAGES` no longer matters to the driver's merges.
+- **A new byte-fixed opener, `📋 Decision Log`**, on the per-issue comment step 6.2 posts. Anything parsing issue comments by opener sees one more.
+- **Milestone and wave PR bodies changed shape.** The Decision Log section is one choice-only line per issue; each Code Review sub-entry is wrapped in `<details><summary>#<n></summary>`. The `## Code Review` heading and the `/code-review run:` slot the gate reads are unchanged.
+- **A resumed milestone run no longer reads trailers from before the milestone.** An integration branch whose history already carries `Issue:` and `Simplify-Pass:` lines - a `COMMIT_MESSAGES` squash from before this release - no longer reports that work as already integrated on a later milestone branch, and no longer skips the simplify pass.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Ceilings raised in `scripts/check-size-budgets.{sh,ps1}`, each derived by the script's own rule and recorded in its header: `skills/output-style.md` BYTE 9500 to 11500 and WORD 1600 to 1800, `skills/solve-milestone/changelog-authoring.md` BYTE 14000 to 15500 and WORD 2200 to 2400, and the `setup` / `solve-milestone` / `triage` closures.
+- Ceiling state a contributor's next edit hits: `skills/output-style.md` 11260/11500 bytes and 1762/1800 words, `skills/solve-milestone/changelog-authoring.md` 14605/15500 and 2235/2400, `skills/solve-issue/SKILL.md` 43678/44000 bytes at 316/320 lines with its closure at 12256/12300. `skills/solve-issue/SKILL.md` took no raise; its added prose was traded back inside the file, which also cleared the advisory CRLF WARN that pass raised. No WARN row remains.
+- `/code-review` ran four cycles on this issue against a two-cycle ladder (`skills/review-depth.md § The ladder`). Cycles 3 and 4 found only prose-level defects; the deterministic gates were green from cycle 2 onward. Filed as #631 alongside the park-rule defect.
+- Fold commits on a milestone branch still carry the full Decision Log and `Code-Review:` block; they are deleted with the branch after the squash and never reach the integration branch.
+
 ## v1.24.2 - the comment-only fix branch becomes reachable
 
 **Theme:** The post-fix classifier stops diffing against HEAD, which in the driver's own procedure is the state before the *issue*, and diffs the post-fix tree against a snapshot taken immediately before the fix.

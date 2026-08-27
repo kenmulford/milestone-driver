@@ -4,9 +4,8 @@ The single source of truth for milestone-driver's output contract. Every skill's
 `## Output style` section and every agent's `## Communication style` section points
 here.
 
-It sits one level up from the skill folders, for the same recorded reason as
-`skills/notices.md (It sits here - a peer of the skill)`: a reference file with no
-single owning skill is not nested inside any one skill's directory.
+It sits one level up from the skill folders, for the reason
+`skills/notices.md (It sits here - a peer of the skill)` records.
 
 ## The surface split - read this first
 
@@ -51,7 +50,7 @@ Every GitHub-facing shape carries an explicit **evidence/citation slot, not just
 
 Each shape is defined **once, here**. Its call sites point at this section; they do not restate the slots. Citations inside those slots follow one format, defined once in the citation-format file, `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md`, handed to every agent bar the coherence leaf as `citationFormatPath`.
 
-**Openers are parsed downstream - never change them.** `🔴 Parked - `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md (Issues parked)` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
+**Openers are parsed downstream - never change them.** `🔴 Parked - `, `🔴 Triage`, and `🔴 Blocked` are matched literally by `skills/solve-milestone/SKILL.md (Issues parked)` ("A format-matching comment is one whose body opens with…") and probed by `skills/solve-milestone/parallel-waves.md (the probe found a park label)`; `📋 Decision Log` is probed by `solve-issue` step 6.2, which PATCHes the comment it matches and creates one only when it matches none. Every shape below restructures what *follows* its opener; the opener itself is byte-fixed.
 
 | Shape | Opener | Required slots |
 |---|---|---|
@@ -59,13 +58,19 @@ Each shape is defined **once, here**. Its call sites point at this section; they
 | **Blocked comment** (dependency hold, `solve-milestone`) | `🔴 Blocked - ` | the same three: **reason** · **evidence** (the unmerged upstream issue numbers) · **what unblocks it** (merge the upstream, re-run; the `blocked` label self-clears) |
 | **STOP/PAUSE reason** (`solve-milestone` park step) | `🔴 Parked - ` | the same three, sourced from the implementer's or `solve-issue`'s own return - confirm all three are present before accepting the existing comment |
 | **Decision Log entry** (PR body) | - | **choice** · **rationale** · **citation** (doc URL, repo ref per `citationFormatPath`, or skill - never fabricated) · **rejected alternatives** |
+| **📋 Decision Log comment** (`solve-issue` step 6.2) | `📋 Decision Log` | one entry per line (**choice** · **rationale** · **citation** · **rejected alternatives**) · the **`DOMAIN_SKILLS_INVOKED`** line · the implementer's **CITATIONS** block |
 | **`## Code Review` section** (PR body) | - | run + effort · finding count · per-finding resolution · **evidence** (each finding's ref per `citationFormatPath`, or the effort level when the count is 0) · park-trigger list |
 | **Triage comment** (`triage`) | `🔴 Triage` | a **structured gap list** - one row per Blocker: lens/type · description · **evidence** · `to_clear`. The closing line stays prose ONLY when it carries something the structure does not (the durable-async-note instruction); otherwise it is cut. |
-| **Wave PR body** (`parallel-waves`) | - | the Wave's built-green issues, UI included · **evidence** (per issue: its branch and the gates it passed on the wave branch) · **exactly one** anchored `## Code Review` heading, one `### #<n>` sub-entry per issue, a one-issue Wave included, no special case (`skills/solve-milestone/milestone-granularity.md (aggregates these blocks under)`) |
+| **Wave PR body** (`parallel-waves`) | - | the Wave's built-green issues, UI included · **evidence** (per issue: its branch and the gates it passed on the wave branch) · a **choice-only Decision Log** · **exactly one** anchored `## Code Review` heading at column 0, one `<details>`-collapsed `### #<n>` sub-entry per issue, a one-issue Wave included, no special case (`skills/solve-milestone/milestone-granularity.md (aggregates these blocks under)`) |
+| **Milestone PR body** (`solve-milestone`, milestone granularity) | - | the same slots - issue list · **evidence** · choice-only Decision Log · one anchored `## Code Review` heading - over every issue on the milestone branch, plus a `### /simplify` sub-entry when that pass left a commit (`skills/solve-milestone/milestone-granularity.md (Open one PR into)`) |
 | **CHANGELOG entry** (becomes the release body) | - | **theme** (one line - the release's net behavior change) · per bucket, one line per issue · **evidence** (the issue number and its merged PR) · **Consumer notes** (only what changes what a consumer types, configures, or must expect) · **⚖️ audit trail** (the judgment-call PR list, plus a fact list: open defects with their issue numbers, any dropped acceptance criterion as what the shipped gate does NOT verify, and any ceiling or budget state the next edit hits). **Not slots here:** how the work went (review rounds, RED-first discovery, provenance), the release's own justification, and editing history. |
 | **👁️ Visual evidence comment** (PR) | `👁️` | per shot: surface × viewport × appearance · **evidence** (the embedded image and its blob link) |
 | **Resolved comment** (`triage`) | `🟢 Resolved` | one row per resolved Blocker: **original gap** · **resolution** · **evidence** · **the edit a builder applies**; closes on **the park label to clear** |
 | **`to_clear` field** (both reviewer agents; both `triage` return blocks) | - | the decision or artifact a human must record, plus its **evidence** reference (per `citationFormatPath`) when one exists. **Structural constraint, not a word count:** one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
+
+**Choice-only Decision Log** - the two aggregate PR-body shapes above, and nothing else: one line per issue, `- #<n>: <choice>; <choice>; …`, each `<choice>` the text before the first ` · ` of that issue's Decision Log entries, the `DOMAIN_SKILLS_INVOKED:` line excluded. Closed by the line `Full entries (choice · rationale · citation · rejected alternatives) are on each issue's Decision Log comment.` (`skills/solve-issue/SKILL.md` step 6.2). No slot is lost, only relocated: the **Decision Log entry** row still governs every per-issue PR body and the integration commit, and the `📋 Decision Log` comment holds the four slots once the squash and `--delete-branch` have discarded that commit.
+
+**`<details>` sub-entry wrapper** - every `## Code Review` sub-entry of those same two shapes, `### /simplify` included: `<details><summary>#<n></summary>`, a blank line, the `### #<n>` heading and its Code-Review block de-indented to column 0, a blank line, `</details>`. The summary is the issue number alone (`/simplify` for that sub-entry), never its title: a title inside the `## Code Review` span could carry `/code-review run:` or `## Code Review` and deny or mis-scope the gate's verdict parse (`hooks/code-review-gate.sh (heading_match <text>)`).
 
 ## The two anti-criteria
 

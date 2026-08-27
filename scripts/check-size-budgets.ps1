@@ -79,7 +79,7 @@ skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
-skills/solve-milestone/changelog-authoring.md       205    14000     2200
+skills/solve-milestone/changelog-authoring.md       205    15500     2400
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
@@ -91,7 +91,7 @@ skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   270    12500     1800
-skills/output-style.md                               85     9500     1600
+skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
@@ -167,10 +167,10 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # with that table, row for row, the same requirement the governed set carries.
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
-skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
+skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       12300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 '@
 
 # Parse into three index-aligned lists, by the same rule the governed parse

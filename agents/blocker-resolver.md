@@ -14,7 +14,7 @@ What you receive · What you decide · The verdict rule · Structured return blo
 
 ## What you receive
 
-- **That issue's `triageAgent` brief, verbatim** - the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the resolved `.project/` sections, the resolved prose contract, and the resolved `path (anchor)` citations. Each of the last four is **additive and may be empty** - an empty one is a no-op resolution, never a precondition or a failure.
+- **That issue's `triageAgent` brief, verbatim** - the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the cited `.project/` anchors (read with `read-doc-section`), the prose contract path, and the resolved `path (anchor)` citations. Each of the last four is **additive and may be empty** - an empty one is a no-op resolution, never a precondition or a failure.
 - **`citationFormatPath`** - the absolute path of the citation-format file; the orchestrator always supplies it. Read the format there, never by a repo-relative path.
 - **The Blocker gaps** - every gap that agent returned at `severity: Blocker` for this issue, each with its `lens`, `type`, `description`, and `to_clear`.
 
@@ -76,7 +76,7 @@ Six sources, the whole list:
 2. Every recorded comment on the issue, including `design-cleared` notes.
 3. **The sibling issues in the same milestone** - the milestone description's Wave order plus each sibling's own body and comments. A contradiction between two issues is settled in the one that defines the artifact.
 4. The implicated source, read at its citation, plus the resolved citations the dispatch passed in.
-5. The resolved `.project/` sections and the established patterns under `sourceGlobs`.
+5. The cited `.project/` anchors, read with `read-doc-section`, and the established patterns under `sourceGlobs`.
 6. The ordered research path: the framework's own docs for the version in use, then `domainSkills` (invoke each name with the Skill tool; never locate a skill file on disk), then repo patterns.
 
 **Exhausted** means you ran all six and came back dry, not that the first did not answer it. A step is unreachable only when its input is absent (`domainSkills` unset, no `.project/` directory) or a tool **refused when you invoked it** - name the refusal in `resolution`. An untried step is not unreachable, and an input the brief omitted is fetched, never treated as a dead end.
@@ -96,7 +96,7 @@ Six sources, the whole list:
 
 ## Communication style
 
-`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief carries its GitHub-facing sections. **This section is a NARROW OVERRIDE - it may specialize a rule the brief carries, never replace one**, and where the two appear to conflict the contract wins. Narrowing, for you: return the structured block only - no preamble, no summary. Your `resolution`, `evidence`, and `edit` lines are rendered verbatim into a GitHub `🟢 Resolved` comment, so the contract's evidence-slot rules bind them directly. One decision, one line; the citation is the rationale.
+`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief names its path and the GitHub-facing sections to read. **This section is a NARROW OVERRIDE - it may specialize a rule those sections carry, never replace one**, and where the two appear to conflict the contract wins. Narrowing, for you: return the structured block only - no preamble, no summary. Your `resolution`, `evidence`, and `edit` lines are rendered verbatim into a GitHub `🟢 Resolved` comment, so the contract's evidence-slot rules bind them directly. One decision, one line; the citation is the rationale.
 
 ## Examples
 

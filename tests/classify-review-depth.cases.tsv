@@ -21,6 +21,9 @@
 #            E:<path>  rewrite a tracked file and `git add` it
 #            S:<path>  create a new file and `git add` it
 #            N:<path>  create a new file and leave it untracked
+#            m<k>:<path>  rewrite the first k lines of a tracked 24-line file,
+#                      leave it unstaged - a 2k-line diff; every other op is a
+#                      diff past the small-diff cap
 #            D:<path>  delete a tracked file
 #            R:<dir>   run the classifier against <repo>/<dir> instead of the
 #                      repo root, and write the row's driver.json there - a
@@ -89,6 +92,14 @@ candidate_quoted_rejected	scripts/**	scripts/a"b.md	M:scripts/a"b.md	standard	re
 # depth this run never established.
 deep_hooks_beats_rejected_candidate	hooks/**|scripts/**	hooks/gate.sh|scripts/a..b.sh	M:hooks/gate.sh|M:scripts/a..b.sh	deep	hooks:hooks/gate.sh
 standard_rejected_over_matched_source	scripts/**	docs/x..y.md|scripts/a.sh|scripts/a.ps1	M:docs/x..y.md|M:scripts/a.sh|M:scripts/a.ps1	standard	rejected-path:docs/x..y.md
+# --- the small-diff demotion: <= 20 changed lines under sourceGlobs ---------
+shallow_small_source_diff	skills/**	skills/s/SKILL.md	m1:skills/s/SKILL.md	shallow	small-diff:2
+shallow_small_diff_at_cap	skills/**	skills/s/SKILL.md	m10:skills/s/SKILL.md	shallow	small-diff:20
+standard_small_diff_over_cap	skills/**	skills/s/SKILL.md	m11:skills/s/SKILL.md	standard	
+standard_small_diff_counts_whole_tree	skills/**	skills/s/SKILL.md|docs/x.md	m1:skills/s/SKILL.md|m10:docs/x.md	standard	
+deep_hooks_beats_small_diff	hooks/**	hooks/gate.sh|hooks/gate.ps1	m1:hooks/gate.sh|m1:hooks/gate.ps1	deep	hooks:hooks/gate.ps1
+deep_twin_beats_small_diff	scripts/**	scripts/a.sh|scripts/a.ps1	m1:scripts/a.sh	deep	twin:scripts/a.sh
+standard_rejected_beats_small_diff	skills/**	skills/s/SKILL.md|docs/x..y.md	m1:skills/s/SKILL.md|m1:docs/x..y.md	standard	rejected-path:docs/x..y.md
 # --- a run root below the git top level -----------------------------------
 # Both git reads have to name paths from the repo top. `diff --name-status`
 # always does; ls-files does only under `--full-name`, and without it the

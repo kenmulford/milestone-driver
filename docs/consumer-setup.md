@@ -44,8 +44,8 @@ Commit it - the gates read this file, so it must be present in every clone and o
 
 ## 3. Restart Claude Code
 
-The six shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
-`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate` - all plugin
+The seven shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
+`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`, `dispatch-cap` - all plugin
 `PreToolUse` hooks registered there. They **load at session start** - restart
 Claude Code after installing or updating the plugin so the hooks take effect. No
 separate native-hook installation step is required.
@@ -381,6 +381,7 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
 | `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |
+| A 4th `/code-review` run, or a 4th implementer dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 

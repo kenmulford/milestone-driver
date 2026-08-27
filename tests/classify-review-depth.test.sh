@@ -73,6 +73,17 @@ mkrepo() {
 
 commit_all() { git -C "$1" add -A >/dev/null 2>&1; git -C "$1" commit -q -m "$2" >/dev/null 2>&1; }
 
+# 24-line fixture bodies keep every M/E/D diff past the small-diff cap; only
+# `m<k>:` (rewrite the first k lines, a 2k-line diff) reaches it.
+seed_block()    { local i; for ((i = 1; i <= 24; i++)); do printf 'seed %s\n' "$i"; done; }
+changed_block() { local i; for ((i = 1; i <= 24; i++)); do printf 'changed %s\n' "$i"; done; }
+mixed_block() {
+  local i
+  for ((i = 1; i <= 24; i++)); do
+    if [ "$i" -le "$1" ]; then printf 'changed %s\n' "$i"; else printf 'seed %s\n' "$i"; fi
+  done
+}
+
 # mkfile <repo> <repo-relative path> <content>
 mkfile() {
   local f="$1/$2"
@@ -134,8 +145,9 @@ apply_ops() {
   for op in "${ops_list[@]}"; do
     kind="${op%%:*}"; p="${op#*:}"
     case "$kind" in
-      M|N) mkfile "$repo" "$p" 'changed' ;;
-      E|S) mkfile "$repo" "$p" 'changed'; git -C "$repo" add "$p" >/dev/null 2>&1 ;;
+      M|N) mkfile "$repo" "$p" "$(changed_block)" ;;
+      E|S) mkfile "$repo" "$p" "$(changed_block)"; git -C "$repo" add "$p" >/dev/null 2>&1 ;;
+      m[0-9]*) mkfile "$repo" "$p" "$(mixed_block "${kind#m}")" ;;
       D)   rm -f "$repo/$p" ;;
       R)   : ;;
       *)   echo "FATAL: unknown op [$op]" >&2; exit 1 ;;
@@ -187,7 +199,7 @@ while IFS= read -r row || [ -n "$row" ]; do
   if [ "$base" != '-' ]; then
     split_pipe "$base"
     base_list=("${parts[@]}")
-    for bp in "${base_list[@]}"; do mkfile "$repo" "$bp" 'seed'; done
+    for bp in "${base_list[@]}"; do mkfile "$repo" "$bp" "$(seed_block)"; done
   fi
   commit_all "$repo" 'base'
   apply_ops "$repo" "$ops"
@@ -236,5 +248,14 @@ commit_all "$b4" 'base'
 mkfile "$b4" 'scripts/a.sh' 'changed'
 run_case 'jq_absent_from_path' "$b4" 'standard' 'no-jq' "$NOJQ_DIR"
 
-echo "classify-review-depth.sh: $pass passed, $fail failed (parsed $case_count TSV cases + 4 bespoke)"
+# ---- bespoke: a binary change, `-` in numstat, is never small.
+b5="$TMP/b-binary"; mkrepo "$b5"
+mkdir -p "$b5/.milestone-config" "$b5/scripts"
+printf '%s\n' '{"sourceGlobs":["scripts/**"]}' > "$b5/.milestone-config/driver.json"
+printf 'seed\000\001' > "$b5/scripts/blob.bin"
+commit_all "$b5" 'base'
+printf 'changed\000\001' > "$b5/scripts/blob.bin"
+run_case 'binary_diff_is_not_small' "$b5" 'standard' ''
+
+echo "classify-review-depth.sh: $pass passed, $fail failed (parsed $case_count TSV cases + 5 bespoke)"
 [ "$fail" -eq 0 ]
