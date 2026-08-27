@@ -278,7 +278,7 @@ The branch model:
 
 - The run cuts one branch, `milestone-<number>-<slug>`, from the integration branch at run start. The number leads the name because the slug comes from the milestone title and a title can be renamed mid-run, leaving the slug stale, while the number never changes.
 - Issue branches keep their `issue/<n>-<slug>` naming, but they are cut from the milestone branch instead of the integration branch, and they are never pushed.
-- Each finished issue folds into the milestone branch as **one local squash commit** carrying an `Issue: #<n>` trailer. The trailer is how a resumed run reads which issues are already integrated (`git log <milestone-branch> --grep='^Issue: #<n>$'`), so resume state still comes from git rather than from a checkpoint file the run has to maintain.
+- Each finished issue folds into the milestone branch as **one local squash commit** carrying an `Issue: #<n>` trailer. The trailer is how a resumed run reads which issues are already integrated, through the merge-base-windowed query `skills/solve-milestone/milestone-granularity.md § Resume and buildability from the trailer` defines, so resume state still comes from git rather than from a checkpoint file the run has to maintain.
 - A dependency chain builds straight through locally: issue B cuts from the milestone branch with issue A's commit already on it, so there is no round trip to origin per link in the chain.
 - At milestone end the run pushes the milestone branch once, opens **one** PR to the integration branch, and gets **one** CI run. The CHANGELOG entry rides that PR instead of opening a second one. As with wave granularity, the PR targets the integration branch, never the protected branch.
 
