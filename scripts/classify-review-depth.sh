@@ -47,8 +47,11 @@
 # leaves the tree staged, and bare `git diff` then prints nothing. Here that
 # would read as an empty candidate set on a real code change - and `standard`
 # on a diff that had earned `deep`. Diffing against HEAD sees staged and
-# unstaged work alike, the same hazard
-# `scripts/classify-delta.sh (WHAT THE DELTA IS)` records.
+# unstaged work alike. `scripts/classify-delta.sh (WHAT THE DELTA IS)` records
+# the same staged-tree hazard and answers it another way, a working-tree
+# snapshot, because that classifier needs the tree as it stood before the FIX
+# and HEAD is not it while the issue diff is uncommitted. HEAD is the right base
+# here: this classifier reads the whole issue diff on purpose.
 #
 # `--no-renames`, so every diff line is one status and one path. A rename then
 # arrives as a delete plus an add, and its new path counts as a new file - which
