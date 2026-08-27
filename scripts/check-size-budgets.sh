@@ -161,6 +161,14 @@
 #     offset it, because an excluded file was never summed. New actual 11694;
 #     11694 * 1.05 = 12278.7, rounded UP to the next 100 = 12300.
 #     Spent on that membership: the next edit re-derives normally.
+#     RECORDED RAISE, issue #629 (decision 2026-08-27):
+#     skills/output-style.md BYTE 9500 -> 11500, WORD 1600 -> 1800, for the two
+#     aggregate PR-body shapes' choice-only Decision Log and <details>
+#     definitions; skills/solve-milestone/changelog-authoring.md BYTE 14000 ->
+#     15500, WORD 2200 -> 2400, for its explicit squash body; and the three
+#     CLOSUREs output-style.md belongs to - setup 7200 -> 7600, solve-milestone
+#     9200 -> 9900, triage 8100 -> 8600. New actuals 11260 / 1762, 14605 /
+#     2235, closures 7263 / 9435 / 8212. The next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -289,7 +297,7 @@ skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
-skills/solve-milestone/changelog-authoring.md       205    14000     2200
+skills/solve-milestone/changelog-authoring.md       205    15500     2400
 skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
@@ -301,7 +309,7 @@ skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    34000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   270    12500     1800
-skills/output-style.md                               85     9500     1600
+skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
@@ -459,10 +467,10 @@ while read -r skill closure_ceiling members; do
   nclosures=$((nclosures + 1))
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
-skills/setup/SKILL.md              7200   skills/output-style.md skills/citation-format.md
+skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       12300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md    9200   skills/notices.md skills/output-style.md skills/citation-format.md
-skills/triage/SKILL.md             8100   skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
 # Same length-parity guard the governed table carries, for the same reason: the

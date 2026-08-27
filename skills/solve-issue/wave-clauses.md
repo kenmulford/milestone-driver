@@ -6,7 +6,7 @@ Reaching this file means the caller resolved `integrationGranularity` to `"wave"
 
 | Step | Clause |
 |---|---|
-| 6.2 | No per-issue PR body: the Decision Log is written into the step-6.5 commit in the trailer shape `skills/solve-milestone/milestone-granularity.md (Subject line, a blank line, the Decision Log summary)` defines. The citation post to the issue (`gh issue comment <n>`) is unchanged. |
+| 6.2 | No per-issue PR body: the Decision Log is written into the step-6.5 commit in the trailer shape `skills/solve-milestone/milestone-granularity.md (Subject line, a blank line, the Decision Log summary)` defines. The Decision Log comment post to the issue (`gh issue comment <n>`) is unchanged in timing and content. |
 | 6.3 | The Code Review section travels in that commit's indented `Code-Review:` block instead, as `skills/solve-milestone/milestone-granularity.md (The Code Review block is copied)` defines. The wave PR aggregates them in the Wave PR body shape (`skills/output-style.md (Wave PR body)`), each de-indented to column 0 (`skills/solve-milestone/milestone-granularity.md (de-indented back to column 0)`) - the shape `hooks/code-review-gate.sh (heading='## Code Review')` requires at `gh pr create` and `gh pr merge`. |
 | 6.5 | Commit in the shape 6.2 and 6.3 import whole, `Issue: #<n>` trailer included: no wave-path probe reads it - the resume signal is 6.6's pushed branch - but it leaves **one** commit shape for both non-default granularities. |
 | 6.6 | Push the feature branch as written, and open **no** per-issue PR. A `judgment call` label earned this issue goes on the **issue** instead. |
