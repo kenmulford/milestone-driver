@@ -1,19 +1,11 @@
 #!/usr/bin/env pwsh
 # milestone-driver - golden-matrix runner for code-review-gate.ps1 (issue #289).
-# Bash parity of code-review-gate.test.sh - drives the SAME
-# tests/code-review-gate.cases.tsv and asserts the SAME exit code + stderr,
-# proving the bash/pwsh twins behave identically. The stub `gh` written for
-# the merge cases is a bash-shebang script (Linux-executable); CI runs both
-# legs on ubuntu-latest (.github/workflows/ci.yml), which is what this proves
-# - a native-Windows run of this file would need bash/WSL on PATH for the
-# merge-verb stub cases, the same cross-platform-helper posture already used
-# by tests/render-daemon.test.sh (a trivial python3 HTTP server).
+param([ValidateSet('ps1', 'sh')][string]$Leg = 'ps1')
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Script = Join-Path $Here '../hooks/code-review-gate.ps1'
+. (Join-Path $Here '_lib.ps1'); Set-Leg $Leg
+$Script = Join-Path $Here '../hooks/code-review-gate'
 $Cases = Join-Path $Here 'code-review-gate.cases.tsv'
-if (-not (Test-Path $Script)) { Write-Error "FATAL: missing $Script"; exit 3 }
-$pwshBin = (Get-Command pwsh).Source
 
 $pass = 0; $fail = 0
 $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
@@ -29,11 +21,14 @@ function New-GhStub([string]$mode, [string]$json) {
   New-Item -ItemType Directory -Path $dir | Out-Null
   switch ($mode) {
     'NOGH' {
-      # No gh stub at all -> caller sets PATH to just this (gh-less) dir.
+      if ($Leg -eq 'sh') {
+        foreach ($b in @('jq', 'cat')) { Add-ToolStub $b $dir }
+      }
     }
     'ERROR' {
       Set-Content -Path (Join-Path $dir 'gh') -Value "#!/usr/bin/env bash`nexit 1`n" -NoNewline -Encoding utf8NoBOM
       & chmod +x (Join-Path $dir 'gh')
+      Set-Content -Path (Join-Path $dir 'gh.ps1') -Value "exit 1`n" -NoNewline -Encoding utf8NoBOM
     }
     'OK' {
       $jsonPath = Join-Path $dir 'view.json'
@@ -41,6 +36,8 @@ function New-GhStub([string]$mode, [string]$json) {
       $ghScript = "#!/usr/bin/env bash`nif [ `"`$1`" = `"pr`" ] && [ `"`$2`" = `"view`" ]; then cat '$jsonPath'; exit 0; fi`nexit 1`n"
       Set-Content -Path (Join-Path $dir 'gh') -Value $ghScript -NoNewline -Encoding utf8NoBOM
       & chmod +x (Join-Path $dir 'gh')
+      $ghPs1 = "if (`$args.Count -ge 2 -and `$args[0] -eq 'pr' -and `$args[1] -eq 'view') { Get-Content -Raw -LiteralPath '$jsonPath'; exit 0 }`nexit 1`n"
+      Set-Content -Path (Join-Path $dir 'gh.ps1') -Value $ghPs1 -NoNewline -Encoding utf8NoBOM
     }
   }
   return $dir
@@ -94,12 +91,10 @@ foreach ($row in $rows) {
 
   if ($disableEnv -eq '1') { $env:CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE = '1' }
 
-  $errFile = Join-Path $Tmp 'stderr.txt'
-  $out = $jsonIn | & $pwshBin -NoProfile -File $Script 2>$errFile
-  $rc = $LASTEXITCODE
-  $err = (Get-Content $errFile -Raw -ErrorAction SilentlyContinue)
-  if ($null -eq $err) { $err = '' } else { $err = $err.TrimEnd("`r", "`n") }
-  $out = if ($null -eq $out) { '' } else { ($out -join "`n") }
+  $r = Invoke-Leg -Script $Script -Stdin $jsonIn -Cwd $Tmp
+  $rc = $r.rc
+  $err = $r.err.TrimEnd("`r", "`n")
+  $out = $r.out
 
   $env:PATH = $origPath
   Remove-Item Env:\CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE -ErrorAction SilentlyContinue
@@ -113,13 +108,15 @@ foreach ($row in $rows) {
   }
 }
 
-# ---- bespoke case: missing jq -> N/A for pwsh (native JSON, no jq dependency)
-# The pwsh twin never shells out to jq, so there is no equivalent fail-open
-# path to prove here - parity is about IDENTICAL observable behavior for every
-# case the TWO IMPLEMENTATIONS SHARE, not about mirroring an implementation
-# detail (jq) that only one twin has. See code-review-gate.ps1's ConvertFrom-Json
-# try/catch for its own fail-open-on-parse-error path (exercised by every
-# TSV row's ordinary JSON, which is why no dedicated row is needed).
+# ---- bespoke case: missing jq -> fail open (sh leg only; pwsh has no jq dependency)
+if ($Leg -eq 'sh') {
+  $nojq = Join-Path $Tmp 'nojq'
+  New-Item -ItemType Directory -Path $nojq -Force | Out-Null
+  Add-ToolStub cat $nojq
+  $rawJson = @{ tool_input = @{ command = 'gh pr create --base develop --title "x"' }; cwd = $Tmp } | ConvertTo-Json -Compress
+  $r = Invoke-Leg -Script $Script -Stdin $rawJson -Cwd $Tmp -Env @{ PATH = $nojq }
+  if ($r.rc -eq 0 -and $r.err -eq '' -and $r.out -eq '') { Pass-T } else { Fail-T 'missing_jq_failopen' $r.rc 0 $r.err '' $r.out }
+}
 
-Write-Output "code-review-gate.ps1: $pass passed, $fail failed"
+Write-Output "code-review-gate ($Leg): $pass passed, $fail failed"
 if ($fail -eq 0) { exit 0 } else { exit 1 }

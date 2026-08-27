@@ -26,7 +26,7 @@
 #     but not byte-identical (the two serializers indent and escape
 #     differently). Only stdout/stderr is byte-pinned; the file is asserted by
 #     parsed content on both legs, the same call
-#     tests/write-cost-record.test.sh (assert the parsed NUMBER, never the bytes) makes.
+#     tests/write-cost-record.test.ps1 (tiny sub-1e-4 costUsd asserted by NUMERIC VALUE) makes.
 #
 # System.Text.Json, NOT ConvertFrom-Json / ConvertTo-Json. ConvertFrom-Json
 # COERCES any ISO-8601-shaped string into a [datetime], which breaks this script

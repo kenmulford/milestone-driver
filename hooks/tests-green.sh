@@ -29,7 +29,7 @@ touched=0; [ ${#globs[@]} -eq 0 ] && touched=1
 # ERE's answer anyway through its SECOND test, of the ABSOLUTE path against
 # `*/<pat>`, which supplies the leading segment. Pinned as behavior, not endorsed
 # as a contract:
-# `tests/tests-green.test.sh (a globstar-prefix glob does not match a root-level staged path)`.
+# `tests/tests-green.test.ps1 (a globstar-prefix glob does not match a root-level staged path)`.
 # Aligning the three is its own issue: this gate decides whether the suite runs.
 # ** -> * ('*' in a case glob matches across '/'). Both operands of the //
 # replacement are QUOTED VARIABLES, never backslash escapes: bash 3.2 keeps the
