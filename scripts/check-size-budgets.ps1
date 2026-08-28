@@ -95,10 +95,10 @@ skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
-agents/blocker-resolver.md                          125    10500     1700
+agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    15500     2200
-agents/triage-reviewer.md                           120    16000     2500
+agents/triage-reviewer.md                           120    16500     2600
 '@
 
 # Parse into four index-aligned lists. A row contributes a ceiling only when

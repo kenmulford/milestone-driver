@@ -219,7 +219,7 @@ Build the **validated dependency graph** from all `DEPENDS_ON` edges across the 
 
 - Preserve the per-issue edges exactly as returned by each `triageAgent` (before any wave aggregation) - plus the `edges` carried in each HIT issue's cached `result` - these together form the `edges` map in the returned `dependencyGraph` (Step 7).
 - Rebuild `dependencyGraph.waves` from the merged per-issue `edges` map plus the milestone's declared Wave order, using a pure in-context topological sort.
-- Where an agent finds an undeclared dependency, add it to the graph (it surfaces as a Blocker in the gap table).
+- Where an agent finds an undeclared dependency, add it to the graph - it surfaces as an Advisory unless the reviewer returned it as a Blocker (ungrounded after the source set, or cyclic with the Wave order or the other edges, per `agents/triage-reviewer.md § Severity rule`).
 - Produce the Wave-ordered graph for output AND maintain the raw per-issue `edges` map alongside it.
 
 ### Step 5 - Output to the user
@@ -306,7 +306,7 @@ For each qualifying MISS issue:
    | Gap type | Recommended label |
    |---|---|
    | Any design/spec gap - architect `contradiction` / `not-buildable` / `missing-criteria` / `risky-design`, or any design-lens type (`spec-insufficiency`, `scalability`, `pattern-inconsistency`, `missing-state`, `missing-affordance`, `accessibility`) | `needs design` |
-   | A new dependency / non-design decision - architect `undeclared-dependency` | `needs decision` |
+   | A new dependency / non-design decision - architect `undeclared-dependency`, **Blocker variant only** (an Advisory never parks) | `needs decision` |
 
    Each parked issue carries exactly **one** *triage-recommended* label. With gaps of multiple types, select by precedence: **`needs design`** (any design or spec gap) wins; otherwise **`needs decision`**. Return that one label in `issueStates.label` (Step 7).
 
