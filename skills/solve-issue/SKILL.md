@@ -307,6 +307,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contr
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every citation in those slots takes.
 
+`skills/solve-milestone/SKILL.md § Main-thread context` binds this skill too - it runs in-thread.
+
 ## Non-negotiables
 - Gitflow. PRs target `integrationBranch` only - never `protectedBranch`.
 - Honor the profile's `nonNegotiables` (framework versions, platform targets).

@@ -17,7 +17,7 @@ Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integra
 
 ## Contents
 
-Before starting · The procedure - 1. List the milestone's open issues · 2. Determine the order · 3. Determine the target version · Phase 0 - Triage · 4. Loop over issues in dependency-graph order · Permission pre-flight gate · Simplify pass · 5. Finish · Autonomy · Output spec - Template 1 - Run start / plan board · Template 2 - Status update at each wave boundary · Template 3 - Final results · Output style · Final summary - 6. Author the CHANGELOG entry · Run-complete notification
+Before starting · The procedure - 1. List the milestone's open issues · 2. Determine the order · 3. Determine the target version · Phase 0 - Triage · 4. Loop over issues in dependency-graph order · Permission pre-flight gate · Simplify pass · 5. Finish · Autonomy · Output spec - Template 1 - Run start / plan board · Template 2 - Status update at each wave boundary · Template 3 - Final results · Output style - Main-thread context · Final summary - 6. Author the CHANGELOG entry · Run-complete notification
 
 ## Before starting
 
@@ -161,6 +161,8 @@ In **versioned mode** the **first issue's PR** sets `plugin.json` to the target 
 | 2 | `.claude/settings.json` (project) |
 | 3 | `.claude/settings.local.json` (project local) |
 
+The `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) reads `autoCompactWindow` from these same three layers.
+
 <!-- KEEP THIS BLOCK IN SYNC with skills/solve-issue/permission-preflight.md § Tool surface and response, its second copy. -->
 **Pipeline tool surface.** The union must cover at minimum:
 
@@ -236,6 +238,8 @@ Note cell: an issue the run sent through the Auto loop records its outcome there
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
+After this update every input the next wave needs is on disk (`.milestone-config/.runtime/wave-state.json`, `.milestone-config/triage-cache.json`, the milestone branch), so a compaction here loses nothing and the `session-resume` hook re-injects the checkpoint.
+
 ### Template 3 - Final results
 
 The layout for `## Final summary` below; fill the metadata lines from that section's requirements.
@@ -266,6 +270,10 @@ PR cell: the PR number if the issue has one, else -. Follow-up cell: the same au
 Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contract. `## Terminal output` governs what this skill prints (including the `## Output spec` template rule); `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` govern every issue comment, PR body, and CHANGELOG entry it writes.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every citation in those slots takes.
+
+### Main-thread context
+
+The orchestrator never `Read`s a persisted tool-result file (`~/.claude/projects/<session>/tool-results/*.txt`) whole, never `cat`s a `.project/` doc, the consumer brief, or a plugin reference file - it takes a section with `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}` or `sed -n`. A truncated tool result is re-run with a narrower command, never re-read. Everything an agent needs travels as a path in its brief, never pasted inline.
 
 ## Final summary
 

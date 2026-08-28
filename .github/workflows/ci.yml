@@ -89,13 +89,18 @@ jobs:
           set +e
           out=$(printf 'not json at all {{{' | /bin/bash hooks/code-review-gate.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] || { echo "FAIL rc=$rc out=$out"; exit 1; }
+      - name: session-resume - allow path (this repo's own driver.json, no wave-state checkpoint)
+        run: |
+          set +e
+          out=$(jq -n --arg cwd "$PWD" '{cwd:$cwd, hook_event_name:"SessionStart"}' | /bin/bash hooks/session-resume.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] && [ -z "$out" ] || { echo "FAIL rc=$rc out=[$out]"; exit 1; }
       - name: Put a modern bash on PATH for script children
         run: |
           brew list bash >/dev/null 2>&1 || brew install bash
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       - name: hook suites, sh leg, children on /bin/bash 3.2
-        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,tests-green,dispatch-cap,code-review-gate
+        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,tests-green,dispatch-cap,code-review-gate,session-resume
         env:
           MD_BASH_BIN: /bin/bash
       - name: script suites, sh leg
-        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,tests-green,dispatch-cap,code-review-gate
+        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,tests-green,dispatch-cap,code-review-gate,session-resume
