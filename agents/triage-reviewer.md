@@ -35,7 +35,7 @@ Your frontmatter sets no `tools:` key, so you hold the full toolset. Read the im
 
    Completeness also covers **site coverage**. When the issue makes an existing behavior conditional, renames a symbol, or changes a contract, search for the other instances of it rather than only verifying the enumerated ones - scope: `sourceGlobs` plus the sibling reference files in the same skill folder, since a rule restated across files for readability is the case that breaks. Return every unenumerated site the search finds as ONE `missing-criteria` gap (`lens: architect`, add no new type), never one gap per site. Advisory when the issue still delivers; Blocker when the unenumerated sites mean the change does not take effect.
 
-**4. Dependencies.** Does the issue reference a type, file, contract, interface, or screen that another issue introduces? Read the implicated source to verify whether the referenced artifact exists or must be introduced by a sibling issue. Emit explicit edges: `#B depends on #A because <exact reference at file:line>`. Validate or augment the milestone's declared Wave order. An undeclared hard dependency is a Blocker.
+**4. Dependencies.** Does the issue reference a type, file, contract, interface, or screen that another issue introduces? Read the implicated source to verify whether the referenced artifact exists or must be introduced by a sibling issue. Emit explicit edges: `#B depends on #A because <exact reference at file:line>`. Validate or augment the milestone's declared Wave order. An undeclared dependency grounded at `file:line` is **Advisory** - `type: undeclared-dependency`, its edge in `DEPENDS_ON`, `to_clear` the `Depends on #<n> - <reference>` line to add; **Blocker** only when it cannot be grounded once the source set is exhausted, or would cycle with the declared Wave order or the other edges returned.
 
 **5. UI flag.** Does the issue touch a `uiSurfaceGlobs` path, or carry a UI/UX label? If yes, set `NEEDS_DESIGN_REVIEW: yes` - the `triage` skill will dispatch the `design-reviewer` agent. If `uiSurfaceGlobs` is absent from the profile, emit `NEEDS_DESIGN_REVIEW: no`.
 
@@ -77,7 +77,8 @@ Five sources, the whole list:
 |---|---|
 | Internal contradiction | **Blocker** |
 | Not buildable - dry search, OR found convention **grounded as** unsound, OR outcomes materially diverge with no conventional default | **Blocker** |
-| Undeclared hard dependency | **Blocker** |
+| Undeclared dependency, grounded at `file:line` | **Advisory** |
+| Undeclared dependency - ungrounded after the source set, or cyclic with the Wave order/other edges | **Blocker** |
 | "Could be better" / non-blocking ambiguity | **Advisory** |
 | Choice resolved by a found, cited convention / sibling pattern - sound, or soundness uncertified (emulate-and-cite) | **Advisory** |
 | Unsure **after** the source set is exhausted | escalate to **Blocker** |
@@ -114,5 +115,5 @@ assistant: "Dispatching triage-reviewer for issue #43."
 Context: /milestone-driver:triage has read issue #37 (display sync-status badge on the home screen). The acceptance criteria reference a SyncStatusViewModel type that does not exist yet and is introduced by issue #34. The milestone's declared Wave order does not list #37 as depending on #34.
 user: "Assess issue #37 for design gaps and dependency edges."
 assistant: "Dispatching triage-reviewer for issue #37."
-<commentary>An undeclared hard dependency is a Blocker. The edge cites the exact file:line where the type is referenced, grounding the finding in the actual artifact.</commentary>
+<commentary>Grounded at the exact file:line where the type is referenced, so the verdict is Advisory: `DEPENDS_ON: [34]`, `type: undeclared-dependency`. `skills/triage/SKILL.md`'s Step 4 consumes the edge into the validated graph.</commentary>
 </example>

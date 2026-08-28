@@ -44,11 +44,13 @@ Commit it - the gates read this file, so it must be present in every clone and o
 
 ## 3. Restart Claude Code
 
-The seven shipped gates (see `hooks/hooks.json`) are `force-subagent`, `no-bom`,
-`tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`, `dispatch-cap` - all plugin
-`PreToolUse` hooks registered there. They **load at session start** - restart
-Claude Code after installing or updating the plugin so the hooks take effect. No
-separate native-hook installation step is required.
+The eight shipped hooks (see `hooks/hooks.json`) are the seven `PreToolUse` gates -
+`force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`,
+`code-review-gate`, `dispatch-cap` - plus `session-resume`, the one `SessionStart`
+hook (matcher `compact`; never gates - it re-injects the milestone run's
+wave-state checkpoint after an auto-compaction). They **load at session start** -
+restart Claude Code after installing or updating the plugin so the hooks take
+effect. No separate native-hook installation step is required.
 
 ## 4. Add GitHub branch protection (server-side backstop)
 

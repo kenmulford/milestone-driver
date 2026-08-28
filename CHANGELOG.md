@@ -3,6 +3,37 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.26.0 - grounded edges stay Advisory, the orchestrator keeps its context small
+
+**Theme:** A dependency the triage reviewer grounds at `file:line` stays Advisory instead of parking the issue and dispatching the resolver (#639); the orchestrator's own context footprint gets the same discipline next (#640).
+
+### ✨ Added
+
+| Issue | PR | What |
+|---|---|---|
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `hooks/session-resume.{sh,ps1}` (`SessionStart`, matcher `compact`): re-injects the milestone run's wave-state checkpoint (issue, wave, status, branch, PR - capped at 40 rows, then `… N more`) after Claude Code auto-compacts mid-run. Never gates; fail-open on no profile, no checkpoint, or unparsable JSON. Escape `CLAUDE_HOOK_DISABLE_SESSION_RESUME=1`. 12 cases per leg. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `autocompact` one-time notice (`skills/notices.md`): recommends `/autocompact 200k` (persists to user settings) or `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` for scripted runs, when the effective auto-compact window is absent or over 200000 across the same three settings layers the permission pre-flight gate reads. |
+
+### 🔧 Changed
+
+| Issue | PR | What |
+|---|---|---|
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `skills/solve-milestone/SKILL.md`'s wave-boundary status template now states that every input the next wave needs is on disk at that point, so a mid-run compaction there loses nothing. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | New `### Main-thread context` section (`solve-milestone`, cited by `solve-issue`): the orchestrator never `Read`s a persisted tool-result file or `cat`s a `.project/` doc, the consumer brief, or a plugin reference file whole - it takes a section with `read-doc-section.{sh,ps1}` or `sed -n`, and a truncated tool result is re-run narrower, never re-read. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `skills/triage/SKILL.md` Step 2 redirects each issue's full record and the milestone description straight to `.milestone-config/.runtime/triage/*.md` instead of returning them inline; Step 3's briefs pass those paths, read first by the dispatched agent. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #639 An undeclared dependency the reviewer grounds at `file:line` no longer parks the issue or dispatches the resolver | #642 | `agents/triage-reviewer.md`'s criterion 4 and severity table re-key an undeclared dependency's severity to groundability: grounded at `file:line` is Advisory (`type: undeclared-dependency`, its edge in `DEPENDS_ON`, `to_clear` the `Depends on #<n> - <reference>` line to add), Blocker only when it cannot be grounded once the source set is exhausted or would cycle with the declared Wave order or the other edges returned. The issue-#37 example re-keys to the same verdict. `skills/triage/SKILL.md` Step 4's graph note and Step 6's park-label row follow: only the Blocker variant surfaces as a Blocker or parks `needs decision` - an Advisory never parks. `agents/blocker-resolver.md`'s `undeclared-dependency` row now covers only the two cases that still reach it - ungrounded after the source set, or cyclic with the Wave order - and what resolving each means. |
+
+### Consumer notes (upgrading from v1.25.0)
+
+- **An issue whose only gap is a grounded missing `Depends on` line no longer parks or dispatches the resolver.** The edge lands in the validated dependency graph as an Advisory instead.
+- **A new `SessionStart` hook loads at session start.** Restart Claude Code after updating so `session-resume` takes effect.
+- **The `autocompact` notice fires once per clone**, only when no auto-compact window is configured above 200k across your three settings layers.
+
 ## v1.25.0 - the ladder's caps become a hook, and briefs carry paths
 
 **Theme:** The caps the orchestrator overran were text. The review→fix cycle cap and the implementer re-dispatch cap are now a hook; a small diff classifies `shallow` and skips the coherence pass; briefs name the docs an agent reads instead of pasting them.

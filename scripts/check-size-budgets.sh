@@ -169,6 +169,37 @@
 #     CLOSUREs output-style.md belongs to - setup 7200 -> 7600, solve-milestone
 #     9200 -> 9900, triage 8100 -> 8600. New actuals 11260 / 1762, 14605 /
 #     2235, closures 7263 / 9435 / 8212. The next edit re-derives normally.
+#     RECORDED RAISE, issue #639 (decision 2026-08-27):
+#     agents/triage-reviewer.md BYTE 16000 -> 16500, WORD 2500 -> 2600, for the
+#     severity table's Advisory/Blocker row split and the criterion-4 sentence
+#     and example commentary that re-key an undeclared dependency's severity
+#     to groundability rather than to absence from the body. New actuals
+#     16357 / 2523. LINE 119/120 still holds and does not move.
+#     agents/blocker-resolver.md BYTE 10500 -> 11500, WORD 1700 -> 1800, for
+#     the `undeclared-dependency` row rewrite that now names only the two
+#     cases the resolver actually receives under that same severity rule -
+#     ungrounded-after-source-set and cyclic - since the grounded case moved
+#     to Advisory and no longer reaches it. New actuals 10783 / 1709;
+#     10783 * 1.05 = 11322.15, rounded UP to the next 500 = 11500;
+#     1709 * 1.05 = 1794.45, rounded UP to the next 100 = 1800. LINE 115/125
+#     still holds and does not move. Spent on this issue's four edits: the
+#     next edit re-derives normally.
+#     RECORDED RAISE, issue #640 (decision 2026-08-27):
+#     skills/solve-milestone/SKILL.md BYTE 32500 -> 35000, WORD 4500 -> 4800,
+#     for the Permission-pre-flight-gate cross-reference to the autocompact
+#     notice, the wave-boundary compaction-safety sentence in Template 2, and
+#     the new "Main-thread context" subsection; skills/notices.md LINE 270 ->
+#     300, BYTE 12500 -> 14500, WORD 1800 -> 2000, for the new `autocompact`
+#     section; and skills/triage/SKILL.md BYTE 34000 -> 36500, for a
+#     code-review fix on this same issue: the targeted-extraction command in
+#     "Parse the cited anchors" and the bounded issue-body read in "Extract
+#     by model judgment", both citing the new "Main-thread context"
+#     subsection above. New actuals 319 / 32986 / 4552 and 284 / 13341 / 1869
+#     and 386 / 34551 / 4967. 34551 * 1.05 = 36278.55, rounded UP to the next
+#     500 = 36500. LINE 319/320 on solve-milestone/SKILL.md and LINE 386/390
+#     on triage/SKILL.md still hold and do not move; WORD 4967/5000 on
+#     triage/SKILL.md holds against its hard 5000 cap.
+#     Spent on this issue's three sections: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -291,7 +322,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     320    32500     4500
+skills/solve-milestone/SKILL.md                     320    35000     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19500     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
@@ -306,17 +337,17 @@ skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600
 skills/solve-milestone/version-target.md             30     3000      400
-skills/triage/SKILL.md                              390    34000     5000
+skills/triage/SKILL.md                              390    36500     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   270    12500     1800
+skills/notices.md                                   300    14500     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
-agents/blocker-resolver.md                          125    10500     1700
+agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    15500     2200
-agents/triage-reviewer.md                           120    16000     2500
+agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
 # Length-parity guard: the parse above appends a path unconditionally and each

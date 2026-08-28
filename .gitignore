@@ -25,6 +25,7 @@ desktop.ini
 /.milestone-config/tests-stamp
 /.milestone-config/preflight-notice
 /.milestone-config/trello-notice
+/.milestone-config/autocompact-notice
 /.milestone-config/triage-cache.json
 /.milestone-config/worktrees/
 
