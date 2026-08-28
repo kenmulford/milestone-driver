@@ -11,16 +11,16 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 
 | Issue | PR | What |
 |---|---|---|
-| #640 The orchestrator's own context footprint gets read-discipline treatment | #<pr> | `hooks/session-resume.{sh,ps1}` (`SessionStart`, matcher `compact`): re-injects the milestone run's wave-state checkpoint (issue, wave, status, branch, PR - capped at 40 rows, then `… N more`) after Claude Code auto-compacts mid-run. Never gates; fail-open on no profile, no checkpoint, or unparsable JSON. Escape `CLAUDE_HOOK_DISABLE_SESSION_RESUME=1`. 12 cases per leg. |
-| #640 The orchestrator's own context footprint gets read-discipline treatment | #<pr> | `autocompact` one-time notice (`skills/notices.md`): recommends `/autocompact 200k` (persists to user settings) or `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` for scripted runs, when the effective auto-compact window is absent or over 200000 across the same three settings layers the permission pre-flight gate reads. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `hooks/session-resume.{sh,ps1}` (`SessionStart`, matcher `compact`): re-injects the milestone run's wave-state checkpoint (issue, wave, status, branch, PR - capped at 40 rows, then `… N more`) after Claude Code auto-compacts mid-run. Never gates; fail-open on no profile, no checkpoint, or unparsable JSON. Escape `CLAUDE_HOOK_DISABLE_SESSION_RESUME=1`. 12 cases per leg. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `autocompact` one-time notice (`skills/notices.md`): recommends `/autocompact 200k` (persists to user settings) or `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` for scripted runs, when the effective auto-compact window is absent or over 200000 across the same three settings layers the permission pre-flight gate reads. |
 
 ### 🔧 Changed
 
 | Issue | PR | What |
 |---|---|---|
-| #640 The orchestrator's own context footprint gets read-discipline treatment | #<pr> | `skills/solve-milestone/SKILL.md`'s wave-boundary status template now states that every input the next wave needs is on disk at that point, so a mid-run compaction there loses nothing. |
-| #640 The orchestrator's own context footprint gets read-discipline treatment | #<pr> | New `### Main-thread context` section (`solve-milestone`, cited by `solve-issue`): the orchestrator never `Read`s a persisted tool-result file or `cat`s a `.project/` doc, the consumer brief, or a plugin reference file whole - it takes a section with `read-doc-section.{sh,ps1}` or `sed -n`, and a truncated tool result is re-run narrower, never re-read. |
-| #640 The orchestrator's own context footprint gets read-discipline treatment | #<pr> | `skills/triage/SKILL.md` Step 2 redirects each issue's full record and the milestone description straight to `.milestone-config/.runtime/triage/*.md` instead of returning them inline; Step 3's briefs pass those paths, read first by the dispatched agent. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `skills/solve-milestone/SKILL.md`'s wave-boundary status template now states that every input the next wave needs is on disk at that point, so a mid-run compaction there loses nothing. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | New `### Main-thread context` section (`solve-milestone`, cited by `solve-issue`): the orchestrator never `Read`s a persisted tool-result file or `cat`s a `.project/` doc, the consumer brief, or a plugin reference file whole - it takes a section with `read-doc-section.{sh,ps1}` or `sed -n`, and a truncated tool result is re-run narrower, never re-read. |
+| #640 The orchestrator's own context footprint gets read-discipline treatment | #644 | `skills/triage/SKILL.md` Step 2 redirects each issue's full record and the milestone description straight to `.milestone-config/.runtime/triage/*.md` instead of returning them inline; Step 3's briefs pass those paths, read first by the dispatched agent. |
 
 ### 🔧 Fixes
 
