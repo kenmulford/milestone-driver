@@ -28,6 +28,7 @@ section below, never restated inline in either SKILL.md.
 - [uisurfaceglobs](#uisurfaceglobs)
 - [visual-hold-removed](#visual-hold-removed)
 - [code-review-run-no](#code-review-run-no)
+- [autocompact](#autocompact)
 - [dispatch-cap](#dispatch-cap)
 
 ## Section fields
@@ -251,6 +252,20 @@ Examples:
 | What | code-review-gate no longer stops at the '## Code Review' heading. It parses that section's "/code-review run:" value and DENIES `gh pr create` / `gh pr merge` when the value reads "no", is empty, or is missing entirely.
 | OK   | Accepted values, matched EXACTLY and case-sensitively: "yes", and "n/a - <reason>" for a PR carrying no sourceGlobs change. Any other value denies, "Yes" and "YES" included.
 | Opt-out | CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 is unchanged. A missing jq or gh, an unreadable --body-file, and a failed `gh pr view` all still fail open.
+```
+
+## autocompact
+
+- **Marker:** `.milestone-config/autocompact-notice`
+- **Skills:** solve-milestone. **Trigger:** marker absent AND the effective auto-compact window is absent or over 200000 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW` if set, else the first `autoCompactWindow` found in `.claude/settings.local.json`, then `.claude/settings.json`, then `~/.claude/settings.json` (absent/unreadable layers skipped). **Legacy fallback:** none, born on the new path.
+
+**Text:**
+
+```text
+▶ New in 1.26.0 - auto-compact window (one-time notice)
+
+| What | The orchestrator's context is re-read every turn; a milestone run held 400-700k context for 160 of 332 turns. Set `/autocompact 200k` (persists to user settings) or `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000` for scripted runs.
+| Note | The driver never writes a settings file itself. Every input the next wave needs is already on disk at each wave boundary, so a compaction there loses nothing.
 ```
 
 ## dispatch-cap

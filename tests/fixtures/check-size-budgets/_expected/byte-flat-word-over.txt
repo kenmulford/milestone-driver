@@ -11,7 +11,7 @@ OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/15	7/4000	1/600
 OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
-OK	skills/solve-milestone/SKILL.md	1/320	7/32500	1/4500
+OK	skills/solve-milestone/SKILL.md	1/320	7/35000	1/4800
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/41500	1/6200
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
 OK	skills/solve-milestone/milestone-granularity.md	1/165	7/23500	1/3300
@@ -26,9 +26,9 @@ OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
 OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
 OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1600
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
-OK	skills/triage/SKILL.md	1/390	7/34000	1/5000
+OK	skills/triage/SKILL.md	1/390	7/36500	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
-OK	skills/notices.md	1/270	7/12500	1/1800
+OK	skills/notices.md	1/300	7/14500	1/2000
 OK	skills/output-style.md	1/85	7/11500	1/1800
 OK	skills/citation-format.md	1/190	7/10500	1/1700
 OK	skills/remediate-handoff.md	1/90	7/5000	1/800

@@ -45,34 +45,34 @@ Extract:
 
 ### Step 2 - Gather issues
 
+`<scratch>` is `.milestone-config/.runtime/triage/` (gitignored by `.milestone-config/.gitignore`). Create it first: `mkdir -p <scratch>` (pwsh: `New-Item -ItemType Directory -Force <scratch>`). Every full-text fetch below redirects to a file there - none reaches the terminal or this skill's output.
+
 **Batch mode** (argument is a milestone name):
 
-1. Read the milestone description for the declared Wave/dependency order - the same source `solve-milestone` uses:
+1. Read the milestone description, redirected to `<scratch>/milestone.md`:
 
    ```
    gh api "repos/{owner}/{repo}/milestones" \
-     --jq '.[] | select(.title=="<milestone-name>") | .description'
+     --jq '.[] | select(.title=="<milestone-name>") | .description' > <scratch>/milestone.md
    ```
 
-2. List all open issues in the milestone:
+2. List all open issues (number/title/labels only, for ordering and Step 2.5's partition):
 
    ```
-   gh issue list --milestone "<milestone-name>" --state open --json number,title,body,labels
+   gh issue list --milestone "<milestone-name>" --state open --json number,title,labels
    ```
 
-3. For EACH issue number returned, fetch its comments (recorded design decisions / `design-cleared` notes) - `gh issue list` returns no comment bodies:
+3. For EACH issue number, redirect its full record - title, body, labels, comments - to `<scratch>/issue-<n>.md`, with the `## Body` and `## Comments` headings the later steps read:
 
    ```
-   gh issue view <n> --json comments --jq '.comments[].body'
+   gh issue view <n> --json number,title,body,labels,comments --template '# #{{.number}} {{.title}}{{"\n\n"}}Labels: {{range .labels}}{{.name}} {{end}}{{"\n\n"}}## Body{{"\n\n"}}{{.body}}{{"\n\n"}}## Comments{{"\n"}}{{range .comments}}{{"\n"}}### {{.author.login}} {{.createdAt}}{{"\n\n"}}{{.body}}{{"\n"}}{{end}}' > <scratch>/issue-<n>.md
    ```
 
-**Single mode** (argument is an issue number) - fetch the one issue with its comments in one call:
+   Runs unchanged under pwsh - single quotes are literal in both shells.
 
-```
-gh issue view <n> --json number,title,body,labels,comments
-```
+**Single mode** (argument is an issue number) - batch-mode item 3's `gh issue view` line, for the one issue.
 
-Both modes end with the same inputs for Step 3: each issue's number, title, body, labels, AND its comments.
+Both modes end with the same Step 3 inputs: each issue's number and its full-record path `<scratch>/issue-<n>.md`.
 
 ### Step 2.5 - Cache lookup (before dispatching agents)
 
@@ -102,7 +102,12 @@ Partition issues into **HIT set** (cache-reused) and **MISS set** (fresh dispatc
 Resolve each issue's cited `.project/` sections **once, here in the triage skill**, for every issue in the **MISS set** (HIT issues skip dispatch). It is **additive grounding**: it changes no gate, no cap, and no existing step's logic - it only adds an input to the two dispatch briefs (Step 3).
 
 1. **Source the docs root.** Use `projectDocs` already resolved at Step 1 (defaults to `.project/`). Do **not** re-resolve the profile here.
-2. **Parse the cited anchors.** From each MISS issue's body + its acceptance criteria (gathered in Step 2), collect the `.project/<doc>#<section>` anchors the issue cites - `<doc>` is the path under the docs root, `<section>` is the heading text (e.g. `design-system.md#data-tables`).
+2. **Parse the cited anchors.** Collect the `.project/<doc>#<section>` anchors (`<doc>` the docs-root path, `<section>` the heading text, e.g. `design-system.md#data-tables`) from each MISS issue's record file (`<scratch>/issue-<n>.md`) via a targeted extraction, never a whole-file read (same discipline as `skills/solve-milestone/SKILL.md § Main-thread context`):
+
+   ```bash
+   grep -o '\.project/[A-Za-z0-9_./-]*#[^ )`]*' <scratch>/issue-<n>.md | sort -u
+   # pwsh: (Select-String -Path <scratch>/issue-<n>.md -Pattern '\.project/[A-Za-z0-9_./-]+#[^ )`]+' -AllMatches).Matches.Value | Sort-Object -Unique
+   ```
 3. **Pass the anchors, not the sections.** Put each MISS issue's cited anchors - plus plausibly-relevant **sibling** section names - into BOTH the `triageAgent` and `designReviewAgent` briefs composed in Step 3 as **the cited `.project/` anchors**, with the absolute path of `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1}`. Each reviewer reads them with that primitive (`read-doc-section.<sh|ps1> <doc-path> <anchor-text>`, `<doc-path>` the doc under the docs root, `<anchor-text>` the heading text **without** leading `#`s; it prints **only** that section) and keeps its own `Read`/grep tools for any **additional** anchor. **Bias toward over-inclusion** in the list: under-retrieval is the real risk. Never inline a section, never a whole file.
 4. **Name the prose contract (once per run).** Put the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` into **BOTH** Step 3 briefs as **the prose contract path**, naming the sections each reviewer reads: `## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, `## The two anti-criteria`. Never paste them. They govern each reviewer's returned `description` and `to_clear` lines - the text this skill renders verbatim into the `🔴 Triage` comment at Step 6 - and each agent's own `## Communication style` may specialize them but never replace them.
 
@@ -116,7 +121,7 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 
 Resolve each MISS issue's `path (anchor)` citations (`skills/citation-format.md`) **once here** - a HIT issue skips dispatch and makes **no** resolver call. Paths are repo-root-relative; no multi-base fallback.
 
-1. **Extract by model judgment over the `path (anchor)` shape - never a regex.** Apply its span and position tests to the issue body + acceptance criteria: a parenthetical after a path is **not** automatically a citation. Both regex failure modes, on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` exits 1 - a **false drift report**; `` `skills/setup/SKILL.md` (Phase 2) `` returns `PRIMARY 54` + `MATCH 197` - a **confident wrong answer**.
+1. **The skill's one bounded read of an issue body.** Per MISS issue, read `<scratch>/issue-<n>.md`'s `## Body` section with `sed -n '/^## Body$/,/^## Comments$/p' <scratch>/issue-<n>.md` (never `read-doc-section`: it stops at the body's own first `##`) - same discipline as `skills/solve-milestone/SKILL.md § Main-thread context`. **Then extract by model judgment over the `path (anchor)` shape - never a regex**: apply its span and position tests to that section - a parenthetical after a path is **not** automatically a citation. Both regex failure modes, on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` exits 1 - a **false drift report**; `` `skills/setup/SKILL.md` (Phase 2) `` returns `PRIMARY 54` + `MATCH 197` - a **confident wrong answer**.
 2. **Resolve, then feed BOTH briefs.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` (pwsh on Windows, bash elsewhere) once per citation, with `<file-path> <anchor-text>` as arguments. Exit 0 prints a `PRIMARY` row then zero or more `MATCH` rows, TAB-delimited, file order. Pass those rows into **BOTH** Step 3 briefs as **the resolved citations** - once per issue, not once per reviewer - in the printed-output shape `read-doc-section`'s result uses above.
 
 **Degradation:**
@@ -129,9 +134,9 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 
 **Brief each agent with:**
 
-- The issue: number, title, body, acceptance criteria, labels.
-- Its recorded design decisions: all comments and any `design-cleared` notes fetched in Step 2.
-- The milestone description (the declared Wave/dependency order) - batch mode only; pass an empty string in single mode.
+- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria, labels) - read first, never pasted inline.
+- Its recorded design decisions: the same file (comments and any `design-cleared` notes are part of its record).
+- The milestone description: the path of `<scratch>/milestone.md` - batch mode only; pass an empty string in single mode.
 - The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step - after the framework's own docs, before repo patterns - in the agent's research path for verifying a found convention is a genuine framework idiom; omit when the expansion is empty).
 - The cited `.project/` anchors for this issue, with the `read-doc-section` path - omit when that block was a no-op for this issue.
 - The prose contract path and its four section names; omit when `skills/output-style.md` is absent.
@@ -159,8 +164,8 @@ For each **MISS** issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW:
 
 **Brief the design agent with:**
 
-- The issue: number, title, body, acceptance criteria.
-- Its recorded design decisions: all comments and any `design-cleared` notes.
+- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria) - read first, never pasted inline.
+- Its recorded design decisions: the same file.
 - Pointers to existing UI surfaces the issue neighbors - via `uiSurfaceGlobs` from the profile.
 - The profile: `uiSurfaceGlobs`, `domainSkills` (the same research-path step as the `triageAgent` brief above; omit when the expansion is empty).
 - The cited `.project/` anchors, the prose contract path, and the resolved citations - the **same** ones passed to the `triageAgent` above; omit each when its block was a no-op. Plus `citationFormatPath`, never omitted.
