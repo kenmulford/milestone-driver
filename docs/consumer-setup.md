@@ -78,9 +78,9 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies - never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
 
-  **Review depth is not the risk profile.** `/code-review` effort and the review→fix cycle cap come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
+  **Review depth is not the risk profile.** The review→fix cycle cap, and the **first** review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling and it is the first review's only: every later `/code-review` on the issue runs at `low`, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
 
-  | Verdict | Fires when the diff | Review |
+  | Verdict | Fires when the diff | First review, then cap |
   |---|---|---|
   | `deep` | touches `hooks/**`, changes only one leg of a `*.sh` / `*.ps1` twin pair, or adds a new file under `sourceGlobs` | `medium`, 2 cycles |
   | `standard` | touches any other path under `sourceGlobs` | `medium`, 1 cycle; a 2nd only on a Critical or Important finding |
