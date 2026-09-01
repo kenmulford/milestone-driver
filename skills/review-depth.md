@@ -4,14 +4,12 @@ The single source of truth for what `scripts/classify-review-depth.{sh,ps1}`'s
 verdict decides: the reviewer's effort level, the review→fix cycle cap, and
 what a second cycle does. Four sites read it - `solve-issue` step 6.1 and its
 `post-fix-commit.md`, `solve-milestone`'s `parallel-waves.md` step 7, and
-`simplify-pass.md` - and it sits a level up because none of them owns it
-(`skills/notices.md (a peer of the skill folders)`).
+`simplify-pass.md`.
 
 ## Two axes, never collapsed
 
 **The verdict sets the cycle cap. The build profile sets which findings get
-fixed.** Orthogonal axes, read from different places: the verdict from the
-diff, the profile from triage's `risk`
+fixed.** The verdict comes from the diff, the profile from triage's `risk`
 (`skills/solve-issue/SKILL.md (### Build profile resolution)`). **`standard` is
 not `Light`** - a `Heavy` issue under a `standard` verdict still fixes every
 in-scope finding, and a `Light` issue under a `deep` verdict still accepts a
@@ -33,18 +31,22 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 
 ## The ladder
 
-| Verdict | Reviewer effort | Cycle cap |
+| Verdict | First-run effort | Cycle cap |
 |---|---|---|
 | `deep` | `medium` | 2 cycles. Any in-scope finding surviving the 2nd fix parks |
 | `standard` | `medium` | 1 cycle, a 2nd **only** when the most recent review returned a Critical or Important finding |
 | `shallow` | `low` | 1 cycle, a 2nd impossible |
 
-`medium` is the ceiling. A cycle is one `/code-review` run **plus the fix it
+`medium` is the ceiling, and the column is a **first** run's effort only: every
+later `/code-review` on the issue - the re-review a `code-changed` fix owes, a
+2nd cycle's - runs at `low`, whatever the verdict says (`simplify-pass.md`'s
+step 9 run is its own pass's first). **On a resume, the run already made is the
+one `hooks/dispatch-cap.sh`'s per-issue review counter holds**, never the
+orchestrator's memory. A cycle is one `/code-review` run **plus the fix it
 triggers**, so a review returning no in-scope finding spends none, and on a
 `code-changed` delta the fresh review is the last action before commit.
-`shallow` is a diff touching no `sourceGlobs` path, or one of at most 20
-changed lines with no deep trigger
-(`scripts/classify-review-depth.sh (THE SMALL-DIFF DEMOTION)`).
+`shallow` is defined in
+`scripts/classify-review-depth.sh (THE SMALL-DIFF DEMOTION)`.
 
 ## Re-classify before a second cycle
 
@@ -85,4 +87,4 @@ The `<root>` argument, and nothing else:
 | Caller | `<root>` |
 |---|---|
 | `solve-issue` step 6.1, sequential | `<repo-root>` |
-| `parallel-waves.md` step 7, parallel | `<worktree-path>`. `git diff HEAD` inside that worktree is still against `<base>`, because Phase 1 does not commit until step 8 |
+| `parallel-waves.md` step 7, parallel | `<worktree-path>`. `git diff HEAD` inside that worktree is still against `<base>` |
