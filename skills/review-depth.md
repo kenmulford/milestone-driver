@@ -40,12 +40,12 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 `medium` is the ceiling, and the column is a **first** run's effort only: every
 later `/code-review` on the issue - the re-review a `code-changed` fix owes, a
 2nd cycle's - runs at `low`, whatever the verdict says (`simplify-pass.md`'s
-step 9 run is its own pass's first). **On a resume, the run already made is the
-one `hooks/dispatch-cap.sh`'s per-issue review counter holds**, never the
-orchestrator's memory. A cycle is one `/code-review` run **plus the fix it
-triggers**, so a review returning no in-scope finding spends none, and on a
-`code-changed` delta the fresh review is the last action before commit.
-`shallow` is defined in
+step 9 run is its own pass's first). **A resumed issue starts a fresh pass**:
+holding no record of the earlier run, its next review takes the verdict's
+effort again. A cycle is one `/code-review` run **plus the fix it triggers**,
+so a review returning no in-scope finding spends none, and on a `code-changed`
+delta the fresh review is the last action before commit. `shallow` is no
+`sourceGlobs` path, or
 `scripts/classify-review-depth.sh (THE SMALL-DIFF DEMOTION)`.
 
 ## Re-classify before a second cycle
