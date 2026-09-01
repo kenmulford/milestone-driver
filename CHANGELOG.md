@@ -3,6 +3,26 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.26.1 - review effort drops to `low` after the first run
+
+**Theme:** The classifier verdict sets the **first** `/code-review` run's effort; every later run on the issue is `low`.
+
+### 🔧 Changed
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `skills/review-depth.md` § The ladder: the effort column is a first run's only. The re-review a `code-changed` fix owes, and a 2nd cycle's review, run at `low` whatever the verdict says at that point; the cycle cap, the re-classify rule, and the second-cycle park are unchanged and still keyed to the verdict. A resumed issue starts a fresh pass: holding no record of the earlier run, its next review takes the verdict's effort again. `simplify-pass.md`'s step 9 run is its own pass's first run. The file's placement rationale, the `shallow` trigger's small-diff half, and the worktree row's "because Phase 1 does not commit" clause were cut to pay for it, each stated at its own source. |
+| - | - | `skills/solve-milestone/parallel-waves.md` step 7 briefs each reviewer with the effort the ladder sets for this run, resolved on the orchestrator's line, instead of "the verdict just computed" - so a re-review dispatched after a fix inherits `low` rather than the first run's `medium`. |
+| - | - | The PR-body `## Code Review` template records `Findings, one line per run`, in `skills/solve-issue/SKILL.md` step 6.3 and the block `skills/solve-milestone/milestone-granularity.md` copies verbatim. A first run at `medium` and a re-review at `low` no longer have to share one effort slot. |
+| - | - | `docs/consumer-setup.md`'s "Review depth is not the risk profile" block, the one place that restates the ladder for consumers, no longer publishes the verdict's effort as every review's. |
+
+### Consumer notes (upgrading from v1.26.0)
+
+- **A second review round is now shallower.** An issue whose first review ran at `medium` is re-reviewed at `low` after a fix. A finding the `medium` pass would have raised can survive the re-review; the cycle cap, the second-cycle park, and `hooks/dispatch-cap.sh`'s deny of the 4th run are all unchanged.
+- **`shallow` is unaffected** - every run it makes was already `low`.
+- **No schema changes** to `.milestone-config/driver.json`.
+- Ceiling state a contributor's next edit hits: `skills/review-depth.md` measures 90/90 lines, 4467/4500 bytes, 656/700 words - at its line ceiling, with the advisory CRLF `WARN` (33 bytes free) it now carries, so the next edit there trims before it adds. No ceiling was raised. The informational `CLOSURE skills/solve-issue/SKILL.md 12583/12300` row, which never gates, was already over at 12568 before this change.
+
 ## v1.26.0 - grounded edges stay Advisory, the orchestrator keeps its context small
 
 **Theme:** A dependency the triage reviewer grounds at `file:line` stays Advisory instead of parking the issue and dispatching the resolver (#639); the orchestrator's own context footprint gets the same discipline next (#640).

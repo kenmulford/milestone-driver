@@ -53,7 +53,7 @@ Subject line, a blank line, the Decision Log summary, a blank line, the Code Rev
 
 Code-Review:
   - /code-review run: yes (omission is a park trigger - a submitted PR always carries a real review; a parked run opens no PR)
-  - Findings: <count> in-scope finding(s) at <effort> effort
+  - Findings, one line per run: <count> in-scope finding(s) at <effort> effort
     - <finding> - <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
     - … (one line per finding, or "none" when count is 0)
   - No park-triggering findings. | Park-triggering findings: <list>
