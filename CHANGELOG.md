@@ -22,6 +22,7 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 | #657 Drop incident IDs from runtime text and re-anchor the citation they carried | #669 | Twenty-three lines named a GitHub issue number to justify what the driver does. Each reference is gone and its sentence keeps its content; the one citation an ID carried is re-anchored to the rule's own file. |
 | #658 Bring skills/solve-issue/ under the emphasis register | #671 | Same register applied to twelve `skills/solve-issue/` files. |
 | #659 Bring the solve-milestone sibling reference files under the emphasis register | #670 | Same register applied to eleven `skills/solve-milestone/` sibling files. Where no clause on a line gates behavior, the line carries no bold at all. |
+| #673 setup line 86 kept two bold runs the emphasis pass removed around it | #674 | `skills/setup/SKILL.md`'s `uiSurfaceGlobs` skip-consequence row carries one bold run: `**no design-lens review**`, the layer skipping that key turns off unconditionally. Visual capture, gated on a Phase-1 signal as well, is plain. Filed by the post-run coherence review, not by a gate. |
 
 ### Consumer notes (upgrading from v1.26.1)
 
@@ -34,10 +35,10 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 
 Judgment-call PRs: none.
 
-- No gate verifies the emphasis register. `scripts/check-size-budgets.{sh,ps1}` counts lines, bytes, and words; nothing checks "at most one bold run per line" or the absence of caps emphasis, so the register holds by review only and can drift on the next edit.
+- No gate verifies the emphasis register. `scripts/check-size-budgets.{sh,ps1}` counts lines, bytes, and words; nothing checks "at most one bold run per line" or the absence of caps emphasis, so the register holds by review only and can drift on the next edit. `milestone-coherence-reviewer:review` over the milestone's range found the one line the pass missed, and it shipped here as #673.
 - The acceptance greps in these issues run through a `nocode` helper that anchors fences at column 0, so an indented fenced block leaks its contents into the grep. Three issues (#655, #658, #659) reported a fenced-code hit that was correctly left unedited; a future issue using the same helper will report it again.
 - Informational `CLOSURE skills/solve-issue/SKILL.md 12553/12300` is still over its closure ceiling. It never gates, and it was over before this milestone.
-- Ceiling state a contributor's next edit hits: `skills/review-depth.md` is at its line ceiling (90/90) with 29 bytes free, `skills/solve-milestone/simplify-pass.md` has 7 words free (1593/1600), and `skills/solve-milestone/SKILL.md` has one line free (319/320). No line ceiling was raised this milestone.
+- Ceiling state a contributor's next edit hits: `skills/review-depth.md` is at its line ceiling (90/90) with 69 bytes free (4431/4500), `skills/solve-milestone/simplify-pass.md` has 7 words free (1593/1600), and `skills/solve-milestone/SKILL.md` has one line free (319/320). No line ceiling was raised this milestone.
 
 ## v1.26.1 - review effort drops to `low` after the first run
 
@@ -57,7 +58,7 @@ Judgment-call PRs: none.
 - **A second review round is now shallower.** An issue whose first review ran at `medium` is re-reviewed at `low` after a fix. A finding the `medium` pass would have raised can survive the re-review; the cycle cap, the second-cycle park, and `hooks/dispatch-cap.sh`'s deny of the 4th run are all unchanged.
 - **`shallow` is unaffected** - every run it makes was already `low`.
 - **No schema changes** to `.milestone-config/driver.json`.
-- Ceiling state a contributor's next edit hits: `skills/review-depth.md` measures 90/90 lines, 4467/4500 bytes, 656/700 words - at its line ceiling, with the advisory CRLF `WARN` (33 bytes free) it now carries, so the next edit there trims before it adds. No ceiling was raised. The informational `CLOSURE skills/solve-issue/SKILL.md 12583/12300` row, which never gates, was already over at 12568 before this change.
+- Ceiling state a contributor's next edit hits: `skills/review-depth.md` measures 90/90 lines, 4471/4500 bytes, 661/700 words - at its line ceiling, with the advisory CRLF `WARN` (29 bytes free) it now carries, so the next edit there trims before it adds. No ceiling was raised. The informational `CLOSURE skills/solve-issue/SKILL.md 12588/12300` row, which never gates, was already over before this change.
 
 ## v1.26.0 - grounded edges stay Advisory, the orchestrator keeps its context small
 
