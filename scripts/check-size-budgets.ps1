@@ -62,7 +62,7 @@ $Root = ($Root -replace '[\\/]+$', '')
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
 skills/solve-issue/SKILL.md                         320    44000     6200
-skills/solve-issue/async-mode.md                     40     4500      700
+skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
@@ -73,9 +73,9 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     320    35000     4800
+skills/solve-milestone/SKILL.md                     320    34500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
-skills/solve-milestone/trello-sync.md               400    19500     3000
+skills/solve-milestone/trello-sync.md               400    19000     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
@@ -88,16 +88,16 @@ skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600
 skills/solve-milestone/version-target.md             30     3000      400
-skills/triage/SKILL.md                              390    36500     5000
+skills/triage/SKILL.md                              390    36000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   300    14500     2000
+skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    15500     2200
+agents/implementer.md                               130    15000     2200
 agents/triage-reviewer.md                           120    16500     2600
 '@
 

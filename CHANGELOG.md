@@ -3,6 +3,43 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.27.0 - older-model text leaves the prompt surface
+
+**Theme:** Text written for older models is gone from the surface every dispatch loads: behavior is stated directly instead of as a delta from a past version, incident IDs no longer stand in for rules, and a line carries at most one bold run.
+
+### ✨ Prompt surface
+
+| Issue | PR | What |
+|---|---|---|
+| #649 Replace async-mode.md's "Delta A1 retired with it" section with the current-state patch-bump rule | #662 | `skills/solve-issue/async-mode.md` states the patch-bump guard as a rule, not as what a retired delta used to do. |
+| #650 Rewrite parallel-waves step 9's lead as a barrier statement, not a delta from a removed barrier | #661 | `skills/solve-milestone/parallel-waves.md` step 9 opens by naming itself Phase 1's one barrier, with no reference to the Stage A barrier it replaced. |
+| #651 Bring setup and the shared skills/*.md files under the emphasis register | #664 | Six setup and shared-reference files carry at most one bold run per paragraph, list item, and table row, with ordinary-English caps lowercased. |
+| #652 Bring skills/triage/ under the emphasis register | #663 | Same register applied to `skills/triage/SKILL.md` and `blocker-resolver-dispatch.md`. |
+| #653 Bring agents/ under the emphasis register | #665 | Same register applied to the four `agents/` prompt files. |
+| #654 Bring the three skill-loaded docs under the emphasis register | #666 | Same register applied to `docs/architecture.md`, `docs/consumer-setup.md`, and `docs/profile-schema.md`. |
+| #655 Bring the solve-milestone core files under the emphasis register | #667 | Same register applied to `parallel-waves.md`, `solve-milestone/SKILL.md`, `milestone-granularity.md`, and `integration-granularity.md`. |
+| #656 State behavior directly instead of as a delta from an earlier version | #668 | Twenty-five lines across six files described behavior by comparing it to an earlier version. Each now names the non-default value against the default. `docs/architecture.md`'s heading became `### Opt-in by label`, since `md-epic` is a fixed literal and no profile key is introduced. |
+| #657 Drop incident IDs from runtime text and re-anchor the citation they carried | #669 | Twenty-three lines named a GitHub issue number to justify what the driver does. Each reference is gone and its sentence keeps its content; the one citation an ID carried is re-anchored to the rule's own file. |
+| #658 Bring skills/solve-issue/ under the emphasis register | #671 | Same register applied to twelve `skills/solve-issue/` files. |
+| #659 Bring the solve-milestone sibling reference files under the emphasis register | #670 | Same register applied to eleven `skills/solve-milestone/` sibling files. Where no clause on a line gates behavior, the line carries no bold at all. |
+| #673 setup line 86 kept two bold runs the emphasis pass removed around it | #674 | `skills/setup/SKILL.md`'s `uiSurfaceGlobs` skip-consequence row carries one bold run: `**no design-lens review**`, the layer skipping that key turns off unconditionally. Visual capture, gated on a Phase-1 signal as well, is plain. Filed by the post-run coherence review, not by a gate. |
+
+### Consumer notes (upgrading from v1.26.1)
+
+- **Prose only. No rule changed.** Every edit is line-for-line inside the text a dispatch loads. No gate, cap, default, or profile key moved, and no line count changed.
+- **Six byte and word ceilings ratcheted down** in both `scripts/check-size-budgets.sh` and its pwsh twin: `agents/implementer.md` 15500 to 15000, `skills/notices.md` 14500 to 14000, `skills/solve-issue/async-mode.md` 4500 to 4000 bytes and 700 to 600 words, `skills/solve-milestone/SKILL.md` 35000 to 34500, `skills/solve-milestone/trello-sync.md` 19500 to 19000, `skills/triage/SKILL.md` 36500 to 36000. A fork carrying local edits to those files may now fail the gate that passed on v1.26.1.
+- **Three `check-size-budgets` fixtures were regenerated** to keep pinning the new `async-mode.md` ceiling: `at-ceiling`, `byte-flat-word-over`, and `line-flat-byte-over`.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- No gate verifies the emphasis register. `scripts/check-size-budgets.{sh,ps1}` counts lines, bytes, and words; nothing checks "at most one bold run per line" or the absence of caps emphasis, so the register holds by review only and can drift on the next edit. `milestone-coherence-reviewer:review` over the milestone's range found the one line the pass missed, and it shipped here as #673.
+- The acceptance greps in these issues run through a `nocode` helper that anchors fences at column 0, so an indented fenced block leaks its contents into the grep. Three issues (#655, #658, #659) reported a fenced-code hit that was correctly left unedited; a future issue using the same helper will report it again.
+- Informational `CLOSURE skills/solve-issue/SKILL.md 12553/12300` is still over its closure ceiling. It never gates, and it was over before this milestone.
+- Ceiling state a contributor's next edit hits: `skills/review-depth.md` is at its line ceiling (90/90) with 69 bytes free (4431/4500), `skills/solve-milestone/simplify-pass.md` has 7 words free (1593/1600), and `skills/solve-milestone/SKILL.md` has one line free (319/320). No line ceiling was raised this milestone.
+
 ## v1.26.1 - review effort drops to `low` after the first run
 
 **Theme:** The classifier verdict sets the **first** `/code-review` run's effort; every later run on the issue is `low`.
@@ -21,7 +58,7 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 - **A second review round is now shallower.** An issue whose first review ran at `medium` is re-reviewed at `low` after a fix. A finding the `medium` pass would have raised can survive the re-review; the cycle cap, the second-cycle park, and `hooks/dispatch-cap.sh`'s deny of the 4th run are all unchanged.
 - **`shallow` is unaffected** - every run it makes was already `low`.
 - **No schema changes** to `.milestone-config/driver.json`.
-- Ceiling state a contributor's next edit hits: `skills/review-depth.md` measures 90/90 lines, 4467/4500 bytes, 656/700 words - at its line ceiling, with the advisory CRLF `WARN` (33 bytes free) it now carries, so the next edit there trims before it adds. No ceiling was raised. The informational `CLOSURE skills/solve-issue/SKILL.md 12583/12300` row, which never gates, was already over at 12568 before this change.
+- Ceiling state a contributor's next edit hits: `skills/review-depth.md` measures 90/90 lines, 4471/4500 bytes, 661/700 words - at its line ceiling, with the advisory CRLF `WARN` (29 bytes free) it now carries, so the next edit there trims before it adds. No ceiling was raised. The informational `CLOSURE skills/solve-issue/SKILL.md 12588/12300` row, which never gates, was already over before this change.
 
 ## v1.26.0 - grounded edges stay Advisory, the orchestrator keeps its context small
 

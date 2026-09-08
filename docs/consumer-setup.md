@@ -25,9 +25,9 @@ If your repo has no `.claude-plugin/plugin.json` (or you simply don't want a per
 **Manual authoring (fallback):** Create `.milestone-config/driver.json` (the canonical
 location). Only the Core keys are required. A legacy root `milestone-driver.json` is still
 read transitionally, and the migration to `.milestone-config/driver.json` is performed by the
-commands with a commit path - **`setup`** and **`solve-issue`** (the latter on its feature
-branch, so the move rides the issue PR); **`solve-milestone`** migrates via the first build it
-dispatches; **`triage`** surfaces detection but does not move the file; the **gate hooks** stay
+commands with a commit path - `setup` and `solve-issue` (the latter on its feature
+branch, so the move rides the issue PR); `solve-milestone` migrates via the first build it
+dispatches; `triage` surfaces detection but does not move the file; the gate hooks stay
 read-only. The move is idempotent and the transitional read covers the gap until it lands - see
 [`profile-schema.md`](profile-schema.md) for the full schema and the resolution/migration rules.
 Minimal example (Core keys only):
@@ -68,17 +68,17 @@ session knows the repo is milestone-driver–driven.
 
 Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:solve-issue <n>`) runs a gated pipeline. Two phases matter to you as a consumer:
 
-- **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering - through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is **parked** (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues - it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
+- **Triage (Phase 0, before any build).** The run first reviews every issue for design gaps and dependency ordering - through an architect lens, plus a front-end lens for any issue touching `uiSurfaceGlobs`. It emits an all-clear or a gap table and posts a `🔴 Triage` comment on each gapped issue. An issue with a blocking gap is parked (labeled `needs design` / `needs decision`, left open) and the loop proceeds with the clean, independent issues - it never waits on you mid-run. Clear a park by recording the decision on the issue and re-running. Triage reads the recorded design + source, so it needs no special tooling.
 
   **Triage reuse.** Results are cached in `.milestone-config/triage-cache.json` (gitignored, per-clone). On subsequent runs, an issue is re-triaged only when its body, comments, or labels have changed - unchanged issues reuse the cached result at zero agent cost. The run reports the reused/fresh split in its output. To force a full re-triage (e.g. after updating the triage agent itself), delete this file.
-- **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as **light** or **heavy** (default: **heavy**). The profile right-sizes ceremony - it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
+- **Risk-profile right-sizing (decided by triage, applied during build).** Each issue is classified as light or heavy (default: heavy). The profile right-sizes ceremony - it never touches the safety floor. Triage, the `tests-green` hook, and `force-subagent` run unconditionally for both profiles.
 
   | What changes | Light | Heavy (default) |
   |---|---|---|
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies - never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
 
-  **Review depth is not the risk profile.** The review→fix cycle cap, and the **first** review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling and it is the first review's only: every later `/code-review` on the issue runs at `low`, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
+  **Review depth is not the risk profile.** The review→fix cycle cap, and the first review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling and it is the first review's only: every later `/code-review` on the issue runs at `low`, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
 
   | Verdict | Fires when the diff | First review, then cap |
   |---|---|---|
@@ -88,37 +88,37 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
 
   An unresolvable root, absent git, or an empty candidate set fails open to `standard`, never to `shallow`: the safe direction is more review.
 
-  **Override labels.** Apply `risk:light` or `risk:heavy` to an issue to force the profile directly (bypasses the automatic rubric). When **both** labels are present, `risk:heavy` wins (safety-first). Absent both labels, the rubric decides with default-heavy-on-ambiguity.
+  **Override labels.** Apply `risk:light` or `risk:heavy` to an issue to force the profile directly (bypasses the automatic rubric). When both labels are present, `risk:heavy` wins (safety-first). Absent both labels, the rubric decides with default-heavy-on-ambiguity.
 
-  **What the rubric looks at.** Triage classifies an issue as **heavy** when any of the following is true: a gap of type `contradiction` or `not-buildable`; an undeclared `DEPENDS_ON` edge; a UI surface with a design-review need; the issue body names a shared interface, schema, auth path, or payment path; or genuine ambiguity. An issue is **light** only when none of the above heavy conditions is triggered, all triage criteria are clean, and no shared boundary is named.
+  **What the rubric looks at.** Triage classifies an issue as heavy when any of the following is true: a gap of type `contradiction` or `not-buildable`; an undeclared `DEPENDS_ON` edge; a UI surface with a design-review need; the issue body names a shared interface, schema, auth path, or payment path; or genuine ambiguity. An issue is light only when none of the above heavy conditions is triggered, all triage criteria are clean, and no shared boundary is named.
 
-- **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority - this just surfaces a red result earlier. `preflightCmd` accepts either a literal command **or** the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. **First-run notice:** on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it - this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
+- **Preflight gate (post-build, before the PR).** If you set `preflightCmd` in your profile, the run executes your fast pre-PR checks locally at the end of the code-review loop (before the PR opens), so a lint / static-analysis / security failure is caught and fixed up front instead of turning the PR red. CI remains the authority - this just surfaces a red result earlier. `preflightCmd` accepts either a literal command or the reserved sentinel `"github-ci"`, which auto-derives the local checks from your GitHub Actions PR-gating workflows (no hand-transcribing; see `docs/profile-schema.md`). Absent → skipped. First-run notice: on the first `solve-issue` / `solve-milestone` run where `preflightCmd` isn't set in your profile, the run prints a one-time, plain-English notice introducing it - this mostly matters when upgrading from 1.3.x, whose existing profile means `setup` won't re-run to offer the key. It shows at most once per clone (marker `.milestone-config/preflight-notice`, gitignored) and is silent once `preflightCmd` is set.
 
 To enable the design-lens triage, set `uiSurfaceGlobs` in your profile (see [`profile-schema.md`](profile-schema.md)); absent, the repo has no UI surfaces and it does not run. See [the layered gating model](architecture.md#the-layered-gating-model) for the full two-layer model, the park-don't-prompt runtime, and the label taxonomy.
 
 ## Parallel builds and integration granularity
 
-These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls **how** issues build, `integrationGranularity` controls **how** they integrate. They differ in default. Parallel is the **default** execution mode - the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
+These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls how issues build, `integrationGranularity` controls how they integrate. They differ in default. Parallel is the **default** execution mode - the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
 
 ### Parallel by default: a Wave's independent issues build concurrently
 
-The driver builds the mutually-independent issues within a single dependency Wave **concurrently, by default** - there is no flag to add and nothing to opt into per run. To force the old one-at-a-time behavior, set `parallel: false` in your profile. That profile key is the **only** force-sequential surface - there is **no `--sequential` flag**. Setting `parallel: false` also suppresses the one-time DB-isolation question described below.
+The driver builds the mutually-independent issues within a single dependency Wave concurrently, by default - there is no flag to add and nothing to opt into per run. To force the old one-at-a-time behavior, set `parallel: false` in your profile. That profile key is the only force-sequential surface - there is **no `--sequential` flag**. Setting `parallel: false` also suppresses the one-time DB-isolation question described below.
 
 **Back-compat.** There is no `--parallel` flag anymore; a habit-typed one is harmlessly stripped and ignored - parallel is already the default, the argument resolver strips any `--<token>` generically, and it never corrupts the milestone identifier.
 
 Each of those issues builds in its own git worktree (under a gitignored scratch dir `.milestone-config/worktrees/`), and they integrate one at a time through a single serial verified merge tail. Only same-Wave issues that are mutually independent parallelize; a dependent issue still waits for its upstream to merge. The merge tail re-verifies each branch against the accumulated integrated state before squash-merging, and auto-resolves only non-adjacent same-file edits (two edits on directly adjacent lines conflict); anything non-trivial or red parks `blocked` for you instead of guessing.
 
-**A file with one shared append point will conflict, and that is expected.** A changelog table, a barrel export, a dependency-injection registration list: any file where every issue adds its line at the same spot conflicts during the merge tail by construction, as soon as two issues in a Wave both touch it. Nothing has gone wrong when that happens. The tail resolves it and re-verifies it, on the same terms as any other conflict above. The rule that keeps you out of it: **one shared append point gets one dedicated writer, run on its own after the wave.** The driver already works this way for its own changelog, where step 6 of `solve-milestone` authors one entry, once, after the issue loop, instead of a row per issue. Write your issues' acceptance criteria the same way and no issue in a Wave has to touch the shared file at all. (Secondary note: pre-seeding one slot per issue with a blank line between the slots also merges clean, but you have to know the slot set before the wave starts and it leaves those separators in a shipped file, so it is worth doing only where a separator is already natural.)
+**A file with one shared append point will conflict, and that is expected.** A changelog table, a barrel export, a dependency-injection registration list: any file where every issue adds its line at the same spot conflicts during the merge tail by construction, as soon as two issues in a Wave both touch it. Nothing has gone wrong when that happens. The tail resolves it and re-verifies it, on the same terms as any other conflict above. The rule that keeps you out of it: one shared append point gets one dedicated writer, run on its own after the wave. The driver already works this way for its own changelog, where step 6 of `solve-milestone` authors one entry, once, after the issue loop, instead of a row per issue. Write your issues' acceptance criteria the same way and no issue in a Wave has to touch the shared file at all. (Secondary note: pre-seeding one slot per issue with a blank line between the slots also merges clean, but you have to know the slot set before the wave starts and it leaves those separators in a shipped file, so it is worth doing only where a separator is already natural.)
 
 **Do not reach for `merge=union` in `.gitattributes` to make this go away.** Union never reports a conflict, so it removes the only signal you would get. It also interleaves multi-line changes into structurally broken output: a table row can land below the trailing bullets, orphaned from its table. A single-line-per-worker append does merge clean and correct under union, which is exactly what makes it tempting; the corruption shows up once a contribution is a multi-line block whose lines belong in different parts of the file, which is where union's interleaving drops one of them in the wrong place.
 
-**How wide it goes - `maxParallelWorkers`.** The concurrent agent fan-out is capped per Wave - one shared cap covering builds and reviews together, since the two overlap. The cap defaults to **4**, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling - for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 - never an error. `maxParallelWorkers` is **orthogonal to `parallel`**: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize - a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
+**How wide it goes - `maxParallelWorkers`.** The concurrent agent fan-out is capped per Wave - one shared cap covering builds and reviews together, since the two overlap. The cap defaults to 4, and you set it with the optional `maxParallelWorkers` profile key (an integer). It follows the omit-the-default convention: omit the key to get 4, and write it only to raise or lower the ceiling - for example, raise it if you know your setup can take more concurrency (no shared test DB, ample cores, generous API rate limits). An absent or invalid value (non-integer, or less than 1) falls open to 4 - never an error. `maxParallelWorkers` is orthogonal to `parallel`: `parallel` decides *whether* to parallelize, `maxParallelWorkers` decides *how wide*, and it has no effect on a sequential run. Why is it tunable at all? A repo that risks test-DB contention already drops to sequential (via the question below, or `parallel: false`), so a fixed cap mostly throttles the runs that are *safe* to parallelize - a consumer who knows its setup can raise it, while the default stays 4 for everyone else.
 
 The trade-off: parallel finishes a wide Wave faster, but it runs a worktree fleet and carries merge-conflict and failure-isolation risk that a one-at-a-time run does not. The serial merge tail and the park-on-conflict policy bound that risk; if you want the lowest-risk path regardless, set `parallel: false` to run sequentially. Nothing about the blast radius changes: the build stages and the tail still merge only to your `integrationBranch`, never to your `protectedBranch`.
 
 #### DB isolation (consumer responsibility)
 
-A git worktree isolates the **filesystem**, not external services. When the driver builds N issues concurrently, each build runs `unitTestCmd` in its own worktree directory - but all N share the same external services, including the **test database** pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk - it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
+A git worktree isolates the filesystem, not external services. When the driver builds N issues concurrently, each build runs `unitTestCmd` in its own worktree directory - but all N share the same external services, including the test database pointed to by `DATABASE_URL` (or equivalent). Parallel builds do **not** inject DB isolation automatically; your test harness is responsible for it. The up-front question below is how the driver surfaces this risk - it asks whether your harness is safe to run concurrently; it does not isolate anything for you.
 
 **Failure mode if not isolated.** Concurrent rspec / pytest / dotnet-test runs against a single test DB collide on transactional-fixture state, truncation timing, and PK/sequence counters. The result is flaky reds - and flaky reds from `unitTestCmd` trigger the `tests-green` gate, which blocks the commit and causes `tests-green` false-blocks or misleading parks.
 
@@ -131,16 +131,16 @@ A git worktree isolates the **filesystem**, not external services. When the driv
 | .NET / xUnit | Spin up an isolated `TestContainers` DB per test class, or set `DATABASE_URL` per worker via a `GlobalSetup` that appends the worker index |
 | Any stack | Set `DATABASE_URL` (or equivalent) per worker to a dedicated per-worker DB name, and ensure `db:test:prepare` (or equivalent) runs for each DB before the suite |
 
-**The up-front DB-isolation question.** A shared test DB is the one real concurrency hazard, so the driver asks about it **once, at the start of the run**, instead of proceeding blind. When your profile sets `unitTestCmd` and has no `parallel` key yet, an **interactive** run asks whether your test harness is isolated per worker (or otherwise safe to run concurrently):
+**The up-front DB-isolation question.** A shared test DB is the one real concurrency hazard, so the driver asks about it once, at the start of the run, instead of proceeding blind. When your profile sets `unitTestCmd` and has no `parallel` key yet, an interactive run asks whether your test harness is isolated per worker (or otherwise safe to run concurrently):
 
-- **Yes** → the run goes **parallel**, and `parallel: true` is written to `.milestone-config/driver.json`.
-- **No** → the run goes **sequential**, and `parallel: false` is written.
+- **Yes** → the run goes parallel, and `parallel: true` is written to `.milestone-config/driver.json`.
+- **No** → the run goes sequential, and `parallel: false` is written.
 
 Either way the run prints: *"Recorded `parallel: <value>` in `.milestone-config/driver.json` - change it there anytime."* The question is asked only once - the recorded value answers it on every later run (edit or delete the key to be asked again).
 
 A repo with **no `unitTestCmd`** raises no DB hazard, so the question never fires and `parallel` stays absent - the run is parallel by default. (Absent means "not yet decided," not "off.")
 
-In a **non-interactive / headless** run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron), the driver cannot ask a human, so it does **not** prompt. It degrades to **sequential** with a loud note and records **nothing** - no human actually decided: *"⚠ unitTestCmd set and no parallel-safety decision recorded - running sequential; set `"parallel": true` in `.milestone-config/driver.json` to enable parallel builds."* This mirrors the degrade-with-a-logged-note pattern used elsewhere in this doc (for example, the version-free fallback above).
+In a non-interactive / headless run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron), the driver cannot ask a human, so it does not prompt. It degrades to **sequential** with a loud note and records nothing - no human actually decided: *"⚠ unitTestCmd set and no parallel-safety decision recorded - running sequential; set `"parallel": true` in `.milestone-config/driver.json` to enable parallel builds."* This mirrors the degrade-with-a-logged-note pattern used elsewhere in this doc (for example, the version-free fallback above).
 
 ### `integrationGranularity`: integrate per issue or per wave
 
@@ -150,7 +150,7 @@ Set this in the profile (it is a repo-stable choice, not a per-run flag):
 { "integrationGranularity": "wave" }
 ```
 
-Default `"issue"` is today's model, unchanged: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
+Default `"issue"` integrates per issue: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
@@ -194,11 +194,11 @@ The trade-off: nothing reaches your remote until the milestone-end push, so remo
 
 **If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
 
-**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
+**This key is opt-in.** The default is `"issue"`: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs integrate one issue at a time. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
 
 ## Permission pre-flight gate
 
-Because the driver dispatches background agents on the **default** path, a pre-flight gate fires once at the start of every run, before the first one is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface - or no layer is readable - the run falls back to **synchronous, sequential** dispatch automatically: concurrent builds require background dispatch, so a permission gap forces the run one-at-a-time.
+Because the driver dispatches background agents on the default path, a pre-flight gate fires once at the start of every run, before the first one is dispatched. It reads `permissions.allow` from all three Claude Code settings layers (user `~/.claude/settings.json`, project `.claude/settings.json`, project `.claude/settings.local.json`) and unions them. Absent layers are skipped. If the union does not cover the full pipeline tool surface - or no layer is readable - the run falls back to **synchronous, sequential** dispatch automatically: concurrent builds require background dispatch, so a permission gap forces the run one-at-a-time.
 
 **The fastest fix when you see a 🔴 gap table:** run `/fewer-permission-prompts` in the repo. That skill scans recent transcripts for tool calls you've already approved and builds a prioritized allowlist in `.claude/settings.json`, covering the pipeline surface in one pass. After running it, re-run the milestone command; the gate should clear.
 
@@ -219,7 +219,7 @@ milestone-driver can mirror milestone progress to a Trello board. The integratio
 
 ### Prerequisite
 
-The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/delorenj/mcp-server-trello) MCP server (`mcp__trello__*` tools) to be loaded in your Claude Code session. This is a prerequisite of the integration, NOT of milestone-driver itself - the plugin functions fully without it.
+The integration requires the [`@delorenj/mcp-server-trello`](https://github.com/delorenj/mcp-server-trello) MCP server (`mcp__trello__*` tools) to be loaded in your Claude Code session. This is a prerequisite of the integration, not of milestone-driver itself - the plugin functions fully without it.
 
 **Timing distinction:**
 - **At setup time:** the MCP server must be present and loaded for the Integrations tier to appear in `/milestone-driver:setup`. If the server is absent during setup, no `integrations.trello` node will be written to your profile (though you can hand-add it as described below).
@@ -268,7 +268,7 @@ For the full `integrations.trello` key reference - `boardId`, `lists.queue`, `li
 
 ### What it tracks
 
-Each lifecycle event below is best-effort. Two distinct skip modes apply: if the `@delorenj/mcp-server-trello` MCP server is absent from the session, **all** Trello steps are skipped for the whole run with a single session-wide log line; if Trello is reachable but an individual operation fails, **one** log line is emitted per failed operation and the run continues.
+Each lifecycle event below is best-effort. Two distinct skip modes apply: if the `@delorenj/mcp-server-trello` MCP server is absent from the session, all Trello steps are skipped for the whole run with a single session-wide log line; if Trello is reachable but an individual operation fails, one log line is emitted per failed operation and the run continues.
 
 | Lifecycle event | What happens |
 |---|---|
@@ -295,7 +295,7 @@ When the sibling `milestone-feeder` plugin is installed alongside milestone-driv
 
 ### Prerequisite
 
-The `milestone-feeder` plugin, loaded in the same Claude Code session, so that `/milestone-feeder:remediate` resolves. This is a prerequisite of the integration, NOT of milestone-driver itself.
+The `milestone-feeder` plugin, loaded in the same Claude Code session, so that `/milestone-feeder:remediate` resolves. This is a prerequisite of the integration, not of milestone-driver itself.
 
 With the feeder absent you are asked nothing, no auto-loop runs, and the driver degrades silently: one log line, no prompt, no error. Parking behaves exactly as it does today, and the park comment still names `/milestone-feeder:remediate` as an optional tool you may run yourself.
 
@@ -310,7 +310,7 @@ Your answer is held for the whole run; you are never asked again per issue.
 | Answer | What happens |
 |---|---|
 | **Auto** | Every issue this run parks enters the remediate loop: the driver reads that issue's `🔴 Triage` findings, invokes `/milestone-feeder:remediate <n>`, re-runs triage on the corrected body, and clears the park label when the re-triage comes back clean. Attempt cap: 1 per issue per run. |
-| **Leave them for me** | Today's behavior, unchanged: one park label, one `🔴 Parked - ` comment, and the run continues with independent clean issues. No issue body is edited. |
+| **Leave them for me** | Park and move on: one park label, one `🔴 Parked - ` comment, and the run continues with independent clean issues. No issue body is edited. |
 
 Either answer leaves the triage comment's closing line intact, naming the verb: "run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label."
 
@@ -318,21 +318,21 @@ Under **Auto**, two outcomes still park an issue for good with its label intact:
 
 ### The non-interactive default
 
-A non-interactive / headless run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron) cannot ask a human, so it does **not** prompt: it defaults to **Leave them for me** and parks as it does today. A question nobody can answer must not block an unattended run.
+A non-interactive / headless run (`MILESTONE_DRIVER_NONINTERACTIVE=1`, e.g. cron) cannot ask a human, so it does not prompt: it defaults to **Leave them for me** and parks as it does today. A question nobody can answer must not block an unattended run.
 
 ### How to enable
 
-There is nothing to configure. **No profile key exists for this integration** and none is introduced: presence of the `milestone-feeder` plugin in your session is the only switch, and your answer to the run-start question lives in run state, never in `.milestone-config/driver.json`. Install the sibling plugin, answer **Auto**, and the loop runs; uninstall it, or answer **Leave them for me**, and parking is what it has always been.
+There is nothing to configure. **No profile key exists for this integration** and none is introduced: presence of the `milestone-feeder` plugin in your session is the only switch, and your answer to the run-start question lives in run state, never in `.milestone-config/driver.json`. Install the sibling plugin, answer Auto, and the loop runs; uninstall it, or answer Leave them for me, and parking is what it has always been.
 
 ## Releasing to your protected branch
 
 The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).
 
-**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge - and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all - it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does **not** by itself keep the branches topologically in sync - the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
+**Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge - and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all - it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does not by itself keep the branches topologically in sync - the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
 
 When the integration branch is ready to ship, run the tail in order:
 
-1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then **merge it with `--merge`** - **before** you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
+1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then merge it with `--merge` - before you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
    ```
    gh pr merge <release-PR> --merge
    ```
@@ -346,7 +346,7 @@ When the integration branch is ready to ship, run the tail in order:
    gh release create v<version> --target <protectedBranch> --generate-notes
    ```
    In a versioned repo, `<version>` is the `.claude-plugin/plugin.json` version the milestone bumped to. Version-free repos can tag the date or skip this.
-3. **Back-merge `protectedBranch` → `integrationBranch`.** After tagging/cutting the Release, merge `protectedBranch` back into `integrationBranch` (a PR, or a direct merge if your `integrationBranch` is not PR-locked) so `integrationBranch` carries the release merge-node **and** the tag. It is history-only (no content delta, since `--merge` already kept the content in sync), so it is conflict-free. This is what keeps `integrationBranch` topologically even with `protectedBranch` and `git describe --tags` on `integrationBranch` current with the latest release. Open the back-merge PR with `protectedBranch` as the head, then merge it with `--merge` (same no-squash rule as step 1):
+3. **Back-merge `protectedBranch` → `integrationBranch`.** After tagging/cutting the Release, merge `protectedBranch` back into `integrationBranch` (a PR, or a direct merge if your `integrationBranch` is not PR-locked) so `integrationBranch` carries the release merge-node and the tag. It is history-only (no content delta, since `--merge` already kept the content in sync), so it is conflict-free. This is what keeps `integrationBranch` topologically even with `protectedBranch` and `git describe --tags` on `integrationBranch` current with the latest release. Open the back-merge PR with `protectedBranch` as the head, then merge it with `--merge` (same no-squash rule as step 1):
    ```
    gh pr create --base <integrationBranch> --head <protectedBranch> --title "Back-merge <protectedBranch> into <integrationBranch>" --body "$(cat <<'EOF'
 ## Code Review
@@ -379,7 +379,7 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) - dispatch the implementer instead |
 | The same edit from a dispatched subagent | allowed |
 | A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) - write BOM-less UTF-8 instead |
-| `git commit` with the unit suite red (staged source) - **when `unitTestCmd` is defined** | **blocked** (tests-green) |
+| `git commit` with the unit suite red (staged source) - when `unitTestCmd` is defined | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
 | `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |

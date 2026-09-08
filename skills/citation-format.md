@@ -38,14 +38,14 @@ and names the heading
 ## The base a citation path resolves from
 
 **Every `path`, in all four forms, is relative to the root of the repository
-the citation is written in**, and **there is no fallback to any other base**:
+the citation is written in**, and there is no fallback to any other base:
 not the citing file's own directory, not a walk up the tree.
 
 Nothing rebases the path. `scripts/resolve-citation.{sh,ps1}` and
 `scripts/read-doc-section.{sh,ps1}` open `path` exactly as written against the
 process working directory, and the skills that invoke them
 (`skills/solve-issue/SKILL.md (Resolve each citation once)`,
-`skills/triage/SKILL.md (Resolve, then feed BOTH briefs)`) do not change
+`skills/triage/SKILL.md (Resolve, then feed both briefs)`) do not change
 directory first. A mis-based path fails closed - nonzero exit, nothing on
 stdout, the failure named on stderr
 (`scripts/resolve-citation.sh (a missing/unreadable file)`) - unless a file
@@ -98,8 +98,8 @@ final `)`.
 The span test alone is not sufficient - a `path § Heading` span whose heading
 ends in a parenthetical is citation-shaped, and parse rule step 1 keeps it
 resolving as a heading citation instead of mis-splitting at the parenthesis.
-A citation must also stand in a **citation position**: an **evidence** or
-**citation** slot of a shape in `skills/output-style.md (Each shape is defined)`,
+A citation must also stand in a **citation position**: an evidence or
+citation slot of a shape in `skills/output-style.md (Each shape is defined)`,
 or a grounding reference in a skill, an agent, or a PR body. Text failing
 either test - span or position - is prose, never resolved.
 
@@ -108,7 +108,7 @@ either test - span or position - is prose, never resolved.
 A citation is one whole token, on one line, read left to right:
 
 1. **A `#` or a `§` appearing before any ` (` makes it a heading citation.**
-   Split on that separator: path before it, heading **everything after it** -
+   Split on that separator: path before it, heading everything after it -
    both trimmed, the heading's own parentheses included. Two live citations
    depend on this: `.project/library-manifest.md#Adding a dependency (the gate)`
    names the heading `Adding a dependency (the gate)`, and
@@ -118,7 +118,7 @@ A citation is one whole token, on one line, read left to right:
    citation.
 
 2. **Otherwise the path ends at the first ` (`** - a space followed by an open
-   parenthesis. The anchor is the text between that `(` and the **final `)`**
+   parenthesis. The anchor is the text between that `(` and the final `)`
    of the token, exclusive of both. The anchor may contain its own
    parentheses: `scripts/read-doc-section.sh (Fail-loud (fail-CLOSED))` carries
    the anchor `Fail-loud (fail-CLOSED)`.
@@ -130,7 +130,7 @@ A citation is one whole token, on one line, read left to right:
 
 ### Same-file - write a heading form
 
-A citation **in the file it points at** reproduces its own anchor, so the citing
+A citation in the file it points at reproduces its own anchor, so the citing
 line is itself an occurrence. Above its target it becomes the `PRIMARY` and the
 citation resolves to itself, at exit 0, with no error. **Never write the anchor
 form at a same-file citation.** Write a heading form: `read-doc-section.sh`
@@ -156,24 +156,24 @@ The second is the citation to write. The same test run against this repo:
 `extract_symbols() {` matches 1.
 
 **When an anchor matches more than once**, resolution still succeeds: the
-**first occurrence in file order is the primary**, and **every further
-occurrence is also reported**, so the author can see the anchor was not as
+first occurrence in file order is the primary, and every further
+occurrence is also reported, so the author can see the anchor was not as
 unique as intended (`scripts/read-doc-section.sh (Duplicate anchors)` makes the
 same call for a repeated heading).
 
 **`path:line` and `path:start-end` remain fully valid to write.** A citation
 carrying no `(anchor)` - `skills/notices.md:9-13` - resolves as the bare line
-or lines: no resolution attempted, no error, no warning. Both forms satisfy **every**
+or lines: no resolution attempted, no error, no warning. Both forms satisfy every
 evidence and citation slot in `skills/output-style.md (Each shape is defined)`;
-**no slot requires an anchor.** Prefer `path (anchor)` when the region you are
+no slot requires an anchor. Prefer `path (anchor)` when the region you are
 citing will outlive the line number it sits on today; an edit above a cited
 line invalidates it silently.
 
 ## D3 - an anchor that is not found fails closed
 
 An anchor that is **present in the citation but not found in the file** is a
-hard failure. The resolver exits **nonzero**, writes **nothing to stdout**, and
-writes **the anchor and the file** to stderr.
+hard failure. The resolver exits nonzero, writes nothing to stdout, and
+writes the anchor and the file to stderr.
 
 It does not fall back to the whole file, to a fuzzy match, or to silence.
 `scripts/read-doc-section.sh (Fail-loud (fail-CLOSED))` makes the same call for
