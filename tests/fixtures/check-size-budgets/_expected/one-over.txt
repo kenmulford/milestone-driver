@@ -11,7 +11,7 @@ OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/15	7/4000	1/600
 OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
-OK	skills/solve-milestone/SKILL.md	1/320	7/35000	1/4800
+OK	skills/solve-milestone/SKILL.md	1/320	7/34500	1/4800
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/41500	1/6200
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19500	1/3000
 OK	skills/solve-milestone/milestone-granularity.md	1/165	7/23500	1/3300
