@@ -67,11 +67,11 @@ by it. File order is print order.
 
 - **Marker:** `.milestone-config/preflight-notice`
 - **Skills:** solve-issue, solve-milestone
-- **Trigger:** `preflightCmd` is **absent** from the profile **and**
-  **neither** the new marker `.milestone-config/preflight-notice` **nor** the
+- **Trigger:** `preflightCmd` is absent from the profile and
+  neither the new marker `.milestone-config/preflight-notice` nor the
   legacy root marker `.milestone-driver-preflight-notice` exists (transitional
-  read - new path first, legacy root as fallback). Stay **silent** if
-  `preflightCmd` is set **or** either marker already exists.
+  read - new path first, legacy root as fallback). Stay silent if
+  `preflightCmd` is set or either marker already exists.
 - **Legacy fallback:** `.milestone-driver-preflight-notice` - checked as part
   of the Trigger (silent if it already exists); when the notice fires, remove
   this stale legacy root marker if present.
@@ -100,12 +100,12 @@ Examples:
 
 - **Marker:** `.milestone-config/trello-notice`
 - **Skills:** solve-milestone
-- **Trigger:** ALL THREE conditions hold - (a) `mcp__trello__*` tools are
+- **Trigger:** all three conditions hold - (a) `mcp__trello__*` tools are
   present in the session (probe by checking if `mcp__trello__get_health` is
-  available), (b) `integrations.trello` is **absent** from the profile, (c)
-  **neither** the new marker `.milestone-config/trello-notice` **nor** the
+  available), (b) `integrations.trello` is absent from the profile, (c)
+  neither the new marker `.milestone-config/trello-notice` nor the
   legacy root marker `.milestone-driver-trello-notice` exists (transitional
-  read - new path first, legacy root as fallback). Stay **silent** if any
+  read - new path first, legacy root as fallback). Stay silent if any
   condition fails.
 - **Legacy fallback:** `.milestone-driver-trello-notice` - checked as part of
   the Trigger (silent if it already exists); when the notice fires, remove
@@ -129,14 +129,14 @@ Examples:
 
 - **Marker:** `.milestone-config/visualcapture-notice`
 - **Skills:** solve-issue, solve-milestone
-- **Trigger:** `visualCapture` is **absent** from the profile **and**
-  `uiSurfaceGlobs` is **present** in the profile **and** the marker
-  `.milestone-config/visualcapture-notice` is **absent**. Stay **silent** if
+- **Trigger:** `visualCapture` is absent from the profile and
+  `uiSurfaceGlobs` is present in the profile and the marker
+  `.milestone-config/visualcapture-notice` is absent. Stay silent if
   any condition fails - `visualCapture` present (the feature is already
   configured), `uiSurfaceGlobs` absent (the repo has no UI surface to
   capture), or the marker already exists.
-- **Legacy fallback:** none - this marker is **born on the new
-  `.milestone-config/` path**: no legacy-root fallback read, no
+- **Legacy fallback:** none - this marker is born on the new
+  `.milestone-config/` path: no legacy-root fallback read, no
   stale-legacy-removal step.
 
 **Text:**
@@ -158,7 +158,7 @@ Examples:
 - **Marker:** `.milestone-config/parallel-default-notice`
 - **Skills:** solve-milestone
 - **Trigger:** the marker `.milestone-config/parallel-default-notice` is
-  **absent**. Stay **silent** if the marker already exists.
+  absent. Stay silent if the marker already exists.
 - **Legacy fallback:** none - born on the new `.milestone-config/` path.
 
 **Text:**
@@ -181,7 +181,7 @@ Examples:
 ## code-review-gate
 
 - **Marker:** `.milestone-config/code-review-gate-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none - born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none - born on the new path.
 
 **Text:**
 
@@ -195,7 +195,7 @@ Examples:
 ## cost-record
 
 - **Marker:** `.milestone-config/cost-record-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none - born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none - born on the new path.
 
 **Text:**
 
@@ -209,7 +209,7 @@ Examples:
 ## uisurfaceglobs
 
 - **Marker:** `.milestone-config/uisurfaceglobs-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** `uiSurfaceGlobs` **absent** from the profile AND marker absent - silent if either fails. **Legacy fallback:** none - born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: `uiSurfaceGlobs` absent from the profile and marker absent - silent if either fails. Legacy fallback: none - born on the new path.
 
 **Text:**
 
@@ -226,7 +226,7 @@ Examples:
 ## visual-hold-removed
 
 - **Marker:** `.milestone-config/visual-hold-removed-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none, born on the new path.
 
 **Text:**
 
@@ -242,7 +242,7 @@ Examples:
 ## code-review-run-no
 
 - **Marker:** `.milestone-config/code-review-run-no-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none, born on the new path.
 
 **Text:**
 
@@ -257,7 +257,7 @@ Examples:
 ## autocompact
 
 - **Marker:** `.milestone-config/autocompact-notice`
-- **Skills:** solve-milestone. **Trigger:** marker absent AND the effective auto-compact window is absent or over 200000 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW` if set, else the first `autoCompactWindow` found in `.claude/settings.local.json`, then `.claude/settings.json`, then `~/.claude/settings.json` (absent/unreadable layers skipped). **Legacy fallback:** none, born on the new path.
+- **Skills:** solve-milestone. Trigger: marker absent and the effective auto-compact window is absent or over 200000 - `CLAUDE_CODE_AUTO_COMPACT_WINDOW` if set, else the first `autoCompactWindow` found in `.claude/settings.local.json`, then `.claude/settings.json`, then `~/.claude/settings.json` (absent/unreadable layers skipped). Legacy fallback: none, born on the new path.
 
 **Text:**
 
@@ -271,7 +271,7 @@ Examples:
 ## dispatch-cap
 
 - **Marker:** `.milestone-config/dispatch-cap-notice`
-- **Skills:** solve-issue, solve-milestone. **Trigger:** marker absent (silent once it exists). **Legacy fallback:** none, born on the new path.
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none, born on the new path.
 
 **Text:**
 

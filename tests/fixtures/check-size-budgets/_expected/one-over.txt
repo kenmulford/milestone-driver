@@ -28,7 +28,7 @@ OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1600
 OK	skills/solve-milestone/version-target.md	1/30	7/3000	1/400
 OK	skills/triage/SKILL.md	1/390	7/36000	1/5000
 OK	skills/triage/blocker-resolver-dispatch.md	1/60	7/5000	1/800
-OK	skills/notices.md	1/300	7/14500	1/2000
+OK	skills/notices.md	1/300	7/14000	1/2000
 OK	skills/output-style.md	1/85	7/11500	1/1800
 OK	skills/citation-format.md	1/190	7/10500	1/1700
 OK	skills/remediate-handoff.md	1/90	7/5000	1/800

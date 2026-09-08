@@ -22,7 +22,7 @@ Probe once per run, ahead of the question: is `/milestone-feeder:remediate`
 resolvable in this session - the plugin installed, its skill invocable here?
 
 - **Resolvable** → ask the run-start question below.
-- **Not resolvable** → **Feeder absent → no question, comment still names the verb as an optional tool, driver degrades silently**. One log line, no error, and no park of its own - the same absent-input skip `skills/triage/blocker-resolver-dispatch.md (The agent is unresolvable)` takes.
+- **Not resolvable** → feeder absent → no question, comment still names the verb as an optional tool, driver degrades silently. One log line, no error, and no park of its own - the same absent-input skip `skills/triage/blocker-resolver-dispatch.md (The agent is unresolvable)` takes.
 
 The park comment is unchanged either way. It keeps the park-comment shape at
 `skills/output-style.md (Park comment)` and the byte-fixed opener
@@ -32,7 +32,7 @@ the human may run, and asks for nothing.
 
 ## The run-start question
 
-Asked ONCE per run, after the gate passes, verbatim:
+Asked once per run, after the gate passes, verbatim:
 
 ```text
 Should I send blocked issues through `/milestone-feeder:remediate` automatically, or leave them for you?
@@ -69,7 +69,7 @@ Run every step above **on this main line, in-thread, never as a dispatched agent
 
 ## Park for good
 
-Two branches end the loop for an issue, both leaving its ONE park label intact:
+Two branches end the loop for an issue, both leaving its one park label intact:
 
 | Branch | Effect |
 |---|---|
