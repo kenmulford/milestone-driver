@@ -19,7 +19,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 
 ## Plugin version
 
-Plugin version lives in `.claude-plugin/plugin.json` as the single source of truth. `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone title and passes it to each issue run idempotently. Version detection is a deterministic, unit-tested extractor (`scripts/extract-version.{sh,ps1}`, issue #158), not model judgment: it scans the milestone title (description as fallback) for a `v`-optional 2/3/4-part version and normalizes it. `versioning: false` is version-free mode (no extraction, no bump). With `versioning` absent the run is opportunistic - a parseable version is used, otherwise it silently degrades to version-free; with explicit `versioning: true` a miss or ambiguous title prompts the operator (degrades with a warning when non-interactive). Fail-safe: a versioned repo whose `.claude-plugin/plugin.json` is missing degrades to version-free with a logged note rather than failing the run.
+Plugin version lives in `.claude-plugin/plugin.json` as the single source of truth. `marketplace.json` carries no `version` field (Claude Code resolves `plugin.json` first; setting both silently masks the marketplace value). The bump rides in the issue or milestone PR itself, not a separate chore: standalone `/milestone-driver:solve-issue` runs apply a patch bump and confirm; `/milestone-driver:solve-milestone` derives the target version from the milestone title and passes it to each issue run idempotently. Version detection is a deterministic, unit-tested extractor (`scripts/extract-version.{sh,ps1}`), not model judgment: it scans the milestone title (description as fallback) for a `v`-optional 2/3/4-part version and normalizes it. `versioning: false` is version-free mode (no extraction, no bump). With `versioning` absent the run is opportunistic - a parseable version is used, otherwise it silently degrades to version-free; with explicit `versioning: true` a miss or ambiguous title prompts the operator (degrades with a warning when non-interactive). Fail-safe: a versioned repo whose `.claude-plugin/plugin.json` is missing degrades to version-free with a logged note rather than failing the run.
 
 ## The layered gating model
 
@@ -208,7 +208,7 @@ A feature can be too large for one milestone. GitHub has no "milestone of milest
 
 `solve-issue <n>` checks `#n`'s labels before anything else - before the profile read, before triage. No `md-epic` → the run proceeds down the standard issue pipeline. `md-epic` present → `#n` is a parent issue: it authors no code and never enters triage or the implementer; it goes straight to the parent path instead.
 
-The parent path parses `#n`'s body for a fenced `md-epic-order` block with a deterministic, non-AI parser (`scripts/parse-md-epic-order.{sh,ps1}`, issue #266):
+The parent path parses `#n`'s body for a fenced `md-epic-order` block with a deterministic, non-AI parser (`scripts/parse-md-epic-order.{sh,ps1}`):
 
 ```md-epic-order
 number: 42

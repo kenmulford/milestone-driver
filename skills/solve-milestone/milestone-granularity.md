@@ -16,7 +16,7 @@ Branch model · Folding an issue into the milestone branch · The integration co
 | Issue branch | `issue/<n>-<slug>`, the same name as under `"issue"` granularity (`.project/conventions.md#Naming`), cut from the **milestone branch**, never pushed |
 | Integration | Local `git merge --squash issue/<n>-<slug>` plus one commit onto the milestone branch |
 | Commit count | One commit per issue |
-| Push count | One, at milestone end (#371). Nothing reaches origin before it, unconditionally: there is no per-issue push and no profile key that enables one. |
+| Push count | One, at milestone end. Nothing reaches origin before it, unconditionally: there is no per-issue push and no profile key that enables one. |
 
 The number leads the branch name: the title-derived slug can go stale mid-milestone, the number never changes. A built issue's branch keeps its name (`.project/conventions.md#Naming`): milestone granularity changes only a branch's **base** and its fate, never its name.
 
