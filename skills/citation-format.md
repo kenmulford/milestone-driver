@@ -45,7 +45,7 @@ Nothing rebases the path. `scripts/resolve-citation.{sh,ps1}` and
 `scripts/read-doc-section.{sh,ps1}` open `path` exactly as written against the
 process working directory, and the skills that invoke them
 (`skills/solve-issue/SKILL.md (Resolve each citation once)`,
-`skills/triage/SKILL.md (Resolve, then feed BOTH briefs)`) do not change
+`skills/triage/SKILL.md (Resolve, then feed both briefs)`) do not change
 directory first. A mis-based path fails closed - nonzero exit, nothing on
 stdout, the failure named on stderr
 (`scripts/resolve-citation.sh (a missing/unreadable file)`) - unless a file
