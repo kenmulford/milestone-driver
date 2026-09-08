@@ -346,7 +346,7 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                               90     4500      700
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    15500     2200
+agents/implementer.md                               130    15000     2200
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
