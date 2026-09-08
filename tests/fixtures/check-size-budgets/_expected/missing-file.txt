@@ -1,6 +1,6 @@
 OK	skills/setup/SKILL.md	1/280	7/28000	1/4000
 OK	skills/solve-issue/SKILL.md	1/320	7/44000	1/6200
-OK	skills/solve-issue/async-mode.md	40/40	200/4500	40/600
+OK	skills/solve-issue/async-mode.md	40/40	200/4000	40/600
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/8500	1/1200
 OK	skills/solve-issue/coherence-review.md	1/15	7/2500	1/300
 OK	skills/solve-issue/milestone-clauses.md	1/30	7/6000	1/900
