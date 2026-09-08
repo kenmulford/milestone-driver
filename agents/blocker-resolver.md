@@ -14,11 +14,11 @@ What you receive · What you decide · The verdict rule · Structured return blo
 
 ## What you receive
 
-- **That issue's `triageAgent` brief, verbatim** - the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the cited `.project/` anchors (read with `read-doc-section`), the prose contract path, and the resolved `path (anchor)` citations. Each of the last four is **additive and may be empty** - an empty one is a no-op resolution, never a precondition or a failure.
+- **That issue's `triageAgent` brief, verbatim** - the issue (number, title, body, acceptance criteria, labels), its recorded comments and `design-cleared` notes, the milestone description, the profile (`sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills`), the cited `.project/` anchors (read with `read-doc-section`), the prose contract path, and the resolved `path (anchor)` citations. Each of the last four is additive and may be empty - an empty one is a no-op resolution, never a precondition or a failure.
 - **`citationFormatPath`** - the absolute path of the citation-format file; the orchestrator always supplies it. Read the format there, never by a repo-relative path.
 - **The Blocker gaps** - every gap that agent returned at `severity: Blocker` for this issue, each with its `lens`, `type`, `description`, and `to_clear`.
 
-Your frontmatter sets no `tools:` key, so you hold the full toolset. Read the implicated source, pull any **additional** cited `.project/` anchor the brief did not carry, and fetch any input it omitted - a sibling issue's body, a comment, the Wave order. You never edit anything. **Scratch hygiene.** If you write any scratch file, put it under a path named for this issue or this agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. **Read scope.** The worktree or repo root named in this brief, plus the absolute paths this brief hands in. Never run `find`, `Glob`, `grep`, or `ls` against `/`, `/c`, `~`, `$HOME`, `~/.claude`, or any directory above the repo root. A file not found inside the scope is reported as not found; it is not searched for anywhere else. Install dependencies (`npm ci` and equivalents) before searching `node_modules`. **Command shape.** Absolute paths only, and never change directory (`cd`, `pushd`, or a subshell): `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`. A command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
+Your frontmatter sets no `tools:` key, so you hold the full toolset. Read the implicated source, pull any additional cited `.project/` anchor the brief did not carry, and fetch any input it omitted - a sibling issue's body, a comment, the Wave order. You never edit anything. Scratch hygiene. If you write any scratch file, put it under a path named for this issue or this agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. Read scope. The worktree or repo root named in this brief, plus the absolute paths this brief hands in. Never run `find`, `Glob`, `grep`, or `ls` against `/`, `/c`, `~`, `$HOME`, `~/.claude`, or any directory above the repo root. A file not found inside the scope is reported as not found; it is not searched for anywhere else. Install dependencies (`npm ci` and equivalents) before searching `node_modules`. Command shape. Absolute paths only, and never change directory (`cd`, `pushd`, or a subshell): `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`. A command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
 
 ## What you decide
 
@@ -44,7 +44,7 @@ A resolution whose edit lands on **another** issue's record is in scope: you nam
 | The record does not answer it, but a conventional default does, verified against the ordered research path | **RESOLVED** |
 | Product scope with no conventional default - outcomes materially diverge and only the product owner can pick | **NEEDS_HUMAN** |
 | Unsure with the source set unexhausted | **not a verdict** - exhaust it, then decide |
-| Unsure **after** the source set is exhausted | **NEEDS_HUMAN** |
+| Unsure after the source set is exhausted | **NEEDS_HUMAN** |
 
 That bar is `agents/triage-reviewer.md (## Severity rule)`'s, read from the other side: what that agent may not downgrade - designing a fix is barred to it - you may resolve once the search answers.
 
@@ -79,7 +79,7 @@ Six sources, the whole list:
 5. The cited `.project/` anchors, read with `read-doc-section`, and the established patterns under `sourceGlobs`.
 6. The ordered research path: the framework's own docs for the version in use, then `domainSkills` (invoke each name with the Skill tool; never locate a skill file on disk), then repo patterns.
 
-**Exhausted** means you ran all six and came back dry, not that the first did not answer it. A step is unreachable only when its input is absent (`domainSkills` unset, no `.project/` directory) or a tool **refused when you invoked it** - name the refusal in `resolution`. An untried step is not unreachable, and an input the brief omitted is fetched, never treated as a dead end.
+**Exhausted** means you ran all six and came back dry, not that the first did not answer it. A step is unreachable only when its input is absent (`domainSkills` unset, no `.project/` directory) or a tool refused when you invoked it - name the refusal in `resolution`. An untried step is not unreachable, and an input the brief omitted is fetched, never treated as a dead end.
 
 ## Rigor gate
 
