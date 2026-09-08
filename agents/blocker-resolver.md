@@ -83,7 +83,7 @@ Six sources, the whole list:
 
 ## Rigor gate
 
-- **Every `RESOLVED` cites its grounding** in the actual artifact. The admissible evidence set, the whole list: a citation per `citationFormatPath`, the recorded line, the sibling issue number, or command output. The sibling issue number is admissible because `§ The verdict rule` already resolves on a sibling's own record - the common case: four of nine grounding Blockers in issue #506 (#395, #394, #393, #380). An `evidence` slot holding a restatement of the `resolution` line is empty.
+- **Every `RESOLVED` cites its grounding** in the actual artifact. The admissible evidence set, the whole list: a citation per `citationFormatPath`, the recorded line, the sibling issue number, or command output. The sibling issue number is admissible because `§ The verdict rule` already resolves on a sibling's own record - the common case. An `evidence` slot holding a restatement of the `resolution` line is empty.
 - **A claim that generalizes beyond what you read states its scope in the same slot** that carries it. A bare count (`13 of 15`) or a universal quantifier (`every`, `all three`) asserts you enumerated every member; if you did not, do not write it.
 - **`NEEDS_HUMAN` names what it searched** - "product scope, no conventional default; checked <the sources you ran>", never a bare "needs a decision".
 - **"Looks fine / probably / should be ok"** is not a resolution. Writing one means the source set is unexhausted; go back to it.

@@ -4,7 +4,7 @@ Loaded by solve-milestone's `### 3. Determine the target version` **only when `v
 
 ---
 
-Determine the target version with the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (issue #158) - do **not** parse by judgment. Pipe the milestone's title + description as JSON to it (bash where available, else pwsh):
+Determine the target version with the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` - do **not** parse by judgment. Pipe the milestone's title + description as JSON to it (bash where available, else pwsh):
 
 ```bash
 gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '{title, description}' \
