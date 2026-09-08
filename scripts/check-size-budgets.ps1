@@ -75,7 +75,7 @@ skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    34500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
-skills/solve-milestone/trello-sync.md               400    19500     3000
+skills/solve-milestone/trello-sync.md               400    19000     3000
 skills/solve-milestone/milestone-granularity.md     165    23500     3300
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
