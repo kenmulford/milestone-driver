@@ -90,7 +90,7 @@ skills/solve-milestone/simplify-pass.md             110    11000     1600
 skills/solve-milestone/version-target.md             30     3000      400
 skills/triage/SKILL.md                              390    36500     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
-skills/notices.md                                   300    14500     2000
+skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
