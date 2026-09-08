@@ -83,7 +83,7 @@ Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces - the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → two layers stay off: **no design-lens review** in triage (UI issues never reach `design-reviewer`), and **no visual capture** (nothing is identified as a UI surface, so the Visual Capture tier is skipped). |
+| `uiSurfaceGlobs` | "Which path patterns mark your UI surfaces - the files whose changes a human should look at? (e.g. `[\"PrayerApp/Views/**\",\"**/*.xaml\"]` for MAUI; `[\"app/views/**\",\"app/components/**\"]` for a web app.)" | Skip → two layers stay off: **no design-lens review** in triage (UI issues never reach `design-reviewer`), and no visual capture (nothing is identified as a UI surface, so the Visual Capture tier is skipped). |
 
 **Tier: Visual Capture** (optional; presented only when both gates pass - (a) a visual-capture signal was detected in Phase 1, and (b) `uiSurfaceGlobs` was captured above. Both must hold: a native UI stack (MAUI, WPF) has UI surfaces, so `uiSurfaceGlobs` is captured, but has no server or URL to poll and should omit `visualCapture` entirely (`docs/profile-schema.md (This block is a)`). If either gate fails, skip the tier silently.)
 
