@@ -1,6 +1,6 @@
 # Trello sync - solve-milestone reference
 
-Loaded when `integrations.trello` is present in the profile. Every operation here is **best-effort - never a gate** (Convention 1) and **main-thread only** (Convention 9).
+Loaded when `integrations.trello` is present in the profile. Every operation here is **best-effort - never a gate** (Convention 1) and main-thread only (Convention 9).
 
 ## Contents
 
@@ -31,7 +31,7 @@ Every Trello operation is wrapped best-effort. On any failure, log one line:
 Trello: <operation> skipped - <error>
 ```
 
-and continue. Trello failures are NEVER a systemic failure. They never park an issue. They never halt the run. All skipped updates are collected and listed in the final summary.
+and continue. Trello failures are never a systemic failure. They never park an issue. They never halt the run. All skipped updates are collected and listed in the final summary.
 
 ---
 
@@ -79,7 +79,7 @@ The three list names resolve from the profile's `integrations.trello.lists` obje
 
 Run these steps in order; stop at the first **valid** match (step 1 is a valid match only when the card ID is found in a managed list; the not-found sub-bullet falls through to step 2):
 
-1. **Back-link anchor.** Read the GitHub milestone description. If it contains `<!-- trello: <card-url> -->`, that card URL is authoritative - extract the card ID from the URL. Do NOT call `mcp__trello__get_card`; the URL is trusted as-is.
+1. **Back-link anchor.** Read the GitHub milestone description. If it contains `<!-- trello: <card-url> -->`, that card URL is authoritative - extract the card ID from the URL. Do not call `mcp__trello__get_card`; the URL is trusted as-is.
 
    After extracting the card ID, scan the three managed lists (queue, inProgress, inReview - each resolved per Convention 4) via `mcp__trello__get_cards_by_list_id` in that order to determine which list the card is currently in. If the card ID is found in a managed list, proceed to Convention 8 with that list context.
 
@@ -104,7 +104,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
 ## Convention 6 - Back-link format and idempotency
 
-**Format:** append `<!-- trello: <card-url> -->` as the **final line, on its own line** of the milestone description - trailing so it cannot interfere with Wave-order parsing.
+**Format:** append `<!-- trello: <card-url> -->` as the final line, on its own line of the milestone description - trailing so it cannot interfere with Wave-order parsing.
 
 **Idempotency:** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH - the back-link is already present. Never insert inside or above the Wave block. Never append a second back-link.
 
@@ -133,15 +133,15 @@ Populate the card as follows (best-effort on each sub-step). The create and adop
 
 **Card description:**
 - **Creation path:** set the card description (via the `mcp__trello__add_card_to_list` content parameter) to the GitHub milestone URL followed by the milestone description text.
-- **Adoption path:** do NOT update the existing card's Trello description - no `update_card_details` call is made; the description is left as-is (recorded limitation: it may be stale).
+- **Adoption path:** do not update the existing card's Trello description - no `update_card_details` call is made; the description is left as-is (recorded limitation: it may be stale).
 
-**On CREATION (new card via step 3 of Convention 5):**
+**On creation (new card via step 3 of Convention 5):**
 
 **Checklist "Issues":**
 1. Create the checklist via `mcp__trello__create_checklist` on the card.
 2. For each **open** issue in the milestone at card-creation time, add one item via `mcp__trello__add_checklist_item` with text format: `#<n> - <issue title>`.
 
-**On ADOPTION (existing card adopted via step 2 of Convention 5):**
+**On adoption (existing card adopted via step 2 of Convention 5):**
 
 Skip checklist creation and population entirely. The existing checklist from the original creation run is preserved as-is - no reconciliation is performed.
 
@@ -164,7 +164,7 @@ When a card is resolved at run start, apply the following state transition:
 
 ## Convention 9 - Thread safety / parallel builds
 
-ALL Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes **any** Trello call, in sequential or parallel runs: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
+All Trello calls are made by the **solve-milestone orchestrator main thread only**. No dispatched agent makes any Trello call, in sequential or parallel runs: every call site lives in solve-milestone's orchestration steps, never inside a dispatched implementer or reviewer.
 
 ---
 
@@ -176,7 +176,7 @@ Invoked by SKILL.md Phase 0 after step 2 (apply park labels) and before step 3 (
 
 ### Edge case: no card handle
 
-If the run-start card resolution (earlier in the run) failed and no card handle exists, skip BOTH Phase 0 operations with a single log line and return:
+If the run-start card resolution (earlier in the run) failed and no card handle exists, skip both Phase 0 operations with a single log line and return:
 
 ```
 Trello: Phase 0 hooks skipped - no card handle (run-start resolution failed)
@@ -251,7 +251,7 @@ Trello: card move (Queue → In Progress) skipped - <error>
 Trello: card in unmanaged list - not moved; human may have repositioned it
 ```
 
-**If all-parked condition:** do NOT move the card regardless of which list it is in. Post one additional comment via `mcp__trello__add_comment`:
+**If all-parked condition:** do not move the card regardless of which list it is in. Post one additional comment via `mcp__trello__add_comment`:
 
 ```
 All issues are parked - see triage summary above. Card remains in Queue.
@@ -291,7 +291,7 @@ Trello: checklist tick #<n> skipped - <error>
 Trello: checklist tick #<n> skipped - item not found
 ```
 
-Do NOT add a new item. Continue.
+Do not add a new item. Continue.
 
 **Edge case - no card handle:** skip silently - the single run-start log was already emitted (Convention 2 tools absent, Convention 3 boardId missing, or the Convention 1 wrapper on a failed Convention 5 resolution); no per-issue log spam.
 
@@ -317,7 +317,7 @@ Execute as a sequence - one tick per closed issue; the checklist-items fetch may
 Trello: checklist tick #<n> skipped - <error>
 ```
 
-**Edge case - item not found** and **edge case - no card handle:** same rules as issue granularity above.
+**Edge case - item not found and edge case - no card handle:** same rules as issue granularity above.
 
 ## Finish hooks
 
@@ -351,7 +351,7 @@ On move condition met: call `mcp__trello__move_card` to the `inReview` list (lis
 
 ### Parks remaining (move condition fails)
 
-When one or more open issues carry a blocker label, the card STAYS in *inProgress* - no move call is made. Post an additional card comment (best-effort):
+When one or more open issues carry a blocker label, the card stays in *inProgress* - no move call is made. Post an additional card comment (best-effort):
 
 ```
 Card remains In Progress - N issue(s) parked: #a Title A, #b Title B. Resolve the parks and re-run to advance to In Review.
@@ -361,7 +361,7 @@ Post via `mcp__trello__add_comment` on the resolved card (best-effort per Conven
 
 ### Systemic-halt path
 
-When the run ends due to a systemic failure, post summary comment if Trello was reachable at run start (per Convention 2 probe result) but do NOT move the card. The move is skipped regardless of label state - the run did not finish cleanly.
+When the run ends due to a systemic failure, post summary comment if Trello was reachable at run start (per Convention 2 probe result) but do not move the card. The move is skipped regardless of label state - the run did not finish cleanly.
 
 ### Out-of-scope: Completed list
 
@@ -369,6 +369,6 @@ Moving the card to a Completed or Done list is a **manual human step** after the
 
 ### Edge cases
 
-**Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a **closed** issue does not block the move; on an **open** issue it does, even if no code work remains - the stays-in-Progress comment surfaces it for the human to clear.
+**Stale blocked label.** The move condition checks `--state open` issues only: a stale `blocked` label on a closed issue does not block the move; on an open issue it does, even if no code work remains - the stays-in-Progress comment surfaces it for the human to clear.
 
-**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of its current list. Convention 8's "any other list → leave-and-log" rule applies only at run START, where a human decision predates the run - at finish, the run result justifies the transition.
+**Card manually moved mid-run.** At finish, a successful run (move condition met) moves the card to *inReview* regardless of its current list. Convention 8's "any other list → leave-and-log" rule applies only at run start, where a human decision predates the run - at finish, the run result justifies the transition.
