@@ -123,7 +123,7 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 
 `visualCapture` is engineered so that adding it can only *add* evidence - never change a run's outcome or weaken a gate. The invariants:
 
-1. **Opt-in / byte-unchanged when absent.** With no `visualCapture` block configured, run output is byte-for-byte identical to today's no-render behavior - no daemon boots, no render is attempted, no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
+1. **Opt-in, skipped when absent.** With no `visualCapture` block configured, the run carries no render step at all - no daemon boots, no render is attempted, no new gate, no prompt, no error (absent-means-skip, the same convention as `unitTestCmd` / `integrations.trello`).
 2. **Never fail the run.** Any capture failure - a daemon that never becomes ready, a probe timeout, a capture command error, an absent or incomplete capability - is logged, and the PR proceeds exactly as it would with no capture configured. It never fails the build.
 
 ## Dispatch topology
@@ -194,7 +194,7 @@ The six mechanical gates behave correctly inside a worktree with no worktree-spe
 
 One per-clone marker becomes per-worktree: the `.milestone-config/preflight-notice` one-time notice marker is per-clone, so inside a worktree it becomes per-worktree (the notice could print once per worktree). This is acceptable, and the worktree setup can `touch` the marker to suppress it.
 
-### Blast radius is unchanged
+### Blast radius
 
 Parallel mode adds concurrency and a worktree fleet; it does not widen the blast radius. As in sequential mode, the build stages and the serial tail merge only to the integration branch, never to the protected branch. Release (integration branch to protected branch), closing the GitHub milestone object, and deploy stay manual and human-only - the driver closes the milestone's issues and authors the CHANGELOG, but never closes the milestone itself.
 
@@ -206,7 +206,7 @@ A feature can be too large for one milestone. GitHub has no "milestone of milest
 
 ### Detection and the ordered list
 
-`solve-issue <n>` checks `#n`'s labels before anything else - before the profile read, before triage. No `md-epic` → today's pipeline runs unchanged. `md-epic` present → `#n` is a parent issue: it authors no code and never enters triage or the implementer; it goes straight to the parent path instead.
+`solve-issue <n>` checks `#n`'s labels before anything else - before the profile read, before triage. No `md-epic` → the run proceeds down the standard issue pipeline. `md-epic` present → `#n` is a parent issue: it authors no code and never enters triage or the implementer; it goes straight to the parent path instead.
 
 The parent path parses `#n`'s body for a fenced `md-epic-order` block with a deterministic, non-AI parser (`scripts/parse-md-epic-order.{sh,ps1}`, issue #266):
 
@@ -241,7 +241,7 @@ Every other Before-starting step that can prompt a human - notably the purely-nu
 
 ### The cherry-pick prompt
 
-When a human types `solve-milestone <name>` directly (no `--driven`), the driver checks whether that milestone belongs to a parent group before building it: it finds the milestone's lowest-numbered issue, reads that issue's parent (`gh api .../issues/<n>/parent`), and checks the parent's labels for `md-epic`. No parent, or a parent without `md-epic` → build the milestone, unchanged, no prompt. A parent carrying `md-epic` → prompt with exactly three options:
+When a human types `solve-milestone <name>` directly (no `--driven`), the driver checks whether that milestone belongs to a parent group before building it: it finds the milestone's lowest-numbered issue, reads that issue's parent (`gh api .../issues/<n>/parent`), and checks the parent's labels for `md-epic`. No parent, or a parent without `md-epic` → build the milestone directly, no prompt. A parent carrying `md-epic` → prompt with exactly three options:
 
 ```text
 🔴 Milestone "<title>" belongs to parent issue #<parent-number>, which spans multiple
@@ -251,9 +251,9 @@ When a human types `solve-milestone <name>` directly (no `--driven`), the driver
    whole parent in build order] · [Pause for clarification]
 ```
 
-Building just this milestone falls through to today's build, unchanged. Handing off invokes `/milestone-driver:solve-issue <parent-number>` and stops this run's Before-starting sequence there. Pausing halts with no build and no state change. If a human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier milestone in the same group, that isn't caught proactively - it surfaces reactively through whatever build-time signal it naturally trips (the root-cause gate, a red suite, an implementer-declared conflict), with no new mechanism.
+Building just this milestone falls through to the standard milestone build. Handing off invokes `/milestone-driver:solve-issue <parent-number>` and stops this run's Before-starting sequence there. Pausing halts with no build and no state change. If a human picks "build just this milestone" and one of its issues actually depends on unmerged work from an earlier milestone in the same group, that isn't caught proactively - it surfaces reactively through whatever build-time signal it naturally trips (the root-cause gate, a red suite, an implementer-declared conflict), with no new mechanism.
 
-### Opt-in, byte-unchanged when absent
+### Opt-in by label
 
 With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` both run exactly as they did before this feature existed - the label check is the only new step, and it never changes behavior when it finds nothing. No new profile key is introduced; `md-epic` is a fixed literal, but it is not one of the park labels in [Label taxonomy](#label-taxonomy) above and `setup` never provisions it - the feeder and bootstrapper own creating and applying it, as described above.
 
@@ -261,9 +261,9 @@ With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` 
 
 `integrationGranularity` is a profile key, `"issue"`, `"wave"`, or `"milestone"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential - which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue, wave, or milestone granularity, is valid.
 
-`"issue"` (the default) is today's model, unchanged. Each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
+`"issue"` is the default. Each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
 
-`"wave"` integrates a whole Wave on one branch. The merge-tail mechanism is unchanged (merge-in plus re-verify against accumulated state plus bounded auto-resolve); only the target and the PR-opening differ:
+`"wave"` integrates a whole Wave on one branch. The merge-tail mechanism is the same as under `"issue"` (merge-in plus re-verify against accumulated state plus bounded auto-resolve); only the target and the PR-opening differ:
 
 - No per-issue PR is opened. Each issue is built, verified, committed, and pushed on its own branch, and the branch goes to the tail.
 - The orchestrator integrates the Wave's built-green branches into a wave branch `wave/<milestone>-w<N>` (N is the Wave number), applying the same merge-tail policy with the wave branch as the integration target, so siblings are re-verified against each other exactly as in the per-issue tail.
@@ -288,7 +288,7 @@ Milestone granularity works under both execution modes, sequential and parallel,
 
 **The `milestone-` branch prefix is a stable, externally-consumed contract.** Consumers filter their own CI workflows against it (`branches-ignore: ['milestone-*']`), the same way the CI workflow emitted by milestone-bootstrapper treats its two job names as a contract that branch protection requires by exact string. Renaming the prefix later would silently un-exclude every consumer's filter and put the suppressed pushes back on their runners.
 
-The default is unaffected. A profile with no `integrationGranularity` key, or with `"issue"`, behaves byte-for-byte as it does today, so an existing consumer sees no change from this value existing.
+The default is unaffected. A profile with no `integrationGranularity` key, or with `"issue"`, integrates one issue at a time, so a consumer that never sets the key runs the per-issue path.
 
 ## Output style
 

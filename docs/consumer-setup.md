@@ -150,7 +150,7 @@ Set this in the profile (it is a repo-stable choice, not a per-run flag):
 { "integrationGranularity": "wave" }
 ```
 
-Default `"issue"` is today's model, unchanged: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
+Default `"issue"` integrates per issue: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
@@ -194,7 +194,7 @@ The trade-off: nothing reaches your remote until the milestone-end push, so remo
 
 **If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
 
-**Nothing changes if you do not set this.** The default is still `"issue"`, byte-unchanged: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs behave exactly as they do today. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
+**This key is opt-in.** The default is `"issue"`: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs integrate one issue at a time. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
 
 ## Permission pre-flight gate
 
@@ -310,7 +310,7 @@ Your answer is held for the whole run; you are never asked again per issue.
 | Answer | What happens |
 |---|---|
 | **Auto** | Every issue this run parks enters the remediate loop: the driver reads that issue's `🔴 Triage` findings, invokes `/milestone-feeder:remediate <n>`, re-runs triage on the corrected body, and clears the park label when the re-triage comes back clean. Attempt cap: 1 per issue per run. |
-| **Leave them for me** | Today's behavior, unchanged: one park label, one `🔴 Parked - ` comment, and the run continues with independent clean issues. No issue body is edited. |
+| **Leave them for me** | Park and move on: one park label, one `🔴 Parked - ` comment, and the run continues with independent clean issues. No issue body is edited. |
 
 Either answer leaves the triage comment's closing line intact, naming the verb: "run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label."
 

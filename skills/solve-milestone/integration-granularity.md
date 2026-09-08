@@ -12,7 +12,7 @@ The `"wave"` value · The `"milestone"` value · Phase 1 deltas · Phase 2 delta
 
 ## `"wave"`
 
-The merge-tail **MECHANISM is unchanged** (merge-in + re-verify against accumulated state + bounded auto-resolve); only the target and PR-opening differ:
+The merge-tail **MECHANISM is the same as under `"issue"` granularity** (merge-in + re-verify against accumulated state + bounded auto-resolve); only the target and PR-opening differ:
 
 - **No per-issue PR.** Phase 1's per-issue tail (step 8) builds, verifies, commits, and pushes each issue branch but opens no per-issue PR: `solve-issue` step 6.6 is granularity-conditional, and wave granularity suppresses it. The wave-state entry for such an issue carries `pr: null`.
 - **Integrate into a wave branch.** Integrate the Wave's built-green branches, UI included, into a wave branch `wave/<milestone>-w<N>` (N = the Wave number). Create it fresh and idempotently: the wave branch is a regenerable integration artifact assembled entirely from already-pushed per-issue branches, so it is safe to force-clear and rebuild every run - unlike the per-issue `issue/<n>-<slug>` branches, which may carry unpushed commits Phase 1's pre-clean guard must preserve (`parallel-waves.md` step 2). Before creating it, delete any stale leftover from an interrupted prior run (`git branch -D wave/<milestone>-w<N>` locally; `git push origin --delete wave/<milestone>-w<N>` if it was pushed) and recreate it from the current `integrationBranch` tip. Then apply the policy unchanged: merge each branch into the wave branch, re-verify against accumulated state (unit + deferred E2E / port-binding gates), bounded auto-resolve on conflict, else park `blocked` (label + comment + preserve branch) and continue with the next branch.
@@ -26,7 +26,7 @@ The merge-tail **MECHANISM is unchanged** (merge-in + re-verify against accumula
 
 ## `"milestone"`
 
-The merge-tail **MECHANISM is unchanged**; only the target and the on-green action differ. The mechanics are `milestone-granularity.md`'s and are not restated here or in core `SKILL.md`; this section is the pointer:
+The merge-tail **MECHANISM is the same as under `"issue"` granularity**; only the target and the on-green action differ. The mechanics are `milestone-granularity.md`'s and are not restated here or in core `SKILL.md`; this section is the pointer:
 
 - **Nothing is pushed, and no per-issue PR is opened for any issue, UI included.** Phase 1 builds, verifies, and commits on `issue/<n>-<slug>` branches cut from the milestone branch `milestone-<number>-<slug>`; Phase 2 folds each built-green branch onto that branch with the local squash-merge-plus-one-commit of `milestone-granularity.md § Folding an issue into the milestone branch`, whose `Issue: #<n>` trailer answers every resume and buildability read (`§ Resume and buildability from the trailer`). The same two sections serve the sequential loop's local merge.
 - **One push, one PR, one CI run at milestone end.**
@@ -51,7 +51,7 @@ Each row names a site in `parallel-waves.md § Parallel mode - Phase 1: concurre
 | Step 9, `built-green` | `"milestone"` | Ground truth is instead a **local** branch with commits ahead of the milestone branch, or its `Issue: #<n>` trailer already inside the merge-base window (`skills/solve-milestone/milestone-granularity.md § Resume and buildability from the trailer`) - neither an open PR nor a pushed branch ever exists, so the `ls-remote` push confirmation does not apply. |
 | Step 9, `abandoned` legs | `"milestone"` | The legs resolve to **0 commits ahead of the milestone branch** (path b), no `Issue: #<n>` trailer inside that branch's merge-base window, and no park label. The trailer leg is load-bearing: an already-folded issue whose worktree step 2 recreated fresh sits at 0 commits ahead with a clean worktree and would otherwise match `built-green` and `abandoned` at once. |
 | Step 9, wave-state `pr` field | `"wave"`, `"milestone"` | `pr` is `null` for **every** `built-green` entry under wave granularity, UI included, and for any entry under milestone granularity. `branch` stays the freshness anchor in both. |
-| Step 10, cleanup basis | `"milestone"` | **The basis is local and the removal behavior is unchanged:** an integrated branch's work lives in its squash commit on the milestone branch (`milestone-granularity.md § Folding an issue into the milestone branch`), and a built-green branch not yet folded keeps its commits - `git worktree remove` deletes the checkout directory, not the branch - so step 2's carries-work leg resumes them next run. |
+| Step 10, cleanup basis | `"milestone"` | **The basis is local, and step 10's removal behavior applies as written:** an integrated branch's work lives in its squash commit on the milestone branch (`milestone-granularity.md § Folding an issue into the milestone branch`), and a built-green branch not yet folded keeps its commits - `git worktree remove` deletes the checkout directory, not the branch - so step 2's carries-work leg resumes them next run. |
 | Blast-radius boundary | `"milestone"` | The immediate target is the milestone branch, which reaches `integrationBranch` only through the single milestone-end PR (`milestone-granularity.md`). `protectedBranch` is untouched either way. |
 
 ---
