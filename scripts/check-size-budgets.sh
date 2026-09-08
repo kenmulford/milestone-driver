@@ -47,7 +47,7 @@
 #     ordinary prose - the same trade a rewrite for readability makes.
 #     tests/fixtures/check-size-budgets/byte-flat-word-over/ is that shape
 #     pinned: 40/40 lines and 4500/4500 bytes, both unmoved, 726 words against
-#     a 700 ceiling.
+#     a 600 ceiling.
 #   - Byte counts read the file ON DISK. A CRLF working tree (Windows
 #     core.autocrlf) therefore reads one extra byte per line: 0.29% to 2.27%
 #     across the governed set. THE HEADROOM DOES NOT ABSORB THAT, and an earlier
@@ -311,7 +311,7 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
 skills/solve-issue/SKILL.md                         320    44000     6200
-skills/solve-issue/async-mode.md                     40     4500      700
+skills/solve-issue/async-mode.md                     40     4500      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
@@ -337,7 +337,7 @@ skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600
 skills/solve-milestone/version-target.md             30     3000      400
-skills/triage/SKILL.md                              390    36500     5000
+skills/triage/SKILL.md                              390    36000     5000
 skills/triage/blocker-resolver-dispatch.md           60     5000      800
 skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800

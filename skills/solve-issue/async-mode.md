@@ -20,9 +20,9 @@ The pipeline runs on the **caller's own main line**, and that session fans out:
 | `solve-milestone`, parallel mode | Fans out **by stage**, not by issue: concurrent implementer leaves, then each issue's reviewer the moment its implementer returns (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 1: concurrent stage dispatch`). |
 | A user session | Invokes `solve-issue <n>` directly. The token, if typed, is ignored. |
 
-## Delta A1 retired with it
+## The patch-bump confirm inside a milestone run
 
-Delta A1 suppressed the standalone patch-bump confirm (step 6.4), because a background agent auto-denies any tool call that would prompt. The pipeline is no longer dispatched into a background agent, so the **mechanism** that suppressed the confirm is gone. What that mechanism was protecting is not: a milestone run must never wait on a human, and removing the background agent removed the only thing physically preventing the prompt. That guard is **re-homed onto the caller** in `SKILL.md` step 6.4's standalone bullet, which now never fires inside a milestone run (it re-derives the target version instead, and failing that bumps non-interactively with a `judgment call` label). A genuinely standalone run still asks, and no `judgment call` label is owed for a bump the operator was actually asked about.
+A milestone run **never waits on a human**. `SKILL.md` step 6.4's standalone patch-bump confirm does not fire inside one: it re-derives the target version from the milestone, and failing that bumps non-interactively with a `judgment call` label. A genuinely standalone run still asks, and a bump the operator was actually asked about owes no `judgment call` label.
 
 ## Background-leaf constraints
 
