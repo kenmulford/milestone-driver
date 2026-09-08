@@ -8,7 +8,7 @@ The branch that reaches this file belongs to the caller, which reads it only for
 - **One dispatch per issue, never one per gap.** Every Blocker gap on that issue rides in a single brief, and the agent returns one verdict per gap.
 - **Concurrent across issues.** Dispatch the qualifying issues in parallel when the tool environment supports it, exactly as Step 3 does.
 
-**Brief the agent with** that issue's `triageAgent` brief, verbatim and already composed in Step 3 - **plus** every gap that agent returned at `severity: Blocker`, each with its `lens`, `type`, `description`, and `to_clear`. Resolve nothing a second time here; Step 3's resolutions are reused as they stand. **The brief MUST also carry the same scratch-hygiene rule as the Step 3 briefs.**
+**Brief the agent with** that issue's `triageAgent` brief, verbatim and already composed in Step 3 - **plus** every gap that agent returned at `severity: Blocker`, each with its `lens`, `type`, `description`, and `to_clear`. Resolve nothing a second time here; Step 3's resolutions are reused as they stand. **The brief MUST also carry the same scratch-hygiene and command-shape rules as the Step 3 briefs.**
 
 ### The agent returns
 
