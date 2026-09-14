@@ -11,25 +11,25 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 
 | Issue | PR | What |
 |---|---|---|
-| none | TBD | `agents/implementer.md` rules 3 and 6: with `unitTestCmd` defined and `CLAUDE_HOOK_DISABLE_TESTS_GREEN` not `1`, the implementer runs only the spec files it added or touched as GREEN evidence. The step 4 Unit gate is the full-suite run. |
-| none | TBD | New `scripts/unit-gate.{sh,ps1}`: stages, runs `unitTestCmd`, writes the `hooks/tests-green` stamp on green and clears it on red. `--stamp-only` stamps without running. Called by the step 4 Unit gate, the `post-fix-commit.md` `code-changed` branch, and the milestone fold, never `unitTestCmd` directly. |
-| none | TBD | `preflightCmd: "github-ci"` runs no local check: no discovery, no cap, no park. The PR's own CI run is the preflight (`skills/solve-issue/preflight-github-ci.md`). A literal `preflightCmd` still runs locally. |
-| none | TBD | Step 6.2 checks every `path (anchor)` citation in the Decision Log with `scripts/resolve-citation.{sh,ps1}`, then posts it verbatim. A failing citation is corrected from code or set to `none`. |
-| #631 | TBD | `skills/review-depth.md` `## The second-cycle park`: the park keys on resolvability. A finding that needs a decision the record cannot make parks. A conventional-fix finding gets one more fix dispatch and one final review. |
+| none | #677 | `agents/implementer.md` rules 3 and 6: with `unitTestCmd` defined and `CLAUDE_HOOK_DISABLE_TESTS_GREEN` not `1`, the implementer runs only the spec files it added or touched as GREEN evidence. The step 4 Unit gate is the full-suite run. |
+| none | #677 | New `scripts/unit-gate.{sh,ps1}`: stages, runs `unitTestCmd`, writes the `hooks/tests-green` stamp on green and clears it on red. `--stamp-only` stamps without running. Called by the step 4 Unit gate, the `post-fix-commit.md` `code-changed` branch, and the milestone fold, never `unitTestCmd` directly. |
+| none | #677 | `preflightCmd: "github-ci"` runs no local check: no discovery, no cap, no park. The PR's own CI run is the preflight (`skills/solve-issue/preflight-github-ci.md`). A literal `preflightCmd` still runs locally. |
+| none | #677 | Step 6.2 checks every `path (anchor)` citation in the Decision Log with `scripts/resolve-citation.{sh,ps1}`, then posts it verbatim. A failing citation is corrected from code or set to `none`. |
+| #631 | #677 | `skills/review-depth.md` `## The second-cycle park`: the park keys on resolvability. A finding that needs a decision the record cannot make parks. A conventional-fix finding gets one more fix dispatch and one final review. |
 
 ### ✨ Milestone
 
 | Issue | PR | What |
 |---|---|---|
-| none | TBD | `skills/solve-milestone/milestone-granularity.md` `## Merging finished issues mid-milestone`: squash-merges the milestone branch into `integrationBranch` before the run ends, then folds local history onto that merge. |
-| none | TBD | The milestone fold skips its re-verify when the post-merge tree equals the issue branch tree, and stamps with `unit-gate --stamp-only`. `parallel-waves.md` Phase 2 skips its re-verify on an unchanged tree. |
-| none | TBD | Cost record survives compaction. `scripts/write-cost-record.{sh,ps1} --append <runId>` writes one usage line per dispatch to `.milestone-config/.runtime/usage/<runId>.jsonl`. `--finalize <runId>` sums that file into the run-end record. Tier names are stored lowercased on both legs. |
+| none | #677 | `skills/solve-milestone/milestone-granularity.md` `## Merging finished issues mid-milestone`: squash-merges the milestone branch into `integrationBranch` before the run ends, then folds local history onto that merge. |
+| none | #677 | The milestone fold skips its re-verify when the post-merge tree equals the issue branch tree, and stamps with `unit-gate --stamp-only`. `parallel-waves.md` Phase 2 skips its re-verify on an unchanged tree. |
+| none | #677 | Cost record survives compaction. `scripts/write-cost-record.{sh,ps1} --append <runId>` writes one usage line per dispatch to `.milestone-config/.runtime/usage/<runId>.jsonl`. `--finalize <runId>` sums that file into the run-end record. Tier names are stored lowercased on both legs. |
 
 ### ✨ Prose
 
 | Issue | PR | What |
 |---|---|---|
-| none | TBD | Plain-English rule in every agent's `## Communication style`, every skill's `## Output style`, and `skills/output-style.md` `## GitHub-facing prose` rule 4: write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English, with no hypothesis, conjecture, or defensive text. |
+| none | #677 | Plain-English rule in every agent's `## Communication style`, every skill's `## Output style`, and `skills/output-style.md` `## GitHub-facing prose` rule 4: write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English, with no hypothesis, conjecture, or defensive text. |
 
 ### Consumer notes (upgrading from v1.27.0)
 
