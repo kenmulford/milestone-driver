@@ -3,6 +3,50 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.28.0 - one full-suite run per issue
+
+**Theme:** A small issue runs the full suite once, at the step 4 Unit gate, and the commit hook reuses that result on the same tree. `preflightCmd: "github-ci"` runs nothing locally. Finished issues can merge mid-milestone, the cost record survives compaction, and every agent and skill requires plain English.
+
+### ✨ Per-issue loop
+
+| Issue | PR | What |
+|---|---|---|
+| none | #677 | `agents/implementer.md` rules 3 and 6: with `unitTestCmd` defined and `CLAUDE_HOOK_DISABLE_TESTS_GREEN` not `1`, the implementer runs only the spec files it added or touched as GREEN evidence. The step 4 Unit gate is the full-suite run. |
+| none | #677 | New `scripts/unit-gate.{sh,ps1}`: stages, runs `unitTestCmd`, writes the `hooks/tests-green` stamp on green and clears it on red. `--stamp-only` stamps without running. Called by the step 4 Unit gate, the `post-fix-commit.md` `code-changed` branch, and the milestone fold, never `unitTestCmd` directly. |
+| none | #677 | `preflightCmd: "github-ci"` runs no local check: no discovery, no cap, no park. The PR's own CI run is the preflight (`skills/solve-issue/preflight-github-ci.md`). A literal `preflightCmd` still runs locally. |
+| none | #677 | Step 6.2 checks every `path (anchor)` citation in the Decision Log with `scripts/resolve-citation.{sh,ps1}`, then posts it verbatim. A failing citation is corrected from code or set to `none`. |
+| #631 | #677 | `skills/review-depth.md` `## The second-cycle park`: the park keys on resolvability. A finding that needs a decision the record cannot make parks. A conventional-fix finding gets one more fix dispatch and one final review. |
+| none | #677 | `hooks/tests-green.ps1` and `scripts/unit-gate.ps1` remove the legacy `.milestone-driver-tests-stamp` on Linux and macOS. `Remove-Item` now passes `-Force`, which PowerShell requires for a dotfile there. |
+
+### ✨ Milestone
+
+| Issue | PR | What |
+|---|---|---|
+| none | #677 | `skills/solve-milestone/milestone-granularity.md` `## Merging finished issues mid-milestone`: squash-merges the milestone branch into `integrationBranch` before the run ends, then folds local history onto that merge. |
+| none | #677 | The milestone fold skips its re-verify when the post-merge tree equals the issue branch tree, and stamps with `unit-gate --stamp-only`. `parallel-waves.md` Phase 2 skips its re-verify on an unchanged tree. |
+| none | #677 | Cost record survives compaction. `scripts/write-cost-record.{sh,ps1} --append <runId>` writes one usage line per dispatch to `.milestone-config/.runtime/usage/<runId>.jsonl`. `--finalize <runId>` sums that file into the run-end record. Tier names are stored lowercased on both legs. |
+
+### ✨ Prose
+
+| Issue | PR | What |
+|---|---|---|
+| none | #677 | Plain-English rule in every agent's `## Communication style`, every skill's `## Output style`, and `skills/output-style.md` `## GitHub-facing prose` rule 4: write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English, with no hypothesis, conjecture, or defensive text. |
+
+### Consumer notes (upgrading from v1.27.0)
+
+- **`preflightCmd: "github-ci"` no longer mirrors CI locally.** Set a literal `preflightCmd` to keep a local pre-PR check. `ciWorkflow` is read by nothing.
+- **`CLAUDE_HOOK_DISABLE_TESTS_GREEN=1`** makes the implementer run the full suite again.
+- **No schema changes** to `.milestone-config/driver.json`.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Ceilings raised in both `scripts/check-size-budgets.sh` and its pwsh twin: `skills/solve-issue/SKILL.md` BYTE 44000 to 47000, WORD 6200 to 6600, CLOSURE 12300 to 13300. `agents/implementer.md` BYTE 15000 to 16000, WORD 2200 to 2400. `skills/solve-milestone/milestone-granularity.md` LINE 165 to 195, BYTE 23500 to 29000, WORD 3300 to 4200. `skills/review-depth.md` LINE 90 to 105, BYTE 4500 to 5500, WORD 700 to 800. `skills/solve-issue/post-fix-commit.md` BYTE 4500 to 5000. Six `check-size-budgets` fixtures regenerated.
+- At ceiling: `agents/implementer.md` LINE 130/130, `skills/output-style.md` WORD 1800/1800. Near: `skills/solve-milestone/SKILL.md` CLOSURE 9865/9900.
+- `unit-gate` and `tests-green` each fail one case on Windows: the committed `.gitignore` byte count under `core.autocrlf` (#641). `tests-green` fails the same way on a clean `develop` checkout.
+- Not exercised in a live run: mid-milestone merge, the fold's tree-equal skip, and `--append`/`--finalize` across a compaction.
+
 ## v1.27.0 - older-model text leaves the prompt surface
 
 **Theme:** Text written for older models is gone from the surface every dispatch loads: behavior is stated directly instead of as a delta from a past version, incident IDs no longer stand in for rules, and a line carries at most one bold run.

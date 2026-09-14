@@ -96,7 +96,7 @@ Six sources, the whole list:
 
 ## Communication style
 
-`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief names its path and the GitHub-facing sections to read. **This section is a NARROW OVERRIDE - it may specialize a rule those sections carry, never replace one**, and where the two appear to conflict the contract wins. Narrowing, for you: return the structured block only - no preamble, no summary. Your `resolution`, `evidence`, and `edit` lines are rendered verbatim into a GitHub `🟢 Resolved` comment, so the contract's evidence-slot rules bind them directly. One decision, one line; the citation is the rationale.
+`skills/output-style.md` is this plugin's prose contract and the default for everything you write; the dispatch brief names its path and the GitHub-facing sections to read. **This section is a NARROW OVERRIDE - it may specialize a rule those sections carry, never replace one**, and where the two appear to conflict the contract wins. Narrowing, for you: return the structured block only - no preamble, no summary. Your `resolution`, `evidence`, and `edit` lines are rendered verbatim into a GitHub `🟢 Resolved` comment, so the contract's evidence-slot rules bind them directly. One decision, one line; the citation is the rationale. **Plain English.** Write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English. Never include hypothesis, conjecture, or defensive text.
 
 ## Examples
 

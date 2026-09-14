@@ -267,7 +267,7 @@ PR cell: the PR number if the issue has one, else -. Follow-up cell: the same au
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contract. `## Terminal output` governs what this skill prints (including the `## Output spec` template rule); `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` govern every issue comment, PR body, and CHANGELOG entry it writes.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contract. `## Terminal output` governs what this skill prints (including the `## Output spec` template rule); `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` govern every issue comment, PR body, and CHANGELOG entry it writes. **Plain English.** Write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English. Never include hypothesis, conjecture, or defensive text.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every citation in those slots takes.
 
@@ -311,9 +311,8 @@ After Template 3, emit a `PushNotification`:
 - **Clean completion**: `🏁 <milestone-title> · ✅ M merged · ⏸️ P parked`, the counts from Template 3.
 - **Systemic halt**: `🚨 Run halted - <reason>`, where `<reason>` is the systemic-failure description, e.g. "gh auth failure".
 
-**Run-end cost record (additive, never-gating).** Last step of this section, on the clean-completion and systemic-halt paths alike: emit one per-run cost record, then finish. It never blocks, parks, or changes the run's outcome.
+**Run-end cost record (additive, never-gating), survives context compaction.** No in-context aggregation: every dispatch appends its usage to disk as it returns, and the run-end record is read back from that disk file alone, last step of this section on the clean-completion and systemic-halt paths alike.
 
-1. **Aggregate.** From the `<usage>` block on each Agent-dispatch result this run - Phase 0 triage's own dispatches and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch - sum `subagent_tokens` per model tier (`opus` / `sonnet`, keyed by the dispatched agent's tier) and sum `duration_ms`; add the orchestrator's own run clock → `wallClockSeconds`. No cross-orchestrator de-dup.
-2. **Map (auditable lower-bound).** Each tier's summed `subagent_tokens` → `inputTokens` wholly; `outputTokens`, `cacheReadTokens` and `cacheWriteTokens` = 0, the sentinel, never fabricated. Pass `provenanceNote: "unsplit-total-as-input"` so the writer marks the cost a lower-bound.
-3. **Emit.** Pipe `{"runId":"<milestone id>","wallClockSeconds":<n>,"tiers":{"<tier>":{...}},"provenanceNote":"unsplit-total-as-input"}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1}` (pwsh on Windows, bash elsewhere), which writes one record to `.milestone-config/.runtime/cost-records/`.
-4. **Skip cleanly.** Zero dispatches this run → skip the emission with one log line, no zero-value record. Writer script absent, or no `<usage>` figures surfaced → silent no-op, one log line. Never fails the run.
+1. **Append, per dispatch, as it returns.** Every Agent-dispatch this run - Phase 0 triage's own dispatches and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch - pipes `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <milestone id>` as its own last step, milestone-wide - one usage file spans every Wave, so Phase 1 needs no per-Wave record of its own (`skills/solve-milestone/parallel-waves.md (Hand the green set to Phase 2)`).
+2. **Finalize.** `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --finalize <milestone id>` sums `totalTokens` per tier into `inputTokens` (`outputTokens`/`cacheReadTokens`/`cacheWriteTokens` at the 0 sentinel, `provenanceNote: "unsplit-total-as-input"` marking it a lower-bound), sums `durationMs` into `wallClockSeconds`, and writes the record to `.milestone-config/.runtime/cost-records/` with one more field, `agents`: the raw per-dispatch entries.
+3. **Skip cleanly.** No usage file for this milestone (zero dispatches) → `--finalize` fails open on its own, one log line, no zero-value record. Writer script absent → silent no-op, one log line. Never fails the run.

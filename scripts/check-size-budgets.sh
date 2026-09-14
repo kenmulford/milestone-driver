@@ -200,6 +200,65 @@
 #     on triage/SKILL.md still hold and do not move; WORD 4967/5000 on
 #     triage/SKILL.md holds against its hard 5000 cap.
 #     Spent on this issue's three sections: the next edit re-derives normally.
+#     RECORDED RAISE, the lean-loop change (decision 2026-09-14):
+#     skills/solve-issue/SKILL.md WORD 6200 -> 6600, CLOSURE 12300 -> 13300,
+#     for D1's scoped-GREEN-evidence sentence in step 3's verify paragraph, D2's
+#     `"github-ci"` sentinel paragraph and Preflight row, and D3's citation-check
+#     clause on the Decision Log step. New actuals 6217, closure 12646;
+#     6217 * 1.05 = 6527.85, rounded UP to the next 100 = 6600; 12646 * 1.05 =
+#     13278.3, rounded UP to the next 100 = 13300. LINE 319/320 and
+#     BYTE 43905/44000 still hold and do not move.
+#     Spent on these three clauses: the next edit re-derives normally.
+#     RECORDED RAISE, the same change (decision 2026-09-14):
+#     skills/solve-issue/SKILL.md BYTE 44000 -> 47000, for D5's `## Run-end
+#     cost record` rewrite (the append-per-dispatch / finalize-at-exit split
+#     that survives context compaction, replacing the old in-context
+#     aggregation steps). New actual 44367; 44367 * 1.05 = 46585.35, rounded UP
+#     to the next 500 = 47000. LINE 318/320 and WORD 6281/6600 still hold.
+#     Spent on this section: the next edit re-derives normally.
+#     RECORDED RAISE, the same change (decision 2026-09-14):
+#     agents/implementer.md WORD 2200 -> 2400, for rule 3's GREEN-scope
+#     sub-paragraph (scoped test-runner invocation, redundant-full-run
+#     rationale) and rule 6's matching verify-before-done rewrite. New actual
+#     2246; 2246 * 1.05 = 2358.3, rounded UP to the next 100 = 2400.
+#     LINE 130/130 and BYTE 14924/15000 still hold and do not move.
+#     Spent on these two rules: the next edit re-derives normally.
+#     RECORDED RAISE, the same change (decision 2026-09-14):
+#     skills/solve-milestone/milestone-granularity.md LINE 165 -> 195,
+#     BYTE 23500 -> 29000, WORD 3300 -> 4200, for the new "Merging finished
+#     issues mid-milestone" section (the 7-step operator-initiated merge
+#     procedure, the Branch model push-count amendment, and the closed-state
+#     buildability fallback in "Resume and buildability from the trailer").
+#     New actuals 181 / 27334 / 3916; 181 * 1.05 = 190.05, rounded UP to the
+#     next 5 = 195; 27334 * 1.05 = 28700.7, rounded UP to the next 500 =
+#     29000; 3916 * 1.05 = 4111.8, rounded UP to the next 100 = 4200.
+#     Not a CLOSURE member of any of the four skills. Spent on this section:
+#     the next edit re-derives normally.
+#     RECORDED RAISE, issue #631 (decision 2026-09-14):
+#     skills/review-depth.md LINE 90 -> 105, BYTE 4500 -> 5500, WORD 700 -> 800,
+#     for the second-cycle park's resolvability test (a park-worthy finding
+#     needs a decision the record cannot make; a conventional-fix finding
+#     takes one more fix dispatch and one final review instead) and the
+#     matching qualifier on the ladder's `deep` row. New actuals 99 / 5058 /
+#     759; 99 * 1.05 = 103.95, rounded UP to the next 5 = 105; 5058 * 1.05 =
+#     5310.9, rounded UP to the next 500 = 5500; 759 * 1.05 = 796.95, rounded
+#     UP to the next 100 = 800. A member of skills/solve-issue/SKILL.md's
+#     CLOSURE, which absorbs this growth within existing headroom (12808/13300)
+#     and does not move. Spent on this section: the next edit re-derives
+#     normally.
+#     RECORDED RAISE, the lean-loop change (decision 2026-09-14):
+#     skills/solve-issue/post-fix-commit.md BYTE 4500 -> 5000, for the
+#     `code-changed` re-run's citation to unit-gate.sh, never `unitTestCmd`
+#     directly, mirroring step 4's Unit gate. New actual 4547; 4547 * 1.05 =
+#     4774.35, rounded UP to the next 500 = 5000. LINE 18/25 and WORD 681/700
+#     still hold and do not move. Spent on this one row: the next edit
+#     re-derives normally.
+#     RECORDED RAISE, the plain-English rule (decision 2026-09-14):
+#     agents/implementer.md BYTE 15000 -> 16000, for the plain-English
+#     sentence in `## Communication style`, which every agent carries. New
+#     actual 15109; 15109 * 1.05 = 15864.45, rounded UP to the next 500 =
+#     16000. LINE 130/130 and WORD 2271/2400 still hold and do not move.
+#     Spent on this one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -310,14 +369,14 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    44000     6200
+skills/solve-issue/SKILL.md                         320    47000     6600
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
 skills/solve-issue/permission-preflight.md           35     2500      400
-skills/solve-issue/post-fix-commit.md                25     4500      700
-skills/solve-issue/preflight-github-ci.md            20     3000      400
+skills/solve-issue/post-fix-commit.md                25     5000      700
+skills/solve-issue/preflight-github-ci.md            20     1500      200
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
@@ -325,7 +384,7 @@ skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    34500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
-skills/solve-milestone/milestone-granularity.md     165    23500     3300
+skills/solve-milestone/milestone-granularity.md     195    29000     4200
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    15500     2400
@@ -343,10 +402,10 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
-skills/review-depth.md                               90     4500      700
+skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    15000     2200
+agents/implementer.md                               130    16000     2400
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
@@ -499,7 +558,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       12300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE

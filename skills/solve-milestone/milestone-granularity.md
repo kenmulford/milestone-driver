@@ -4,7 +4,7 @@ Loaded when the profile resolves `integrationGranularity: "milestone"` (`docs/pr
 
 ## Contents
 
-Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (Red CI on the milestone PR) · Creating the milestone branch: resume-safe pre-clean guard
+Branch model · Folding an issue into the milestone branch · The integration commit · Resume and buildability from the trailer · Milestone end: one push, one PR, one CI run (Red CI on the milestone PR) · Merging finished issues mid-milestone · Creating the milestone branch: resume-safe pre-clean guard
 
 ---
 
@@ -16,7 +16,7 @@ Branch model · Folding an issue into the milestone branch · The integration co
 | Issue branch | `issue/<n>-<slug>`, the same name as under `"issue"` granularity (`.project/conventions.md#Naming`), cut from the **milestone branch**, never pushed |
 | Integration | Local `git merge --squash issue/<n>-<slug>` plus one commit onto the milestone branch |
 | Commit count | One commit per issue |
-| Push count | One, at milestone end. Nothing reaches origin before it, unconditionally: there is no per-issue push and no profile key that enables one. |
+| Push count | One, at milestone end. Unconditionally, except `## Merging finished issues mid-milestone` below - the one documented path that pushes the same milestone branch again before the run ends. Nothing reaches origin any other way: there is no per-issue push and no profile key that enables one. |
 
 The number leads the branch name: the title-derived slug can go stale mid-milestone, the number never changes. A built issue's branch keeps its name (`.project/conventions.md#Naming`): milestone granularity changes only a branch's **base** and its fate, never its name.
 
@@ -29,7 +29,7 @@ The number leads the branch name: the title-derived slug can go stale mid-milest
 On the milestone branch, for one built issue `<n>`:
 
 1. **Squash-merge the issue branch.** `git merge --squash issue/<n>-<slug>`. This stages the accumulated result without committing, so step 2 re-verifies against integrated state (`skills/solve-milestone/parallel-waves.md (Run on the main working tree)`). Merging the target back into the issue branch first is unnecessary here: nothing is pushed.
-2. **Re-verify against the staged state.** Run `unitTestCmd` if defined, plus the gates the concurrent stage deferred (E2E, any server-starting preflight), exactly as `parallel-waves.md`'s Phase 2 step 2 runs them: once, against accumulated state.
+2. **Re-verify against the staged state, unless the merge was a no-op.** Compare `git write-tree` (the tree step 1 staged) against `git rev-parse issue/<n>-<slug>^{tree}` (the issue branch's own tip). Equal → the squash-merge added nothing that branch's own build has not already verified: skip the re-verify and run `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh|ps1> --stamp-only <repo-root>` (pwsh on Windows, bash elsewhere) so step 3's commit is stamped without a suite run. Different trees → re-verify as today: run `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh|ps1> <repo-root>`, never `unitTestCmd` directly, plus the gates the concurrent stage deferred (E2E, any server-starting preflight), exactly as `parallel-waves.md`'s Phase 2 step 2 runs them: once, against accumulated state.
 3. **Commit.** Green → one commit in the shape below. That commit is the issue's whole footprint on the milestone branch.
 
 **Conflict and red re-verify.** The policy is `skills/solve-milestone/parallel-waves.md (push (fast-forward))`'s, identical for both callers: bounded auto-resolve, else park `blocked`, preserve the branch, continue with the next issue. The recovery mechanics necessarily differ, because that path merges on a disposable per-issue branch while step 1 above squash-merges onto the persistent milestone branch. First, `git merge --squash` never writes `MERGE_HEAD`, so `git merge --abort` cannot be used here: it fails with `fatal: There is no merge to abort (MERGE_HEAD missing).` and leaves the conflicted tree in place. Recover with `git restore --staged --worktree .`, which returns the tree to the last folded commit and leaves `HEAD` untouched. Do not substitute `git reset --hard HEAD`: consumer destructive-command hooks routinely block that pattern (`skills/solve-milestone/parallel-waves.md (Why merge-in, not rebase + force)`). Second, both park branches below run that same `git restore` before moving to the next issue: every issue folds onto the same milestone branch with no branch switch between issues, so an undiscarded fold corrupts the next one: a staged clean merge is silently swallowed by the next issue's commit, and a conflicted tree fails it outright.
@@ -87,6 +87,8 @@ Non-empty output means that issue's commit is on the milestone branch. **`<ref>`
 
 **Empty state.** A failed `merge-base` or an empty `base` is instead a loud stop, taking leg 4's systemic-halt shape below. A trailer the query *ran* and did not find is the normal unmet-dependency state, not an error: condition (a) stays false for the issues that depend on `<n>` until the trailer appears, nothing is logged or surfaced, and a fresh run's first pass - no trailer for any issue - is an empty milestone branch read correctly.
 
+**Satisfied by closure, mid-milestone.** `## Merging finished issues mid-milestone` below squash-merges the milestone branch into `integrationBranch` before the run ends, then folds local history onto that merge with `git reset --soft` - which moves every merged issue's trailer commit out of the window above, since the merge-base now sits at or past it. A dependency the trailer query no longer finds is not necessarily unmet: check `gh issue view <n> --json state --jq .state` first. `CLOSED` satisfies condition (a) on its own, regardless of where the commit sits; only `OPEN` falls through to the trailer query above.
+
 ---
 
 ## Milestone end: one push, one PR, one CI run
@@ -140,6 +142,24 @@ The skip-if-any-issue-parked guard (`skills/solve-milestone/SKILL.md (Guard - sk
 - Do **not** re-attempt the merge, and do not close any issue: the work is unmerged, so every issue on the branch stays open.
 
 A later re-invocation over the preserved branch re-enters at step 2, and step 3's guard reuses the open PR instead of creating a second one.
+
+---
+
+## Merging finished issues mid-milestone
+
+Operator-initiated, not automatic: the milestone branch carries one or more folded, re-verified issues (`## Folding an issue into the milestone branch` above) and the operator wants them on `integrationBranch` now rather than waiting for the milestone to finish. This does not replace `## Milestone end` above - the milestone still ends exactly once, CHANGELOG and all - it lands eligible work early and resumes the loop after.
+
+1. **Push, then open or reuse a PR.** Reuse `## Milestone end` steps 2 and 3 exactly, skipping step 1: no CHANGELOG commit here, since the CHANGELOG is authored once, at milestone end, over the whole milestone.
+2. **On CI green, squash-merge without deleting the branch.** Step 8's one-call shape (`skills/solve-issue/SKILL.md (passes an explicit subject and body)`), omitting `--delete-branch` - the milestone branch keeps running after this merge. Red CI takes the handling the `Red CI on the milestone PR` section above defines; unlike at milestone end this is not final, so green retries into step 2 of this list rather than closing out the run.
+3. **Fetch, then confirm the trees actually match.** `git fetch`, then compare `git rev-parse origin/<integrationBranch>^{tree}` to `git rev-parse <milestone-branch>^{tree}`. Equal → continue. Not equal (a concurrent push landed on `integrationBranch` between step 2 and here) → STOP before step 4: surface the systemic-halt shape (`skills/solve-milestone/SKILL.md (conditions where no further issue can make progress)`) rather than fold against an unproven tree.
+4. **Fold the milestone branch onto its new base.** `git reset --soft origin/<integrationBranch>`. Step 3 already proved the trees identical, so this only replaces history: the individual issue-fold commits stay reachable through the reflog but drop out of the milestone branch's own ancestry, and the working tree is untouched (`--soft` moves the branch pointer alone).
+5. **Delete the remote branch, if GitHub did not already.** Probe once: `gh api repos/{owner}/{repo} --jq .delete_branch_on_merge`. `false` → `git push origin --delete <milestone-branch>`. `hooks/no-push.{sh,ps1}` never blocks this: it blocks a push naming or running on `protectedBranch`, and the milestone branch is never that. `true` → GitHub already deleted it; skip.
+6. **Close the merged issues.** `## Milestone end` step 5's loop, restricted to the issues this merge carried.
+7. **Continue the loop.** Resume issue selection where it left off - the milestone is not over.
+
+**Buildability and resume after this path** are `§ Resume and buildability from the trailer` above's closed-state fallback: step 4 is what moves a merged trailer out of that window, and step 6 above is what makes every issue this path merges read `CLOSED`, so each passes the fallback check regardless.
+
+**What the milestone's own CHANGELOG covers.** `changelog-authoring.md § 6.2 Fetch PR summaries` enumerates every issue merged in the run from the run's in-context issue→PR tracking table, unaffected by this section: an issue built and merged mid-milestone is tracked exactly like one folded at the end. The final CHANGELOG entry covers the whole milestone in one heading, authored once at `## Milestone end` step 1 - never split across the mid-milestone PR(s) this section opens.
 
 ---
 

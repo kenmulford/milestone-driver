@@ -79,8 +79,8 @@ try {
 } finally { Pop-Location }
 if ($testCode -ne 0) {
     # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
-    if (Test-Path $stampPath) { Remove-Item $stampPath -ErrorAction SilentlyContinue }
-    if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
+    if (Test-Path $stampPath) { Remove-Item -LiteralPath $stampPath -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $oldStampPath) { Remove-Item -LiteralPath $oldStampPath -Force -ErrorAction SilentlyContinue }
     [Console]::Error.WriteLine("milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
     exit 2
 }
@@ -115,7 +115,7 @@ if ($null -ne $key) {
             [System.IO.File]::WriteAllText($ignorePath, $ignoreBody + "`n", [System.Text.UTF8Encoding]::new($false))
         }
         [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false))
-        if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
+        if (Test-Path $oldStampPath) { Remove-Item -LiteralPath $oldStampPath -Force -ErrorAction SilentlyContinue }
     } catch {}
 }
 exit 0
