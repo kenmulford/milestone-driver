@@ -16,6 +16,7 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 | none | #677 | `preflightCmd: "github-ci"` runs no local check: no discovery, no cap, no park. The PR's own CI run is the preflight (`skills/solve-issue/preflight-github-ci.md`). A literal `preflightCmd` still runs locally. |
 | none | #677 | Step 6.2 checks every `path (anchor)` citation in the Decision Log with `scripts/resolve-citation.{sh,ps1}`, then posts it verbatim. A failing citation is corrected from code or set to `none`. |
 | #631 | #677 | `skills/review-depth.md` `## The second-cycle park`: the park keys on resolvability. A finding that needs a decision the record cannot make parks. A conventional-fix finding gets one more fix dispatch and one final review. |
+| none | #677 | `hooks/tests-green.ps1` and `scripts/unit-gate.ps1` remove the legacy `.milestone-driver-tests-stamp` on Linux and macOS. `Remove-Item` now passes `-Force`, which PowerShell requires for a dotfile there. |
 
 ### ✨ Milestone
 

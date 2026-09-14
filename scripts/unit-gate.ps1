@@ -77,8 +77,8 @@ if ($stampOnly) {
         $testOutput | ForEach-Object { [Console]::Out.WriteLine($_) }
     } finally { Pop-Location }
     if ($testCode -ne 0) {
-        if (Test-Path $stampPath) { Remove-Item $stampPath -ErrorAction SilentlyContinue }
-        if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
+        if (Test-Path $stampPath) { Remove-Item -LiteralPath $stampPath -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $oldStampPath) { Remove-Item -LiteralPath $oldStampPath -Force -ErrorAction SilentlyContinue }
         [Console]::Error.WriteLine('milestone-driver: unit gate - unit tests failed.')
         exit 1
     }
@@ -87,7 +87,7 @@ if ($stampOnly) {
 if ($null -ne $key) {
     try {
         [System.IO.File]::WriteAllText($stampPath, $key, [System.Text.UTF8Encoding]::new($false))
-        if (Test-Path $oldStampPath) { Remove-Item $oldStampPath -ErrorAction SilentlyContinue }
+        if (Test-Path $oldStampPath) { Remove-Item -LiteralPath $oldStampPath -Force -ErrorAction SilentlyContinue }
         [Console]::Error.WriteLine("milestone-driver: unit gate - suite green, stamp written for $key.")
     } catch {}
 }
