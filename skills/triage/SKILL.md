@@ -373,7 +373,7 @@ Return to the invoking skill (e.g. `solve-milestone`, `solve-issue`) the followi
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern the `🔴 Triage` comment this skill posts (Step 6).
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern the `🔴 Triage` comment this skill posts (Step 6). **Plain English.** Write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English. Never include hypothesis, conjecture, or defensive text.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every citation in those slots takes.
 

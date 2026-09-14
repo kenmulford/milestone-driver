@@ -33,7 +33,7 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 
 | Verdict | First-run effort | Cycle cap |
 |---|---|---|
-| `deep` | `medium` | 2 cycles. Any in-scope finding surviving the 2nd fix parks |
+| `deep` | `medium` | 2 cycles. Any in-scope finding surviving the 2nd fix parks - a fresh conventional-fix finding on the 2nd review is not a survivor, per the second-cycle park below |
 | `standard` | `medium` | 1 cycle, a 2nd **only** when the most recent review returned a Critical or Important finding |
 | `shallow` | `low` | 1 cycle, a 2nd impossible |
 
@@ -57,12 +57,21 @@ grants no 3rd. The cap stays whatever the first verdict set.
 
 ## The second-cycle park
 
-**A second cycle returning any Critical or Important finding parks the issue
-`needs design`**, the park comment stating that a second review round returned
-a Critical or Important finding. No third cycle runs: `hooks/dispatch-cap.sh`
-denies the 4th `/code-review` run and the 4th implementer dispatch per issue
-(the first build plus 2 fixes, across every gate and this loop), so the cap
-holds whatever the orchestrator concludes. A denied dispatch is the park.
+**The park keys on the finding's resolvability, not its severity alone.** A
+second cycle's Critical or Important finding parks `needs design` only when it
+needs a decision the record cannot make - a product-scope call, an
+architecture change, a new dependency: the park triggers
+`skills/solve-issue/SKILL.md (Autonomy model (Balanced))` already names. A
+finding with a conventional fix (a repo precedent, a `.project/` convention,
+or a shell/quoting idiom) instead takes one more fix dispatch and one final
+review at the same effort - the last action before commit, never a fourth.
+**Non-convergence still parks**: a finding surviving its own fix parks
+regardless of how it was classified going in.
+
+No third cycle runs beyond that: `hooks/dispatch-cap.sh` denies the 4th
+`/code-review` run and the 4th implementer dispatch per issue (the first build
+plus 2 fixes, across every gate and this loop), so the cap holds whatever the
+orchestrator concludes. A denied dispatch is the park.
 
 ## Which findings get fixed
 

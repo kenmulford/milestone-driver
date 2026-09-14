@@ -61,14 +61,14 @@ $Root = ($Root -replace '[\\/]+$', '')
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    44000     6200
+skills/solve-issue/SKILL.md                         320    47000     6600
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
 skills/solve-issue/milestone-clauses.md              30     6000      900
 skills/solve-issue/permission-preflight.md           35     2500      400
-skills/solve-issue/post-fix-commit.md                25     4500      700
-skills/solve-issue/preflight-github-ci.md            20     3000      400
+skills/solve-issue/post-fix-commit.md                25     5000      700
+skills/solve-issue/preflight-github-ci.md            20     1500      200
 skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
@@ -76,7 +76,7 @@ skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     320    34500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
-skills/solve-milestone/milestone-granularity.md     165    23500     3300
+skills/solve-milestone/milestone-granularity.md     195    29000     4200
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    15500     2400
@@ -94,10 +94,10 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
-skills/review-depth.md                               90     4500      700
+skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    15000     2200
+agents/implementer.md                               130    16000     2400
 agents/triage-reviewer.md                           120    16500     2600
 '@
 
@@ -168,7 +168,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       12300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 '@

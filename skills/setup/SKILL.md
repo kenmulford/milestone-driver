@@ -106,7 +106,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to auto-derive the gate from your GitHub Actions CI. With `github-ci`, optionally set `ciWorkflow` to one workflow-file basename (e.g. `ci.yml`) to narrow discovery; omit it to discover all PR-gating workflows." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to defer the gate entirely to your GitHub Actions CI - no local check runs; your PR's own CI run is the preflight." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
 **Tier: Integration** (optional; pure preference - no Phase-1 signal, since granularity is not detectable. Show `"issue"` as the default.)
 
@@ -262,7 +262,7 @@ Return control to the caller immediately. Do **not** ask the user to re-run `/mi
 
 ## Output style
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes.
+Read `${CLAUDE_PLUGIN_ROOT}/skills/output-style.md` - the single source of truth for this plugin's output contract. Its `## Terminal output` section governs what this skill prints; its `## GitHub-facing prose`, `## When prose is the correct form`, and `## Evidence slots` sections govern any comment or PR body this skill writes. **Plain English.** Write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English. Never include hypothesis, conjecture, or defensive text.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every citation in those slots takes.
 
