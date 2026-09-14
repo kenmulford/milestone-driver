@@ -28,6 +28,37 @@
 #   non-string runId, or an uncreatable/unwritable cost-records/ dir -> write NO
 #   record, print EXACTLY ONE stderr diagnostic, exit 0. NEVER a non-zero exit.
 #
+# Modes (issue: lean-loop D5 - the run-end record must survive context
+# compaction, which erases the orchestrator's in-context <usage> sums):
+#   (no args)              the original contract above - unchanged.
+#   --append <runId>       stdin {"agent":"<str>","tier":"<str>","totalTokens":n,
+#                           "durationMs":n} -> appends ONE compact JSON line to
+#                           .milestone-config/.runtime/usage/<sanitized-runId>.jsonl
+#                           (create + append; never truncates). agent/tier
+#                           required non-empty strings, tier stored lowercased
+#                           (--finalize lowercases too); token/duration default 0,
+#                           present-non-numeric is malformed. Prints the relative
+#                           usage-file path. Fail-open exactly like the default
+#                           mode: malformed input, missing runId arg, or an
+#                           uncreatable dir -> one stderr line, no line written,
+#                           exit 0.
+#   --finalize <runId>     reads that whole .jsonl (no stdin), sums totalTokens
+#                           per tier into the default contract's `tiers.<t>.
+#                           inputTokens` (same "unsplit-total-as-input" lower-
+#                           bound this script's caller already uses for the
+#                           default mode - `skills/solve-issue/SKILL.md (Map
+#                           (auditable lower-bound))`), sums durationMs/1000 into
+#                           `wallClockSeconds`, then runs the EXACT SAME costing
+#                           pass as the default mode over that aggregate - one
+#                           rate table, one cost record shape, everywhere - and
+#                           writes the cost record with one extra field,
+#                           `agents`: the raw per-line entries verbatim, in file
+#                           order, for a per-agent durationMs breakdown the
+#                           aggregate wallClockSeconds alone cannot give back.
+#                           Fail-open: missing runId arg, missing/empty/
+#                           malformed usage file -> one stderr line, no record,
+#                           exit 0.
+#
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
 # Byte-deterministic string handling, mirroring scripts/extract-version.sh (export LC_ALL=C), so the
@@ -41,9 +72,77 @@ fail() { printf 'write-cost-record: %s\n' "$*" >&2; exit 0; }
 # the .ps1 twin and both test runners (behavior-identical contract).
 RATE_BASE='Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
 
-input="$(cat)"
-[ -n "$input" ] || fail "empty stdin - no record written"
-command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
+# sanitize_for_filename <str> -> map every byte outside [A-Za-z0-9._-] to '-'.
+# One definition shared by the default mode's runId, --append, and --finalize,
+# so the same runId always names the same usage file across all three.
+sanitize_for_filename() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '-'; }
+
+mode="${1:-}"
+
+# ---- --append <runId>: one usage line per dispatch, its own short path -----
+# Exits before the default-mode stdin contract below; nothing past this block
+# applies to this mode.
+if [ "$mode" = "--append" ]; then
+  runid_arg="${2:-}"
+  [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --append <runId> - no line appended"
+  input="$(cat)"
+  [ -n "$input" ] || fail "empty stdin - no line appended"
+  command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no line appended"
+  APPEND_PROG='
+    def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
+    (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
+    | (if (.tier|type)=="string" and (.tier|length) > 0 then . else error("badtier") end)
+    | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }'
+  line="$(printf '%s' "$input" | jq -c "$APPEND_PROG" 2>/dev/null)" \
+    || fail "malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs) - no line appended"
+  dir=".milestone-config/.runtime/usage"
+  rel="$dir/$(sanitize_for_filename "$runid_arg").jsonl"
+  mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no line appended"
+  if ! { printf '%s\n' "$line" | tr -d '\r' >> "$rel"; } 2>/dev/null; then
+    fail "cannot append to $rel - no line appended"
+  fi
+  printf '%s\n' "$rel"
+  exit 0
+fi
+
+# ---- --finalize <runId>: rebuild `input` from the usage file, then fall ----
+# through into the SAME costing pipeline the default mode already runs below -
+# one rate table, one cost-record shape, never a second copy of either.
+finalize_agents=""
+if [ "$mode" = "--finalize" ]; then
+  runid_arg="${2:-}"
+  [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --finalize <runId> - no record written"
+  command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
+  usage_file=".milestone-config/.runtime/usage/$(sanitize_for_filename "$runid_arg").jsonl"
+  [ -s "$usage_file" ] || fail "no usage data at $usage_file - no record written"
+  AGG_PROG='
+    def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
+    [ .[] | (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
+          | (if (.tier|type)=="string" and (.tier|length) > 0 then . else error("badtier") end)
+          | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }
+    ] as $entries
+    | (reduce $entries[] as $e ({}; .[$e.tier] += $e.totalTokens)) as $tierSums
+    | (reduce $entries[] as $e (0; . + $e.durationMs)) as $totalMs
+    | {
+        input: {
+          runId: $runId,
+          wallClockSeconds: ($totalMs / 1000),
+          tiers: ( reduce ($tierSums | to_entries[]) as $e ({}; . + { ($e.key): { inputTokens: $e.value } }) ),
+          provenanceNote: "unsplit-total-as-input"
+        },
+        agents: $entries
+      }'
+  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" \
+    || fail "malformed usage data in $usage_file - no record written"
+  input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
+    || fail "internal aggregation error over $usage_file - no record written"
+  finalize_agents="$(printf '%s' "$agg" | jq -c '.agents' 2>/dev/null)" \
+    || fail "internal aggregation error over $usage_file - no record written"
+else
+  input="$(cat)"
+  [ -n "$input" ] || fail "empty stdin - no record written"
+  command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
+fi
 
 # now_iso -> current time as ISO-8601 UTC (Zulu) - mirrors scripts/render-daemon.sh (now_iso() {).
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -86,6 +185,14 @@ wrapper="$(printf '%s' "$input" | jq \
             --arg writtenAt "$WRITTEN_AT" --arg rateBase "$RATE_BASE" \
             "$PROG" 2>/dev/null)" \
   || fail "malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written"
+
+# --finalize only: attach the raw per-dispatch entries this mode's aggregation
+# pass set aside, so the record carries a per-agent durationMs breakdown the
+# summed wallClockSeconds above cannot give back on its own.
+if [ -n "$finalize_agents" ]; then
+  wrapper="$(printf '%s' "$wrapper" | jq --argjson agents "$finalize_agents" '.record.agents = $agents' 2>/dev/null)" \
+    || fail "internal aggregation error attaching agents - no record written"
+fi
 
 # Sanitize runId for the FILENAME only (raw runId stays verbatim in the body):
 # map every byte outside [A-Za-z0-9._-] to '-' (tr -c complements the set; printf

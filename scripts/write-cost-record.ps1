@@ -41,9 +41,6 @@ function Fail([string]$msg) { [Console]::Error.WriteLine("write-cost-record: $ms
 # the .sh twin and both test runners (behavior-identical contract).
 $rateBase = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
 
-$raw = [Console]::In.ReadToEnd()
-if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin - no record written' }
-
 # Rate table: exactly opus + sonnet are priced (parity with the .sh $rates).
 $rates = @{ opus = @{ inr = 5.0; outr = 25.0 }; sonnet = @{ inr = 3.0; outr = 15.0 } }
 
@@ -68,8 +65,120 @@ function Fmt-Num([double]$d) {
   return $d
 }
 
+# Sanitize-Filename: byte-wise over UTF-8, mapping every byte outside
+# [A-Za-z0-9._-] to '-' (parity with the .sh twin's `tr -c 'A-Za-z0-9._-' '-'`
+# under LC_ALL=C). One definition shared by the default mode's runId sanitize
+# below and by --append / --finalize's usage-file path, so the same runId
+# always names the same usage file across all three modes.
+function Sanitize-Filename([string]$s) {
+  $sb = [System.Text.StringBuilder]::new()
+  foreach ($b in [System.Text.Encoding]::UTF8.GetBytes($s)) {
+    if (($b -ge 0x30 -and $b -le 0x39) -or ($b -ge 0x41 -and $b -le 0x5A) -or
+        ($b -ge 0x61 -and $b -le 0x7A) -or $b -eq 0x2E -or $b -eq 0x5F -or $b -eq 0x2D) {
+      [void]$sb.Append([char]$b)
+    } else { [void]$sb.Append('-') }
+  }
+  return $sb.ToString()
+}
+
+# Modes (issue: lean-loop D5 - the run-end record must survive context
+# compaction, which erases the orchestrator's in-context <usage> sums). See
+# the .sh twin's header comment for the full contract; behavior-identical here.
+$cliArgs = $args
+$mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
+
+# ---- --append <runId>: one usage line per dispatch, its own short path -----
+if ($mode -eq '--append') {
+  $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
+  if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --append <runId> - no line appended' }
+  $raw = [Console]::In.ReadToEnd()
+  if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin - no line appended' }
+  try {
+    $eo = $raw | ConvertFrom-Json -ErrorAction Stop
+    if (-not $eo.PSObject.Properties['agent']) { throw 'badagent' }
+    $ea = $eo.agent
+    if ($null -eq $ea -or $ea -isnot [string] -or $ea.Length -eq 0) { throw 'badagent' }
+    if (-not $eo.PSObject.Properties['tier']) { throw 'badtier' }
+    $et = $eo.tier
+    if ($null -eq $et -or $et -isnot [string] -or $et.Length -eq 0) { throw 'badtier' }
+    $lineObj = [ordered]@{
+      agent = $ea; tier = $et.ToLowerInvariant()
+      totalTokens = (Fmt-Num (Numify $eo 'totalTokens'))
+      durationMs  = (Fmt-Num (Numify $eo 'durationMs'))
+    }
+    $lineJson = ($lineObj | ConvertTo-Json -Compress -ErrorAction Stop)
+  } catch {
+    Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs) - no line appended'
+  }
+  $reldir = '.milestone-config/.runtime/usage'
+  $rel = "$reldir/$(Sanitize-Filename $runidArg).jsonl"
+  $base = (Get-Location).Path
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $reldir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $reldir - no line appended"
+  }
+  try {
+    $lineJson = $lineJson -replace "`r`n", "`n"
+    [System.IO.File]::AppendAllText((Join-Path $base $rel), $lineJson + "`n", [System.Text.UTF8Encoding]::new($false))
+  } catch {
+    Fail "cannot append to $rel - no line appended"
+  }
+  [Console]::Out.Write($rel + "`n")
+  exit 0
+}
+
+# ---- --finalize <runId>: build $o from the usage file, then fall through ---
+# into the SAME costing block below the default mode already runs - one rate
+# table, one cost-record shape, never a second copy of either.
+$finalizeAgents = $null
+if ($mode -eq '--finalize') {
+  $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
+  if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --finalize <runId> - no record written' }
+  $usageRel = ".milestone-config/.runtime/usage/$(Sanitize-Filename $runidArg).jsonl"
+  $usageAbs = Join-Path (Get-Location).Path $usageRel
+  $usageRaw = if (Test-Path -LiteralPath $usageAbs -PathType Leaf) { Get-Content -LiteralPath $usageAbs -Raw -ErrorAction SilentlyContinue } else { $null }
+  if ([string]::IsNullOrWhiteSpace($usageRaw)) { Fail "no usage data at $usageRel - no record written" }
+  try {
+    $lines = @($usageRaw -split "`n" | Where-Object { $_.Trim() -ne '' })
+    if ($lines.Count -eq 0) { throw 'empty' }
+    $tierSums = [ordered]@{}
+    $totalMs = 0.0
+    $agentsList = @()
+    foreach ($ln in $lines) {
+      $eo = $ln | ConvertFrom-Json -ErrorAction Stop
+      if ($eo -isnot [System.Management.Automation.PSCustomObject]) { throw 'badline' }
+      if (-not $eo.PSObject.Properties['agent']) { throw 'badagent' }
+      $ea = $eo.agent
+      if ($null -eq $ea -or $ea -isnot [string] -or $ea.Length -eq 0) { throw 'badagent' }
+      if (-not $eo.PSObject.Properties['tier']) { throw 'badtier' }
+      $et = $eo.tier
+      if ($null -eq $et -or $et -isnot [string] -or $et.Length -eq 0) { throw 'badtier' }
+      $et = $et.ToLowerInvariant()
+      $ett = Numify $eo 'totalTokens'
+      $edm = Numify $eo 'durationMs'
+      if (-not $tierSums.Contains($et)) { $tierSums[$et] = 0.0 }
+      $tierSums[$et] = $tierSums[$et] + $ett
+      $totalMs += $edm
+      $agentsList += [ordered]@{ agent = $ea; tier = $et; totalTokens = (Fmt-Num $ett); durationMs = (Fmt-Num $edm) }
+    }
+    $tiersInput = [ordered]@{}
+    foreach ($k in $tierSums.Keys) { $tiersInput[$k] = [pscustomobject]@{ inputTokens = (Fmt-Num $tierSums[$k]) } }
+    $o = [pscustomobject]@{
+      runId            = $runidArg
+      wallClockSeconds = (Fmt-Num ($totalMs / 1000))
+      tiers            = [pscustomobject]$tiersInput
+      provenanceNote   = 'unsplit-total-as-input'
+    }
+    $finalizeAgents = $agentsList
+  } catch {
+    Fail "malformed usage data in $usageRel - no record written"
+  }
+} else {
+  $raw = [Console]::In.ReadToEnd()
+  if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin - no record written' }
+}
+
 try {
-  $o = $raw | ConvertFrom-Json -ErrorAction Stop
+  if ($mode -ne '--finalize') { $o = $raw | ConvertFrom-Json -ErrorAction Stop }
 
   # runId: must be a present, non-empty JSON string (parity with the .sh
   # (.runId|type)=="string" and length>0 guard).
@@ -152,24 +261,15 @@ try {
   Fail 'malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written'
 }
 
+# --finalize only: attach the raw per-dispatch entries the usage-file pass set
+# aside, so the record carries a per-agent durationMs breakdown the summed
+# wallClockSeconds above cannot give back on its own.
+if ($finalizeAgents) { $record['agents'] = $finalizeAgents }
+
 # Sanitize runId for the FILENAME only (raw runId stays verbatim in the body).
 # Byte-wise over UTF-8 to match the .sh twin's `tr -c 'A-Za-z0-9._-' '-'` under
-# LC_ALL=C: encode the runId as UTF-8 bytes and map every byte that is NOT an
-# allowed ASCII char to '-'. A per-CHAR -replace would emit one dash for a
-# multi-byte char (e.g. "café" -> "caf-"), but bash sees two bytes for 'é' ->
-# "caf--"; byte-wise keeps filenames identical for ANY runId across both twins.
-$sb = [System.Text.StringBuilder]::new()
-foreach ($b in [System.Text.Encoding]::UTF8.GetBytes($runId)) {
-  if (($b -ge 0x30 -and $b -le 0x39) -or   # 0-9
-      ($b -ge 0x41 -and $b -le 0x5A) -or   # A-Z
-      ($b -ge 0x61 -and $b -le 0x7A) -or   # a-z
-      $b -eq 0x2E -or $b -eq 0x5F -or $b -eq 0x2D) { # . _ -
-    [void]$sb.Append([char]$b)
-  } else {
-    [void]$sb.Append('-')
-  }
-}
-$sanitized = $sb.ToString()
+# LC_ALL=C - see Sanitize-Filename above (shared with --append / --finalize).
+$sanitized = Sanitize-Filename $runId
 # Filename: <sanitized>-<UTC-unix-seconds>-<nonce>.json. Nonce mirrors the
 # existing per-run pattern at scripts/render-daemon.ps1 ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()): $PID-<unixseconds>-<random>.
 # Single source of truth for the relative dir segment (parity with the .sh $dir),

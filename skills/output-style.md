@@ -20,7 +20,7 @@ It sits one level up from the skill folders, for the reason
 
 ## Terminal output
 
-Be concise - report status and outcomes flatly. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴.
+Be concise - report status and outcomes flatly. Present steps, gates, lists, and options as **tables**, not inline prose. Mark anything that needs a human with 🔴. Rule 4 of `## GitHub-facing prose` (plain English) binds terminal output too.
 
 **Skills that carry an `## Output spec`** (`solve-issue`, `solve-milestone`): use those templates at their prescribed trigger points. Between boards: one-line dispatch notes only, no narration paragraphs. (`setup` and `triage` carry none.)
 
@@ -31,6 +31,7 @@ These rules govern HOW every GitHub-facing shape reads; `## Evidence slots` gove
 1. **One decision, one line - the citation is the rationale.** Each Decision Log entry, recorded gap, and finding resolution is a single declarative sentence; never append a second sentence restating its citation. Confidence lives in the citation, not the word count: adding prose to make a decision *sound* more certain is a contract violation, the same tier as an ungrounded citation.
 2. **Fill the shape's slots - and nothing else.** Each shape in `## Evidence slots` names the slots it must carry; a line that fills no slot is scaffolding, so cut it (see `## The two anti-criteria`). That includes narrating the template - section headers and slot names carry the structure, so never explain what a section is for or announce what is about to be listed. Cut pass before posting: re-read the whole body before the `gh issue comment` / `gh pr comment` / PR-body write, and delete every sentence whose removal loses no decision, gate, evidence, or citation.
 3. **No filler vocabulary, no hedges.** Delete on sight: "comprehensive", "robust", "seamless", "leverage", "ensure that", "in order to", "it is important to note". Hedges ("should ideally", "as appropriate") bury the decision - record the decision instead.
+4. **Plain English.** Write every response, document, and GitHub issue, milestone, comment, and PR body in plain, concise English. Never include hypothesis, conjecture, or defensive text.
 
 **Guardrail - concision cuts prose, never content.** Every gate, decision point, degradation branch, and citation stays whole; every literal directive, label name, and issue number stays verbatim. A shape that lost a slot is not concise, it is incomplete.
 
