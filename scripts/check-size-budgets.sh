@@ -344,6 +344,7 @@ ROOT="${ROOT%/}"
 # next 100 words, then capped at 5000 for every file already at or under it.
 # Same ratchet discipline as the line ceilings: down freely, up only with a
 # decision recorded in the PR body.
+# #695 seeded skills/solve-issue/build-packet.md from actuals 49 / 2916 / 454.
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -370,6 +371,7 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
 skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300

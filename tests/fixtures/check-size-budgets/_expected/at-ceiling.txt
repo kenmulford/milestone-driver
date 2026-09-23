@@ -1,5 +1,6 @@
 OK	skills/setup/SKILL.md	1/280	7/28000	1/4000
 OK	skills/solve-issue/SKILL.md	1/320	7/47000	1/6600
+OK	skills/solve-issue/build-packet.md	1/55	7/3500	1/500
 OK	skills/solve-issue/async-mode.md	40/40	4000/4000	469/600
 WARN	skills/solve-issue/async-mode.md	0 bytes free < 40 lines (a CRLF checkout would FAIL this row)
 OK	skills/solve-issue/md-epic-fanout.md	1/60	7/8500	1/1200
@@ -42,4 +43,4 @@ CLOSURE	skills/setup/SKILL.md	3/7600
 CLOSURE	skills/solve-issue/SKILL.md	6/13300
 CLOSURE	skills/solve-milestone/SKILL.md	4/9900
 CLOSURE	skills/triage/SKILL.md	3/8600
-SUMMARY	ok=39	failed=0
+SUMMARY	ok=40	failed=0

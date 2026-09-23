@@ -1,5 +1,6 @@
 OK	skills/setup/SKILL.md
 OK	skills/solve-issue/SKILL.md
+OK	skills/solve-issue/build-packet.md
 OK	skills/solve-issue/async-mode.md
 OK	skills/solve-issue/md-epic-fanout.md
 OK	skills/solve-issue/coherence-review.md
@@ -37,4 +38,4 @@ OK	agents/blocker-resolver.md
 OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=39	failed=0
+SUMMARY	ok=40	failed=0
