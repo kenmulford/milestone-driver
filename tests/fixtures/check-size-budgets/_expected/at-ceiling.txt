@@ -41,6 +41,6 @@ OK	agents/implementer.md	1/130	7/16000	1/2400
 OK	agents/triage-reviewer.md	1/120	7/16500	1/2600
 CLOSURE	skills/setup/SKILL.md	3/7600
 CLOSURE	skills/solve-issue/SKILL.md	6/13300
-CLOSURE	skills/solve-milestone/SKILL.md	4/9900
+CLOSURE	skills/solve-milestone/SKILL.md	4/10000
 CLOSURE	skills/triage/SKILL.md	3/8600
 SUMMARY	ok=40	failed=0

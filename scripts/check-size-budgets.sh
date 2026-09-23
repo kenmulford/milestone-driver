@@ -259,6 +259,13 @@
 #     actual 15109; 15109 * 1.05 = 15864.45, rounded UP to the next 500 =
 #     16000. LINE 130/130 and WORD 2271/2400 still hold and do not move.
 #     Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #696 (decision 2026-09-23):
+#     skills/solve-milestone/SKILL.md CLOSURE 9900 -> 10000, for the
+#     measure-dispatch merge in the cost-record append step and the
+#     slow-first-build Note cell. Measured growth 9865 -> 9951 (86 words),
+#     rounded UP to the next 100. The file's own LINE 318/320, BYTE
+#     33739/34500 and WORD 4678/4800 still hold and do not move. Spent on this
+#     one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -561,7 +568,7 @@ while read -r skill closure_ceiling members; do
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 
