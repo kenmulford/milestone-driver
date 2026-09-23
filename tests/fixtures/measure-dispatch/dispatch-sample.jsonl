@@ -1,0 +1,10 @@
+{"type":"summary","summary":"session header without a timestamp"}
+{"type":"user","timestamp":"2026-09-23T12:00:00.250Z","message":{"role":"user","content":"Implement the plan. SECRET-PROMPT-TEXT"}}
+{"type":"assistant","timestamp":"2026-09-23T12:00:10.500Z","message":{"role":"assistant","content":[{"type":"text","text":"Reading the plan."},{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/repo/plan.md"}}]}}
+{"type":"user","timestamp":"2026-09-23T12:00:11.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"plan body"}]}}
+this line is not JSON and is skipped
+{"type":"assistant","timestamp":"2026-09-23T12:00:40.125Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"ls"}},{"type":"tool_use","id":"t3","name":"Grep","input":{"pattern":"x"}}]}}
+{"type":"system","timestamp":"2026-09-23T12:01:00.000Z","content":"hook output"}
+{"type":"assistant","timestamp":"2026-09-23T12:01:30.750Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t4","name":"Edit","input":{"file_path":"/repo/a.sh"}}]}}
+{"type":"assistant","timestamp":"2026-09-23T12:03:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"t5","name":"Write","input":{"file_path":"/repo/b.sh"}}]}}
+{"type":"user","timestamp":"2026-09-23T12:04:12.100Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t5","content":"ok"}]}}
