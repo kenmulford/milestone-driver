@@ -184,6 +184,33 @@ try {
       (($lines2[1] | ConvertFrom-Json).agent -eq 'code-review')) { Ok } else {
     No "append-second: rc=$($r2.rc) lines=$($lines2.Count)" }
 
+  # ---- append dispatch metrics: exact bytes, key order, each field gated ----
+  function Append-Raw([string]$inputJson) {
+    $w = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $w | Out-Null
+    $r = Run-Append $w 'run-metrics' $inputJson
+    $f = Usage-File $w 'run-metrics'
+    $raw = if (Test-Path -LiteralPath $f) { Get-Content -LiteralPath $f -Raw } else { $null }
+    return @{ rc = $r.rc; err = $r.err; raw = $raw }
+  }
+  function Append-Exact([string]$label, [string]$inputJson, [string]$expected) {
+    $a = Append-Raw $inputJson
+    if ($a.rc -eq 0 -and $a.err -eq '' -and $a.raw -ceq ($expected + "`n")) { Ok } else {
+      No "$label`: rc=$($a.rc) err=[$($a.err)] raw=[$($a.raw)]" }
+  }
+  Append-Exact 'append-four-fields-bytes' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678}'
+  Append-Exact 'append-metrics-all' '{"minutesToFirstEdit":3.5,"stepsBeforeFirstEdit":7,"steps":42,"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":42,"stepsBeforeFirstEdit":7,"minutesToFirstEdit":3.5}'
+  Append-Exact 'append-metrics-minutes-dropped' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":42,"minutes":9.25}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":42}'
+  Append-Exact 'append-nonnumeric-minutes-ignored' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"minutes":"abc"}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678}'
+  Append-Exact 'append-metrics-steps-only' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":42}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":42}'
+  Append-Exact 'append-metrics-null-absent' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":null,"stepsBeforeFirstEdit":0,"minutesToFirstEdit":null}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"stepsBeforeFirstEdit":0}'
+
   # ---- append omitted totalTokens/durationMs -> zeros ----------------------
   $ws3 = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws3 | Out-Null
@@ -210,6 +237,9 @@ try {
   Append-FailOpen 'append-missing-tier'   'run-x' '{"agent":"a"}'
   Append-FailOpen 'append-nonnumeric-tt'  'run-x' '{"agent":"a","tier":"opus","totalTokens":"lots"}'
   Append-FailOpen 'append-nonnumeric-dur' 'run-x' '{"agent":"a","tier":"opus","durationMs":"soon"}'
+  Append-FailOpen 'append-nonnumeric-steps'      'run-x' '{"agent":"a","tier":"opus","steps":"many"}'
+  Append-FailOpen 'append-nonnumeric-stepsfirst' 'run-x' '{"agent":"a","tier":"opus","stepsBeforeFirstEdit":true}'
+  Append-FailOpen 'append-nonnumeric-minsfirst'  'run-x' '{"agent":"a","tier":"opus","minutesToFirstEdit":"3"}'
 
   # ---- append missing runId arg -> fail-open, no crash ----------------------
   $wNoId = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
@@ -268,6 +298,16 @@ try {
       (@($jfc.unpricedTiers.PSObject.Properties).Count -eq 0) -and
       $jfc.tiers.opus.inputTokens -eq 1000700 -and $jfc.agents[1].tier -ceq 'opus') { Ok } else {
     No "tier-lowercase: rc=$($rfc.rc) line=[$caseLine] err=[$($rfc.err)] j=[$(if($jfc){$jfc | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- finalize over a line carrying dispatch metrics: output shape unchanged
+  $wsFm = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $wsFm | Out-Null
+  Run-Append $wsFm 'run-fm' '{"agent":"a","tier":"opus","totalTokens":1000000,"durationMs":1000,"steps":3,"stepsBeforeFirstEdit":1,"minutesToFirstEdit":0.5}' | Out-Null
+  $rfm = Run-Finalize $wsFm 'run-fm'
+  $jfm = Rec-Json $wsFm
+  if ($rfm.rc -eq 0 -and $rfm.err -eq '' -and $jfm -and $jfm.costUsd -eq 5 -and $jfm.wallClockSeconds -eq 1 -and
+      (@($jfm.agents[0].PSObject.Properties.Name) -join ',') -ceq 'agent,tier,totalTokens,durationMs') { Ok } else {
+    No "finalize-metrics-shape: rc=$($rfm.rc) err=[$($rfm.err)] j=[$(if($jfm){$jfm | ConvertTo-Json -Compress -Depth 5})]" }
 
   # ---- finalize: no usage file -> fail-open, no record ----------------------
   $wsF3 = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
