@@ -62,6 +62,7 @@ $Root = ($Root -replace '[\\/]+$', '')
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
 skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
