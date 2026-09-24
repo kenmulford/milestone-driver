@@ -307,6 +307,13 @@
 #     Measured growth 99 -> 107 lines, 5058 -> 5463 bytes (BYTE 5500 still
 #     holds), 759 -> 817 words. Spent on these two rows: the next edit
 #     re-derives normally.
+#     RECORDED RAISE, issue #737 (decision 2026-09-24): agents/implementer.md
+#     LINE 135 -> 140, BYTE 16500 -> 17000, WORD 2400 -> 2500, for the ## Do
+#     not section and the rewritten rule 2 and rule 3 packet clauses.
+#     Measured growth 131 -> 138 lines, 16071 -> 16534 bytes, 2396 -> 2478
+#     words, after trimming inside the touched lines, rounded UP to the next
+#     5 lines, 500 bytes, and 100 words. Spent on this one row: the next edit
+#     re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -456,7 +463,7 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               135    16500     2400
+agents/implementer.md                               140    17000     2500
 agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
