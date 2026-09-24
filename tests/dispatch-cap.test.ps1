@@ -71,6 +71,20 @@ $f = Join-Path $W '.git' 'milestone-driver' 'dispatch-cap' 'implementer-7'
 if ((Test-Path -LiteralPath $f) -and ((Get-Content -LiteralPath $f -Raw).Trim() -split ' ')[1] -eq '3') { Ok }
 else { No "counter-file: [$f]" }
 
+# ---- planner: its own counter, 2 allowed, the 3rd denied --------------------
+$Plan = 'milestone-driver:planner'
+$fp = Join-Path $W '.git' 'milestone-driver' 'dispatch-cap' 'planner-7'
+if (-not (Test-Path -LiteralPath $fp)) { Ok } else { No "planner-counter-absent: [$fp]" }
+Expect 'planner-allow-1' (Invoke-Hook $W 'Agent' $Plan 'Plan issue #7') 0
+if (Test-Path -LiteralPath $fp) { Ok } else { No "planner-counter-created: [$fp]" }
+Expect 'planner-allow-2' (Invoke-Hook $W 'Agent' $Plan 'Plan issue #7') 0
+$r = Invoke-Hook $W 'Agent' $Plan 'Plan issue #7'
+Expect 'planner-deny-3rd' $r 2
+if ($r.err -match 'dispatch cap' -and $r.err -match 'planner dispatch 3 of at most 2 for issue 7') { Ok }
+else { No "planner-deny-message: err=[$(Show-Escaped $r.err)]" }
+Expect 'planner-task-deny' (Invoke-Hook $W 'Task' $Plan 'Plan issue #7') 2
+Expect 'planner-escape-hatch' (Invoke-Hook $W 'Agent' $Plan 'x' '' $true) 0
+
 # ---- review: its own counter, 3 allowed, the 4th denied --------------------
 foreach ($i in 1..3) { Expect "review-allow-$i" (Invoke-Hook $W 'Skill' 'code-review' '') 0 }
 Expect 'review-deny-4th' (Invoke-Hook $W 'Skill' 'code-review' '') 2

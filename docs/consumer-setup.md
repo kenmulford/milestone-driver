@@ -384,6 +384,7 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
 | `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |
 | A 4th `/code-review` run, or a 4th implementer dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A 3rd planner dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 
