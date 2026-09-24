@@ -40,7 +40,7 @@ OK	agents/implementer.md	1/135	7/16000	1/2400
 OK	agents/planner.md	1/80	7/5000	1/800
 OK	agents/triage-reviewer.md	1/120	7/16500	1/2600
 CLOSURE	skills/setup/SKILL.md	3/7600
-CLOSURE	skills/solve-issue/SKILL.md	MISSING/13300
+CLOSURE	skills/solve-issue/SKILL.md	MISSING/13400
 CLOSURE	skills/solve-milestone/SKILL.md	MISSING/10000
 CLOSURE	skills/triage/SKILL.md	3/8600
 SUMMARY	ok=40	failed=1

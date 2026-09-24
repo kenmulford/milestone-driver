@@ -283,6 +283,12 @@
 #     Measured growth 6533 -> 6694 (161 words), rounded UP to the next 100.
 #     LINE 319/320 and CLOSURE 13269/13300 still hold and do not move. Spent
 #     on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #706 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md CLOSURE 13300 -> 13400, for step 3's
+#     packet-gap re-plan paragraph. Measured growth 13269 -> 13364 (95 words)
+#     after trimming inside step 3, rounded UP to the next 100. The file's own
+#     LINE 320/320, BYTE 48070/48500 and WORD 6789/6800 still hold and do not
+#     move. Spent on this one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -586,7 +592,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
