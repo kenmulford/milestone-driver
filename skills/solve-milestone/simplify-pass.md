@@ -35,9 +35,9 @@ The ordered sequence · Resolve the target, and re-sync it · Run it on this mai
 
 | `integrationGranularity` | `<target>` |
 |---|---|
-| `"issue"` (default) | `integrationBranch` |
+| `"issue"` | `integrationBranch` |
 | `"wave"` | `integrationBranch` (`skills/solve-milestone/integration-granularity.md (Wave-branch disposition + re-sync)`) |
-| `"milestone"` | the milestone branch `milestone-<number>-<slug>` (`skills/solve-milestone/milestone-granularity.md § Branch model`) |
+| `"milestone"` (default) | the milestone branch `milestone-<number>-<slug>` (`skills/solve-milestone/milestone-granularity.md § Branch model`) |
 
 **Step 3 applies only when `<target>` is `integrationBranch`.** The loop re-syncs that branch before the next issue (`skills/solve-milestone/sequential-loop.md (Ensure the local build target is current)`) and before the next Wave (`skills/solve-milestone/integration-granularity.md (re-sync the local)`), so the run's last merge is on `origin` and not yet local. Diffing without this misses the most recently written code in the milestone, and on a single-issue milestone misses all of it. Under `"milestone"` run none of the three: that branch is local-only and already current, nothing having been pushed (`skills/solve-milestone/sequential-loop.md (already current because nothing is pushed)`).
 

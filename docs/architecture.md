@@ -256,9 +256,9 @@ With no `md-epic` label anywhere in a repo, `solve-issue` and `solve-milestone` 
 
 ## Integration granularity (issue vs wave vs milestone)
 
-`integrationGranularity` is a profile key, `"issue"`, `"wave"`, or `"milestone"`, default `"issue"`. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential - which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue, wave, or milestone granularity, is valid.
+`integrationGranularity` is a profile key, `"issue"`, `"wave"`, or `"milestone"`. Absent resolves to `"milestone"` under `solve-milestone` and to `"issue"` under a standalone `solve-issue` run. It controls how built issues integrate, and it is orthogonal to the execution mode (parallel or sequential - which controls how issues build). The two combine or apply independently: any of sequential or parallel, crossed with issue, wave, or milestone granularity, is valid.
 
-`"issue"` is the default. Each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
+Under `"issue"`, each built issue opens its own PR, gets its own CI run, and merges individually. In sequential mode each issue's `solve-issue` opens and merges its own PR; in parallel mode the serial verified merge tail merges each built-green PR in turn.
 
 `"wave"` integrates a whole Wave on one branch. The merge-tail mechanism is the same as under `"issue"` (merge-in plus re-verify against accumulated state plus bounded auto-resolve); only the target and the PR-opening differ:
 
@@ -285,7 +285,7 @@ Milestone granularity works under both execution modes, sequential and parallel,
 
 **The `milestone-` branch prefix is a stable, externally-consumed contract.** Consumers filter their own CI workflows against it (`branches-ignore: ['milestone-*']`), the same way the CI workflow emitted by milestone-bootstrapper treats its two job names as a contract that branch protection requires by exact string. Renaming the prefix later would silently un-exclude every consumer's filter and put the suppressed pushes back on their runners.
 
-The default is unaffected. A profile with no `integrationGranularity` key, or with `"issue"`, integrates one issue at a time, so a consumer that never sets the key runs the per-issue path.
+A profile with no `integrationGranularity` key builds the milestone under `solve-milestone`'s own default (see above), on one local branch. A standalone `solve-issue` run, or an explicit `"issue"` value, integrates one issue at a time.
 
 ## Output style
 

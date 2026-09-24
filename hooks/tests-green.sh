@@ -17,6 +17,30 @@ profile="$project_dir/.milestone-config/driver.json"
 [ -f "$profile" ] || exit 0
 unit_cmd="$(jq -r '.unitTestCmd // empty' "$profile" 2>/dev/null)"; unit_cmd="${unit_cmd%$'\r'}"
 [ -z "$unit_cmd" ] && exit 0
+# Milestone-granularity skip: an issue/fold commit on these two branch shapes
+# (skills/solve-milestone/milestone-granularity.md#Branch model) already
+# ran the implementer's scoped tests; the full suite runs once at milestone
+# end. Absent resolves to "milestone" only when a local milestone-* branch
+# exists (a milestone run has cut one); with none, "issue" (suite runs).
+# Out-of-enum still degrades to "milestone" unconditionally. Runs before the
+# sourceGlobs touched check and the stamp-skip read below, so a skip never
+# invokes `git write-tree` or reads the stamp file.
+granularity="$(jq -r '.integrationGranularity // empty' "$profile" 2>/dev/null)"; granularity="${granularity%$'\r'}"
+case "$granularity" in
+  issue|wave) ;;
+  "")
+    if [ -n "$(git -C "$project_dir" for-each-ref --count=1 'refs/heads/milestone-*' 2>/dev/null)" ]; then
+      granularity="milestone"
+    else
+      granularity="issue"
+    fi
+    ;;
+  *) granularity="milestone" ;;
+esac
+branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"; branch="${branch%$'\r'}"
+if [ "$granularity" = "milestone" ]; then
+  case "$branch" in issue/*|milestone-*) exit 0 ;; esac
+fi
 globs=(); while IFS= read -r g; do g="${g%$'\r'}"; [ -n "$g" ] && globs+=("$g"); done \
   < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
 touched=0; [ ${#globs[@]} -eq 0 ] && touched=1
@@ -50,10 +74,9 @@ done < <(git -C "$project_dir" diff --cached --name-only 2>/dev/null)
 stamp_path="$project_dir/.milestone-config/tests-stamp"
 old_stamp_path="$project_dir/.milestone-driver-tests-stamp"
 stamp_key=""
-branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 tree_sha="$(git -C "$project_dir" write-tree 2>/dev/null)"
 if [ $? -eq 0 ] && [ -n "$tree_sha" ]; then
-  branch="${branch%$'\r'}"; tree_sha="${tree_sha%$'\r'}"
+  tree_sha="${tree_sha%$'\r'}"
   stamp_key="${branch}:${tree_sha}"
   # Read the new path; if absent, fall back to the old root path. Skip on either match.
   read_stamp=""

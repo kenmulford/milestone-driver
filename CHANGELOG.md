@@ -3,6 +3,60 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.30.0 - the planner points, the implementer writes
+
+**Theme:** The planner writes packet sections as signatures and assertions instead of full bodies, and the implementer builds method bodies and tests from them. The triage and design reviewers check for a matching precedent before flagging a gap. Milestone granularity is now the default under `solve-milestone`: the per-issue suite, E2E, preflight, and reviews defer to one gate at milestone end.
+
+### ✨ Planner and build packet
+
+| Issue | PR | What |
+|---|---|---|
+| #733 rewrite the build packet contract to signatures and assertions, with a 12288-byte cap | #748 | `skills/solve-issue/build-packet.md` defines each packet section as a signature and an assertion instead of a full body, with a 12288-byte cap on the whole packet. |
+| #734 state the added-facts-not-work rule in solve-issue steps 2 and 3 | #748 | `skills/solve-issue/SKILL.md` steps 2 and 3 state the rule directly: a re-dispatch may add facts the packet lacked, never new work. |
+| #736 add a Do not section and a precedent-first research step to the planner | #748 | `agents/planner.md` gains a `## Do not` section and a research step that checks existing code for a matching pattern before writing a new one. |
+| #737 build implementer bodies and tests from packet signatures and consolidate its Do-not rules | #748 | `agents/implementer.md` builds method bodies and tests from the packet's signatures and assertions and consolidates its Do-not rules into one section. |
+| #738 fail check-packet on oversized packets and out-of-contract sections | #748 | `scripts/check-packet.{sh,ps1}` fail a packet over 12288 bytes and fail a packet carrying a section the contract doesn't define. |
+| #739 measure planner dispatches and flag slow planners in Template 2 | #748 | Planner dispatches are measured the same way implementer dispatches are. Template 2 flags a planner dispatch over the same step and time thresholds. |
+
+### 🔍 Reviewers
+
+| Issue | PR | What |
+|---|---|---|
+| #735 make the triage and design reviewers' research path precedent-first | #748 | `agents/triage-reviewer.md` and `agents/design-reviewer.md` check existing code for a matching precedent before flagging a gap. |
+
+### 🚦 Milestone granularity by default
+
+| Issue | PR | What |
+|---|---|---|
+| #740 let classify-review-depth classify a committed range via an optional base ref | #748 | `scripts/classify-review-depth.{sh,ps1}` take an optional `BASE_REF` argument and classify the range from it to `HEAD`. |
+| #741 skip the tests-green suite on issue/* and milestone-* branches under milestone granularity | #748 | `hooks/tests-green.{sh,ps1}` skip the full suite on `issue/*` and `milestone-*` branches when `integrationGranularity` is "milestone". |
+| #742 run coherence, /code-review, unit, E2E, and preflight once at milestone end | #748 | New `skills/solve-milestone/milestone-end-gates.md`: under milestone granularity, coherence review, `/code-review`, the unit suite, E2E, and preflight each run once at milestone end instead of once per issue. |
+| #743 resolve an absent integrationGranularity to "milestone" | #748 | `skills/solve-milestone/integration-granularity.md`: an absent `integrationGranularity` resolves to "milestone" under `solve-milestone`. Standalone `solve-issue` still resolves an absent value to "issue". |
+| #744 attribute a red milestone-end gate to its issue and revert it once the fix cap is spent | #748 | A red milestone-end gate bisects to the issue that introduced it. A fix re-dispatch targets that issue, and its commit is reverted once the fix cap is spent. |
+| #745 make setup omit integrationGranularity for "milestone" and write "issue" or "wave" explicitly | #748 | `skills/setup/SKILL.md` omits `integrationGranularity` from a new profile when the answer is "milestone" and writes the key only for "issue" or "wave". |
+| #746 skip per-issue suite, E2E, preflight, and reviews under milestone granularity | #748 | `solve-issue` skips the unit suite, E2E, preflight, coherence review, and `/code-review` per issue when `integrationGranularity` is "milestone", deferring them to the milestone-end gates. |
+| #747 add a milestone end row to the solve-milestone Template 2 | #748 | `skills/solve-milestone/SKILL.md` Template 2 gains a milestone-end row reporting the gate results and any reverted issue. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| milestone review | #748 | The fix-dispatch cap is counted in run state. E2E gates on `e2eTestCmd` being defined. A revert confirms the candidate commit against its parent and against the candidate itself before reverting. `git bisect reset` runs once the bisect is done. Each revert commit carries a `Reverted-Issue:` trailer. `tests-green`'s absent key resolves to "milestone" only when a local `milestone-*` branch exists. `classify-review-depth`'s range mode ignores untracked files. `check-packet` fails a packet with a duplicate heading. |
+
+### Consumer notes (upgrading from v1.29.1)
+
+- **Absent `integrationGranularity` now resolves to "milestone" under `solve-milestone`.** One branch, one PR, one CI run per milestone. Set it to "issue" to keep per-issue PRs.
+- Standalone `solve-issue` still resolves an absent `integrationGranularity` to "issue".
+- `check-packet` now requires only five sections and fails a packet over 12288 bytes.
+- `classify-review-depth` takes an optional `BASE_REF` to classify a committed range instead of the working tree.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Ceilings raised in both `check-size-budgets` twins: `skills/review-depth.md` LINE 105 to 115, WORD 800 to 900 (#740). `agents/implementer.md` LINE 135 to 140, BYTE 16500 to 17000, WORD 2400 to 2500 (#737). `skills/solve-milestone/SKILL.md` LINE 320 to 330, BYTE 34500 to 35000, CLOSURE 10000 to 10100 (#747). `skills/solve-milestone/milestone-granularity.md` BYTE 29000 to 31000, WORD 4200 to 4400 (#744).
+- New governed row: `skills/solve-milestone/milestone-end-gates.md` LINE 70, BYTE 6000, WORD 900 (#742, re-derived by #744).
+
 ## v1.29.1 - milestone #48 leftovers
 
 **Theme:** A park clears the issue's dispatch-cap counters, the helper scripts run on macOS `/bin/bash` 3.2, and `measure-dispatch` counts a file-writing Bash call as the first edit.
