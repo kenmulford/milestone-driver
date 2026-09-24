@@ -2,7 +2,7 @@
 name: solve-milestone
 argument-hint: <milestone-name | milestone-number>
 description: >-
-  This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Iterates every issue in a GitHub milestone in dependency order via /milestone-driver:solve-issue, re-syncing the integration branch between issues. Runs unattended: parks blocked or gapped issues and continues; only a systemic failure ends a run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by default; a run-start barrier check drops to sequential only when a barrier is present.
+  This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Iterates every issue in a GitHub milestone in dependency order via /milestone-driver:solve-issue, integrating per the resolved integrationGranularity. Runs unattended: parks blocked or gapped issues and continues; only a systemic failure ends a run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by default; a run-start barrier check drops to sequential only when a barrier is present.
 ---
 
 # solve-milestone - autonomous driver
