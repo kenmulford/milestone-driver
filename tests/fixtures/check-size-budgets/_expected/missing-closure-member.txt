@@ -12,7 +12,7 @@ OK	skills/solve-issue/resume-paths.md	1/20	7/3000	1/500
 OK	skills/solve-issue/version-bump.md	1/20	7/4000	1/600
 OK	skills/solve-issue/visual-capture.md	1/15	7/4000	1/600
 OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
-OK	skills/solve-milestone/SKILL.md	1/320	7/34500	1/4800
+OK	skills/solve-milestone/SKILL.md	1/330	7/35000	1/4800
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/41500	1/6200
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19000	1/3000
 OK	skills/solve-milestone/milestone-granularity.md	1/195	7/29000	1/4200
@@ -42,6 +42,6 @@ OK	agents/planner.md	1/100	7/6500	1/900
 OK	agents/triage-reviewer.md	1/120	7/16500	1/2600
 CLOSURE	skills/setup/SKILL.md	3/7600
 CLOSURE	skills/solve-issue/SKILL.md	MISSING/13400
-CLOSURE	skills/solve-milestone/SKILL.md	MISSING/10000
+CLOSURE	skills/solve-milestone/SKILL.md	MISSING/10100
 CLOSURE	skills/triage/SKILL.md	3/8600
 SUMMARY	ok=41	failed=1
