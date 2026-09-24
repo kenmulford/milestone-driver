@@ -6,6 +6,10 @@ what a second cycle does. Four sites read it - `solve-issue` step 6.1 and its
 `post-fix-commit.md`, `solve-milestone`'s `parallel-waves.md` step 7, and
 `simplify-pass.md`.
 
+## Contents
+
+Two axes, never collapsed · Running the classifier · The ladder · Re-classify before a second cycle · The second-cycle park · Which findings get fixed · What stays at each call site
+
 ## Two axes, never collapsed
 
 **The verdict sets the cycle cap. The build profile sets which findings get
@@ -23,6 +27,10 @@ the coherence pass (`solve-issue` section 6 skips that pass on `shallow`), and
 again immediately before each `/code-review` dispatch, since a fix changes
 the diff. **Take the printed verdict verbatim: never re-derived, never
 overridden.**
+
+A caller classifying a committed range instead of the working tree passes a
+second argument, `<root> <base_ref>`, classifying `git diff <base_ref>...HEAD`
+(`scripts/classify-review-depth.sh (Usage:)`).
 
 **Fail-open.** Every failure prints `standard` on stdout with one reason token
 on stderr, at exit 0 (`scripts/classify-review-depth.sh (THE SAFE DIRECTION IS MORE REVIEW)`).

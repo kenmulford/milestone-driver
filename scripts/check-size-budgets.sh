@@ -299,6 +299,14 @@
 #     measured 76 -> 96 lines, 4719 -> 5909 bytes, 729 -> 900 words). Each raise
 #     is the measured growth rounded UP to the next unit. Spent on these rows:
 #     the next edit re-derives normally.
+#     RECORDED RAISE, issue #740 (decision 2026-09-24): skills/review-depth.md LINE 105 -> 115
+#     RECORDED RAISE, issue #740 (decision 2026-09-24): skills/review-depth.md WORD 800 -> 900
+#     For the BASE_REF range-form sentence in "## Running the classifier" and
+#     the `## Contents` heading the file's growth past 100 lines now requires
+#     (`scripts/check-doc-toc.sh (Threshold: STRICTLY OVER 100 lines)`).
+#     Measured growth 99 -> 107 lines, 5058 -> 5463 bytes (BYTE 5500 still
+#     holds), 759 -> 817 words. Spent on these two rows: the next edit
+#     re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -445,7 +453,7 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
-skills/review-depth.md                              105     5500      800
+skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               135    16500     2400

@@ -86,10 +86,12 @@ function Invoke-Ops([string]$repo, [string]$cell) {
   }
 }
 
-function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wantErr, $pathOverride = $null) {
+function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wantErr, $pathOverride = $null, [string]$baseRef = '-') {
   $envs = @{}
   if ($null -ne $pathOverride) { $envs['PATH'] = $pathOverride }
-  $r = Invoke-Leg -Script $script -Args @($repo) -Env $envs
+  $classifierArgs = @($repo)
+  if ($baseRef -cne '-') { $classifierArgs += $baseRef }
+  $r = Invoke-Leg -Script $script -Args $classifierArgs -Env $envs
   $rc = $r.rc
   $out = $r.out -replace '\r?\n$', ''
   $err = $r.err -replace '\r?\n$', ''
@@ -101,7 +103,7 @@ function Invoke-Case([string]$name, [string]$repo, [string]$wantOut, [string]$wa
   }
 }
 
-$expectCols = 6
+$expectCols = 7
 $caseCount = 0
 foreach ($row in (Get-Content $cases)) {
   if ($row -match '^\s*#' -or $row.Trim() -eq '') { continue }
@@ -113,7 +115,8 @@ foreach ($row in (Get-Content $cases)) {
   }
   $caseCount++
   $name = $cols[0]; $globs = $cols[1]; $base = $cols[2]
-  $ops = $cols[3]; $wantOut = $cols[4]; $wantErr = $cols[5]
+  $ops = $cols[3]; $baseRefCell = $cols[4]
+  $wantOut = $cols[5]; $wantErr = $cols[6]
 
   $repo = Join-Path $tmp "r$caseCount"
   New-Repo $repo
@@ -129,9 +132,18 @@ foreach ($row in (Get-Content $cases)) {
     foreach ($bp in ($base -split '\|')) { Write-Fixture (Join-Path $repo $bp) (Get-SeedBlock) }
   }
   Commit-All $repo 'base'
+  $baseSha = (& git -C $repo rev-parse HEAD 2>$null)
   Invoke-Ops $repo $ops
 
-  Invoke-Case $name $runRoot $wantOut $wantErr
+  $resolvedBaseRef = '-'
+  if ($baseRefCell -ceq '@BASE@') {
+    Commit-All $repo 'ops'
+    $resolvedBaseRef = $baseSha
+  } elseif ($baseRefCell -cne '-') {
+    $resolvedBaseRef = $baseRefCell
+  }
+
+  Invoke-Case $name $runRoot $wantOut $wantErr $null $resolvedBaseRef
 }
 
 if ($caseCount -eq 0) {

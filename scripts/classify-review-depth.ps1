@@ -3,7 +3,9 @@
 # Behavior-identical pwsh sibling of scripts/classify-review-depth.sh, whose
 # header carries the full design rationale for both legs.
 #
-# Usage:   classify-review-depth.ps1 [REPO_ROOT]
+# Usage:   classify-review-depth.ps1 [REPO_ROOT] [BASE_REF]
+#   BASE_REF  a committed ref to classify `git diff BASE_REF...HEAD` against,
+#             in place of the working tree vs. HEAD (default: unset).
 # Output:  stdout is one newline-terminated verdict, `deep`, `standard` or
 #          `shallow`. stderr carries a single reason token, and only when there
 #          is a specific trigger to name: hooks:<path>, new-file:<path>,
@@ -33,7 +35,8 @@
 # a path holding a control character, so no candidate can contain a newline
 # either way - `\z` just removes the question.
 param(
-  [string]$Root = (Get-Location).Path
+  [string]$Root = (Get-Location).Path,
+  [string]$BaseRef = ''
 )
 # Continue, not Stop: git writes to stderr on an ordinary non-repo root, and
 # that is a classification input here, not a failure.
@@ -43,6 +46,8 @@ $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $Root = ($Root -replace '/+$', '')
 $SmallDiffMaxLines = 20
+$Range = 'HEAD'
+if (-not [string]::IsNullOrEmpty($BaseRef)) { $Range = $BaseRef + '...HEAD' }
 
 # Latin1 is the byte<->char bijection: every byte 0x00-0xFF maps to the char of
 # the same value and back, losslessly
@@ -113,7 +118,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Emit 'standard' 'no-
 
 try {
   $delta = @(& git -C $Root -c core.quotePath=false --no-pager diff --no-color `
-    --no-renames --name-status HEAD 2>$null)
+    --no-renames --name-status $Range 2>$null)
   $rc = $LASTEXITCODE
 } catch {
   $rc = 1
@@ -234,7 +239,7 @@ if ($src.Count -eq 0) { Emit 'shallow' '' }
 $over = $false
 $total = 0
 try {
-  $numstat = @(& git -C $Root --no-pager diff --no-color --no-renames --numstat HEAD 2>$null)
+  $numstat = @(& git -C $Root --no-pager diff --no-color --no-renames --numstat $Range 2>$null)
   if ($LASTEXITCODE -ne 0 -or $numstat.Count -eq 0) { $over = $true }
 } catch {
   $over = $true
