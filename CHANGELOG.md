@@ -3,6 +3,58 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.29.0 - the implementer builds from a planner-written packet
+
+**Theme:** A planner leaf reads each issue's code once and writes a build packet. A script approves the packet, and the implementer builds from it on sonnet, reading only the files it edits. Fix re-dispatches run on opus, and every implementer dispatch is measured.
+
+### ✨ Planner and build packet
+
+| Issue | PR | What |
+|---|---|---|
+| #695 build-packet.md defines the build packet | #710 | New `skills/solve-issue/build-packet.md`: the packet path `.milestone-config/.runtime/plans/issue-<n>.md`, the `Issue:` / `Base:` / `Worktree:` header, ten sections in order, and the omission rules. |
+| #698 agents/planner.md, the planner leaf | #713 | New `agents/planner.md` (opus): reads one issue's code and writes its packet, returning `STATUS: PLANNED` or `STATUS: PARK` with a label. |
+| #699 dispatch-cap gains a planner kind | #714 | `hooks/dispatch-cap.{sh,ps1}` caps `milestone-driver:planner` at 2 per issue on its own counter. Review and implementer caps stay at 3. |
+| #702 solve-issue step 2 dispatches the planner | #717 | `solve-issue` step 2 dispatches the planner and step 3 briefs the implementer with the returned `PACKET:` path. |
+| #704 approve the planner's packet mechanically | #719 | Step 2 approves each packet without reading it whole. A failure re-dispatches the planner once with the failures listed; a second parks `blocked`. |
+| #705 parallel mode runs the planner first | #720 | In parallel mode each issue's chain starts with a planner leaf. An approved planner hands its slot straight to the implementer. |
+| #706 an implementer stop on a packet gap re-plans | #721 | An implementer stop naming a fact the packet lacks re-dispatches the planner, then the implementer on the new packet. Other stops park as before. |
+| #701 the implementer builds from the packet, on sonnet | #716 | `agents/implementer.md` runs on `model: sonnet`. With a packet it reads only `common.md` and the packet and touches only the `## Files` paths. |
+| #703 every implementer fix re-dispatch passes model opus | #718 | Every fix re-dispatch passes `model: "opus"`. The first build and a packet-gap rebuild pass no `model`. |
+
+### ✨ Shared brief and measurement
+
+| Issue | PR | What |
+|---|---|---|
+| #692 scripts/assemble-common writes common.md | #708 | New `scripts/assemble-common.{sh,ps1}` writes the run's `common.md`: the prose contract sections, `citation-format.md`, and each `standingDocs` anchor. |
+| #700 one common.md per run | #715 | One `common.md` per run, assembled at run start. The implementer brief carries its path in place of the cited anchors and prose contract path. |
+| #697 the standingDocs profile key | #712 | New optional `standingDocs` key: `<doc>#<heading>` anchors quoted into `common.md`. Setup offers it, and a one-time notice announces it. |
+| #693 scripts/measure-dispatch reads a transcript | #709 | New `scripts/measure-dispatch.{sh,ps1} <transcript>` prints steps, steps before first edit, and minutes to first edit for one dispatch. |
+| #694 write-cost-record keeps the dispatch metrics | #707 | `write-cost-record --append` keeps `steps`, `stepsBeforeFirstEdit` and `minutesToFirstEdit` when present. |
+| #696 cost record carries the metrics; Template 2 flags a slow build | #711 | Each implementer return is measured into the cost record. Template 2 flags a first build over 40 steps or over 2 minutes to first edit. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #722 end-of-milestone review fixes | #723 | New `scripts/check-packet.{sh,ps1}` approves packets, reading only lines outside code fences and skipping `### <path> (new)` headings. A packet-gap stop reverts its edits and reports `PACKET_GAP:`. Every implementer dispatch and recovery carries the packet. The planner gets the build profile, three park rows and examples. |
+
+### Consumer notes (upgrading from v1.28.0)
+
+- **One more opus dispatch per issue:** the planner runs before the implementer, capped at 2 per issue by `dispatch-cap`.
+- **The implementer now runs on sonnet** for first builds. Fix re-dispatches run on opus.
+- **New optional profile key `standingDocs`** in `.milestone-config/driver.json`. Absent, `common.md` carries only the prose contract and citation format.
+- New gitignored artifacts under `.milestone-config/.runtime/plans/`: `common.md` and one `issue-<n>.md` packet per issue.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Per-issue code review was skipped for #704 to #706 by request. One combined review ran over #692 to #706, and #722 applied its findings.
+- Ceilings raised in both `check-size-budgets` twins: `skills/solve-issue/SKILL.md` BYTE 47000 to 48500, WORD 6600 to 6800, CLOSURE 13300 to 13400. `skills/solve-milestone/SKILL.md` CLOSURE 9900 to 10000. `agents/implementer.md` LINE 130 to 135, BYTE 16000 to 16500. `agents/planner.md` LINE 80 to 100, BYTE 5000 to 6500, WORD 800 to 900.
+- At ceiling: `skills/solve-issue/SKILL.md` LINE 320/320. Near: `agents/implementer.md` WORD 2396/2400, `agents/planner.md` WORD 887/900, `skills/solve-milestone/SKILL.md` CLOSURE 9932/10000.
+- A re-run after a planner park inherits that issue's planner count at the same `integrationBranch` HEAD, so it gets no approval re-dispatch.
+- Not exercised in a live run: the planner, packet approval, and the packet-gap re-plan.
+
 ## v1.28.0 - one full-suite run per issue
 
 **Theme:** A small issue runs the full suite once, at the step 4 Unit gate, and the commit hook reuses that result on the same tree. `preflightCmd: "github-ci"` runs nothing locally. Finished issues can merge mid-milestone, the cost record survives compaction, and every agent and skill requires plain English.
