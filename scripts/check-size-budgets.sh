@@ -266,6 +266,13 @@
 #     rounded UP to the next 100. The file's own LINE 318/320, BYTE
 #     33739/34500 and WORD 4678/4800 still hold and do not move. Spent on this
 #     one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #701 (decision 2026-09-23): agents/implementer.md
+#     LINE 130 -> 135, for the build-packet input bullet and the Decision Log
+#     packet line. Measured growth 129 -> 131 (2 lines), rounded UP to the
+#     next 5. BYTE 15841/16000 and WORD 2374/2400 still hold and do not move;
+#     the byte headroom stays above the line count after trimming inside the
+#     file, so no WARN. Spent on this one row: the next edit re-derives
+#     normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -415,7 +422,7 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    16000     2400
+agents/implementer.md                               135    16000     2400
 agents/planner.md                                    80     5000      800
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
