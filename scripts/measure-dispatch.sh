@@ -4,8 +4,8 @@
 # Usage: measure-dispatch.sh <transcript>
 # stdout: ONE compact JSON line, keys in order
 #   {"steps":n,"stepsBeforeFirstEdit":n,"minutesToFirstEdit":m,"minutes":m}
-#   With no Edit or Write call, only {"steps":n,"minutes":m}. No transcript text
-#   ever reaches stdout.
+#   With no edit call, only {"steps":n,"minutes":m}. No transcript text ever
+#   reaches stdout.
 # Transcript shape: one JSON object per line; a top-level "timestamp" (ISO-8601
 #   UTC); a tool call is a message.content[] block {"type":"tool_use","name":...}
 #   on an entry whose top-level "type" is "assistant". Lines that are not JSON
@@ -15,7 +15,12 @@
 #   legs agree. Minutes round to one decimal, half away from zero (jq's round),
 #   and a whole value prints without a decimal point.
 # The first-edit time is the latest timestamp seen at or before the entry holding
-#   the first Edit or Write call.
+#   the first Edit, Write, or file-writing Bash call. A Bash call writes a file
+#   when its input.command contains `sed -i` or `perl -i`, a word `tee ` not
+#   followed by `/dev/null`, or a `>`/`>>` redirect whose target is neither
+#   `/dev/null` nor an fd (`&1`, `&2`). Substring and regex checks only, no shell
+#   parsing, so a `>` inside a quoted string also counts. The pwsh twin uses the
+#   same two regexes; Oniguruma and .NET agree on them (no POSIX classes).
 # Fail-closed, mirroring scripts/read-doc-section.sh (Fail-loud (fail-CLOSED)):
 #   a missing/unreadable file or absent jq writes one stderr line, exits NONZERO,
 #   and prints nothing on stdout.
@@ -33,6 +38,11 @@ command -v jq >/dev/null 2>&1 || { err "measure-dispatch: jq is required but not
 PROG='
 def secs: sub("\\.[0-9]+"; "") | fromdate;
 def mins($a; $b): if $a == null or $b == null then 0 else ((($b - $a) / 6) | round) / 10 end;
+def bashedit: ((.input | objects | .command | strings) // "")
+  | contains("sed -i") or contains("perl -i")
+    or test("(^|[^A-Za-z0-9_-])tee[ \t]+(?!/dev/null)")
+    or test(">>?[ \t]*(?!/dev/null)[^ \t>&]");
+def isedit: .name == "Edit" or .name == "Write" or (.name == "Bash" and bashedit);
 reduce (inputs | fromjson? | objects) as $e (
   {steps: 0, before: null, t0: null, tl: null, tf: null};
   (if ($e.timestamp | type) == "string" then ($e.timestamp | secs) else null end) as $t
@@ -40,7 +50,7 @@ reduce (inputs | fromjson? | objects) as $e (
   | if $e.type == "assistant" then
       reduce (($e.message | objects | .content | arrays) // [] | .[] | objects
               | select(.type == "tool_use")) as $b (.;
-        (if .before == null and ($b.name == "Edit" or $b.name == "Write")
+        (if .before == null and ($b | isedit)
          then .before = .steps | .tf = .tl else . end)
         | .steps += 1)
     else . end)

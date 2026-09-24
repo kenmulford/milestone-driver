@@ -76,7 +76,7 @@ scan() {
 }
 
 # title pass
-mapfile -t tv < <(scan "$title" 1)
+tv=(); while IFS= read -r l; do tv+=("$l"); done < <(scan "$title" 1)
 # distinct, preserve order
 declare -a distinct=(); for v in "${tv[@]:-}"; do [ -z "$v" ] && continue
   dup=0; for d in "${distinct[@]:-}"; do [ "$d" = "$v" ] && dup=1 && break; done
@@ -86,6 +86,6 @@ if [ "${#distinct[@]}" -ge 2 ]; then
   joined="$(IFS=,; echo "${distinct[*]}")"; printf 'ambiguous:%s' "$joined" >&2; exit 0
 fi
 # description fallback: first match
-mapfile -t dv < <(scan "$desc" 0)
+dv=(); while IFS= read -r l; do dv+=("$l"); done < <(scan "$desc" 0)
 for v in "${dv[@]:-}"; do [ -n "$v" ] && { printf '%s' "$v"; exit 0; }; done
 emit_none

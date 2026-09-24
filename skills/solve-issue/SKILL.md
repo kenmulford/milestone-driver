@@ -59,7 +59,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 
 ## The procedure
 
-**The park action, referenced by every park below.** Post a comment on the issue in the park-comment shape (`skills/output-style.md`) opening with `🔴 Parked - ` and the reason (`gh issue comment <n>`); apply the named label, plus `in progress` when the feature branch has commits, via the apply-time helper (idempotent `gh label create --force` then `gh issue edit <n> --add-label`); leave the issue open; preserve the branch with any work done; and return. Never an interactive prompt.
+**The park action, referenced by every park below.** Post a comment on the issue in the park-comment shape (`skills/output-style.md`) opening with `🔴 Parked - ` and the reason (`gh issue comment <n>`); apply the named label, plus `in progress` when the feature branch has commits, via the apply-time helper (idempotent `gh label create --force` then `gh issue edit <n> --add-label`); leave the issue open; preserve the branch with any work done; clear the issue's dispatch-cap counters with `${CLAUDE_PLUGIN_ROOT}/scripts/reset-dispatch-cap.{sh,ps1} <repo-root> <n>`, so a re-run after the park starts a fresh chain; and return. Never an interactive prompt.
 
 ### 0. Triage
 

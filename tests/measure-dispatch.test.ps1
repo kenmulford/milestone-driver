@@ -43,6 +43,38 @@ try {
   [System.IO.File]::WriteAllText($empty, '')
   Check 'empty-file' '{"steps":0,"minutes":0}' @($empty)
 
+  function Write-Transcript([string]$name, [object[]]$calls) {
+    $lines = foreach ($c in $calls) {
+      $block = @{ type = 'tool_use'; id = 'b'; name = $c[1]; input = $c[2] }
+      @{ type = 'assistant'; timestamp = $c[0]; message = @{ role = 'assistant'; content = @($block) } } | ConvertTo-Json -Compress -Depth 6
+    }
+    $path = Join-Path $tmp $name
+    [System.IO.File]::WriteAllText($path, (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+    return $path
+  }
+  $ts = '2026-09-23T10:00:00Z'
+  $bashEdits = @("sed -i '' 's/a/b/' /repo/a.sh", "perl -i -pe 's/a/b/' /repo/a.sh", 'printf x | tee /repo/a.log',
+    'echo x > /repo/a.txt', 'echo x >>/repo/a.txt', 'cmd 2>/dev/null > out.txt')
+  $bashReads = @('ls > /dev/null', 'cmd 2>&1', 'cmd >&2', 'grep x f 2>/dev/null', 'ls >> /dev/null',
+    'printf x | tee /dev/null', 'git commit -m "committee notes"')
+  $i = 0
+  foreach ($cmd in $bashEdits) {
+    $i++
+    Check "bash-edit-$i [$cmd]" '{"steps":1,"stepsBeforeFirstEdit":0,"minutesToFirstEdit":0,"minutes":0}' @(
+      (Write-Transcript "bash-edit-$i.jsonl" @(, @($ts, 'Bash', @{ command = $cmd }))))
+  }
+  $i = 0
+  foreach ($cmd in $bashReads) {
+    $i++
+    Check "bash-read-$i [$cmd]" '{"steps":1,"minutes":0}' @(
+      (Write-Transcript "bash-read-$i.jsonl" @(, @($ts, 'Bash', @{ command = $cmd }))))
+  }
+  Check 'edit-after-bash-read' '{"steps":3,"stepsBeforeFirstEdit":1,"minutesToFirstEdit":0.5,"minutes":1.5}' @(
+    (Write-Transcript 'edit-after-bash-read.jsonl' @(
+      @('2026-09-23T10:00:00Z', 'Bash', @{ command = 'ls > /dev/null' }),
+      @('2026-09-23T10:00:30Z', 'Edit', @{ file_path = '/repo/a.sh' }),
+      @('2026-09-23T10:01:30Z', 'Bash', @{ command = "sed -i '' 's/a/b/' /repo/a.sh" }))))
+
   Check 'missing-file' '__FAIL__' @((Join-Path $tmp 'nope.jsonl'))
   Check 'directory' '__FAIL__' @($tmp)
   Check 'usage' '__FAIL__' @() -wantRc 2

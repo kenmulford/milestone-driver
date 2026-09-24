@@ -30,22 +30,29 @@ try { $cfg = Get-Content -LiteralPath $profilePath -Raw -ErrorAction Stop | Conv
 $implementer = [string]$cfg.implementerAgent
 if (-not $implementer) { $implementer = 'milestone-driver:implementer' }
 
-$Cap = 0
-$kind = ''
-$text = ''
 if ($tool -ceq 'Skill') {
-    $skill = [string]$hook.tool_input.skill
-    if ($skill -ceq 'code-review' -or $skill.EndsWith(':code-review', [StringComparison]::Ordinal)) { $kind = 'review'; $Cap = 3 } else { exit 0 }
-    $text = [string]$hook.tool_input.args
+    $who = [string]$hook.tool_input.skill
+    $who = $who.Substring($who.LastIndexOf(':') + 1)
+    $field = 'args'
 } elseif ($tool -ceq 'Agent' -or $tool -ceq 'Task') {
-    $st = [string]$hook.tool_input.subagent_type
-    if ($st -ceq $implementer) { $kind = 'implementer'; $Cap = 3 }
-    elseif ($st -ceq 'milestone-driver:planner') { $kind = 'planner'; $Cap = 2 }
-    else { exit 0 }
-    $text = [string]$hook.tool_input.prompt
+    $tool = 'Agent'; $field = 'prompt'
+    $who = [string]$hook.tool_input.subagent_type
 } else {
     exit 0
 }
+
+$table = @(
+    @('Skill', 'code-review', 'review', 3),
+    @('Agent', $implementer, 'implementer', 3),
+    @('Agent', 'milestone-driver:planner', 'planner', 2)
+)
+$kind = ''
+$Cap = 0
+foreach ($row in $table) {
+    if ($row[0] -ceq $tool -and $row[1] -ceq $who) { $kind = $row[2]; $Cap = $row[3]; break }
+}
+if (-not $kind) { exit 0 }
+$text = [string]$hook.tool_input.$field
 
 $branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
 if ($LASTEXITCODE -ne 0) { exit 0 }
