@@ -412,6 +412,18 @@ ROOT="${ROOT%/}"
 # #742 seeded skills/solve-milestone/milestone-end-gates.md from actuals
 #   47 / 4024 / 595, the line floor (actual + 5, next 5) governing the LINE
 #   number since 5% of 47 derives under it.
+# #744 raised skills/solve-milestone/milestone-granularity.md's BYTE and WORD
+#   ceilings for the two revert-exclusion clauses in step 3's wave-PR-body
+#   bullet and step 5's close-list sentence. New actuals 184 / 29146 / 4158;
+#   29146 * 1.05 = 30603.3, rounded UP to the next 500 = 31000; 4158 * 1.05 =
+#   4365.9, rounded UP to the next 100 = 4400. LINE 195 still holds
+#   (184 * 1.05 = 193.2, rounded UP to the next 5 = 195).
+# #744 raised skills/solve-milestone/milestone-end-gates.md's ceilings for the
+#   new "Attribution and revert" and "The run-scoped handler" sections. New
+#   actuals 63 / 5530 / 826; 63 * 1.05 = 66.15, rounded UP to the next 5 = 70,
+#   the line floor (63 + 5, next 5 = 70) agreeing; 5530 * 1.05 = 5806.5,
+#   rounded UP to the next 500 = 6000; 826 * 1.05 = 867.3, rounded UP to the
+#   next 100 = 900.
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -453,7 +465,7 @@ skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     330    35000     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
-skills/solve-milestone/milestone-granularity.md     195    29000     4200
+skills/solve-milestone/milestone-granularity.md     195    31000     4400
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    15500     2400
@@ -461,7 +473,7 @@ skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
-skills/solve-milestone/milestone-end-gates.md        55     4500      700
+skills/solve-milestone/milestone-end-gates.md        70     6000      900
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600

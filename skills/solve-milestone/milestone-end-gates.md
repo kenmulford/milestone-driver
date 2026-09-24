@@ -4,7 +4,7 @@ Loaded once per run from `skills/solve-milestone/milestone-granularity.md`'s `##
 
 ## Contents
 
-The ordered sequence · Empty diff · The fix-dispatch loop · Cap spent, still red · The milestone review sub-entry
+The ordered sequence · Empty diff · The fix-dispatch loop · Cap spent, still red · Attribution and revert · The run-scoped handler · The milestone review sub-entry
 
 ---
 
@@ -40,7 +40,23 @@ Collect every `/code-review` finding from step 4 and every red gate from steps 5
 
 ## Cap spent, still red
 
-The cap is spent and a `/code-review` finding or a gate from steps 5 to 7 is still red: stop the sequence. Run `## Milestone end: one push, one PR, one CI run` steps 1 to 3 unchanged, then apply the `Red CI on the milestone PR` handling in place of step 4's merge.
+The cap is spent and a `/code-review` finding is still open: take `## The run-scoped handler` below.
+
+The cap is spent and a gate from steps 5 to 7 is still red: attribute the failure and revert its commit, below.
+
+## Attribution and revert
+
+**Name the commit.** The red gate names the failing test's file. Diff each issue commit on `<range>` against its parent (`git show --name-only --format= <commit>`) for that file. Exactly one match names that commit's `Issue: #<n>` trailer as the culprit.
+
+**No match, or more than one: bisect.** `git bisect start <milestone-branch> <integrationBranch>`, then `git bisect run` with the red gate's own command. One first-bad commit names the culprit the same way. No single commit: take `## The run-scoped handler` below, no revert, no park.
+
+**Revert and park.** `git revert <commit>`, which keeps the reverted commit's `Issue: #<n>` trailer in history. Park that issue `blocked` (comment plus label, issue left open, `.project/design-philosophy.md#Error & failure philosophy`), the red gate's output as the comment's evidence. Hold the reverted issue number in run state: `skills/solve-milestone/milestone-granularity.md (The list names only issues whose trailer is on the branch, never a parked one.)` reads it to drop that issue from the PR-body enumeration and the close-list loop.
+
+**Re-run once.** Re-run steps 5 to 7 once. Clean: proceed to `## Milestone end: one push, one PR, one CI run` step 1. Still red: `## The run-scoped handler` below, not a second revert.
+
+## The run-scoped handler
+
+Stop the sequence. Run `## Milestone end: one push, one PR, one CI run` steps 1 to 3 unchanged, then apply the `Red CI on the milestone PR` handling in place of step 4's merge.
 
 ## The milestone review sub-entry
 

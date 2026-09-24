@@ -15,7 +15,7 @@ OK	skills/solve-issue/wave-clauses.md	1/25	7/3000	1/500
 OK	skills/solve-milestone/SKILL.md	1/330	7/35000	1/4800
 OK	skills/solve-milestone/parallel-waves.md	1/205	7/41500	1/6200
 OK	skills/solve-milestone/trello-sync.md	1/400	7/19000	1/3000
-OK	skills/solve-milestone/milestone-granularity.md	1/195	7/29000	1/4200
+OK	skills/solve-milestone/milestone-granularity.md	1/195	7/31000	1/4400
 OK	skills/solve-milestone/abandoned-recovery.md	1/45	7/5500	1/900
 OK	skills/solve-milestone/blocked-label-clear.md	1/25	7/2500	1/400
 OK	skills/solve-milestone/changelog-authoring.md	1/205	7/15500	1/2400
@@ -23,7 +23,7 @@ OK	skills/solve-milestone/contingencies.md	1/70	7/8500	1/1200
 OK	skills/solve-milestone/db-hazard-interview.md	1/30	7/2500	1/400
 OK	skills/solve-milestone/integration-granularity.md	1/85	7/15000	1/2300
 OK	skills/solve-milestone/md-epic-parent-check.md	1/30	7/2500	1/400
-OK	skills/solve-milestone/milestone-end-gates.md	1/55	7/4500	1/700
+OK	skills/solve-milestone/milestone-end-gates.md	1/70	7/6000	1/900
 OK	skills/solve-milestone/not-buildable.md	1/20	7/3500	1/500
 OK	skills/solve-milestone/sequential-loop.md	1/35	7/7500	1/1100
 OK	skills/solve-milestone/simplify-pass.md	1/110	7/11000	1/1600
