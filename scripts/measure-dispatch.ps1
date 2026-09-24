@@ -4,8 +4,8 @@
 # Usage: measure-dispatch.ps1 <transcript>
 # stdout: ONE compact JSON line, keys in order
 #   {"steps":n,"stepsBeforeFirstEdit":n,"minutesToFirstEdit":m,"minutes":m}
-#   With no Edit or Write call, only {"steps":n,"minutes":m}. No transcript text
-#   ever reaches stdout.
+#   With no edit call (Edit, Write, or file-writing Bash), only
+#   {"steps":n,"minutes":m}. No transcript text ever reaches stdout.
 # Transcript shape and every rule below mirror the .sh twin, which states them.
 # JsonDocument, not ConvertFrom-Json: the latter turns ISO-8601 strings into
 #   local DateTime values and loses the jq leg's exact type checks.
@@ -25,6 +25,16 @@ function Err([string]$msg) { [Console]::Error.WriteLine($msg) }
 function Fmt-Num([double]$d) {
   if ([Math]::Floor($d) -eq $d) { return ([long]$d).ToString([cultureinfo]::InvariantCulture) }
   return $d.ToString([cultureinfo]::InvariantCulture)
+}
+
+function Test-BashEdit([System.Text.Json.JsonElement]$b) {
+  $in = [System.Text.Json.JsonElement]::new(); $cmd = [System.Text.Json.JsonElement]::new()
+  if (-not ($b.TryGetProperty('input', [ref]$in) -and $in.ValueKind -eq 'Object')) { return $false }
+  if (-not ($in.TryGetProperty('command', [ref]$cmd) -and $cmd.ValueKind -eq 'String')) { return $false }
+  $s = $cmd.GetString()
+  return ($s.Contains('sed -i') -or $s.Contains('perl -i') -or
+    [regex]::IsMatch($s, '(^|[^A-Za-z0-9_-])tee[ \t]+(?!/dev/null)') -or
+    [regex]::IsMatch($s, '>>?[ \t]*(?!/dev/null)[^ \t>&]'))
 }
 
 function Mins($a, $b) {
@@ -73,7 +83,8 @@ try {
       $q = [System.Text.Json.JsonElement]::new()
       if (-not ($b.TryGetProperty('type', [ref]$q) -and $q.ValueKind -eq 'String' -and $q.GetString() -ceq 'tool_use')) { continue }
       if ($null -eq $before -and $b.TryGetProperty('name', [ref]$q) -and $q.ValueKind -eq 'String' -and
-          ($q.GetString() -ceq 'Edit' -or $q.GetString() -ceq 'Write')) {
+          ($q.GetString() -ceq 'Edit' -or $q.GetString() -ceq 'Write' -or
+           ($q.GetString() -ceq 'Bash' -and (Test-BashEdit $b)))) {
         $before = $steps; $tf = $tl
       }
       $steps++

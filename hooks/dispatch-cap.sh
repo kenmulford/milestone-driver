@@ -8,7 +8,8 @@
 # Main thread only; the parallel-mode reviewer leaf (general-purpose) is not counted.
 # Key: branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the brief, else the
 # branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
-# holds `<HEAD> <count>`; a moved HEAD resets it.
+# holds `<HEAD> <count>`; a moved HEAD or a park (`scripts/reset-dispatch-cap`)
+# resets it.
 # Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.
 # Fail-open on missing jq/git, no repo, or unparsed stdin. bash-3.2-safe (the
 # =~ patterns sit in variables: 3.2 mis-parses a quoted inline regex).
@@ -38,31 +39,36 @@ profile="$project_dir/.milestone-config/driver.json"
 implementer="$(jq -r '.implementerAgent // empty' "$profile" 2>/dev/null | tr -d '\r')"
 [ -n "$implementer" ] || implementer='milestone-driver:implementer'
 
-cap=''
-kind=''
-text=''
+# A Skill is matched on the name after its last `:`, so the `code-review` row
+# also covers `*:code-review`; Task is the legacy name of Agent.
 case "$tool" in
   Skill)
-    skill="$(printf '%s' "$input" | jq -r '.tool_input.skill // empty' 2>/dev/null)"
-    case "$skill" in
-      code-review|*:code-review) kind='review'; cap=3 ;;
-      *) exit 0 ;;
-    esac
-    text="$(printf '%s' "$input" | jq -r '.tool_input.args // empty' 2>/dev/null)"
-    ;;
+    who="$(printf '%s' "$input" | jq -r '.tool_input.skill // empty' 2>/dev/null)"
+    who="${who##*:}"; field='args' ;;
   Agent|Task)
-    st="$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)"
-    if [ "$st" = "$implementer" ]; then
-      kind='implementer'; cap=3
-    elif [ "$st" = 'milestone-driver:planner' ]; then
-      kind='planner'; cap=2
-    else
-      exit 0
-    fi
-    text="$(printf '%s' "$input" | jq -r '.tool_input.prompt // empty' 2>/dev/null)"
-    ;;
+    tool='Agent'; field='prompt'
+    who="$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)" ;;
   *) exit 0 ;;
 esac
+
+# Rows of <tool> <match> <kind> <cap>, first match wins. An indexed array, not a
+# heredoc: a heredoc needs a writable TMPDIR on bash 3.2.
+table=(
+  Skill code-review              review      3
+  Agent "$implementer"           implementer 3
+  Agent milestone-driver:planner planner     2
+)
+kind=''
+cap=''
+i=0
+while [ "$i" -lt "${#table[@]}" ]; do
+  if [ "${table[i]}" = "$tool" ] && [ "${table[i+1]}" = "$who" ]; then
+    kind="${table[i+2]}"; cap="${table[i+3]}"; break
+  fi
+  i=$((i + 4))
+done
+[ -n "$kind" ] || exit 0
+text="$(printf '%s' "$input" | jq -r ".tool_input.$field // empty" 2>/dev/null)"
 
 branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
 key=''

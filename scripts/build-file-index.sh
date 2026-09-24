@@ -22,7 +22,7 @@ command -v jq >/dev/null 2>&1 || emit_none
 printf '%s' "$input" | jq -e . >/dev/null 2>&1 || emit_none
 # tr -d '\r' guards against a Windows jq build emitting CRLF line terminators.
 [ "$(printf '%s' "$input" | jq -r 'has("files")' 2>/dev/null | tr -d '\r')" = "true" ] || emit_none
-mapfile -t FILES < <(printf '%s' "$input" | jq -r '.files[]?' 2>/dev/null | tr -d '\r')
+FILES=(); while IFS= read -r l; do FILES+=("$l"); done < <(printf '%s' "$input" | jq -r '.files[]?' 2>/dev/null | tr -d '\r')
 
 ROOT="$(pwd -P)"
 
@@ -177,11 +177,11 @@ for p in "${FILES[@]:-}"; do
 
   line="$p$SEP$purpose"
 
-  mapfile -t rels < <(file_relations "$p")
+  rels=(); while IFS= read -r l; do rels+=("$l"); done < <(file_relations "$p")
   [ "${#rels[@]}" -gt 0 ] && line="$line (callers: $(join_comma "${rels[@]}"))"
 
   if [ "$ext" = "sh" ] || [ "$ext" = "ps1" ]; then
-    mapfile -t syms < <(extract_symbols "$p")
+    syms=(); while IFS= read -r l; do syms+=("$l"); done < <(extract_symbols "$p")
     [ "${#syms[@]}" -gt 0 ] && line="$line (symbols: $(join_comma "${syms[@]}"))"
   fi
 
