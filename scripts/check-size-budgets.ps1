@@ -61,7 +61,8 @@ $Root = ($Root -replace '[\\/]+$', '')
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/SKILL.md                         320    48500     6800
+skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
@@ -97,7 +98,8 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    16000     2400
+agents/implementer.md                               135    16500     2400
+agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 '@
 
@@ -168,8 +170,8 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 '@
 

@@ -106,9 +106,12 @@ if ($mode -eq '--append') {
       totalTokens = (Fmt-Num (Numify $eo 'totalTokens'))
       durationMs  = (Fmt-Num (Numify $eo 'durationMs'))
     }
+    foreach ($k in 'steps', 'stepsBeforeFirstEdit', 'minutesToFirstEdit') {
+      if ($eo.PSObject.Properties[$k] -and $null -ne $eo.$k) { $lineObj[$k] = (Fmt-Num (Numify $eo $k)) }
+    }
     $lineJson = ($lineObj | ConvertTo-Json -Compress -ErrorAction Stop)
   } catch {
-    Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs) - no line appended'
+    Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended'
   }
   $reldir = '.milestone-config/.runtime/usage'
   $rel = "$reldir/$(Sanitize-Filename $runidArg).jsonl"

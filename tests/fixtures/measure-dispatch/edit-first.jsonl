@@ -1,0 +1,5 @@
+{"type":"user","timestamp":"2026-09-23T09:00:00.250Z","message":{"role":"user","content":"Apply the fix."}}
+{"type":"assistant","timestamp":"2026-09-23T09:00:30.500Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1","name":"Edit","input":{"file_path":"/repo/a.sh"}}]}}
+{"type":"user","timestamp":"2026-09-23T09:00:31.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"e1","content":"ok"}]}}
+{"type":"assistant","timestamp":"2026-09-23T09:02:00.900Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e2","name":"Read","input":{"file_path":"/repo/a.sh"}}]}}
+{"type":"user","timestamp":"2026-09-23T09:03:12.125Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"e2","content":"body"}]}}

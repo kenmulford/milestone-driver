@@ -103,7 +103,7 @@ try {
 
   # --- malformed-row parity: the other three single-row edits (#428) --------
   $malRefusal = (([System.IO.File]::ReadAllText((Join-Path $gold 'parity-guard.stderr.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")).Replace(
-    'CEILINGS(38), BYTE_CEILINGS(39) and WORD_CEILINGS(39)', 'CEILINGS(39), BYTE_CEILINGS(39) and WORD_CEILINGS(38)')
+    'CEILINGS(40), BYTE_CEILINGS(41) and WORD_CEILINGS(41)', 'CEILINGS(41), BYTE_CEILINGS(41) and WORD_CEILINGS(40)')
   $wideStream = ((([System.IO.File]::ReadAllText((Join-Path $gold 'at-ceiling.txt'), $u8) -replace "`r`n", "`n").TrimEnd("`n")) -split "`n" | ForEach-Object {
     if ($_.Contains('skills/setup/SKILL.md')) { ($_.Replace('/28000', '/99999999999')).Replace('/4000', '/99999999999') } else { $_ }
   }) -join "`n"

@@ -32,7 +32,13 @@
 # compaction, which erases the orchestrator's in-context <usage> sums):
 #   (no args)              the original contract above - unchanged.
 #   --append <runId>       stdin {"agent":"<str>","tier":"<str>","totalTokens":n,
-#                           "durationMs":n} -> appends ONE compact JSON line to
+#                           "durationMs":n} plus optional "steps",
+#                           "stepsBeforeFirstEdit", "minutesToFirstEdit" (each
+#                           kept only when present and non-null, so a four-field
+#                           input yields today's line byte-for-byte; any other
+#                           key, "minutes" included, is dropped because
+#                           durationMs already carries the duration) ->
+#                           appends ONE compact JSON line to
 #                           .milestone-config/.runtime/usage/<sanitized-runId>.jsonl
 #                           (create + append; never truncates). agent/tier
 #                           required non-empty strings, tier stored lowercased
@@ -92,9 +98,12 @@ if [ "$mode" = "--append" ]; then
     def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
     (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
     | (if (.tier|type)=="string" and (.tier|length) > 0 then . else error("badtier") end)
-    | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }'
+    | . as $in
+    | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }
+      + (reduce ("steps", "stepsBeforeFirstEdit", "minutesToFirstEdit") as $k ({};
+           if $in[$k] == null then . else . + { ($k): numify($in[$k]) } end))'
   line="$(printf '%s' "$input" | jq -c "$APPEND_PROG" 2>/dev/null)" \
-    || fail "malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs) - no line appended"
+    || fail "malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended"
   dir=".milestone-config/.runtime/usage"
   rel="$dir/$(sanitize_for_filename "$runid_arg").jsonl"
   mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no line appended"

@@ -48,6 +48,8 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
       worktrees/
       ```
 
+   2.0.6. **Assemble common.md** once; hold its path all run: `mkdir -p <repo-root>/.milestone-config/.runtime/plans`, then `${CLAUDE_PLUGIN_ROOT}/scripts/assemble-common.{sh,ps1} <repo-root> <repo-root>/.milestone-config/.runtime/plans/common.md [<anchor> ...]`, one `<anchor>` per `standingDocs` entry, prefixed with the resolved `projectDocs`. A nonzero exit logs its stderr and re-runs with no anchors (fail-open); a second one holds no path. The main thread never reads `common.md`.
+
    2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics exactly as stated there.
 3. **Resolve the milestone argument.** Strip flags from `$ARGUMENTS`: a flag is a token starting with `--`. Remove each `--<token>`, plus the following token when it does not start with `--` and the flag is value-bearing (`--parallel` and `--driven` are boolean - strip the flag alone; any other `--<token>` followed by a non-flag token counts as value-bearing, strip both). Then:
    - **Purely numeric** (digits only): `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'`. Found → record the canonical `{number, title}`, state `"Resolved milestone #<milestone-number> → '<title>'"`. Not found → print the available-milestones table and stop.
@@ -66,7 +68,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward). Record its tip (`git rev-parse <integrationBranch>`) as `milestoneBaseCommit`, held all run for `### Simplify pass`.
 5. **Resolve execution mode (the LAST Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
 
-   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. No human types it; an internal caller supplies it when dispatching this skill on its own behalf. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
+   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|
@@ -101,7 +103,7 @@ The **milestone description is the ordering source of truth**. Read it (`gh api 
 
 Read `versioning`. **`versioning: false`** → skip this step; record "version-free run - no version determined or bumped" and proceed to Phase 0.
 
-**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its result × `versioning` branch table (versioned / version-free with a logged reason / prompt), its fail-open behavior, the `MILESTONE_DRIVER_NONINTERACTIVE=1` degradation, and where the target is consumed. Hold that target for the loop. Under `versioning: false` it is never read.
+**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its branch table, fail-open behavior, and non-interactive degradation. Hold that target for the loop. Under `versioning: false` it is never read.
 
 ### Phase 0 - Triage
 
@@ -143,7 +145,7 @@ Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave,
 
 **If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with the held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is never read.
 
-**If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it - the park-label back-fill and `in progress` marking for a triage/prior-run park (with the one-blocker-label-per-issue rule), and, for a dependency hold, the `blocked` label plus the byte-fixed `🔴 Blocked` comment and the transitive-dependent holds. Both modes read it when an issue is not buildable.
+**If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it: the park-label back-fill for a triage/prior-run park, and the `blocked` label, `🔴 Blocked` comment, and transitive holds for a dependency hold. Both modes read it when an issue is not buildable.
 
 The loop **never waits on a human**. Every issue ends merged or parked (labeled, branch open if applicable, comment posted), UI included. Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
 
@@ -153,15 +155,13 @@ In **versioned mode** the first issue's PR sets `plugin.json` to the target vers
 
 **Runs once per run, at run-start mode resolution (row 2 above), before any dispatch - whenever background dispatch is about to be used.** The mode cascade and the loop read its result.
 
-**Allowlist source.** Union `permissions.allow` from all three settings layers; absent or unreadable layers are skipped in the union, not counted as gaps:
+**Allowlist source.** Union `permissions.allow` from these three settings layers, which the `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) also reads `autoCompactWindow` from; absent or unreadable layers are skipped in the union, not counted as gaps:
 
 | Priority | File |
 |---|---|
 | 1 | `~/.claude/settings.json` (user global) |
 | 2 | `.claude/settings.json` (project) |
 | 3 | `.claude/settings.local.json` (project local) |
-
-The `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) reads `autoCompactWindow` from these same three layers.
 
 <!-- KEEP THIS BLOCK IN SYNC with skills/solve-issue/permission-preflight.md § Tool surface and response, its second copy. -->
 **Pipeline tool surface.** The union must cover at minimum:
@@ -173,6 +173,7 @@ The `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) reads `auto
 | PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
 | Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
 | Label management | `gh label create` |
+| Planner leaf | Write to `.milestone-config/.runtime/plans/issue-<n>.md`, `git rev-parse`, Skill |
 | Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
 
 **Gap detection and response.** No gaps → proceed with background dispatch. Gap detected (the union misses part of that surface, or no layer is readable) → do not dispatch in the background: (1) surface a 🔴 gap table naming each missing grant and which settings layer(s) could supply it; (2) fall back to synchronous dispatch for this run; (3) recommend the consumer run `/fewer-permission-prompts` (see `docs/consumer-setup.md`). That result holds for the rest of the run - do not re-read settings per issue.
@@ -234,7 +235,7 @@ Show after each Wave completes.
 ▶ Next: Wave 2 (#203 👁️, #204) - redirect or reprioritize before it lands.
 ```
 PR cell: the PR number if the issue has one, else -.
-Note cell: an issue the run sent through the Auto loop records its outcome there - `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged.
+Note cell: an issue the run sent through the Auto loop records its outcome there - `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged. A slow first build adds its note per `skills/solve-issue/SKILL.md (Slow first build:)`.
 
 Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 
@@ -313,6 +314,6 @@ After Template 3, emit a `PushNotification`:
 
 **Run-end cost record (additive, never-gating), survives context compaction.** No in-context aggregation: every dispatch appends its usage to disk as it returns, and the run-end record is read back from that disk file alone, last step of this section on the clean-completion and systemic-halt paths alike.
 
-1. **Append, per dispatch, as it returns.** Every Agent-dispatch this run - Phase 0 triage's own dispatches and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch - pipes `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <milestone id>` as its own last step, milestone-wide - one usage file spans every Wave, so Phase 1 needs no per-Wave record of its own (`skills/solve-milestone/parallel-waves.md (Hand the green set to Phase 2)`).
+1. **Append, per dispatch, as it returns.** Every Agent-dispatch this run - Phase 0 triage's own dispatches and each per-issue / per-wave `Agent(run_in_background: ...)` dispatch - pipes `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <milestone id>` as its own last step, milestone-wide - one usage file spans every Wave, so Phase 1 needs no per-Wave record of its own (`skills/solve-milestone/parallel-waves.md (Hand the green set to Phase 2)`). An implementer return carrying `output_file:` merges its measurement per `skills/solve-issue/SKILL.md (merges the object)`; that merge never gates (`.project/design-philosophy.md#Error & failure philosophy`).
 2. **Finalize.** `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --finalize <milestone id>` sums `totalTokens` per tier into `inputTokens` (`outputTokens`/`cacheReadTokens`/`cacheWriteTokens` at the 0 sentinel, `provenanceNote: "unsplit-total-as-input"` marking it a lower-bound), sums `durationMs` into `wallClockSeconds`, and writes the record to `.milestone-config/.runtime/cost-records/` with one more field, `agents`: the raw per-dispatch entries.
 3. **Skip cleanly.** No usage file for this milestone (zero dispatches) → `--finalize` fails open on its own, one log line, no zero-value record. Writer script absent → silent no-op, one log line. Never fails the run.

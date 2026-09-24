@@ -24,7 +24,9 @@ Otherwise dispatch one `implementerAgent` leaf into that issue's existing worktr
 
 **The cap counts every leaf this ladder causes, not the recovery leaves alone, and the refill trigger is a slot freeing, never a recovery leaf returning:** a returning recovery leaf holds its slot for the step-7 leaf its resume dispatches (step 6's carve-out shape), and the skip-the-recovery-leaf branch above takes a slot from the same cap before dispatching its step-7 leaf. The slot frees when that step-7 leaf returns, and that is when the next abandoned issue is dispatched, so a set wider than the cap still drains.
 
-Brief the recovery leaf exactly as step 5 briefs an implementer leaf - including the expected file scope and the `risk:light` token when step 4 resolved this issue's build profile to light, neither of which this ladder may drop - plus an implementation-only finish-list naming what is left to build. **Scope that finish-list to implementation only:** it must not name step 8's tail (version bump, commit, push, PR), a leaf returning an uncommitted diff and dispatching nothing (step 5). The leaf dispatches nothing, and the cap is 1, not 2 (unlike step 6's unit-retry loop).
+**Packet first.** An approved packet at `<main-repo-root>/.milestone-config/.runtime/plans/issue-<n>.md` whose `Base:` equals the worktree HEAD briefs the implementer. None → the recovery leaf is the planner (`skills/solve-issue/SKILL.md (approve it with check-packet)`, cap 2), then the implementer on its approved packet. Either dispatch passes no `model`.
+
+Brief the recovery leaf exactly as step 5 briefs an implementer leaf - including the `PACKET:` path and the `risk:light` token when step 4 resolved this issue's build profile to light, neither of which this ladder may drop - plus an implementation-only finish-list naming what is left to build. **Scope that finish-list to implementation only:** it must not name step 8's tail (version bump, commit, push, PR), a leaf returning an uncommitted diff and dispatching nothing (step 5). The leaf dispatches nothing, and the cap is 1, not 2 (unlike step 6's unit-retry loop).
 
 ## On return
 

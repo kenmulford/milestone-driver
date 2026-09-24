@@ -14,6 +14,7 @@ Reaching this file means the caller is about to dispatch a leaf as `Agent(run_in
 | PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
 | Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
 | Label management | `gh label create` |
+| Planner leaf | Write to `.milestone-config/.runtime/plans/issue-<n>.md`, `git rev-parse`, Skill |
 | Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
 
 **Gap detection and response.**

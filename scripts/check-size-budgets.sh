@@ -259,6 +259,46 @@
 #     actual 15109; 15109 * 1.05 = 15864.45, rounded UP to the next 500 =
 #     16000. LINE 130/130 and WORD 2271/2400 still hold and do not move.
 #     Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #696 (decision 2026-09-23):
+#     skills/solve-milestone/SKILL.md CLOSURE 9900 -> 10000, for the
+#     measure-dispatch merge in the cost-record append step and the
+#     slow-first-build Note cell. Measured growth 9865 -> 9951 (86 words),
+#     rounded UP to the next 100. The file's own LINE 318/320, BYTE
+#     33739/34500 and WORD 4678/4800 still hold and do not move. Spent on this
+#     one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #701 (decision 2026-09-23): agents/implementer.md
+#     LINE 130 -> 135, for the build-packet input bullet and the Decision Log
+#     packet line. Measured growth 129 -> 131 (2 lines), rounded UP to the
+#     next 5. BYTE 15841/16000 and WORD 2374/2400 still hold and do not move;
+#     the byte headroom stays above the line count after trimming inside the
+#     file, so no WARN. Spent on this one row: the next edit re-derives
+#     normally.
+#     RECORDED RAISE, issue #704 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md BYTE 47000 -> 48500, for step 2's
+#     mechanical packet approval and its one planner re-dispatch. Measured
+#     growth 46324 -> 47452 (1128 bytes) after trimming inside step 2,
+#     rounded UP to the next 500.
+#     RECORDED RAISE, issue #704 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md WORD 6600 -> 6800, the same change.
+#     Measured growth 6533 -> 6694 (161 words), rounded UP to the next 100.
+#     LINE 319/320 and CLOSURE 13269/13300 still hold and do not move. Spent
+#     on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #706 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md CLOSURE 13300 -> 13400, for step 3's
+#     packet-gap re-plan paragraph. Measured growth 13269 -> 13364 (95 words)
+#     after trimming inside step 3, rounded UP to the next 100. The file's own
+#     LINE 320/320, BYTE 48070/48500 and WORD 6789/6800 still hold and do not
+#     move. Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/implementer.md BYTE 16000 -> 16500
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md LINE 80 -> 100
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md BYTE 5000 -> 6500
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md WORD 800 -> 900
+#     For the packet-primary brief and the PACKET_GAP report line (implementer,
+#     measured 15841 -> 16071 bytes after trimming inside the file), and for the
+#     build-profile input, the park rows and the `## Examples` block (planner,
+#     measured 76 -> 96 lines, 4719 -> 5909 bytes, 729 -> 900 words). Each raise
+#     is the measured growth rounded UP to the next unit. Spent on these rows:
+#     the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -344,6 +384,8 @@ ROOT="${ROOT%/}"
 # next 100 words, then capped at 5000 for every file already at or under it.
 # Same ratchet discipline as the line ceilings: down freely, up only with a
 # decision recorded in the PR body.
+# #695 seeded skills/solve-issue/build-packet.md from actuals 49 / 2916 / 454.
+# #698 seeded agents/planner.md from actuals 76 / 4719 / 729.
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -369,7 +411,8 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/SKILL.md                         320    48500     6800
+skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
 skills/solve-issue/coherence-review.md               15     2500      300
@@ -405,7 +448,8 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               130    16000     2400
+agents/implementer.md                               135    16500     2400
+agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
@@ -558,8 +602,8 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13300   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md    9900   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 

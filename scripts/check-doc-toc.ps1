@@ -36,6 +36,7 @@ $threshold = 100
 $governedPaths = @'
 skills/setup/SKILL.md
 skills/solve-issue/SKILL.md
+skills/solve-issue/build-packet.md
 skills/solve-issue/async-mode.md
 skills/solve-issue/md-epic-fanout.md
 skills/solve-issue/coherence-review.md
@@ -72,6 +73,7 @@ skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
+agents/planner.md
 agents/triage-reviewer.md
 '@
 
