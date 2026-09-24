@@ -13,7 +13,7 @@
 #   section   the required subset at skills/solve-issue/build-packet.md#Omission
 #             is present (`## Tests` optional under `light`); a `## ` heading
 #             outside the ten sections at skills/solve-issue/build-packet.md#Sections
-#             fails too
+#             fails too, as does the same `## ` heading appearing twice
 #   citation  each `### <path> (<anchor>)` line, <path> holding no space,
 #             resolves through resolve-citation.ps1 against <worktree>/<path>;
 #             the anchor `new` marks a file absent at Base and is skipped
@@ -65,6 +65,8 @@ if ($sizeBytes -le 12288) { Pass } else { Fail 'size' "$sizeBytes > 12288" }
 $issue = $false; $base = $null; $tree = $null
 $sections = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $headingOrder = [System.Collections.Generic.List[string]]::new()
+$seenHeadings = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$dupHeadings = [System.Collections.Generic.List[string]]::new()
 $cites = [System.Collections.Generic.List[string[]]]::new()
 $fence = $false
 foreach ($line in $lines) {
@@ -74,7 +76,11 @@ foreach ($line in $lines) {
   if ($line.StartsWith('Issue: ', [System.StringComparison]::Ordinal)) { $issue = $true }
   elseif ($line.StartsWith('Base: ', [System.StringComparison]::Ordinal)) { if ($null -eq $base) { $base = $line.Substring(6) } }
   elseif ($line.StartsWith('Worktree: ', [System.StringComparison]::Ordinal)) { if ($null -eq $tree) { $tree = $line.Substring(10) } }
-  elseif ($line.StartsWith('## ', [System.StringComparison]::Ordinal)) { [void]$sections.Add($line.Substring(3)); $headingOrder.Add($line.Substring(3)) }
+  elseif ($line.StartsWith('## ', [System.StringComparison]::Ordinal)) {
+    $h = $line.Substring(3)
+    if (-not $seenHeadings.Add($h)) { $dupHeadings.Add($h) }
+    [void]$sections.Add($h); $headingOrder.Add($h)
+  }
   elseif ($line.StartsWith('### ', [System.StringComparison]::Ordinal) -and $line.EndsWith(')', [System.StringComparison]::Ordinal)) {
     $rest = $line.Substring(4)
     $sp = $rest.IndexOf(' ')
@@ -117,6 +123,8 @@ foreach ($h in $headingOrder) {
   if ($requiredSections -ccontains $h) { continue }
   if ($contractSections.Contains($h)) { Pass } else { Fail 'section' "unexpected ## $h" }
 }
+
+foreach ($h in $dupHeadings) { Fail 'section' "duplicate ## $h" }
 
 # resolve-citation.ps1 writes through [Console]::Out and [Console]::Error, not the
 # pipeline, so both are captured by swapping the console writers around the call.

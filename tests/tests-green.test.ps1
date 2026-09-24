@@ -24,7 +24,7 @@ function Show-Escaped([string]$s) {
   return ((($s -replace "`r", '\r') -replace "`n", '\n') -replace "`t", '\t')
 }
 
-function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 'src/a.txt', [string]$granularity = $null, [string]$branchName = $null) {
+function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 'src/a.txt', [string]$granularity = $null, [string]$branchName = $null, [string]$extraBranch = $null) {
   $w = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
   New-Item -ItemType Directory -Path $w | Out-Null
   git -C $w init -q
@@ -38,6 +38,11 @@ function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 
     git -C $w add .gitkeep
     git -C $w commit -q -m init
     git -C $w checkout -q -b $branchName
+  }
+  if ($extraBranch) {
+    # A second local ref, never checked out - proves the milestone-* probe
+    # scans refs/heads, not just the current branch.
+    git -C $w branch $extraBranch
   }
   New-Item -ItemType Directory -Path (Join-Path $w '.milestone-config') | Out-Null
   $staged = Join-Path $w $stagedPath
@@ -97,11 +102,17 @@ $r = Invoke-Hook $W
 if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
 else { No "milestone-skip-milestone-branch: rc=$($r.rc) (want 0) and the hook must not reach its post-green write, err=[$(Show-Escaped $r.err)]" }
 
-# ---- an absent integrationGranularity degrades to "milestone" and skips ----
+# ---- absent integrationGranularity, no local milestone-* branch, runs ------
 $W = New-Workspace -branchName 'issue/9-slug'
 $r = Invoke-Hook $W
+if ($r.rc -eq 0 -and (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
+else { No "absent-granularity-no-milestone-branch-runs: rc=$($r.rc) (want 0) and the hook must reach its post-green write, err=[$(Show-Escaped $r.err)]" }
+
+# ---- absent integrationGranularity, a local milestone-* branch exists, skips
+$W = New-Workspace -branchName 'issue/9-slug' -extraBranch 'milestone-12-slug'
+$r = Invoke-Hook $W
 if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
-else { No "milestone-skip-absent-granularity: rc=$($r.rc) (want 0) and the hook must not reach its post-green write, err=[$(Show-Escaped $r.err)]" }
+else { No "absent-granularity-milestone-branch-exists-skips: rc=$($r.rc) (want 0) and the hook must not reach its post-green write, err=[$(Show-Escaped $r.err)]" }
 
 # ---- an out-of-enum integrationGranularity degrades to "milestone" and skips
 $W = New-Workspace -granularity 'bogus' -branchName 'milestone-12-slug'

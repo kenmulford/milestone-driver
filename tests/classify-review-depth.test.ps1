@@ -191,6 +191,20 @@ Commit-All $b5 'base'
 [System.IO.File]::WriteAllBytes((Join-Path $b5 'scripts/blob.bin'), [byte[]](0x63, 0x68, 0x61, 0x6E, 0x67, 0x65, 0x64, 0x00, 0x01))
 Invoke-Case 'binary_diff_is_not_small' $b5 'standard' ''
 
+# ---- bespoke: a literal BASE_REF classifies the committed range only - an
+# untracked file created after that range is never a candidate, even though
+# it would fire the new-file trigger under the default working-tree mode.
+$bespoke++
+$b6 = Join-Path $tmp 'b-baseref-untracked'; New-Repo $b6
+Write-Fixture (Join-Path $b6 '.milestone-config/driver.json') "{`"sourceGlobs`":[`"scripts/**`"]}`n"
+Write-Fixture (Join-Path $b6 'docs/x.md') "seed`n"
+Commit-All $b6 'base'
+$baseSha6 = (& git -C $b6 rev-parse HEAD 2>$null)
+Write-Fixture (Join-Path $b6 'docs/x.md') "changed`n"
+Commit-All $b6 'range-commit'
+Write-Fixture (Join-Path $b6 'scripts/new.sh') "seed`n"
+Invoke-Case 'base_ref_excludes_untracked_new_file' $b6 'shallow' '' $null $baseSha6
+
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "classify-review-depth ($Leg): $pass passed, $fail failed (parsed $caseCount TSV cases + $bespoke bespoke)"
 if ($fail -ne 0) { exit 1 }

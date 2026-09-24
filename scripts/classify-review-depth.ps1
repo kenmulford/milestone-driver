@@ -5,7 +5,9 @@
 #
 # Usage:   classify-review-depth.ps1 [REPO_ROOT] [BASE_REF]
 #   BASE_REF  a committed ref to classify `git diff BASE_REF...HEAD` against,
-#             in place of the working tree vs. HEAD (default: unset).
+#             in place of the working tree vs. HEAD (default: unset). Given,
+#             the candidate set is the committed range alone: no untracked
+#             file is read or considered.
 # Output:  stdout is one newline-terminated verdict, `deep`, `standard` or
 #          `shallow`. stderr carries a single reason token, and only when there
 #          is a specific trigger to name: hooks:<path>, new-file:<path>,
@@ -124,11 +126,14 @@ try {
   $rc = 1
 }
 if ($rc -ne 0) { Emit 'standard' 'no-diff' }
-try {
-  $others = @(& git -C $Root -c core.quotePath=false ls-files --others `
-    --exclude-standard --full-name 2>$null)
-} catch {
-  $others = @()
+$others = @()
+if ([string]::IsNullOrEmpty($BaseRef)) {
+  try {
+    $others = @(& git -C $Root -c core.quotePath=false ls-files --others `
+      --exclude-standard --full-name 2>$null)
+  } catch {
+    $others = @()
+  }
 }
 
 $candidates = New-Object 'System.Collections.Generic.List[string]'

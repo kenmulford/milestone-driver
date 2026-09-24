@@ -67,7 +67,6 @@ Each case below, plus a fact no source settles, returns `STATUS: PARK` and no pa
 - No build, restore, test run, generator, install, or project copy.
 - No scratch scripts or template files.
 - No reading another issue's record.
-- No docs search for a behavior the repo already has a precedent for: quote the precedent instead.
 - No quoting whole files or whole doc sections, no rejected-alternative essays.
 - No reading or running `check-packet`.
 - Budget: at most 25 tool calls.

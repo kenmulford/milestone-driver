@@ -71,6 +71,10 @@ try {
   # A `.project/`-sourced heading outside the ten contract sections.
   $unexpectedHeading = $clean.Replace("`n## Out of scope`n`nnone", "`n## Out of scope`n`nnone`n`n## Test patterns`n`na pattern`n")
 
+  # A contract heading repeated - `## Verify` appears once already; this adds
+  # a second, unfenced occurrence after `## Out of scope`.
+  $duplicateHeading = $clean.Replace("`n## Out of scope`n`nnone", "`n## Out of scope`n`nnone`n`n## Verify`n`nnone`n")
+
   $cases = @(
     @{ name = 'clean'; body = $clean; extra = @(); rc = 0; out = "SUMMARY`tok=17`tfailed=0`n" },
     @{ name = 'clean-light'; body = $clean; extra = @('light'); rc = 0; out = "SUMMARY`tok=16`tfailed=0`n" },
@@ -93,7 +97,9 @@ try {
     @{ name = 'size-over-cap'; body = $overCapBody; extra = @(); rc = 1
       out = "FAIL`tsize`t12289 > 12288`nSUMMARY`tok=11`tfailed=1`n" },
     @{ name = 'unexpected-heading'; body = $unexpectedHeading; extra = @(); rc = 1
-      out = "FAIL`tsection`tunexpected ## Test patterns`nSUMMARY`tok=17`tfailed=1`n" }
+      out = "FAIL`tsection`tunexpected ## Test patterns`nSUMMARY`tok=17`tfailed=1`n" },
+    @{ name = 'duplicate-heading'; body = $duplicateHeading; extra = @(); rc = 1
+      out = "FAIL`tsection`tduplicate ## Verify`nSUMMARY`tok=17`tfailed=1`n" }
   )
 
   $packets = @{}

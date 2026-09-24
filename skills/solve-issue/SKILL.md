@@ -255,7 +255,7 @@ Background subagents auto-deny any tool call that would otherwise prompt, and a 
 
 ## Milestone granularity (`integrationGranularity: "milestone"`)
 
-**Resolved from the profile at step 1, not from an invocation token.** `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses`, plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, integration-commit trailer, and resume query. Absent, with no milestone run holding a resolved value, resolves to `"issue"` here: neither read happens and the pipeline runs byte-unchanged. An explicit `"issue"` resolves the same way.
+**Resolved from the profile at step 1, not from an invocation token.** `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses`, plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, integration-commit trailer, and resume query. Absent or invalid, with no milestone run holding a resolved value, resolves to `"issue"` here: neither read happens and the pipeline runs byte-unchanged. An explicit `"issue"` resolves the same way.
 
 ## Wave granularity (`integrationGranularity: "wave"`)
 
@@ -301,7 +301,7 @@ One row per issue; emit only the row matching the actual outcome and suppress th
 |-------|------------|-------|----|-------------------------|
 | #201  | ✅ merged  | 🔍✓(0 findings)  | #301 | -    |
 | #202  | ⏸️ parked  | -                | [#pr | -] | [park label]      |
-| #204  | ✅ committed | 🔍✓(0 findings) | -    | committed on its branch |
+| #204  | ✅ committed | -              | -    | committed on its branch |
 ```
 PR cell: show the PR number if the issue has one, else -. Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
 Note cell: an issue the run sent through the Auto loop records its outcome there - `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged. Slow first build: an issue whose first implementer dispatch printed `steps` over 40 or `minutesToFirstEdit` over 2 adds `<steps> steps, first edit <m> min` (no `minutesToFirstEdit`: `steps` alone decides, shown as `<steps> steps, no edit`), joined to any Auto loop outcome by `; `. Slow planner: an issue whose first planner dispatch printed `steps` over 25 adds `planner <steps> steps, <minutes> min` to the Note cell, joined to any other Note text by `; `.

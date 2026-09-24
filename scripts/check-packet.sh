@@ -13,7 +13,7 @@
 #   section   the required subset at skills/solve-issue/build-packet.md#Omission
 #             is present (`## Tests` optional under `light`); a `## ` heading
 #             outside the ten sections at skills/solve-issue/build-packet.md#Sections
-#             fails too
+#             fails too, as does the same `## ` heading appearing twice
 #   citation  each `### <path> (<anchor>)` line, <path> holding no space,
 #             resolves through resolve-citation.sh against <worktree>/<path>;
 #             the anchor `new` marks a file absent at Base and is skipped
@@ -55,6 +55,8 @@ issue=0; base=''; hasbase=0; tree=''; hastree=0
 sections="$TAB"
 cites=()
 headings=()
+seen_headings="$TAB"
+dupes=()
 lineno=0; fence=0
 while IFS= read -r line || [ -n "$line" ]; do
   lineno=$((lineno + 1))
@@ -68,7 +70,11 @@ while IFS= read -r line || [ -n "$line" ]; do
     'Issue: '*) issue=1 ;;
     'Base: '*) [ "$hasbase" -eq 1 ] || { hasbase=1; base="${line#Base: }"; } ;;
     'Worktree: '*) [ "$hastree" -eq 1 ] || { hastree=1; tree="${line#Worktree: }"; } ;;
-    '## '*) sections="$sections${line#'## '}$TAB"; headings+=("${line#'## '}") ;;
+    '## '*)
+      h="${line#'## '}"
+      case "$seen_headings" in *"$TAB$h$TAB"*) dupes+=("$h") ;; esac
+      seen_headings="$seen_headings$h$TAB"
+      sections="$sections$h$TAB"; headings+=("$h") ;;
     '### '*' ('*')')
       rest="${line#'### '}"; path="${rest%% *}"; tail="${rest#"$path"}"
       case "$tail" in
@@ -124,6 +130,12 @@ if [ "${#headings[@]}" -gt 0 ]; then
     is_required_section "$h" && continue
     if is_contract_section "$h"; then pass; else fail section "unexpected ## $h"; fi
   done
+fi
+
+# `${dupes[@]}` on an empty array is an unbound-variable error under `set -u`
+# on bash 3.2 (macOS), hence the count guard (mirrors the headings guard above).
+if [ "${#dupes[@]}" -gt 0 ]; then
+  for h in "${dupes[@]}"; do fail section "duplicate ## $h"; done
 fi
 
 # `${cites[@]}` on an empty array is an unbound-variable error under `set -u`

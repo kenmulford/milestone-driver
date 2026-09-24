@@ -46,6 +46,6 @@ After the header, these `##` sections, in this order:
 - `## Rules` quotes only the `.project/` sections that `.milestone-config/.runtime/plans/common.md` does not already carry. A section already in `common.md` is never repeated.
 - `## Decisions` uses the Decision Log entry shape at `skills/output-style.md#Evidence slots`.
 - Every quoted declaration sits under a `### <path> (<anchor>)` heading in the anchor form at `skills/citation-format.md#The four forms`, so it resolves through `scripts/resolve-citation.sh` and `scripts/resolve-citation.ps1` against `Base`.
-- A new file sits under `### <path> (new)`, its full declarations beneath; approval skips it.
+- A new file sits under `### <path> (new)`, its public signatures beneath; approval skips it.
 - Approval is `scripts/check-packet.sh` and `scripts/check-packet.ps1`, which read only lines outside fenced blocks.
 - A quote is a fenced block copied byte-exact from its file at `Base`.

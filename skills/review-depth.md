@@ -2,9 +2,9 @@
 
 The single source of truth for what `scripts/classify-review-depth.{sh,ps1}`'s
 verdict decides: the reviewer's effort level, the review→fix cycle cap, and
-what a second cycle does. Four sites read it - `solve-issue` step 6.1 and its
-`post-fix-commit.md`, `solve-milestone`'s `parallel-waves.md` step 7, and
-`simplify-pass.md`.
+what a second cycle does. Five sites read it - `solve-issue` step 6.1 and its
+`post-fix-commit.md`, `solve-milestone`'s `parallel-waves.md` step 7,
+`simplify-pass.md`, and `milestone-end-gates.md` step 4.
 
 ## Contents
 
@@ -25,7 +25,7 @@ Run `${CLAUDE_PLUGIN_ROOT}/scripts/classify-review-depth.<sh|ps1> <root>`
 (pwsh on Windows, bash elsewhere) once the implementer's diff exists: before
 the coherence pass (`solve-issue` section 6 skips that pass on `shallow`), and
 again immediately before each `/code-review` dispatch, since a fix changes
-the diff. **Take the printed verdict verbatim: never re-derived, never
+the diff. **Take the printed verdict verbatim: never re-derived or
 overridden.**
 
 A caller classifying a committed range instead of the working tree passes a
@@ -34,7 +34,7 @@ second argument, `<root> <base_ref>`, classifying `git diff <base_ref>...HEAD`
 
 **Fail-open.** Every failure prints `standard` on stdout with one reason token
 on stderr, at exit 0 (`scripts/classify-review-depth.sh (THE SAFE DIRECTION IS MORE REVIEW)`).
-`standard`'s effort and cap then apply unchanged: no crash, no park, no manual
+Its effort and cap apply unchanged: no crash, no park, no
 override (`.project/design-philosophy.md#Error & failure philosophy`).
 
 ## The ladder
@@ -48,9 +48,9 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 `medium` is the ceiling, and the column is a first run's effort only: every
 later `/code-review` on the issue - the re-review a `code-changed` fix owes, a
 2nd cycle's - runs at `low`, whatever the verdict says (`simplify-pass.md`'s
-step 9 run is its own pass's first). **A resumed issue starts a fresh pass**:
+step 9 run is its own pass's first). **A resumed issue starts fresh**:
 holding no record of the earlier run, its next review takes the verdict's
-effort again. A cycle is one `/code-review` run plus the fix it triggers,
+effort again. A cycle is one `/code-review` run plus its fix,
 so a review returning no in-scope finding spends none, and on a `code-changed`
 delta the fresh review is the last action before commit. `shallow` is no
 `sourceGlobs` path, or
@@ -58,17 +58,16 @@ delta the fresh review is the last action before commit. `shallow` is no
 
 ## Re-classify before a second cycle
 
-**Before a 2nd cycle starts, re-run the classifier against the post-fix diff.**
-It decides whether that cycle happens at all: a verdict dropping to `shallow`
-ends the loop, one rising to `deep` runs the 2nd cycle already granted but
-grants no 3rd. The cap stays whatever the first verdict set.
+**Before a 2nd cycle, re-run the classifier against the post-fix diff.**
+It decides whether that cycle happens: `shallow`
+ends the loop; `deep` runs the already-granted 2nd cycle but
+grants no 3rd. The cap stays the first verdict's.
 
 ## The second-cycle park
 
 **The park keys on the finding's resolvability, not its severity alone.** A
 second cycle's Critical or Important finding parks `needs design` only when it
-needs a decision the record cannot make - a product-scope call, an
-architecture change, a new dependency: the park triggers
+needs a decision the record cannot make - the park triggers
 `skills/solve-issue/SKILL.md (Autonomy model (Balanced))` already names. A
 finding with a conventional fix (a repo precedent, a `.project/` convention,
 or a shell/quoting idiom) instead takes one more fix dispatch and one final
@@ -77,9 +76,8 @@ review at the same effort - the last action before commit, never a fourth.
 regardless of how it was classified going in.
 
 No third cycle runs beyond that: `hooks/dispatch-cap.sh` denies the 4th
-`/code-review` run and the 4th implementer dispatch per issue (the first build
-plus 2 fixes, across every gate and this loop), so the cap holds whatever the
-orchestrator concludes. A denied dispatch is the park.
+`/code-review` run and the 4th implementer dispatch per issue (first build
+plus 2 fixes, across every gate and this loop). A denied dispatch is the park.
 
 ## Which findings get fixed
 
@@ -88,14 +86,13 @@ The **build profile** decides, never the verdict:
 - **Light** fixes only a Critical or Important finding. A Minor one is
   accepted, not fixed - disposed `accepted (rationale: <…>)` in the Code Review
   section (`skills/solve-issue/SKILL.md (Assemble the Code Review section)`).
-  Accepting changes no code, so no re-review and no further cycle fire.
+  Accepting changes no code: no re-review, no further cycle.
 - **Heavy** (the default) fixes every in-scope finding.
 
 Severities are the reviewer template's
 (`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a
-finding carrying none, including from a reviewer scoring by confidence, counts
-as Important. **Non-convergence parks only a finding the profile fixes** -
-the caller's park-trigger bullet fires at any severity.
+finding carrying none counts as Important. **Non-convergence parks only a finding the profile fixes** -
+the park-trigger bullet fires at any severity.
 
 ## What stays at each call site
 
@@ -105,3 +102,4 @@ The `<root>` argument, and nothing else:
 |---|---|
 | `solve-issue` step 6.1, sequential | `<repo-root>` |
 | `parallel-waves.md` step 7, parallel | `<worktree-path>`. `git diff HEAD` inside that worktree is still against `<base>` |
+| `milestone-end-gates.md` step 4, milestone end | `<repo-root>` (the milestone branch's checkout); `<base_ref>` `integrationBranch` |

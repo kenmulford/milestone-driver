@@ -12,6 +12,6 @@ The branch that reaches this file belongs to the caller, which runs the probe an
 
 **(c) No PR; no commits ahead; the branch is checked out with uncommitted changes.** Do not clobber; re-verify and resume exactly as (b), from step 6.1. Best-effort: it only recovers when the working tree is preserved in-place (in-place re-dispatch); a fresh clone has no uncommitted changes and falls to (d).
 
-**Under `"milestone"` granularity** (`skills/solve-issue/milestone-clauses.md`) path (b)'s commits-ahead computation and its `git diff` re-verify take the milestone branch in place of `integrationBranch`, and the resumed step-6 flow commits without pushing and opens no PR (step 6.6).
+**Under `"milestone"` granularity** (`skills/solve-issue/milestone-clauses.md`) path (b)'s commits-ahead and `git diff` re-verify take the milestone branch, not `integrationBranch`. Neither runs (rows 4, 6.1); the flow commits without pushing, opens no PR (6.6), resuming at 6.2.
 
 **Under `"wave"` granularity** no built issue opens a per-issue PR (step 6.6), UI included, so path (a) matches nothing. Evaluate before (b): a non-empty `git ls-remote --heads origin "issue/<n>-*"` is the terminal exit (`skills/solve-issue/wave-clauses.md (The pushed built-green branch is the terminal exit)`); no re-verify, no new PR. The signal is that branch, not a trailer (contrast `skills/solve-issue/milestone-clauses.md (3, trailer query)`).

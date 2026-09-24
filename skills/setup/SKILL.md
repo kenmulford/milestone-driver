@@ -106,7 +106,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to defer the gate entirely to your GitHub Actions CI - no local check runs; your PR's own CI run is the preflight." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit, or once at milestone end under milestone granularity. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to defer the gate entirely to your GitHub Actions CI - no local check runs; your PR's own CI run is the preflight." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
 **Tier: Integration** (optional; pure preference - no Phase-1 signal, since granularity is not detectable. Show `"milestone"` as the default.)
 
@@ -116,7 +116,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 **Wave precondition prompt.** When - and only when - the user selects `"wave"`, fire this informational, non-blocking prompt (every wave selection, unconditionally - not gated on detected gate-strength):
 
-> "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge - the failing issue isolates, the rest merge - use `issue` (the default)."
+> "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge - the failing issue isolates, the rest merge - use `issue`."
 
 `"full suite?"` is posed as a question to the human, not a check the skill performs - it is not machine-detectable at setup time. The prompt does **not** block: after acknowledgement, `"wave"` is still written.
 

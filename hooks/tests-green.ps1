@@ -21,12 +21,20 @@ if (-not $unitCmd) { exit 0 }
 # Milestone-granularity skip: an issue/fold commit on these two branch shapes
 # (skills/solve-milestone/milestone-granularity.md#Branch model) already
 # ran the implementer's scoped tests; the full suite runs once at milestone
-# end. Absent or out-of-enum degrades to "milestone" (docs/briefs/2026-09-24-
-# lean-packet.md (## 8. Default granularity)). Runs before the sourceGlobs
-# touched check and the stamp-skip read below, so a skip never invokes
-# `git write-tree` or reads the stamp file.
+# end. Absent resolves to "milestone" only when a local milestone-* branch
+# exists (a milestone run has cut one); with none, "issue" (suite runs).
+# Out-of-enum still degrades to "milestone" unconditionally. Runs before the
+# sourceGlobs touched check and the stamp-skip read below, so a skip never
+# invokes `git write-tree` or reads the stamp file.
 $granularity = $cfg.integrationGranularity
-if ($granularity -notin @('issue', 'wave')) { $granularity = 'milestone' }
+if ($granularity -notin @('issue', 'wave')) {
+    if ([string]::IsNullOrEmpty($granularity)) {
+        $hasMilestoneBranch = [bool](git -C $projectDir for-each-ref --count=1 'refs/heads/milestone-*' 2>$null)
+        $granularity = if ($hasMilestoneBranch) { 'milestone' } else { 'issue' }
+    } else {
+        $granularity = 'milestone'
+    }
+}
 $branch = ([string](git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null)).Trim()
 if ($granularity -eq 'milestone' -and ($branch -like 'issue/*' -or $branch -like 'milestone-*')) { exit 0 }
 $globs = $cfg.sourceGlobs
