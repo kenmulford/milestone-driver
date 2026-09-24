@@ -19,7 +19,7 @@ For each buildable issue, in dependency-graph order:
    - **Issue parked** (any subtype - triage-park, dependency-hold, STOP/build-park): emit `⏸️ #N parked - <reason>`, `<reason>` being the park label + brief blocker description, e.g. "needs decision: new dependency".
    - **Issue completed** (merged): no per-issue notification - the 🏁 run-complete notification, emitted after the Final summary, is the aggregate end signal.
 
-3. **Park-and-continue on STOP/PAUSE:** If `/milestone-driver:solve-issue` returns a STOP or PAUSE (no root cause, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), park the issue and continue - do not halt the loop:
+3. **Park-and-continue on STOP/PAUSE:** If `/milestone-driver:solve-issue` returns a STOP or PAUSE (planner park, new dependency, architecture conflict, scope overrun, ambiguity, unmet gate), park the issue and continue - do not halt the loop:
    a. Apply the appropriate label using the apply-time label helper (`needs decision` for a new dependency or architecture call; `needs design` for a design/spec gap; `blocked` for an unresolvable unmet gate).
    b. Apply `in progress` if a branch exists with commits.
    c. The STOP/PAUSE reason is already recorded on the issue. Confirm it is there **and that it fills all three slots of the park-comment shape** (`skills/output-style.md`) - reason · evidence · what unblocks it; if it is missing, or carries no evidence slot, post it (or the missing slot) via `gh issue comment <n>`.

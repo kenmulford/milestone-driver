@@ -32,13 +32,13 @@ After the header, these `##` sections, in this order:
 | `## Rules` | Each `.project/` section the change depends on that `common.md` does not carry, quoted under its `<doc>#<heading>`. |
 | `## Verified facts` | Each framework or platform fact the change depends on, with its source: a docs URL for the version in use, a `domainSkills` name, or a probe's printed output. |
 | `## Decisions` | Decision Log entries, one per line: choice · rationale · citation · rejected alternatives. |
-| `## Verify` | The exact commands, with absolute paths. |
+| `## Verify` | The scoped spec command, never the full `unitTestCmd`, and any other exact command, with absolute paths. |
 | `## Out of scope` | What the implementer does not touch. |
 
 ### Omission
 
-- `## Tests` is omitted when the implementer's `risk:light` clause applies (`agents/implementer.md (skip the red→green ceremony)`).
-- `## Design` is omitted when the issue cites no design source.
+- `## Tests` is omitted only when the brief carries `risk:light`.
+- `## Design` is omitted when the issue cites no design source. It is optional to approval.
 - Every other section is required. A required section with nothing to carry holds the single line `none`.
 
 ### Section rules
@@ -46,4 +46,6 @@ After the header, these `##` sections, in this order:
 - `## Rules` quotes only the `.project/` sections that `.milestone-config/.runtime/plans/common.md` does not already carry. A section already in `common.md` is never repeated.
 - `## Decisions` uses the Decision Log entry shape at `skills/output-style.md#Evidence slots`.
 - Every quoted declaration sits under a `### <path> (<anchor>)` heading in the anchor form at `skills/citation-format.md#The four forms`, so it resolves through `scripts/resolve-citation.sh` and `scripts/resolve-citation.ps1` against `Base`.
+- A new file sits under `### <path> (new)`, its full declarations beneath; approval skips it.
+- Approval is `scripts/check-packet.sh` and `scripts/check-packet.ps1`, which read only lines outside fenced blocks.
 - A quote is a fenced block copied byte-exact from its file at `Base`.

@@ -98,8 +98,8 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               135    16000     2400
-agents/planner.md                                    80     5000      800
+agents/implementer.md                               135    16500     2400
+agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 '@
 

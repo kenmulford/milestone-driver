@@ -272,7 +272,7 @@ Examples:
 ```text
 ▶ New in 1.25.0: the review ladder's caps are a hook (one-time notice)
 
-| What | dispatch-cap DENIES the 4th `/code-review` run and the 4th implementer dispatch per issue (the first build plus 2 fixes, shared across every gate). A denied dispatch means park.
+| What | dispatch-cap DENIES the 4th `/code-review` run, the 4th implementer dispatch (3 in total, however split, shared across every gate) and the 3rd planner dispatch per issue. A denied dispatch means park.
 | Also | A diff of at most 20 changed lines with no deep trigger now classifies `shallow`: one low-effort review, no coherence pass.
 | Opt-out | CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1; missing jq/git fails open. Reset one issue: delete `.git/milestone-driver/dispatch-cap/<kind>-<issue>`.
 ```
