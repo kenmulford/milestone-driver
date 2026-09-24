@@ -25,21 +25,21 @@ After the header, these `##` sections, in this order:
 | Section | Contents |
 |---|---|
 | `## Files` | Table: path, then `edit` or `new`. This is the issue's expected file scope. |
-| `## Edit points` | Per file: each symbol that changes, under a `path (anchor)` heading, its current code quoted from `Base`, then the code it becomes. A new file: its path and its full declarations. |
+| `## Edit points` | Per changed symbol: quoted current lines and anchor, then the target signature and one intent line, no bodies. A new file: path and public signatures only. |
 | `## Calls` | Every existing symbol the new code calls or conforms to: its declaration quoted from `Base` under a `path (anchor)` heading. |
-| `## Tests` | Every test as code in its named file, plus the declaration of each test helper and fixture it uses, quoted from `Base`. |
+| `## Tests` | Per test, its file, name, one assertion, and the quoted declaration of each helper or fixture it uses. No test code. |
 | `## Design` | Each design-source section the issue cites, quoted. Copy strings are byte-exact. |
 | `## Rules` | Each `.project/` section the change depends on that `common.md` does not carry, quoted under its `<doc>#<heading>`. |
 | `## Verified facts` | Each framework or platform fact the change depends on, with its source: a docs URL for the version in use, a `domainSkills` name, or a probe's printed output. |
-| `## Decisions` | Decision Log entries, one per line: choice · rationale · citation · rejected alternatives. |
-| `## Verify` | The scoped spec command, never the full `unitTestCmd`, and any other exact command, with absolute paths. |
+| `## Decisions` | One line per choice the implementer otherwise makes, in the Decision Log entry shape at `skills/output-style.md#Evidence slots`. Restates none of its slots. |
+| `## Verify` | Exact commands, plus any command needed to produce a file, run by the implementer, never the planner. |
 | `## Out of scope` | What the implementer does not touch. |
 
 ### Omission
 
-- `## Tests` is omitted only when the brief carries `risk:light`.
-- `## Design` is omitted when the issue cites no design source. It is optional to approval.
-- Every other section is required. A required section with nothing to carry holds the single line `none`.
+- Required: `## Files`, `## Edit points`, `## Tests` (`risk:light` omits it), `## Verify`, `## Out of scope`. An empty required section holds one line: `none`.
+- Optional: `## Calls`, `## Design`, `## Rules`, `## Verified facts`, `## Decisions`, omitted entirely when empty.
+- Maximum packet size: 12288 bytes.
 
 ### Section rules
 
