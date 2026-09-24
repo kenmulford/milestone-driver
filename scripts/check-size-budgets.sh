@@ -352,6 +352,7 @@ ROOT="${ROOT%/}"
 # Same ratchet discipline as the line ceilings: down freely, up only with a
 # decision recorded in the PR body.
 # #695 seeded skills/solve-issue/build-packet.md from actuals 49 / 2916 / 454.
+# #698 seeded agents/planner.md from actuals 76 / 4719 / 729.
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -415,6 +416,7 @@ skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               130    16000     2400
+agents/planner.md                                    80     5000      800
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
