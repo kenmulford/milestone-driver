@@ -9,7 +9,7 @@ Run exactly one GitHub issue through a fixed, gated pipeline. The main thread ac
 
 ## Contents
 
-Before starting · The procedure (0 Triage · 1 Read the issue · 2 Evaluate the codebase for root cause · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 3 Dispatch the implementer · 4 Verification gates - no step 5, it merged into 4 · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Wave granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
+Before starting · The procedure (0 Triage · 1 Read the issue · Build profile resolution · Resolve cited project-docs sections · Resolve cited `path (anchor)` citations · 2 Evaluate the codebase for root cause · 3 Dispatch the implementer · 4 Verification gates - no step 5, it merged into 4 · 6 Review → integrate → close) · Run-end cost record · Autonomy model · Permission pre-flight gate · Milestone granularity · Wave granularity · Async mode · Parent-issue detection · Output spec (Template 1 · Template 2) · Output style · Non-negotiables
 
 ## Before starting
 
@@ -24,7 +24,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    | Migration (`git mv`) | Deferred to step 3.5, so it rides the feature branch and does not trip the clean-tree precondition (step 2). Do **not** move here. |
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup` to bootstrap it, then continue - do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer` when omitted. |
-   | Optional keys - `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/`; every other step is skipped cleanly when absent. `domainSkills` is expanded first (`${CLAUDE_PLUGIN_ROOT}/scripts/expand-domain-skills.<sh|ps1> ~/.claude/plugins/cache <entry>…`): its **stdout** is what the ### 3 brief carries, never the raw profile value, and each `unresolved: <entry>` on stderr is named there as `domainSkills unresolved: <entry>`. Empty stdout is an absent key: the brief omits `domainSkills` and still names those entries. |
+   | Optional keys - `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/`; every other step is skipped cleanly when absent. `domainSkills` is expanded first (`${CLAUDE_PLUGIN_ROOT}/scripts/expand-domain-skills.<sh|ps1> ~/.claude/plugins/cache <entry>…`): its **stdout** is what the ### 2 and ### 3 briefs carry, never the raw profile value, and each `unresolved: <entry>` on stderr is named there as `domainSkills unresolved: <entry>`. Empty stdout is an absent key: the brief omits `domainSkills` and still names those entries. |
 
    1.1. **Self-heal the scratch-ignore (always, before any `.milestone-config/` scratch write).** Ensure a committed `.milestone-config/.gitignore` carrying exactly the block below; the directory also holds tracked config (`driver.json`, `feeder.json`), so never add a bare `*` or `/` rule, which swallows both. The suffix-scoped `*-notice` does not. Absent → create it (`mkdir -p .milestone-config`, then write the block). Present → do nothing. It rides the feature branch.
 
@@ -48,7 +48,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    - **(a) A PR exists for `issue/<n>-*`**, merged or open (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`).
    - **(b) No PR; branch `issue/<n>-*` exists (local or remote) with commits ahead of `integrationBranch`.**
    - **(c) No PR; no commits ahead; the issue branch `issue/<n>-*` is checked out with uncommitted changes** (the normal implementer contract).
-   - **(d) Otherwise (no branch, no PR, clean tree):** cut a fresh feature branch from `integrationBranch` (e.g. `issue/<n>-<slug>`) - cold start, dispatch the implementer (### 3. Dispatch the implementer).
+   - **(d) Otherwise (no branch, no PR, clean tree):** cut a fresh feature branch from `integrationBranch` (e.g. `issue/<n>-<slug>`) - cold start: run ### 2. Evaluate the codebase for root cause, then ### 3. Dispatch the implementer with its `PACKET:`.
 
    **(d) runs inline; (a), (b) and (c) are resumes** - read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/resume-paths.md` and follow its `### Resume paths`.
 
@@ -74,24 +74,15 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 **Held remediate answer is Auto** (sub-step 1.1.2) → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The Auto loop` instead of parking now: invoke `/milestone-feeder:remediate <n>`, re-run triage on the corrected body, and clear the park label when the re-triage comes back clean, then proceed to step 1. Attempt cap: 1 per issue per run. Its `## Park for good` branches - `remediate` returns `NEEDS_HUMAN`, the re-triage is still dirty, the cap is spent, or the issue has no `🔴 Triage` comment - run the park action above unchanged: comment opening `🔴 Parked - `, label intact. No held answer, an answer of Leave-them-for-me, or the feeder absent → park immediately, as above.
 
 ### 1. Read the issue
-Run `gh issue view <n>` with comments. Restate the acceptance criteria plainly before continuing.
+Run `gh issue view <n>` with comments, redirected to the issue record `<repo-root>/.milestone-config/.runtime/triage/issue-<n>.md` by the `skills/triage/SKILL.md (redirect its full record)` command, which refreshes step 0's copy with comments posted since. Restate the acceptance criteria plainly before continuing.
 
-**common.md.** A caller-supplied `common.md` path (a `solve-milestone` run) is reused, never re-assembled - the held-value shape sub-step 1.1.2 uses. None held → run the assembly call and its fail-open rule from `skills/solve-milestone/SKILL.md (Assemble common.md)` here, and hold its path and first-call exit status.
+**common.md.** A caller-supplied `common.md` path (a `solve-milestone` run) is reused, never re-assembled - the held-value shape sub-step 1.1.2 uses. None held → run the assembly call and its fail-open rule from `skills/solve-milestone/SKILL.md (Assemble common.md)` here, and hold its path.
 
-### 2. Evaluate the codebase for root cause
-Invoke `superpowers:systematic-debugging`. Read the implicated code - the file(s) plus direct callers and callees.
-
-**🔴 GATE - root cause:** root cause not identifiable from the codebase → park with `blocked` (or `needs design` if the gap is a design gap), describing the blocker. Do not proceed to implementation.
-
-When found, write an architecture-aware plan grounded in the codebase and its conventions. That plan is the **locked** architecture for this issue.
-
-**`design-cleared` means a decision was recorded**, not that it is correct or buildable: still park a `design-cleared` issue with `needs design` if the recorded/locked design is internally contradictory or will produce a poor result.
-
-### Build profile resolution (resolved after step 0, governs steps 3–6)
+### Build profile resolution (resolved after step 0, governs steps 2–6)
 
 Read `issueStates["<n>"].risk` from the step-0 result (held Phase 0 result in a milestone run, fresh single-issue return standalone): `"light"` or `"heavy"`, defaulting to `"heavy"` when absent or inconclusive. That one read sets the brief token and the E2E gate's skip condition. Review effort and the cycle cap come from step 6.1.
 
-| Profile | Implementer brief | E2E gate (step 4, E2E row) |
+| Profile | Planner and implementer brief | E2E gate (step 4, E2E row) |
 |---|---|---|
 | **Light** | Include a `risk:light` token in the brief | Skip when the issue touches no UI surface |
 | **Heavy** (default) | Standard TDD brief (no `risk:light`) | Per step 4's E2E row (UI surface + e2eTestCmd) |
@@ -100,35 +91,42 @@ The safety floor is **unconditional for both profiles**: triage (step 0) and the
 
 ### Resolve cited project-docs sections (once, before dispatch)
 
-Name the issue's cited `.project/` anchors **once, here in the orchestrator**, and quote each into the approved plan, so the implementer reads exactly those sections and never a whole doc; the brief carries the `common.md` path. Runs after the build profile resolves and before ### 3. Dispatch the implementer, adding inputs to the step-3 brief.
+Name the docs root and pass the `common.md` path **once, here in the orchestrator**; the planner quotes the `.project/` sections the change depends on into the packet (`skills/solve-issue/build-packet.md#Sections`), so the implementer reads exactly those sections and never a whole doc. Runs after the build profile resolves and before ### 2. Evaluate the codebase for root cause, adding inputs to the step-2 and step-3 briefs.
 
 1. **Source the docs root.** Use `projectDocs` already resolved at step 1 (defaults to `.project/`). Do not re-resolve the profile here.
-2. **Parse the cited anchors.** From the issue body + acceptance criteria (read at step 1), collect the `.project/<doc>#<section>` anchors the issue cites - `<doc>` is the path under the docs root, `<section>` the heading text (e.g. `design-system.md#data-tables`).
-3. **Quote the anchors into the plan.** Resolve each cited anchor with `${CLAUDE_PLUGIN_ROOT}/scripts/read-doc-section.{sh,ps1} <doc-path> <anchor-text>` (`<anchor-text>` the heading text without leading `#`s; it prints only that section), and quote it into the approved plan's `## Rules` under its `<doc>#<heading>`, the row shape `skills/solve-issue/build-packet.md#Sections` defines. Never a whole doc. Skip a `standingDocs` entry only when the held path came from a first assembly call that exited 0 (the orchestrator holds that result and never reads the file); after a no-anchor retry, with no path held, or with that result unknown, quote every cited anchor. The approved plan, `## Rules` included, reaches the ### 3 brief as a path (`skills/solve-milestone/SKILL.md (Everything an agent needs travels as a path in its brief)`).
-4. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` once per run, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as the resolved file index - the `build-file-index` output format, consumed, not re-derived.
-5. **Pass the common.md path.** Put the held `common.md` path into the ### 3 brief; never paste its contents. Sub-steps 4 and 5 apply identically under both the `light` and `heavy` build profiles - never skipped or altered for `risk:light`. The code-comment rule is `agents/implementer.md` rule 8; the brief does not restate it.
+2. **Leave the anchors to the planner.** The planner reads the issue's cited `.project/<doc>#<section>` anchors and quotes each section `common.md` does not carry into the packet's `## Rules`; the main thread reads no section.
+3. **Resolve the repo file index (once).** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/build-file-index.{sh,ps1}` once per run, never per-issue inside a milestone loop. Pipe the diff-scoped `{"files":[...]}` to stdin; it prints one `<path> → <purpose>` line per file. Pass it into the ### 3 brief as the resolved file index - the `build-file-index` output format, consumed, not re-derived.
+4. **Pass the common.md path.** Put the held `common.md` path into the ### 2 and ### 3 briefs; never paste its contents. Sub-steps 3 and 4 apply identically under both the `light` and `heavy` build profiles - never skipped or altered for `risk:light`. The code-comment rule is `agents/implementer.md` rule 8; the brief does not restate it.
 
 **Degradation (no error, ever):**
 - **Absent `projectDocs`** → `.project/` (step 1).
 - **Absent `.project/` directory**, or no cited anchors → no-op: no project grounding, no error, skipped cleanly like `unitTestCmd`/`preflightCmd`.
-- **Missing/renamed cited anchor** → sub-step 3's `read-doc-section` call fails loud on the main line (non-zero exit, naming the anchor + file on stderr); never guess the section: park with `blocked`, naming the anchor and file from stderr.
+- **Missing/renamed cited anchor** → the planner returns `STATUS: PARK` with `LABEL: blocked`, naming the anchor and file.
 - **Absent/failed file-index resolver** → no-op: no file index, no error - not fail-loud; nothing cites the index by name.
 - **`assemble-common` fails twice** → no-op: the brief names no `common.md` path, no error; the implementer reads the four `skills/output-style.md` sections and `citationFormatPath` directly.
 
 ### Resolve cited `path (anchor)` citations (once, before dispatch)
 
-Resolve the issue's `path (anchor)` citations (`skills/citation-format.md`) **once, here in the orchestrator**, and thread the resolved table into every subagent brief this run composes - no subagent re-derives it. Runs with the block above, before ### 3. Dispatch the implementer. Paths are repo-root-relative: an issue has no directory, so there is no multi-base fallback.
+Resolve the issue's `path (anchor)` citations (`skills/citation-format.md`) **once, here in the orchestrator**, and thread the resolved table into every subagent brief this run composes - no subagent re-derives it. Runs with the block above, before ### 2. Evaluate the codebase for root cause. Paths are repo-root-relative: an issue has no directory, so there is no multi-base fallback.
 
 1. **Extract by model judgment over the `path (anchor)` shape - never a regex.** Apply `skills/citation-format.md`'s span and position tests to the issue body + acceptance criteria.
 2. **Resolve each citation once.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` once per citation: `resolve-citation.<sh|ps1> <file-path> <anchor-text>`. Exit 0 prints `PRIMARY <line> <text>` then zero or more `MATCH <line> <text>`, TAB-delimited, in file order; matching is literal, case-sensitive, and line-scoped.
-3. **Feed the printed rows into the ### 3 briefs** as the resolved citations, in the same printed-output shape as the `read-doc-section` and `build-file-index` results above. Invent no new format.
+3. **Feed the printed rows into the ### 2 and ### 3 briefs** as the resolved citations, as printed, unchanged; invent no new format.
 
 **Degradation (no error, ever):**
 - **No `path (anchor)` citation on the issue** → no-op: no `resolve-citation` invocation and no error.
 - **A cited anchor not found**, or an unreadable file → `resolve-citation` fails loud (nonzero exit, naming the anchor and file on stderr, stdout empty). Surface it; never swallow it. Exit 2 is a wrong argument count or an empty anchor.
 
+### 2. Evaluate the codebase for root cause
+Dispatch `milestone-driver:planner` via the Agent tool, briefed with: the issue record path (step 1), the held step-0 result, the resolved build profile (a `risk:light` token under `light`), the profile keys `sourceGlobs`, the expanded `domainSkills`, `nonNegotiables` and `projectDocs`, the worktree path (the repo root standalone), the `common.md` path (omit when none is held), the resolved citations (omit any whose resolution was a no-op), `citationFormatPath` (the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md`, always passed), the packet path `<repo-root>/.milestone-config/.runtime/plans/issue-<n>.md`, and the packet contract path `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/build-packet.md`, which defines the packet. The brief carries step 3's scratch-hygiene and command-shape rules, and states that the planner quotes each `.project/` anchor the issue cites that `common.md` does not carry into the packet's `## Rules`, a missing or renamed cited anchor being `STATUS: PARK` with `LABEL: blocked`, naming the anchor and file. Planner dispatches are capped at **2 per issue**, enforced by `hooks/dispatch-cap.sh`; a denied dispatch, or any return other than a well-formed `PLANNED` (a file at `PACKET:`) or `PARK`, runs the park action with `blocked`, never a retry.
+
+- **`STATUS: PLANNED`** → hold the `PACKET:` path. That packet is the **locked** architecture for this issue.
+- **`STATUS: PARK`** → run the park action with the returned `LABEL` and `REASON`. A `design-cleared` issue whose recorded design is contradictory is the planner's `needs design` park.
+
+Hold the planner's `DOMAIN_SKILLS_INVOKED` line for step 6.2.
+
 ### 3. Dispatch the implementer
-Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the approved plan's path, the profile, the expected file scope, the resolved file index, the `common.md` path (omit when none is held), the resolved citations (omit any whose resolution was a no-op), the repo root (that issue's worktree path in a parallel-mode run), and `citationFormatPath` - the absolute path of `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md`, always passed; under the `light` profile the brief must include a `risk:light` token. Implementer dispatches are capped at **3 per issue** - the first build plus 2 fixes, shared across every gate and the step-6.1 review loop, enforced by `hooks/dispatch-cap.sh` - and a non-converging issue parks like any other. The brief must also carry this scratch-hygiene rule: write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. The brief must also carry this command-shape rule: absolute paths only, and never change directory (`cd`, `pushd`, or a subshell); `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`; a command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
+Dispatch the profile's `implementerAgent` (default `milestone-driver:implementer`; a project-level override uses that agent's own name as-is) via the Agent tool, orchestrating `superpowers:subagent-driven-development` + `superpowers:test-driven-development`. Brief it like a colleague walking in cold: the issue, the `PACKET:` path, the profile, the resolved file index, the `common.md` path (omit when none is held), the resolved citations (omit any whose resolution was a no-op), the repo root (that issue's worktree path in a parallel-mode run), and `citationFormatPath`; under the `light` profile the brief must include a `risk:light` token. Implementer dispatches are capped at **3 per issue** - the first build plus 2 fixes, shared across every gate and the step-6.1 review loop, enforced by `hooks/dispatch-cap.sh` - and a non-converging issue parks like any other. The brief must also carry this scratch-hygiene rule: write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. The brief must also carry this command-shape rule: absolute paths only, and never change directory (`cd`, `pushd`, or a subshell); `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`; a command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
 
 **The implementer is a leaf.** It returns an uncommitted diff plus its report and dispatches no subagent of its own (`docs/architecture.md` → `## Dispatch topology`). Every fan-out in this pipeline is the orchestrator's.
 
@@ -182,7 +180,7 @@ Unit, E2E, and preflight share one shape - **act → verify → retry → park**
    **After a fix, before committing.** No in-scope findings → commit directly. Otherwise at least one was fixed: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/post-fix-commit.md` and follow its `### After a fix`: the document-only and `classify-delta` branches, and the `tests-green` behavior they rely on. The cycle cap that bounds the loop is `skills/review-depth.md § The ladder`.
 
    **Preflight gate (concluding action of 6.1).** Once the `/code-review` loop has converged, before version bump/commit, run the preflight gate - its applicability, `act`, cap, verify step, and park/escape policy are the Preflight row of `### 4. Verification gates` and its shared loop.
-2. Assemble the Decision Log from the implementer's report for the PR body. Its slots are the Decision Log entry shape in `skills/output-style.md` - choice · rationale · citation · rejected alternatives, one entry per line. Carry the implementer's `DOMAIN_SKILLS_INVOKED` value as one more line.
+2. Assemble the Decision Log from the implementer's report for the PR body. Its slots are the Decision Log entry shape in `skills/output-style.md` - choice · rationale · citation · rejected alternatives, one entry per line. Carry `planner DOMAIN_SKILLS_INVOKED: <value>` and `implementer DOMAIN_SKILLS_INVOKED: <value>`, one line each, `none` recorded as `none`.
 
    **Check every `path (anchor)` citation via `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` before posting.** Resolves → post verbatim. Fails → correct that citation from code, or set it to `none` if no anchor exists. No other rewriting.
 
@@ -225,7 +223,7 @@ Unit, E2E, and preflight share one shape - **act → verify → retry → park**
 
 **Survives context compaction**: an in-context sum is gone the moment compaction runs, so nothing is aggregated in context. Every dispatch's usage is appended to disk as it returns; the run-end record is read back from that disk file alone. Never blocks, parks, or changes any outcome (`.project/design-philosophy.md#Error & failure philosophy`).
 
-1. **Append, per dispatch, as it returns.** As soon as an Agent-dispatch report lands - implementer, `/code-review`, coherence-reviewer, direct triage; a background completion notification carries the same `<usage>` block - pipe `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <runId>` (`<runId>` the issue branch / run id, held constant for the whole run). It appends one line to `.milestone-config/.runtime/usage/<runId>.jsonl`; a dispatch never skips this even mid-run. An implementer return carrying an `output_file:` path first merges the object `${CLAUDE_PLUGIN_ROOT}/scripts/measure-dispatch.{sh,ps1} <output_file>` prints into the piped one (`jq -c -s '.[0] + .[1]'` (Bash), or both objects through `ConvertFrom-Json -AsHashtable`, merged with `+`, then `ConvertTo-Json -Compress` (PowerShell)); no `output_file:`, or a nonzero exit, pipes the four-field object unchanged and never gates.
+1. **Append, per dispatch, as it returns.** As soon as an Agent-dispatch report lands - planner (tier `opus`), implementer, `/code-review`, coherence-reviewer, direct triage; a background completion notification carries the same `<usage>` block - pipe `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <runId>` (`<runId>` the issue branch / run id, held constant for the whole run). It appends one line to `.milestone-config/.runtime/usage/<runId>.jsonl`; a dispatch never skips this even mid-run. An implementer return carrying an `output_file:` path first merges the object `${CLAUDE_PLUGIN_ROOT}/scripts/measure-dispatch.{sh,ps1} <output_file>` prints into the piped one (`jq -c -s '.[0] + .[1]'` (Bash), or both objects through `ConvertFrom-Json -AsHashtable`, merged with `+`, then `ConvertTo-Json -Compress` (PowerShell)); no `output_file:`, or a nonzero exit, pipes the four-field object unchanged and never gates.
 2. **Finalize, last action before returning to the caller** at every terminal exit - every park (steps 0, 2, 3, 4, 6.1) and the step-6.9 close. Run `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --finalize <runId>`: it reads that `.jsonl` alone, sums `totalTokens` per tier into `inputTokens` (the same auditable-lower-bound map as before - `outputTokens`/`cacheReadTokens`/`cacheWriteTokens` at the 0 sentinel, `provenanceNote: "unsplit-total-as-input"`), sums `durationMs` into `wallClockSeconds`, and writes the record to `.milestone-config/.runtime/cost-records/` carrying one more field, `agents`: the raw per-dispatch entries, for a per-agent `durationMs` breakdown the summed total alone cannot give back.
 3. **Skip cleanly.** No usage file for this `runId` (e.g. a triage-blocker park before any dispatch) → `--finalize` fails open on its own, one log line, no zero-value record. Writer script absent → silent no-op, one log line.
 
