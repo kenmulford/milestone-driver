@@ -38,7 +38,7 @@ OK	skills/remediate-handoff.md	1/90	7/5000	1/800
 OK	skills/review-depth.md	1/115	7/5500	1/900
 OK	agents/blocker-resolver.md	1/125	7/11500	1/1800
 OK	agents/design-reviewer.md	1/120	7/16000	1/2400
-OK	agents/implementer.md	1/135	7/16500	1/2400
+OK	agents/implementer.md	1/140	7/17000	1/2500
 OK	agents/planner.md	1/100	7/6500	1/900
 OK	agents/triage-reviewer.md	1/120	7/16500	1/2600
 CLOSURE	skills/setup/SKILL.md	3/7600
