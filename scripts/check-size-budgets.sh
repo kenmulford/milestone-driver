@@ -273,6 +273,16 @@
 #     the byte headroom stays above the line count after trimming inside the
 #     file, so no WARN. Spent on this one row: the next edit re-derives
 #     normally.
+#     RECORDED RAISE, issue #704 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md BYTE 47000 -> 48500, for step 2's
+#     mechanical packet approval and its one planner re-dispatch. Measured
+#     growth 46324 -> 47452 (1128 bytes) after trimming inside step 2,
+#     rounded UP to the next 500.
+#     RECORDED RAISE, issue #704 (decision 2026-09-23):
+#     skills/solve-issue/SKILL.md WORD 6600 -> 6800, the same change.
+#     Measured growth 6533 -> 6694 (161 words), rounded UP to the next 100.
+#     LINE 319/320 and CLOSURE 13269/13300 still hold and do not move. Spent
+#     on this one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -385,7 +395,7 @@ while read -r f line_ceiling byte_ceiling word_ceiling; do
   case "$word_ceiling" in ''|*[!0-9]*) ;; *) WORD_CEILINGS[$nwords]="$word_ceiling"; nwords=$((nwords + 1)) ;; esac
 done <<'GOVERNED_TABLE'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/SKILL.md                         320    48500     6800
 skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200

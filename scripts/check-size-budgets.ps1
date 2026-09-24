@@ -61,7 +61,7 @@ $Root = ($Root -replace '[\\/]+$', '')
 # scripts/check-size-budgets.sh's GOVERNED_TABLE, row for row.
 $governedTable = @'
 skills/setup/SKILL.md                               280    28000     4000
-skills/solve-issue/SKILL.md                         320    47000     6600
+skills/solve-issue/SKILL.md                         320    48500     6800
 skills/solve-issue/build-packet.md                   55     3500      500
 skills/solve-issue/async-mode.md                     40     4000      600
 skills/solve-issue/md-epic-fanout.md                 60     8500     1200
