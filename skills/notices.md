@@ -30,36 +30,30 @@ section below, never restated inline in either SKILL.md.
 - [code-review-run-no](#code-review-run-no)
 - [autocompact](#autocompact)
 - [dispatch-cap](#dispatch-cap)
+- [standing-docs](#standing-docs)
 
 ## Section fields
 
 Each `##` section below is one notice:
 
-- **Marker** - the per-clone, gitignored marker file under `.milestone-config/`
-  that makes the notice fire at most once per clone. Step 2 below creates it.
-- **Skills** - which skill(s) evaluate this notice: `solve-issue`,
-  `solve-milestone`, or both.
-- **Trigger** - the exact condition that must hold for the notice to fire.
-- **Legacy fallback** - the stale root marker checked alongside the new
-  marker and removed once the notice fires, or `none` for a notice born
-  entirely on the `.milestone-config/` path.
-- **Text** - the notice's exact text, printed character-for-character.
+- **Marker** - the gitignored per-clone file under `.milestone-config/` that
+  keeps the notice to one firing per clone.
+- **Skills** - `solve-issue`, `solve-milestone`, or both.
+- **Trigger** - the condition under which the notice fires.
+- **Legacy fallback** - a stale root marker checked alongside `Marker` and
+  removed when the notice fires, or `none`.
+- **Text** - printed verbatim.
 
 ## How each skill runs this file
 
-Immediately after its own profile read, each skill iterates the sections below
-**in file order** and, for each section whose `Skills` field includes its own
-name:
+After its profile read, each skill walks the sections in file order (file
+order is print order), and for each section whose `Skills` names it:
 
-1. Evaluate that section's `Trigger`.
-2. If true: print the section's `Text` verbatim, then create the section's
-   `Marker` (`mkdir -p .milestone-config && touch <Marker>`),
-   then - if the section names a `Legacy fallback` marker - remove that stale
-   legacy root marker if present.
-3. If false: stay silent - print nothing, write nothing.
-
-A section whose `Skills` field excludes the running skill is never evaluated
-by it. File order is print order.
+1. Evaluate its `Trigger`.
+2. If true: print its `Text`, run
+   `mkdir -p .milestone-config && touch <Marker>`, then remove its
+   `Legacy fallback` marker if present.
+3. If false: print nothing, write nothing.
 
 ---
 
@@ -281,4 +275,19 @@ Examples:
 | What | dispatch-cap DENIES the 4th `/code-review` run and the 4th implementer dispatch per issue (the first build plus 2 fixes, shared across every gate). A denied dispatch means park.
 | Also | A diff of at most 20 changed lines with no deep trigger now classifies `shallow`: one low-effort review, no coherence pass.
 | Opt-out | CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1; missing jq/git fails open. Reset one issue: delete `.git/milestone-driver/dispatch-cap/<kind>-<issue>`.
+```
+
+## standing-docs
+
+- **Marker:** `.milestone-config/standing-docs-notice`
+- **Skills:** solve-issue, solve-milestone. Trigger: marker absent (silent once it exists). Legacy fallback: none, born on the new path.
+
+**Text:**
+
+```text
+▶ New in 1.29.0: standingDocs profile key (one-time notice)
+
+| What | `standingDocs` in `.milestone-config/driver.json` lists `<doc>#<heading>` anchors under `projectDocs`; every build reads them once per run from `.milestone-config/.runtime/plans/common.md`.
+| Absent | Builds read the plugin's contract text only; each packet quotes the rules its change needs.
+| Set it | Run /milestone-driver:setup, or add the array to driver.json by hand.
 ```

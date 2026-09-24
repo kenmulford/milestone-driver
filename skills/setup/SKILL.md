@@ -148,6 +148,9 @@ See the Phase 3 write rule for why a Yes/No answer records an explicit boolean.
 |---|---|---|
 | `domainSkills` | "Any stack-specific skills the implementer and reviewers should invoke for citations? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
+| `standingDocs` | "Any `.project/` sections every build should read? `<doc>#<heading>` entries (e.g. `[\"conventions.md#Naming\", \"design-philosophy.md#Error & failure philosophy\"]`)" | Skip → "No standing docs. Each packet quotes the rules its change needs." |
+
+A skipped `standingDocs` writes no key.
 
 Every `domainSkills` value - inferred, pre-filled, or typed - runs through **The expansion** (above), and the expansion is what setup records, so a wildcard is never rejected for being one. Reject only an entry the expansion returns as `unresolved:` - the Skill tool takes one exact name, so an unexpandable wildcard has no invocation - with exactly: `domainSkills entries are exact plugin:skill names; "<entry>" is not invocable`.
 
