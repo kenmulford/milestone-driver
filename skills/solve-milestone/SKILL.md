@@ -48,6 +48,8 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
       worktrees/
       ```
 
+   2.0.6. **Assemble common.md** once; hold its path and first-call exit status all run: `mkdir -p <repo-root>/.milestone-config/.runtime/plans`, then `${CLAUDE_PLUGIN_ROOT}/scripts/assemble-common.{sh,ps1} <repo-root> <repo-root>/.milestone-config/.runtime/plans/common.md [<anchor> ...]`, one `<anchor>` per `standingDocs` entry, prefixed with the resolved `projectDocs`. A nonzero exit logs its stderr and re-runs with no anchors (fail-open); a second one holds no path. The main thread never reads `common.md`.
+
    2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics exactly as stated there.
 3. **Resolve the milestone argument.** Strip flags from `$ARGUMENTS`: a flag is a token starting with `--`. Remove each `--<token>`, plus the following token when it does not start with `--` and the flag is value-bearing (`--parallel` and `--driven` are boolean - strip the flag alone; any other `--<token>` followed by a non-flag token counts as value-bearing, strip both). Then:
    - **Purely numeric** (digits only): `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'`. Found → record the canonical `{number, title}`, state `"Resolved milestone #<milestone-number> → '<title>'"`. Not found → print the available-milestones table and stop.
@@ -66,7 +68,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward). Record its tip (`git rev-parse <integrationBranch>`) as `milestoneBaseCommit`, held all run for `### Simplify pass`.
 5. **Resolve execution mode (the LAST Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
 
-   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. No human types it; an internal caller supplies it when dispatching this skill on its own behalf. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
+   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|
@@ -101,7 +103,7 @@ The **milestone description is the ordering source of truth**. Read it (`gh api 
 
 Read `versioning`. **`versioning: false`** → skip this step; record "version-free run - no version determined or bumped" and proceed to Phase 0.
 
-**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its result × `versioning` branch table (versioned / version-free with a logged reason / prompt), its fail-open behavior, the `MILESTONE_DRIVER_NONINTERACTIVE=1` degradation, and where the target is consumed. Hold that target for the loop. Under `versioning: false` it is never read.
+**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its branch table, fail-open behavior, and non-interactive degradation. Hold that target for the loop. Under `versioning: false` it is never read.
 
 ### Phase 0 - Triage
 
@@ -143,7 +145,7 @@ Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave,
 
 **If buildable:** read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/sequential-loop.md` and run its per-issue build steps 1–4 (re-sync the build target → run `solve-issue <n>` in-thread with the held values restated → park-and-continue on STOP/PAUSE → on-success terminal states, trello tick, milestone-granularity fold). In parallel mode it is never read.
 
-**If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it - the park-label back-fill and `in progress` marking for a triage/prior-run park (with the one-blocker-label-per-issue rule), and, for a dependency hold, the `blocked` label plus the byte-fixed `🔴 Blocked` comment and the transitive-dependent holds. Both modes read it when an issue is not buildable.
+**If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it: the park-label back-fill for a triage/prior-run park, and the `blocked` label, `🔴 Blocked` comment, and transitive holds for a dependency hold. Both modes read it when an issue is not buildable.
 
 The loop **never waits on a human**. Every issue ends merged or parked (labeled, branch open if applicable, comment posted), UI included. Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
 
