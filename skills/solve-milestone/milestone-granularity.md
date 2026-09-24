@@ -28,9 +28,9 @@ The number leads the branch name: the title-derived slug can go stale mid-milest
 
 On the milestone branch, for one built issue `<n>`:
 
-1. **Squash-merge the issue branch.** `git merge --squash issue/<n>-<slug>`. This stages the accumulated result without committing, so step 2 re-verifies against integrated state (`skills/solve-milestone/parallel-waves.md (Run on the main working tree)`). Merging the target back into the issue branch first is unnecessary here: nothing is pushed.
-2. **Re-verify against the staged state, unless the merge was a no-op.** Compare `git write-tree` (the tree step 1 staged) against `git rev-parse issue/<n>-<slug>^{tree}` (the issue branch's own tip). Equal → the squash-merge added nothing that branch's own build has not already verified: skip the re-verify and run `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh|ps1> --stamp-only <repo-root>` (pwsh on Windows, bash elsewhere) so step 3's commit is stamped without a suite run. Different trees → re-verify as today: run `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh|ps1> <repo-root>`, never `unitTestCmd` directly, plus the gates the concurrent stage deferred (E2E, any server-starting preflight), exactly as `parallel-waves.md`'s Phase 2 step 2 runs them: once, against accumulated state.
-3. **Commit.** Green → one commit in the shape below. That commit is the issue's whole footprint on the milestone branch.
+1. **Squash-merge the issue branch.** `git merge --squash issue/<n>-<slug>`. This stages the accumulated result without committing (`skills/solve-milestone/parallel-waves.md (Run on the main working tree)`). Merging the target back into the issue branch first is unnecessary here: nothing is pushed.
+2. **There is no step 2.** The fold's re-verify was removed (`skills/solve-milestone/integration-granularity.md § Phase 2 deltas`). The gap stays rather than renumber, mirroring `skills/solve-issue/SKILL.md (There is no step 5)`. The next step is 3.
+3. **Commit.** Right after step 1's squash-merge, with no re-verify between them: one commit in the shape below. That commit is the issue's whole footprint on the milestone branch.
 
 **Conflict and red re-verify.** The policy is `skills/solve-milestone/parallel-waves.md (push (fast-forward))`'s, identical for both callers: bounded auto-resolve, else park `blocked`, preserve the branch, continue with the next issue. The recovery mechanics necessarily differ, because that path merges on a disposable per-issue branch while step 1 above squash-merges onto the persistent milestone branch. First, `git merge --squash` never writes `MERGE_HEAD`, so `git merge --abort` cannot be used here: it fails with `fatal: There is no merge to abort (MERGE_HEAD missing).` and leaves the conflicted tree in place. Recover with `git restore --staged --worktree .`, which returns the tree to the last folded commit and leaves `HEAD` untouched. Do not substitute `git reset --hard HEAD`: consumer destructive-command hooks routinely block that pattern (`skills/solve-milestone/parallel-waves.md (Why merge-in, not rebase + force)`). Second, both park branches below run that same `git restore` before moving to the next issue: every issue folds onto the same milestone branch with no branch switch between issues, so an undiscarded fold corrupts the next one: a staged clean merge is silently swallowed by the next issue's commit, and a conflicted tree fails it outright.
 
@@ -43,7 +43,7 @@ A parked issue leaves no commit, so its trailer never appears and its dependents
 
 ## The integration commit
 
-Subject line, a blank line, the Decision Log summary, a blank line, the Code Review block, a blank line, then `Issue: #<n>` as the last line:
+Subject line, a blank line, the Decision Log summary, a blank line, then `Issue: #<n>` as the last line. Milestone granularity runs no `/code-review` per issue (`skills/solve-issue/milestone-clauses.md` row 6.1), so its commit carries no `Code-Review:` block:
 
 ```text
 <type>(#<n>): <issue title>
@@ -51,14 +51,20 @@ Subject line, a blank line, the Decision Log summary, a blank line, the Code Rev
 - <choice> · <rationale> · <citation> · <rejected alternatives>
 - … (one Decision Log entry per line, per `skills/output-style.md (Decision Log entry** (PR body))`)
 
+Issue: #<n>
+```
+
+No `Code-Review:` block travels on the commit: there is nothing to carry.
+
+**Wave granularity keeps the block.** Its own per-issue `/code-review` still runs (`skills/solve-issue/wave-clauses.md § Clauses`), so its commit inserts a `Code-Review:` block between the Decision Log summary's blank line and `Issue: #<n>`:
+
+```text
 Code-Review:
   - /code-review run: yes (omission is a park trigger - a submitted PR always carries a real review; a parked run opens no PR)
   - Findings, one line per run: <count> in-scope finding(s) at <effort> effort
     - <finding> - <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
     - … (one line per finding, or "none" when count is 0)
   - No park-triggering findings. | Park-triggering findings: <list>
-
-Issue: #<n>
 ```
 
 **The Code Review block is copied, not re-derived.** Its five lines are the PR-body Code Review template (`skills/solve-issue/SKILL.md (/code-review run: yes)`), relative nesting intact, each indented two further spaces under a `Code-Review:` opener; the block ends at the blank line before `Issue: #<n>`. The five lines carry every slot of the `## Code Review` shape (`skills/output-style.md (run + effort · finding count)`), evidence included. A zero-finding run keeps the shape: per-finding line `none`, effort level as the evidence slot. Dropping a slot to shorten the commit message is incomplete, not concise (`skills/output-style.md (Guardrail - concision cuts prose)`).
