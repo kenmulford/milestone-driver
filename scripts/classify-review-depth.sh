@@ -5,8 +5,12 @@
 # answer picks the reviewer's effort and cycle count, so it must be mechanical
 # and it must be the same answer on every host.
 #
-# Usage:   classify-review-depth.sh [REPO_ROOT]
+# Usage:   classify-review-depth.sh [REPO_ROOT] [BASE_REF]
 #   REPO_ROOT   path to a checked-out repo root (default: CWD).
+#   BASE_REF    a committed ref to classify `git diff BASE_REF...HEAD` against,
+#               in place of the working tree vs. HEAD (default: unset). Given,
+#               the candidate set is the committed range alone: no untracked
+#               file is read or considered.
 #
 # Output (stdout), exactly one line, newline-terminated:
 #   deep        the diff touches hooks/**, adds a file under sourceGlobs, or
@@ -41,9 +45,10 @@
 # `shallow` ships an unreviewed diff. That is why the seven failure tokens above
 # all emit `standard` (`.project/design-philosophy.md#Error & failure philosophy`).
 #
-# WHAT THE CANDIDATE SET IS, and what it is NOT. Exactly two git reads:
-# `git diff --name-status HEAD` and
-# `git ls-files --others --exclude-standard --full-name`. Nothing else. No
+# WHAT THE CANDIDATE SET IS, and what it is NOT. `git diff --name-status HEAD`,
+# plus `git ls-files --others --exclude-standard --full-name` when there is no
+# BASE_REF - a real range already names the committed diff in full, and an
+# untracked file was never part of it. Nothing else. No
 # `find`, no `ls -R`, no globstar expansion against the filesystem, no directory
 # recursion, no stat, no existence check.
 #
@@ -146,8 +151,11 @@ export LC_ALL=C
 
 ROOT="${1:-$PWD}"
 ROOT="${ROOT%/}"
+BASE_REF="${2:-}"
 TAB=$'\t'
 SMALL_DIFF_MAX_LINES=20
+RANGE='HEAD'
+[ -n "$BASE_REF" ] && RANGE="$BASE_REF...HEAD"
 
 # emit <verdict> [reason]
 emit() {
@@ -212,9 +220,12 @@ glob_to_re() {
 command -v git >/dev/null 2>&1 || emit 'standard' 'no-git'
 
 delta="$(git -C "$ROOT" -c core.quotePath=false --no-pager diff --no-color \
-  --no-renames --name-status HEAD 2>/dev/null)" || emit 'standard' 'no-diff'
-others="$(git -C "$ROOT" -c core.quotePath=false ls-files --others \
-  --exclude-standard --full-name 2>/dev/null)" || others=''
+  --no-renames --name-status "$RANGE" 2>/dev/null)" || emit 'standard' 'no-diff'
+others=''
+if [ -z "$BASE_REF" ]; then
+  others="$(git -C "$ROOT" -c core.quotePath=false ls-files --others \
+    --exclude-standard --full-name 2>/dev/null)" || others=''
+fi
 
 CANDIDATES=''
 NEWSET=''
@@ -325,7 +336,7 @@ EOF
 # tracked diff is small enough for the demotion.
 over=0
 total=0
-numstat="$(git -C "$ROOT" --no-pager diff --no-color --no-renames --numstat HEAD 2>/dev/null)" || over=1
+numstat="$(git -C "$ROOT" --no-pager diff --no-color --no-renames --numstat "$RANGE" 2>/dev/null)" || over=1
 [ -n "$numstat" ] || over=1
 while IFS= read -r line; do
   [ -n "$line" ] || continue

@@ -106,17 +106,17 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to defer the gate entirely to your GitHub Actions CI - no local check runs; your PR's own CI run is the preflight." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
+| `preflightCmd` | "What runs your project's fast pre-PR checks (lint, format, static analysis, security scan)? Runs after `/code-review`, before commit, or once at milestone end under milestone granularity. Give either an explicit command (e.g. `pre-commit run --all-files`, `make lint`, `npm run lint`, `bundle exec standardrb && bundle exec brakeman -q`), **or** the reserved value `github-ci` to defer the gate entirely to your GitHub Actions CI - no local check runs; your PR's own CI run is the preflight." | Skip → "No preflight gate; CI-only lint/scan, caught on the PR instead of locally." |
 
-**Tier: Integration** (optional; pure preference - no Phase-1 signal, since granularity is not detectable. Show `"issue"` as the default.)
+**Tier: Integration** (optional; pure preference - no Phase-1 signal, since granularity is not detectable. Show `"milestone"` as the default.)
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `integrationGranularity` | "How should built issues integrate: one PR per issue (default), one PR per dependency wave, or one PR for the whole milestone? Milestone mode folds every issue in locally and pushes once at the end, so a milestone costs one push, one PR, and one CI run instead of one per issue (branch mechanics: `skills/solve-milestone/milestone-granularity.md`)." | Skip → `issue` (each built issue gets its own PR / CI / merge). |
+| `integrationGranularity` | "How should built issues integrate: one PR per issue, one PR per dependency wave, or one PR for the whole milestone (default)? Milestone mode folds every issue in locally and pushes once at the end, so a milestone costs one push, one PR, and one CI run instead of one per issue (branch mechanics: `skills/solve-milestone/milestone-granularity.md`)." | Skip → `milestone` (one push, one PR, one CI run for the whole milestone). |
 
 **Wave precondition prompt.** When - and only when - the user selects `"wave"`, fire this informational, non-blocking prompt (every wave selection, unconditionally - not gated on detected gate-strength):
 
-> "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge - the failing issue isolates, the rest merge - use `issue` (the default)."
+> "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge - the failing issue isolates, the rest merge - use `issue`."
 
 `"full suite?"` is posed as a question to the human, not a check the skill performs - it is not machine-detectable at setup time. The prompt does **not** block: after acknowledgement, `"wave"` is still written.
 
@@ -124,7 +124,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 > "Milestone mode pushes once, at the end, so no issue branch reaches origin during the run. If one of your own workflows triggers on a push to every branch, exclude the `milestone-*` prefix so you do not pay for the assembled milestone twice: `branches-ignore: ['milestone-*']`, or `branches: ['**', '!milestone-*']` (order matters, negate last). Set one form per event, never both. See `skills/solve-milestone/milestone-granularity.md` for the branch mechanics, `docs/consumer-setup.md` for the full walkthrough."
 
-**Write rule:** omit `integrationGranularity` when `issue` is chosen (absent-means-issue, same convention as `versioning`); write `"wave"` or `"milestone"` only when explicitly chosen. Aborting before Phase 3's write persists nothing.
+**Write rule:** omit `integrationGranularity` when `milestone` is chosen (absent-means-milestone, same convention as `versioning`); write `"wave"` or `"issue"` only when explicitly chosen. Aborting before Phase 3's write persists nothing.
 
 **Conditional question: `parallel`** (present only when a `unitTestCmd` was supplied/detected in Phase 1. Otherwise skip it silently: no `unitTestCmd` means no shared-external-service hazard.)
 
@@ -193,7 +193,7 @@ The migration preamble has already relocated any legacy root profile, so Phase 3
 
 Assemble the full profile object as valid JSON - every key, both the Phase-1 pre-filled values and the keys the user accepted or edited in Phase 2 - and write it to `.milestone-config/driver.json`. **Drop no accepted key:** a key pre-filled in Phase 1 and left unedited in Phase 2 is still written. Omit only a key the user explicitly skipped (never write `null` or empty values for it).
 
-Two conventions govern the optional keys. For `versioning` and `integrationGranularity`, omit the default: omit `versioning` when versioned is chosen and write `versioning: false` only for version-free; omit `integrationGranularity` on `issue` and write `"wave"` or `"milestone"` only when picked. For `parallel`, **deviate deliberately** - write the explicit boolean the user chose (`true` on Yes, `false` on No) whenever the Integration-tier question was answered, and omit `parallel` only when that question was not shown (no `unitTestCmd`) or was skipped. Do not "correct" this back to omit-the-default: omitting a made decision would re-fire the run-start DB-hazard interview on every `solve-milestone` run whenever `unitTestCmd` is present.
+Two conventions govern the optional keys. For `versioning` and `integrationGranularity`, omit the default: omit `versioning` when versioned is chosen and write `versioning: false` only for version-free; omit `integrationGranularity` on `milestone` and write `"wave"` or `"issue"` only when picked. For `parallel`, **deviate deliberately** - write the explicit boolean the user chose (`true` on Yes, `false` on No) whenever the Integration-tier question was answered, and omit `parallel` only when that question was not shown (no `unitTestCmd`) or was skipped. Do not "correct" this back to omit-the-default: omitting a made decision would re-fire the run-start DB-hazard interview on every `solve-milestone` run whenever `unitTestCmd` is present.
 
 Print the final file contents so the user can verify.
 

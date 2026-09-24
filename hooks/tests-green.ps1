@@ -18,6 +18,25 @@ if (-not (Test-Path $profilePath)) { exit 0 }
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $unitCmd = $cfg.unitTestCmd
 if (-not $unitCmd) { exit 0 }
+# Milestone-granularity skip: an issue/fold commit on these two branch shapes
+# (skills/solve-milestone/milestone-granularity.md#Branch model) already
+# ran the implementer's scoped tests; the full suite runs once at milestone
+# end. Absent resolves to "milestone" only when a local milestone-* branch
+# exists (a milestone run has cut one); with none, "issue" (suite runs).
+# Out-of-enum still degrades to "milestone" unconditionally. Runs before the
+# sourceGlobs touched check and the stamp-skip read below, so a skip never
+# invokes `git write-tree` or reads the stamp file.
+$granularity = $cfg.integrationGranularity
+if ($granularity -notin @('issue', 'wave')) {
+    if ([string]::IsNullOrEmpty($granularity)) {
+        $hasMilestoneBranch = [bool](git -C $projectDir for-each-ref --count=1 'refs/heads/milestone-*' 2>$null)
+        $granularity = if ($hasMilestoneBranch) { 'milestone' } else { 'issue' }
+    } else {
+        $granularity = 'milestone'
+    }
+}
+$branch = ([string](git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null)).Trim()
+if ($granularity -eq 'milestone' -and ($branch -like 'issue/*' -or $branch -like 'milestone-*')) { exit 0 }
 $globs = $cfg.sourceGlobs
 $staged = @(git -C $projectDir diff --cached --name-only)
 $touched = $false
@@ -45,10 +64,9 @@ if (-not $touched) { exit 0 }
 # fallback (mirrors the profile two-step read above). Write always goes to the new path.
 $stampPath = Join-Path $projectDir '.milestone-config' 'tests-stamp'
 $oldStampPath = Join-Path $projectDir '.milestone-driver-tests-stamp'
-$branch = git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
 $treeSHA = git -C $projectDir write-tree 2>$null
 if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
-    $branch = ([string]$branch).Trim(); $treeSHA = ([string]$treeSHA).Trim()
+    $treeSHA = ([string]$treeSHA).Trim()
     $key = "${branch}:${treeSHA}"
     # Read the new path; if absent, fall back to the old root path. Skip on either match.
     $readStamp = $null

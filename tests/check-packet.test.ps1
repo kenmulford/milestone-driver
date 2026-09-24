@@ -38,23 +38,68 @@ try {
   # Built from parts so scripts/check-citations.sh does not read these packet
   # headings as this file's own citations.
   $src = 'src/app.md'; $miss = 'no such anchor'
+
+  # A packet holding only the five required sections, no optional ones at all.
+  $fiveRequired = (@(
+      'Issue: #1', 'Base: __BASE__', 'Worktree: __WORKTREE__', '',
+      '## Files', '', '| Path | Change |', '|---|---|', "| $src | edit |", '',
+      '## Edit points', '', "### $src (alpha anchor line)", '',
+      '```text', 'alpha anchor line', '```', '',
+      '## Tests', '', 'none', '',
+      '## Verify', '', 'none', '',
+      '## Out of scope', '', 'none'
+    ) -join "`n") + "`n"
+
+  # Size-boundary bodies, built with $head/$wt already substituted (not the
+  # __BASE__/__WORKTREE__ placeholders) so the byte target can be pinned
+  # before the per-case placeholder substitution below, which is a no-op on
+  # bodies that carry no placeholder.
+  $sizeHead = (@(
+      'Issue: #1', "Base: $head", "Worktree: $wt", '',
+      '## Files', '', '| Path | Change |', '|---|---|', "| $src | edit |", '',
+      '## Edit points', '', "### $src (alpha anchor line)", '',
+      '```text', 'alpha anchor line', '```', '',
+      '## Tests', '', 'none', '',
+      '## Verify', '', 'none', '',
+      '## Out of scope', ''
+    ) -join "`n") + "`n"
+  $sizeHeadBytes = $utf8.GetByteCount($sizeHead)
+  $padAtCap = 12288 - $sizeHeadBytes - 1
+  $atCapBody = $sizeHead + ('x' * $padAtCap) + "`n"
+  $overCapBody = $sizeHead + ('x' * ($padAtCap + 1)) + "`n"
+
+  # A `.project/`-sourced heading outside the ten contract sections.
+  $unexpectedHeading = $clean.Replace("`n## Out of scope`n`nnone", "`n## Out of scope`n`nnone`n`n## Test patterns`n`na pattern`n")
+
+  # A contract heading repeated - `## Verify` appears once already; this adds
+  # a second, unfenced occurrence after `## Out of scope`.
+  $duplicateHeading = $clean.Replace("`n## Out of scope`n`nnone", "`n## Out of scope`n`nnone`n`n## Verify`n`nnone`n")
+
   $cases = @(
-    @{ name = 'clean'; body = $clean; extra = @(); rc = 0; out = "SUMMARY`tok=16`tfailed=0`n" },
-    @{ name = 'clean-light'; body = $clean; extra = @('light'); rc = 0; out = "SUMMARY`tok=15`tfailed=0`n" },
-    @{ name = 'worktree-trailing-slash'; body = $clean.Replace('__WORKTREE__', "$wt/"); extra = @(); rc = 0; out = "SUMMARY`tok=16`tfailed=0`n" },
+    @{ name = 'clean'; body = $clean; extra = @(); rc = 0; out = "SUMMARY`tok=17`tfailed=0`n" },
+    @{ name = 'clean-light'; body = $clean; extra = @('light'); rc = 0; out = "SUMMARY`tok=16`tfailed=0`n" },
+    @{ name = 'worktree-trailing-slash'; body = $clean.Replace('__WORKTREE__', "$wt/"); extra = @(); rc = 0; out = "SUMMARY`tok=17`tfailed=0`n" },
     @{ name = 'stale-base'; body = $clean.Replace('__BASE__', $stale); extra = @(); rc = 1
-      out = "FAIL`tbase`tBase: $stale != HEAD $head`nSUMMARY`tok=15`tfailed=1`n" },
+      out = "FAIL`tbase`tBase: $stale != HEAD $head`nSUMMARY`tok=16`tfailed=1`n" },
     @{ name = 'wrong-worktree'; body = $clean.Replace('__WORKTREE__', '/nowhere/else'); extra = @(); rc = 1
-      out = "FAIL`tworktree`tWorktree: /nowhere/else != $wt`nSUMMARY`tok=15`tfailed=1`n" },
+      out = "FAIL`tworktree`tWorktree: /nowhere/else != $wt`nSUMMARY`tok=16`tfailed=1`n" },
     @{ name = 'no-issue-line'; body = $clean.Replace("Issue: #1`n", ''); extra = @(); rc = 1
-      out = "FAIL`theader`tmissing Issue: line`nSUMMARY`tok=15`tfailed=1`n" },
+      out = "FAIL`theader`tmissing Issue: line`nSUMMARY`tok=16`tfailed=1`n" },
     @{ name = 'no-tests'; body = $clean.Replace("`n## Tests`n", "`n"); extra = @(); rc = 1
-      out = "FAIL`tsection`tmissing ## Tests`nSUMMARY`tok=15`tfailed=1`n" },
-    @{ name = 'no-tests-light'; body = $clean.Replace("`n## Tests`n", "`n"); extra = @('light'); rc = 0; out = "SUMMARY`tok=15`tfailed=0`n" },
-    @{ name = 'rules-only-fenced'; body = $clean.Replace("`n## Rules`n`nnone`n", "`n"); extra = @(); rc = 1
-      out = "FAIL`tsection`tmissing ## Rules`nSUMMARY`tok=15`tfailed=1`n" },
+      out = "FAIL`tsection`tmissing ## Tests`nSUMMARY`tok=16`tfailed=1`n" },
+    @{ name = 'no-tests-light'; body = $clean.Replace("`n## Tests`n", "`n"); extra = @('light'); rc = 0; out = "SUMMARY`tok=16`tfailed=0`n" },
+    @{ name = 'rules-only-fenced'; body = $clean.Replace("`n## Rules`n`nnone`n", "`n"); extra = @(); rc = 0
+      out = "SUMMARY`tok=16`tfailed=0`n" },
     @{ name = 'unresolvable-anchor'; body = $clean.Replace("### $src (beta helper line)", "### $src ($miss)"); extra = @(); rc = 1
-      out = "FAIL`tcitation`t$src ($miss): resolve-citation: anchor not found: '$miss' in $wt/$src`nSUMMARY`tok=15`tfailed=1`n" }
+      out = "FAIL`tcitation`t$src ($miss): resolve-citation: anchor not found: '$miss' in $wt/$src`nSUMMARY`tok=16`tfailed=1`n" },
+    @{ name = 'five-required-only'; body = $fiveRequired; extra = @(); rc = 0; out = "SUMMARY`tok=12`tfailed=0`n" },
+    @{ name = 'size-at-cap'; body = $atCapBody; extra = @(); rc = 0; out = "SUMMARY`tok=12`tfailed=0`n" },
+    @{ name = 'size-over-cap'; body = $overCapBody; extra = @(); rc = 1
+      out = "FAIL`tsize`t12289 > 12288`nSUMMARY`tok=11`tfailed=1`n" },
+    @{ name = 'unexpected-heading'; body = $unexpectedHeading; extra = @(); rc = 1
+      out = "FAIL`tsection`tunexpected ## Test patterns`nSUMMARY`tok=17`tfailed=1`n" },
+    @{ name = 'duplicate-heading'; body = $duplicateHeading; extra = @(); rc = 1
+      out = "FAIL`tsection`tduplicate ## Verify`nSUMMARY`tok=17`tfailed=1`n" }
   )
 
   $packets = @{}
