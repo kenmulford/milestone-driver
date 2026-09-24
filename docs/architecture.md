@@ -62,7 +62,7 @@ A parked issue carries exactly one blocker label (`blocked` / `needs design` / `
 | no-push | Plugin `PreToolUse` (`Bash(git push *)`): rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
 | no-pr-to-protected | Plugin `PreToolUse` (`Bash(gh pr create *)`): blocks `gh pr create --base <protectedBranch>`. |
 | code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading, and whose `/code-review run:` verdict under it is not `yes` or `n/a - <reason>` (`no`, an unrecognized or empty value, and a missing slot each deny). A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
-| dispatch-cap | Plugin `PreToolUse` (`Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch for one issue - the first build plus 2 fixes, across every gate and the review loop - the caps `skills/review-depth.md` states. Counter under the git common dir, keyed by issue (branch `issue/<n>-*`, else the brief), reset when HEAD moves. |
+| dispatch-cap | Plugin `PreToolUse` (`Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch for one issue - the first build plus 2 fixes, across every gate and the review loop - the caps `skills/review-depth.md` states - and the 3rd planner dispatch (`milestone-driver:planner`). Counter under the git common dir, keyed by issue (branch `issue/<n>-*`, else the brief), reset when HEAD moves. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 

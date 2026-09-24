@@ -3,8 +3,9 @@
 #
 # Per issue: at most 3 `/code-review` runs (Skill `code-review` / `*:code-review`)
 # and 3 implementer dispatches (Agent/Task whose subagent_type is the profile's
-# implementerAgent), the caps skills/review-depth.md states. Main thread only;
-# the parallel-mode reviewer leaf (general-purpose) is not counted.
+# implementerAgent), the caps skills/review-depth.md states, plus 2 planner
+# dispatches (subagent_type `milestone-driver:planner`, fixed, not profile-read).
+# Main thread only; the parallel-mode reviewer leaf (general-purpose) is not counted.
 # Key: branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the brief, else the
 # branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
 # holds `<HEAD> <count>`; a moved HEAD resets it.
@@ -37,22 +38,27 @@ profile="$project_dir/.milestone-config/driver.json"
 implementer="$(jq -r '.implementerAgent // empty' "$profile" 2>/dev/null | tr -d '\r')"
 [ -n "$implementer" ] || implementer='milestone-driver:implementer'
 
-CAP=3
+cap=''
 kind=''
 text=''
 case "$tool" in
   Skill)
     skill="$(printf '%s' "$input" | jq -r '.tool_input.skill // empty' 2>/dev/null)"
     case "$skill" in
-      code-review|*:code-review) kind='review' ;;
+      code-review|*:code-review) kind='review'; cap=3 ;;
       *) exit 0 ;;
     esac
     text="$(printf '%s' "$input" | jq -r '.tool_input.args // empty' 2>/dev/null)"
     ;;
   Agent|Task)
     st="$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)"
-    [ "$st" = "$implementer" ] || exit 0
-    kind='implementer'
+    if [ "$st" = "$implementer" ]; then
+      kind='implementer'; cap=3
+    elif [ "$st" = 'milestone-driver:planner' ]; then
+      kind='planner'; cap=2
+    else
+      exit 0
+    fi
     text="$(printf '%s' "$input" | jq -r '.tool_input.prompt // empty' 2>/dev/null)"
     ;;
   *) exit 0 ;;
@@ -93,9 +99,9 @@ if [ -f "$file" ]; then
 fi
 case "$count" in ''|*[!0-9]*) count=0 ;; esac
 
-if [ "$count" -ge "$CAP" ]; then
+if [ "$count" -ge "$cap" ]; then
   case "$key" in *[!0-9]*) what="branch $key" ;; *) what="issue $key" ;; esac
-  echo "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $CAP for $what (skills/review-depth.md § The ladder). Park the issue instead of dispatching again. Reset: delete '$file', or set CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1 to override." >&2
+  echo "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (skills/review-depth.md § The ladder). Park the issue instead of dispatching again. Reset: delete '$file', or set CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1 to override." >&2
   exit 2
 fi
 

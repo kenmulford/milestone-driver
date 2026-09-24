@@ -30,17 +30,18 @@ try { $cfg = Get-Content -LiteralPath $profilePath -Raw -ErrorAction Stop | Conv
 $implementer = [string]$cfg.implementerAgent
 if (-not $implementer) { $implementer = 'milestone-driver:implementer' }
 
-$Cap = 3
+$Cap = 0
 $kind = ''
 $text = ''
 if ($tool -ceq 'Skill') {
     $skill = [string]$hook.tool_input.skill
-    if ($skill -ceq 'code-review' -or $skill.EndsWith(':code-review', [StringComparison]::Ordinal)) { $kind = 'review' } else { exit 0 }
+    if ($skill -ceq 'code-review' -or $skill.EndsWith(':code-review', [StringComparison]::Ordinal)) { $kind = 'review'; $Cap = 3 } else { exit 0 }
     $text = [string]$hook.tool_input.args
 } elseif ($tool -ceq 'Agent' -or $tool -ceq 'Task') {
     $st = [string]$hook.tool_input.subagent_type
-    if ($st -cne $implementer) { exit 0 }
-    $kind = 'implementer'
+    if ($st -ceq $implementer) { $kind = 'implementer'; $Cap = 3 }
+    elseif ($st -ceq 'milestone-driver:planner') { $kind = 'planner'; $Cap = 2 }
+    else { exit 0 }
     $text = [string]$hook.tool_input.prompt
 } else {
     exit 0
