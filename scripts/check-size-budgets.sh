@@ -314,6 +314,14 @@
 #     words, after trimming inside the touched lines, rounded UP to the next
 #     5 lines, 500 bytes, and 100 words. Spent on this one row: the next edit
 #     re-derives normally.
+#     RECORDED RAISE, issue #747 (decision 2026-09-24):
+#     skills/solve-milestone/SKILL.md LINE 320 -> 330, BYTE 34500 -> 35000,
+#     CLOSURE 10000 -> 10100, for the new milestone-end Template 2 row and its
+#     Gates legend clause. Measured growth 319 -> 330 lines (11 lines), 33716
+#     -> 34535 bytes (819 bytes), rounded UP to the next 5 lines and 500
+#     bytes; the file's own WORD 4761/4800 still holds and does not move, but
+#     its CLOSURE sum grew 9934 -> 10045 words, rounded UP to the next 100.
+#     Spent on this one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -442,7 +450,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     320    34500     4800
+skills/solve-milestone/SKILL.md                     330    35000     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
 skills/solve-milestone/milestone-granularity.md     195    29000     4200
@@ -622,7 +630,7 @@ while read -r skill closure_ceiling members; do
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md   10100   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE
 

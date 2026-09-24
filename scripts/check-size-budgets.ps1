@@ -74,7 +74,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     320    34500     4800
+skills/solve-milestone/SKILL.md                     330    35000     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
 skills/solve-milestone/milestone-granularity.md     195    29000     4200
@@ -172,7 +172,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 $closureTable = @'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
 skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
-skills/solve-milestone/SKILL.md   10000   skills/notices.md skills/output-style.md skills/citation-format.md
+skills/solve-milestone/SKILL.md   10100   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 '@
 

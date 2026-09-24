@@ -237,7 +237,18 @@ Show after each Wave completes.
 PR cell: the PR number if the issue has one, else -.
 Note cell: an issue the run sent through the Auto loop records its outcome there - `remediated, cleared` (re-triage clean, label cleared), `remediated, still parked` (cap spent or re-triage still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state the pipeline reached. No Auto loop → the cell is unchanged. A slow first build adds its note per `skills/solve-issue/SKILL.md (Slow first build:)`.
 
-Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E
+**Milestone end row** (`integrationGranularity: "milestone"` only). Once `skills/solve-milestone/milestone-end-gates.md`'s sequence finishes, print one Template-2-shaped table before Template 3:
+
+```text
+🏁 Milestone end · [T] min
+
+| Issue         | Result  | Gates       | PR | Note              |
+|---------------|---------|-------------|----|--------------------|
+| milestone end | ✅ done | 🧪✓ 🔍✓ 🌐✓ | -  | 2 fix dispatches  |
+```
+Note cell: `<F> fix dispatches` (0-3); a cap-spent revert appends `; reverted #<n>`. No commits on the milestone branch → no row; any other resolved `integrationGranularity` never prints it.
+
+Gates legend: 🧪 = unit suite · 🔍 = code review · 🌐 = E2E. Milestone end row: 🧪✓ 🔍✓, plus 🌐✓ when any issue on the branch carries `ui`; coherence review and preflight get no symbol, as in the per-issue Gates cell.
 
 After this update every input the next wave needs is on disk (`.milestone-config/.runtime/wave-state.json`, `.milestone-config/triage-cache.json`, the milestone branch), so a compaction here loses nothing and the `session-resume` hook re-injects the checkpoint.
 
