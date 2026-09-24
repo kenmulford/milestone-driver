@@ -3,6 +3,31 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.29.1 - milestone #48 leftovers
+
+**Theme:** A park clears the issue's dispatch-cap counters, the helper scripts run on macOS `/bin/bash` 3.2, and `measure-dispatch` counts a file-writing Bash call as the first edit.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #728 a park clears the dispatch-cap counters | #729 | New `scripts/reset-dispatch-cap.{sh,ps1} <repo-root> <n>` deletes the issue's `review`, `implementer` and `planner` counters from the git common dir and prints `reset<TAB><n><TAB><count>`. The solve-issue park action runs it, so a re-run after a park starts a fresh chain. |
+| #728 `mapfile` out of bash 3.2 paths | #729 | `scripts/build-file-index.sh` and `scripts/extract-version.sh` read into arrays with a `while read` loop. Both failed every case under `/bin/bash` 3.2 before. |
+| #728 `measure-dispatch` counts a Bash edit | #729 | A Bash call containing `sed -i`, `perl -i`, `tee <file>`, or a `>`/`>>` redirect to a file other than `/dev/null` or an fd counts as the first edit. |
+| #728 dispatch-cap kinds become a table | #729 | `hooks/dispatch-cap.{sh,ps1}` look up one `<tool> <match> <kind> <cap>` table in place of the per-kind ladder. Caps and counted dispatches are unchanged. |
+| #728 executable bit on the helper scripts | #729 | The 13 `scripts/*.sh` files tracked at 100644 are now 100755. |
+
+### Consumer notes (upgrading from v1.29.0)
+
+- No schema changes and no new profile keys.
+- `measure-dispatch` can report a lower `stepsBeforeFirstEdit` than v1.29.0 for a dispatch whose first write was a Bash call.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- No ceiling raised. Near: `skills/solve-issue/SKILL.md` WORD 6720/6800, CLOSURE 13298/13400.
+
 ## v1.29.0 - the implementer builds from a planner-written packet
 
 **Theme:** A planner leaf reads each issue's code once and writes a build packet. A script approves the packet, and the implementer builds from it on sonnet, reading only the files it edits. Fix re-dispatches run on opus, and every implementer dispatch is measured.
