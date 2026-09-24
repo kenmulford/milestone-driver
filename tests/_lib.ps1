@@ -116,8 +116,9 @@ function Invoke-Child {
   if ($IsWindows) { $psi.Environment['MSYS'] = 'noglob' }
   foreach ($k in $Env.Keys) { $psi.Environment[$k] = $Env[$k] }
   $p = [System.Diagnostics.Process]::Start($psi)
-  $p.StandardInput.Write($Stdin)
-  $p.StandardInput.Close()
+  # A child may exit without reading stdin (an escape-hatch exit): its broken pipe is not a failure.
+  try { $p.StandardInput.Write($Stdin); $p.StandardInput.Close() }
+  catch { if ($_.Exception.InnerException -isnot [System.IO.IOException]) { throw } }
   $outTask = $p.StandardOutput.ReadToEndAsync()
   $errTask = $p.StandardError.ReadToEndAsync()
   $p.WaitForExit()
