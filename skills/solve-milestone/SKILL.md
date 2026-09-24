@@ -155,15 +155,13 @@ In **versioned mode** the first issue's PR sets `plugin.json` to the target vers
 
 **Runs once per run, at run-start mode resolution (row 2 above), before any dispatch - whenever background dispatch is about to be used.** The mode cascade and the loop read its result.
 
-**Allowlist source.** Union `permissions.allow` from all three settings layers; absent or unreadable layers are skipped in the union, not counted as gaps:
+**Allowlist source.** Union `permissions.allow` from these three settings layers, which the `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) also reads `autoCompactWindow` from; absent or unreadable layers are skipped in the union, not counted as gaps:
 
 | Priority | File |
 |---|---|
 | 1 | `~/.claude/settings.json` (user global) |
 | 2 | `.claude/settings.json` (project) |
 | 3 | `.claude/settings.local.json` (project local) |
-
-The `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) reads `autoCompactWindow` from these same three layers.
 
 <!-- KEEP THIS BLOCK IN SYNC with skills/solve-issue/permission-preflight.md § Tool surface and response, its second copy. -->
 **Pipeline tool surface.** The union must cover at minimum:
@@ -175,6 +173,7 @@ The `autocompact` notice (`${CLAUDE_PLUGIN_ROOT}/skills/notices.md`) reads `auto
 | PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
 | Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
 | Label management | `gh label create` |
+| Planner leaf | Write to `.milestone-config/.runtime/plans/issue-<n>.md`, `git rev-parse`, Skill |
 | Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
 
 **Gap detection and response.** No gaps → proceed with background dispatch. Gap detected (the union misses part of that surface, or no layer is readable) → do not dispatch in the background: (1) surface a 🔴 gap table naming each missing grant and which settings layer(s) could supply it; (2) fall back to synchronous dispatch for this run; (3) recommend the consumer run `/fewer-permission-prompts` (see `docs/consumer-setup.md`). That result holds for the rest of the run - do not re-read settings per issue.

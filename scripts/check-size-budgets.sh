@@ -289,6 +289,16 @@
 #     after trimming inside step 3, rounded UP to the next 100. The file's own
 #     LINE 320/320, BYTE 48070/48500 and WORD 6789/6800 still hold and do not
 #     move. Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/implementer.md BYTE 16000 -> 16500
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md LINE 80 -> 100
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md BYTE 5000 -> 6500
+#     RECORDED RAISE, issue #722 (decision 2026-09-23): agents/planner.md WORD 800 -> 900
+#     For the packet-primary brief and the PACKET_GAP report line (implementer,
+#     measured 15841 -> 16071 bytes after trimming inside the file), and for the
+#     build-profile input, the park rows and the `## Examples` block (planner,
+#     measured 76 -> 96 lines, 4719 -> 5909 bytes, 729 -> 900 words). Each raise
+#     is the measured growth rounded UP to the next unit. Spent on these rows:
+#     the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -438,8 +448,8 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              105     5500      800
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               135    16000     2400
-agents/planner.md                                    80     5000      800
+agents/implementer.md                               135    16500     2400
+agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
