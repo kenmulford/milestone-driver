@@ -5,11 +5,15 @@
 # lines outside fenced blocks: a packet is mostly byte-exact quotes, and a quoted
 # markdown file carries `## ` and `### x (y)` lines that are not the packet's own.
 # A line starting with three backticks toggles the fence.
+#   size      the packet file is at or under the byte cap at
+#             skills/solve-issue/build-packet.md#Omission
 #   header    the Issue:, Base: and Worktree: lines are present
 #   base      Base: equals `git -C <worktree> rev-parse HEAD`
 #   worktree  Worktree: equals <worktree>, one trailing '/' stripped from each
-#   section   each required `## ` section is present; `## Tests` is optional
-#             under `light`, `## Design` always is
+#   section   the required subset at skills/solve-issue/build-packet.md#Omission
+#             is present (`## Tests` optional under `light`); a `## ` heading
+#             outside the ten sections at skills/solve-issue/build-packet.md#Sections
+#             fails too
 #   citation  each `### <path> (<anchor>)` line, <path> holding no space,
 #             resolves through resolve-citation.ps1 against <worktree>/<path>;
 #             the anchor `new` marks a file absent at Base and is skipped
@@ -51,8 +55,16 @@ $fails = [System.Collections.Generic.List[string]]::new()
 function Pass { $script:ok++ }
 function Fail([string]$check, [string]$detail) { $script:fails.Add("FAIL`t$check`t$detail") }
 
+# [System.IO.File]::ReadAllBytes(...).Length, never $raw.Length: .NET strings are
+# UTF-16, so a byte cap measured against the string length would drift from the
+# bytes-on-disk count the .sh twin's `wc -c` reports (mirrors
+# scripts/check-size-budgets.ps1's own byte-count convention).
+$sizeBytes = [System.IO.File]::ReadAllBytes($packet).Length
+if ($sizeBytes -le 12288) { Pass } else { Fail 'size' "$sizeBytes > 12288" }
+
 $issue = $false; $base = $null; $tree = $null
 $sections = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$headingOrder = [System.Collections.Generic.List[string]]::new()
 $cites = [System.Collections.Generic.List[string[]]]::new()
 $fence = $false
 foreach ($line in $lines) {
@@ -62,7 +74,7 @@ foreach ($line in $lines) {
   if ($line.StartsWith('Issue: ', [System.StringComparison]::Ordinal)) { $issue = $true }
   elseif ($line.StartsWith('Base: ', [System.StringComparison]::Ordinal)) { if ($null -eq $base) { $base = $line.Substring(6) } }
   elseif ($line.StartsWith('Worktree: ', [System.StringComparison]::Ordinal)) { if ($null -eq $tree) { $tree = $line.Substring(10) } }
-  elseif ($line.StartsWith('## ', [System.StringComparison]::Ordinal)) { [void]$sections.Add($line.Substring(3)) }
+  elseif ($line.StartsWith('## ', [System.StringComparison]::Ordinal)) { [void]$sections.Add($line.Substring(3)); $headingOrder.Add($line.Substring(3)) }
   elseif ($line.StartsWith('### ', [System.StringComparison]::Ordinal) -and $line.EndsWith(')', [System.StringComparison]::Ordinal)) {
     $rest = $line.Substring(4)
     $sp = $rest.IndexOf(' ')
@@ -91,9 +103,19 @@ if ($null -ne $tree) {
   if ($t -ceq $wt) { Pass } else { Fail 'worktree' "Worktree: $tree != $wt" }
 }
 
-foreach ($s in @('Files', 'Edit points', 'Calls', 'Tests', 'Rules', 'Verified facts', 'Decisions', 'Verify', 'Out of scope')) {
+$requiredSections = @('Files', 'Edit points', 'Tests', 'Verify', 'Out of scope')
+$contractSections = [System.Collections.Generic.HashSet[string]]::new(
+  [string[]]@('Files', 'Edit points', 'Calls', 'Tests', 'Design', 'Rules', 'Verified facts', 'Decisions', 'Verify', 'Out of scope'),
+  [System.StringComparer]::Ordinal)
+
+foreach ($s in $requiredSections) {
   if ($s -ceq 'Tests' -and $light) { continue }
   if ($sections.Contains($s)) { Pass } else { Fail 'section' "missing ## $s" }
+}
+
+foreach ($h in $headingOrder) {
+  if ($requiredSections -ccontains $h) { continue }
+  if ($contractSections.Contains($h)) { Pass } else { Fail 'section' "unexpected ## $h" }
 }
 
 # resolve-citation.ps1 writes through [Console]::Out and [Console]::Error, not the

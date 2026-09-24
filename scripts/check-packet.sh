@@ -5,11 +5,15 @@
 # lines outside fenced blocks: a packet is mostly byte-exact quotes, and a quoted
 # markdown file carries `## ` and `### x (y)` lines that are not the packet's own.
 # A line starting with three backticks toggles the fence.
+#   size      the packet file is at or under the byte cap at
+#             skills/solve-issue/build-packet.md#Omission
 #   header    the Issue:, Base: and Worktree: lines are present
 #   base      Base: equals `git -C <worktree> rev-parse HEAD`
 #   worktree  Worktree: equals <worktree>, one trailing '/' stripped from each
-#   section   each required `## ` section is present; `## Tests` is optional
-#             under `light`, `## Design` always is
+#   section   the required subset at skills/solve-issue/build-packet.md#Omission
+#             is present (`## Tests` optional under `light`); a `## ` heading
+#             outside the ten sections at skills/solve-issue/build-packet.md#Sections
+#             fails too
 #   citation  each `### <path> (<anchor>)` line, <path> holding no space,
 #             resolves through resolve-citation.sh against <worktree>/<path>;
 #             the anchor `new` marks a file absent at Base and is skipped
@@ -43,9 +47,14 @@ fails=()
 pass() { ok=$((ok + 1)); }
 fail() { failed=$((failed + 1)); fails+=("FAIL$TAB$1$TAB$2"); }
 
+size="$(wc -c < "$packet")"
+size="${size//[[:space:]]/}"
+if [ "$size" -le 12288 ]; then pass; else fail size "$size > 12288"; fi
+
 issue=0; base=''; hasbase=0; tree=''; hastree=0
 sections="$TAB"
 cites=()
+headings=()
 lineno=0; fence=0
 while IFS= read -r line || [ -n "$line" ]; do
   lineno=$((lineno + 1))
@@ -59,7 +68,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     'Issue: '*) issue=1 ;;
     'Base: '*) [ "$hasbase" -eq 1 ] || { hasbase=1; base="${line#Base: }"; } ;;
     'Worktree: '*) [ "$hastree" -eq 1 ] || { hastree=1; tree="${line#Worktree: }"; } ;;
-    '## '*) sections="$sections${line#'## '}$TAB" ;;
+    '## '*) sections="$sections${line#'## '}$TAB"; headings+=("${line#'## '}") ;;
     '### '*' ('*')')
       rest="${line#'### '}"; path="${rest%% *}"; tail="${rest#"$path"}"
       case "$tail" in
@@ -87,13 +96,35 @@ if [ "$hastree" -eq 1 ]; then
   if [ "${tree%/}" = "$wt" ]; then pass; else fail worktree "Worktree: $tree != $wt"; fi
 fi
 
-for s in 'Files' 'Edit points' 'Calls' 'Tests' 'Rules' 'Verified facts' 'Decisions' 'Verify' 'Out of scope'; do
+is_required_section() {
+  case "$1" in
+    Files|'Edit points'|Tests|Verify|'Out of scope') return 0 ;;
+    *) return 1 ;;
+  esac
+}
+is_contract_section() {
+  case "$1" in
+    Files|'Edit points'|Calls|Tests|Design|Rules|'Verified facts'|Decisions|Verify|'Out of scope') return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+for s in 'Files' 'Edit points' 'Tests' 'Verify' 'Out of scope'; do
   if [ "$s" = Tests ] && [ "$light" -eq 1 ]; then continue; fi
   case "$sections" in
     *"$TAB$s$TAB"*) pass ;;
     *) fail section "missing ## $s" ;;
   esac
 done
+
+# `${headings[@]}` on an empty array is an unbound-variable error under `set -u`
+# on bash 3.2 (macOS), hence the count guard (mirrors the cites guard below).
+if [ "${#headings[@]}" -gt 0 ]; then
+  for h in "${headings[@]}"; do
+    is_required_section "$h" && continue
+    if is_contract_section "$h"; then pass; else fail section "unexpected ## $h"; fi
+  done
+fi
 
 # `${cites[@]}` on an empty array is an unbound-variable error under `set -u`
 # on bash 3.2 (macOS), hence the count guard.
