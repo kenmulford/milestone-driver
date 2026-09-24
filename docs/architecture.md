@@ -10,6 +10,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Per-issue skill | `skills/solve-issue/SKILL.md` | The gated per-issue procedure |
 | Triage skill | `skills/triage/SKILL.md` | The Layer-0 pre-build review phase: design gaps plus dependency ordering (read-only; authors nothing) |
 | Setup skill | `skills/setup/SKILL.md` | Profile bootstrap plus create-if-missing provisioning of the label taxonomy |
+| Planner agent | `agents/planner.md` | Leaf that reads one issue's code and writes its build packet (`skills/solve-issue/build-packet.md`); read-only on source |
 | Implementer agent | `agents/implementer.md` | Self-contained TDD implementer subagent (a project may override via its profile) |
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
@@ -123,6 +124,8 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 ## Dispatch topology
 
 **No dispatched agent may dispatch a child whose result it needs.** An agent at depth 2 never receives its children's completion notifications (anthropics/claude-code#75043), so a dispatched agent that hands work to a child and waits has ended its turn permanently. Dispatched agents are leaves: they do the work themselves and return it. Only the main session fans out.
+
+The planner (`agents/planner.md`) is a leaf, dispatched per issue before that issue's implementer.
 
 This is a property of the runtime, not a plugin choice, and no flag repairs it: nested children run async regardless of `run_in_background`, and their completion notifications misdeliver to the main conversation. An agent that waits on one does not crash, which is what makes it dangerous. It reports, sincerely, that it is waiting, while nothing is waiting on it: the work sits uncommitted, no PR opens, and no park label is applied. That is a terminal state the contract does not have.
 

@@ -73,6 +73,7 @@ skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
+agents/planner.md
 agents/triage-reviewer.md
 '@
 
