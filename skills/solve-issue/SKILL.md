@@ -241,9 +241,9 @@ The park is `## The procedure`'s park action, comment opening `🔴 Parked - <re
 - The recorded/locked design is internally contradictory → park with `needs design`.
 - A self-noted risk about the **approved** design (e.g. "this list could get long at realistic data volumes") → park with `needs design`.
 
-**Architecture is locked** at plan-approval time (step 2). The procedure executes approved architecture. If implementation proves the plan wrong → park, not pivot.
+**Architecture is locked** at packet-approval time (step 2). The procedure executes approved architecture. If implementation proves the plan wrong → park, not pivot.
 
-A change is **architecture** (→ park) if it touches any of: a component or data structure named in the approved plan; a shared contract, interface, base class, DB schema, or public API used by code outside this issue; data ownership or a cross-component boundary; a new external dependency; or any file outside this issue's stated scope. A change is an implementation detail (→ proceed, log in the Decision Log, step 6.2) if it is local to this issue's own files, changes no shared contract, and is reversible - a binding style, a private helper extracted in the same file, a local refactor, or test design. When the distinction is genuinely ambiguous, treat it as architecture and park.
+A change is **architecture** (→ park) if it touches any of: a component or data structure named in the approved packet; a shared contract, interface, base class, DB schema, or public API used by code outside this issue; data ownership or a cross-component boundary; a new external dependency; or any file outside this issue's stated scope. A change is an implementation detail (→ proceed, log in the Decision Log, step 6.2) if it is local to this issue's own files, changes no shared contract, and is reversible - a binding style, a private helper extracted in the same file, a local refactor, or test design. When the distinction is genuinely ambiguous, treat it as architecture and park.
 
 **Audit trail (always):** a Decision Log on every PR, a Code Review section recording every `/code-review` run and its findings/resolutions, and a `judgment call` label on borderline calls.
 

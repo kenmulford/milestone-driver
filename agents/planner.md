@@ -49,12 +49,9 @@ Each case below, and a fact no source settles, returns `STATUS: PARK` and writes
 
 | Label | When |
 |---|---|
-| `needs design` | A UI or UX gap. |
-| `needs design` | A recorded design that contradicts itself. |
+| `needs design` | A UI or UX gap; a recorded design that contradicts itself. |
 | `needs decision` | Product scope with no conventional default. |
-| `blocked` | A dependency or environment gap. |
-| `blocked` | No root cause located in `sourceGlobs`. |
-| `blocked` | A cited `.project/` anchor missing or renamed; name the anchor and file. |
+| `blocked` | A dependency or environment gap; no root cause located in `sourceGlobs`; a cited `.project/` anchor missing or renamed, naming the anchor and file. |
 
 `REASON:` is one line naming the gap and the evidence that shows it.
 
