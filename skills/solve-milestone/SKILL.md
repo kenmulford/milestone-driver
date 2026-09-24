@@ -31,7 +31,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup`, then continue. Do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer`. |
    | Optional keys - `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, `nonNegotiables` | Their steps skip cleanly when absent. |
-   | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"issue"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"issue"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "issue"`. A valid value logs nothing. Every later read uses the resolved value. |
+   | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"milestone"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"milestone"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "milestone"`. A valid value logs nothing. Every later read uses the resolved value. |
 
    2.0.5. **Self-heal the scratch-ignore**, always, before any `.milestone-config/` scratch write. That directory also holds tracked config (`driver.json`, `feeder.json`): never add a bare `*` or `/` rule, which swallows both. The suffix-scoped `*-notice` does not. Ensure a committed `.milestone-config/.gitignore` carrying the block below: absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 

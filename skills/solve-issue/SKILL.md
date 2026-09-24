@@ -255,7 +255,7 @@ Background subagents auto-deny any tool call that would otherwise prompt, and a 
 
 ## Milestone granularity (`integrationGranularity: "milestone"`)
 
-**Resolved from the profile at step 1, not from an invocation token.** `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses`, plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, integration-commit trailer, and resume query. Absent or `"issue"` → neither read happens; the pipeline runs byte-unchanged.
+**Resolved from the profile at step 1, not from an invocation token.** `integrationGranularity` resolves to `"milestone"` (`docs/profile-schema.md (How should built issues integrate?)`) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/milestone-clauses.md` and apply its `### Clauses`, plus `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md` for the branch model, integration-commit trailer, and resume query. Absent, with no milestone run holding a resolved value, resolves to `"issue"` here: neither read happens and the pipeline runs byte-unchanged. An explicit `"issue"` resolves the same way.
 
 ## Wave granularity (`integrationGranularity: "wave"`)
 

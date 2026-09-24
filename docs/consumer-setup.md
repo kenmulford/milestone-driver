@@ -98,7 +98,7 @@ To enable the design-lens triage, set `uiSurfaceGlobs` in your profile (see [`pr
 
 ## Parallel builds and integration granularity
 
-These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls how issues build, `integrationGranularity` controls how they integrate. They differ in default. Parallel is the **default** execution mode - the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key that defaults to per-issue integration; leave it unset and each issue integrates on its own, as it always has.
+These two settings trade speed and CI cost against failure isolation, and they are orthogonal: parallel execution controls how issues build, `integrationGranularity` controls how they integrate. They differ in default. Parallel is the **default** execution mode - the driver builds a Wave's mutually-independent issues concurrently unless a barrier drops the run to sequential (see below). `integrationGranularity` is an optional profile key. Leave it unset under `solve-milestone` and the run integrates the whole milestone on one branch; leave it unset under a standalone `solve-issue` run and each issue integrates on its own, as it always has.
 
 ### Parallel by default: a Wave's independent issues build concurrently
 
@@ -194,7 +194,7 @@ The trade-off: nothing reaches your remote until the milestone-end push, so remo
 
 **If CI comes back red on the milestone PR,** the run parks it and stops touching it. It labels the milestone PR `needs review`, prints one 🔴 line naming every issue on the branch, preserves the local milestone branch (the open PR still needs it), does not retry the merge, and closes nothing: the work is unmerged, so every issue on the branch stays open. The 🔴 line names every issue because a red milestone PR hands you N issues' worth of work at once, so the line lists them instead of leaving you to reconstruct them from the diff.
 
-**This key is opt-in.** The default is `"issue"`: leave `integrationGranularity` out of your profile, or set it to `"issue"`, and your runs integrate one issue at a time. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
+**Under `solve-milestone` this now needs no key.** Leave `integrationGranularity` out of your profile and a milestone run resolves it to `"milestone"` on its own. A standalone `solve-issue` run keeps resolving an absent key to `"issue"`: leave it unset there, or set it to `"issue"` under `solve-milestone` to opt back into per-issue integration. See [`profile-schema.md`](profile-schema.md) for the `integrationGranularity` key row.
 
 ## Permission pre-flight gate
 
