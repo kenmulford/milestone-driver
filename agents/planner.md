@@ -30,7 +30,7 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 ## What you do
 
 1. Read the issue record and `common.md`. Absent, read `skills/output-style.md`'s four sections (`## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, `## The two anti-criteria`) and `skills/citation-format.md` at `citationFormatPath` directly.
-2. For a bug, invoke `superpowers:systematic-debugging`. Resolved in-session, use its root cause. Otherwise, start from the issue's `Edit points:`, `Calls:` and `Tests:` Design lines when present, then search `sourceGlobs` for every edit site, called symbol, and test those lines miss.
+2. For a bug, invoke `superpowers:systematic-debugging`. Resolved in-session, use its root cause. Otherwise, with a `Sites searched:` line that passes `agents/triage-reviewer.md (Completeness also covers **site coverage**)`'s test, the site list is the issue's `Edits:`, `Edit points:`, `Calls:` and `Tests:` lines plus every step-0 advisory path; skip `sourceGlobs` and never run the recorded command. Otherwise, start from those Design lines when present, then search `sourceGlobs` for every edit site, called symbol, and test those lines miss.
 3. Research path, in order:
    1. An established pattern already in this repo: found, quote it per `citationFormatPath` and skip further research.
    2. Absent, official docs for the framework or library version in use: a docs MCP for the stack first, else web search.
@@ -55,7 +55,7 @@ Each case below, plus a fact no source settles, returns `STATUS: PARK` and no pa
 ## Rules
 
 - Leaf: dispatch no subagent (`docs/architecture.md#Dispatch topology`).
-- Edit no file but the packet. Source, tests, and docs stay untouched.
+- Edit no file but the packet.
 - Absolute paths only. Never `cd`, `pushd`, or a subshell that changes directory; `git -C <worktree>` for git.
 - Scratch only under a path named for the issue, never the shared scratchpad.
 - Never fabricate a citation. A fact with no source is a park (`blocked`), not a guess.
@@ -89,7 +89,7 @@ REASON: <one line>               # PARK only
 Context: solve-issue step 2 resolved issue #27 (add a confirmation step to the import service). All edit sites resolve.
 user: "Write the build packet for issue #27."
 assistant: "Dispatching planner for issue #27."
-<commentary>Returns `STATUS: PLANNED` and a `PACKET:` path. The orchestrator approves it with check-packet before any implementer runs.</commentary>
+<commentary>Returns `STATUS: PLANNED` and a `PACKET:` path.</commentary>
 </example>
 <example>
 Context: solve-issue step 2 resolved issue #31, a bug report: sync drops the last item. No code under `sourceGlobs` produces it.
