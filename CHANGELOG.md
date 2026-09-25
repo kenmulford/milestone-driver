@@ -3,6 +3,26 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.30.1 - triage and the planner reuse the recorded site search
+
+The triage reviewer re-runs the issue's `Sites searched:` grep instead of running its own site search. The planner takes the issue's pointer lines as the full site list when that line passes triage's test.
+
+| Issue | PR | What |
+|---|---|---|
+| #751 | #752 | `agents/triage-reviewer.md` runs a passing `Sites searched:` command as its site-coverage search. A line passes when it is exactly `grep -rnE '<pattern>' <path> ...`, holds two `'` characters, has path arguments limited to letters, digits, `_ . / * -` that never start with `-`, and carries no `partial:` marker. |
+| #751 | #752 | `agents/planner.md` step 2: with a passing line, the site list is the issue's `Edits:`, `Edit points:`, `Calls:` and `Tests:` lines plus every step-0 advisory path. No `sourceGlobs` search. |
+
+### Consumer notes (upgrading from v1.30.0)
+
+- No schema changes and no new profile keys.
+- Issues written by milestone-feeder with #522 or later carry the passing `Sites searched:` shape. Older issues keep the full search.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: #752 (the planner's site list includes `Edits:`, outside AC2's literal list).
+
+- No ceiling raised. Near: `agents/planner.md` WORD 900/900, `agents/triage-reviewer.md` BYTE 16431/16500.
+
 ## v1.30.0 - the planner points, the implementer writes
 
 **Theme:** The planner writes packet sections as signatures and assertions instead of full bodies, and the implementer builds method bodies and tests from them. The triage and design reviewers check for a matching precedent before flagging a gap. Milestone granularity is now the default under `solve-milestone`: the per-issue suite, E2E, preflight, and reviews defer to one gate at milestone end.
