@@ -58,7 +58,8 @@ $lines += '|---|---|---|---|---|'
 $lines += $rows
 if ($more -gt 0) { $lines += "… $more more" }
 $lines += ''
-$lines += 'skills/solve-milestone/parallel-waves.md (Wave-state checkpoint - consult before probing)'
+$root = if ($env:CLAUDE_PLUGIN_ROOT) { "$($env:CLAUDE_PLUGIN_ROOT)/" } else { '' }
+$lines += "${root}skills/solve-milestone/parallel-waves.md (Wave-state checkpoint - consult before probing)"
 
 [Console]::Out.Write(($lines -join "`n") + "`n")
 exit 0

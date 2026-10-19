@@ -27,7 +27,7 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 Collect every `/code-review` finding from step 4 and every red gate from steps 5-7; step 3's coherence findings never enter it.
 
 - One or more collected: dispatch the `implementerAgent` once, briefed with `<range>` and every finding and failure. It returns an uncommitted working tree, per its own contract.
-- Commit: subject line, the fix's summary, step 4's `/code-review` result in `skills/solve-issue/SKILL.md` step 6.3's `Code-Review:` block shape, then a final paragraph of exactly `Milestone-End-Fix: <milestone-number>` (the milestone path's shape at `skills/solve-milestone/simplify-pass.md (## Land the findings)`). No `Issue:` line.
+- Commit: subject line, the fix's summary, step 4's `/code-review` result in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md § The integration commit`, then a final paragraph of exactly `Milestone-End-Fix: <milestone-number>` (the milestone path's shape at `skills/solve-milestone/simplify-pass.md (## Land the findings)`). No `Issue:` line.
 - Re-run the sequence from step 4, never re-running step 3's coherence pass on a fix commit.
 
 **Cap.** At most 3 fix dispatches per milestone end, counted in the orchestrator's own run state, never `hooks/dispatch-cap.sh` (it resets on every fix commit's HEAD move): a 4th takes `## Cap spent, still red`.

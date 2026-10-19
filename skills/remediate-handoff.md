@@ -41,7 +41,7 @@ Should I send blocked issues through `/milestone-feeder:remediate` automatically
 | Answer | Effect |
 |---|---|
 | **Auto** | Every issue this run parks enters the loop below. |
-| **Leave-them-for-me** | Parking stays exactly what it is today - label, comment, continue. The loop never runs and no issue body is edited. |
+| **Leave-them-for-me** | Parking is label, comment, continue. The loop never runs and no issue body is edited. |
 
 **A non-interactive/unattended `solve-milestone` run defaults to Leave-them-for-me - a question nobody can answer must not block the run.** Hold the answer for the whole run; never re-ask per issue.
 

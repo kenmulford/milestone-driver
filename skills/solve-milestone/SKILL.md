@@ -9,11 +9,11 @@ description: >-
 
 Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline.
 
-**Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`. Under wave granularity it runs instead at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
+**Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity. Under wave granularity in parallel mode it also runs at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
 
 **Blast radius.** Merge only to `integrationBranch`, never `protectedBranch`. Release, closing the milestone object, and deploy are human-only. This skill closes the milestone's issues and authors the CHANGELOG; never the milestone.
 
-**Execution mode: parallel by default.** No flag, no opt-in. Resolved once at run start by the barrier cascade in the last Before-starting step (Resolve execution mode), then held all run. A typed `--parallel`, or "in parallel", in `$ARGUMENTS` is stripped and ignored by step 3's `--<token>` strip.
+**Execution mode: parallel by default.** No flag, no opt-in. Resolved once at run start by the barrier cascade in the last Before-starting step (Resolve execution mode), then held all run. A typed `--parallel` in `$ARGUMENTS` is stripped and ignored by step 3's `--<token>` strip.
 
 ## Contents
 
@@ -66,7 +66,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
       c. **No parent, or a parent without `md-epic`** → fall through to step 4, no prompt.
       d. **A parent carrying `md-epic`** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/md-epic-parent-check.md` and run it: the three-option prompt (build just this milestone · hand off to `/milestone-driver:solve-issue <parent-number>` · pause), each option's branch, and the reactive-only out-of-order note. Reached on no other path.
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward). Record its tip (`git rev-parse <integrationBranch>`) as `milestoneBaseCommit`, held all run for `### Simplify pass`.
-5. **Resolve execution mode (the LAST Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
+5. **Resolve execution mode (the last Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
 
    **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
 

@@ -106,7 +106,7 @@ Run these steps in order; stop at the first **valid** match (step 1 is a valid m
 
 **Format:** append `<!-- trello: <card-url> -->` as the final line, on its own line of the milestone description - trailing so it cannot interfere with Wave-order parsing.
 
-**Idempotency:** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH - the back-link is already present. Never insert inside or above the Wave block. Never append a second back-link.
+**Idempotency (append mode):** before PATCHing, check whether the description already contains `<!-- trello:`. If it does, skip the PATCH. Replace mode below is the one exception. Never insert inside or above the Wave block. Never append a second back-link.
 
 **Replace mode (called from the step-1 not-found-in-managed-lists fallthrough):** if the description already contains `<!-- trello: ... -->`, remove that line before appending the new URL (replace, not append).
 
@@ -269,7 +269,7 @@ Two call sites fire checklist ticks during the solve-milestone loop. Both are ma
 
 ### Issue granularity
 
-**Call site:** step 4 "On success" in SKILL.md, immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged issue.
+**Call site:** `sequential-loop.md` step 4 "On success", immediately after squash-merge and issue close, before `integrationBranch` re-sync. Fires once per merged issue.
 
 **When a card handle is available:**
 
@@ -299,7 +299,7 @@ Do not add a new item. Continue.
 
 ### Wave granularity
 
-**Call site:** SKILL.md `integrationGranularity: "wave"` path, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path - the wave PR merges once, then every issue in the Wave is closed together.
+**Call site:** `integration-granularity.md § "wave"`, the Explicit issue close bullet, immediately after `for n in <each issue number>; do gh issue close "$n" --reason completed; done`. There is no per-issue merge event in this path - the wave PR merges once, then every issue in the Wave is closed together.
 
 **When a card handle is available:**
 

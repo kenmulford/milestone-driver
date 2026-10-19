@@ -107,7 +107,7 @@ case "$count" in ''|*[!0-9]*) count=0 ;; esac
 
 if [ "$count" -ge "$cap" ]; then
   case "$key" in *[!0-9]*) what="branch $key" ;; *) what="issue $key" ;; esac
-  echo "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (skills/review-depth.md § The ladder). Park the issue instead of dispatching again. Reset: delete '$file', or set CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1 to override." >&2
+  echo "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1." >&2
   exit 2
 fi
 

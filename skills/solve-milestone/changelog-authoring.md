@@ -15,7 +15,7 @@ Match rule by versioning mode:
 - **Versioned mode** (`versioning: true` or absent): heading prefix `## v<target-version> ` (with a trailing space).
 - **Version-free mode** (`versioning: false`): full-line equality on the trimmed line - strip leading and trailing whitespace (including `\r` on Windows), then require `trim(line) == '## <milestone title>'` with no additional characters. Suffix caveat, version-free mode only. A heading carrying any suffix (`## <milestone title> (partial)`, `(in progress)`, a date) is not equal, so the match fails, this check reports no existing entry, and steps 6.2 to 6.5 prepend a second section beside the one already there. Versioned mode is unaffected: its prefix ends in a trailing space, so `## v<target-version> ` still matches `## v1.18.0 (partial)`. Do not widen the match to compensate; the strict equality rule is deliberate.
 
-If `CHANGELOG.md` exists on `integrationBranch`, read it (`git show <integrationBranch>:CHANGELOG.md` or read the working-tree copy after re-sync) and scan each line, from the start of the trimmed line, with the mode's match rule above. Match → log _"CHANGELOG entry for `<version/title>` already exists - skipping."_ and proceed to core `SKILL.md`'s `## Run-complete notification` section. No match → continue. `CHANGELOG.md` absent → treat as "no existing entry" and continue.
+If `CHANGELOG.md` exists on the branch the entry lands on (`integrationBranch`, or the milestone branch under `integrationGranularity: "milestone"`, per `milestone-granularity.md § Milestone end: one push, one PR, one CI run` step 1), read it (`git show <branch>:CHANGELOG.md` or read the working-tree copy after re-sync) and scan each line, from the start of the trimmed line, with the mode's match rule above. Match → log _"CHANGELOG entry for `<version/title>` already exists - skipping."_ and continue at step 6.9, which adds no line but still emits Template 3; under milestone granularity, run the milestone-end hand-off below step 6.5 first. No match → continue. `CHANGELOG.md` absent → treat as "no existing entry" and continue.
 
 ## 6.2 Fetch PR summaries
 
@@ -44,7 +44,7 @@ Read the milestone description (`gh api "repos/{owner}/{repo}/milestones/<resolv
 
 ## 6.5 Author the CHANGELOG entry
 
-Construct the block below, mirroring the v1.7.0 entry in `CHANGELOG.md` exactly - same heading format, same table schema, same section names. **Versioned mode entry:**
+Construct the block below; its heading format, table schema, and section names are fixed. **Versioned mode entry:**
 
 ```markdown
 ## v<target-version> - <milestone theme>
