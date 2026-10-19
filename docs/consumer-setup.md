@@ -1,6 +1,6 @@
 # milestone-driver - consumer setup
 
-Adopt milestone-driver in a repository in four steps. The whole point is that the
+Adopt milestone-driver in a repository in five steps. The whole point is that the
 discipline is mechanical, so most of this is one-time wiring.
 
 ## 1. Install the plugin (and its dependency)
@@ -83,8 +83,8 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   | Verdict | Fires when the diff | First review, then cap |
   |---|---|---|
   | `deep` | touches `hooks/**`, changes only one leg of a `*.sh` / `*.ps1` twin pair, or adds a new file under `sourceGlobs` | `medium`, 2 cycles |
-  | `standard` | touches any other path under `sourceGlobs` | `medium`, 1 cycle; a 2nd only on a Critical or Important finding |
-  | `shallow` | touches no path under `sourceGlobs` | `low`, 1 cycle, a 2nd impossible |
+  | `standard` | touches any other path under `sourceGlobs` and is not demoted to `shallow` | `medium`, 1 cycle; a 2nd only on a Critical or Important finding |
+  | `shallow` | touches no path under `sourceGlobs`, or changes at most 20 lines with no deep trigger and no rejected path | `low`, 1 cycle, a 2nd impossible |
 
   An unresolvable root, absent git, or an empty candidate set fails open to `standard`, never to `shallow`: the safe direction is more review.
 
@@ -150,7 +150,7 @@ Set this in the profile (it is a repo-stable choice, not a per-run flag):
 { "integrationGranularity": "wave" }
 ```
 
-Default `"issue"` integrates per issue: each built issue opens its own PR, gets its own CI run, and merges individually. Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
+An absent key resolves to `"issue"` under a standalone `solve-issue` run (each built issue opens its own PR, gets its own CI run, and merges individually) and to `"milestone"` under `solve-milestone` (below). Set `"wave"` for a repo with long or expensive CI: a whole dependency Wave integrates on one branch `wave/<milestone>-w<N>`, opens one wave PR to your `integrationBranch`, and runs one CI run for the assembled Wave. The merge-tail mechanism is the same; only the target (a wave branch) and the PR-opening (one wave PR) differ.
 
 The trade-off: wave granularity costs O(waves) CI runs instead of O(issues), and CI validates the assembled Wave rather than each issue in isolation. But one red wave-PR CI blocks the whole Wave, so you bisect to find the culprit. That is acceptable when your local gates are strong (unit plus static preflight plus `/code-review` plus the tail's re-verify catch most failures before CI); it is not recommended for repos with weak local gates. See [`profile-schema.md`](profile-schema.md) for the key and `solve-milestone`'s integration-granularity section for the orchestrator mechanics.
 
@@ -211,6 +211,7 @@ Because the driver dispatches background agents on the default path, a pre-fligh
 | PR / issue writes | `gh pr create`, `gh pr merge`, `gh pr edit`, `gh pr comment` |
 | Issue management | `gh issue edit`, `gh issue comment`, `gh issue close` |
 | Label management | `gh label create` |
+| Planner leaf | Write to `.milestone-config/.runtime/plans/issue-<n>.md`, `git rev-parse`, Skill |
 | Profile-defined commands | Each command in `unitTestCmd`, `preflightCmd`, `e2eTestCmd` (skip if absent) |
 
 ## Trello integration (optional)

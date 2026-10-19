@@ -28,7 +28,7 @@ Say this to the user before doing any work:
 
 ### Step 1 - Read the profile
 
-Read the profile (`docs/profile-schema.md`). **Resolution (transitional READ only - triage performs no migration move):** `<repo>/.milestone-config/driver.json` first, else the legacy root `<repo>/milestone-driver.json`. Both present → `.milestone-config/driver.json` wins; no move, no overwrite, no deletion. On the legacy layout, triage surfaces a one-line note - "legacy profile detected - will migrate on the next build/setup". If neither file exists or a required Core key is missing, invoke `milestone-driver:setup`, then continue.
+Read the profile (`docs/profile-schema.md`). **Resolution (read only - triage performs no migration move):** `<repo>/.milestone-config/driver.json` first, else the legacy root `<repo>/milestone-driver.json`. Both present → `.milestone-config/driver.json` wins; no move, no overwrite, no deletion. On the legacy layout, triage surfaces a one-line note - "legacy profile detected - will migrate on the next build/setup". If neither file exists or a required Core key is missing, invoke `milestone-driver:setup`, then continue.
 
 Extract:
 
@@ -121,8 +121,8 @@ Resolve each issue's cited `.project/` sections **once, here in the triage skill
 
 Resolve each MISS issue's `path (anchor)` citations (`skills/citation-format.md`) **once here** - a HIT issue skips dispatch and makes no resolver call. Paths are repo-root-relative; no multi-base fallback.
 
-1. **The skill's one bounded read of an issue body.** Per MISS issue, read `<scratch>/issue-<n>.md`'s `## Body` section with `sed -n '/^## Body$/,/^## Comments$/p' <scratch>/issue-<n>.md` (never `read-doc-section`: it stops at the body's own first `##`) - same discipline as `skills/solve-milestone/SKILL.md § Main-thread context`. Then extract by model judgment over the `path (anchor)` shape - never a regex: apply its span and position tests to that section - a parenthetical after a path is not automatically a citation. Both regex failure modes, on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` exits 1 - a false drift report; `` `skills/setup/SKILL.md` (Phase 2) `` returns `PRIMARY 54` + `MATCH 197` - a confident wrong answer.
-2. **Resolve, then feed both briefs.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` (pwsh on Windows, bash elsewhere) once per citation, with `<file-path> <anchor-text>` as arguments. Exit 0 prints a `PRIMARY` row then zero or more `MATCH` rows, TAB-delimited, file order. Pass those rows into both Step 3 briefs as the resolved citations - once per issue, not once per reviewer - in the printed-output shape `read-doc-section`'s result uses above.
+1. **The skill's one bounded read of an issue body.** Per MISS issue, read `<scratch>/issue-<n>.md`'s `## Body` section with `sed -n '/^## Body$/,/^## Comments$/p' <scratch>/issue-<n>.md` (never `read-doc-section`: it stops at the body's own first `##`) - same discipline as `skills/solve-milestone/SKILL.md § Main-thread context`. Then extract by model judgment over the `path (anchor)` shape - never a regex: apply its span and position tests to that section - a parenthetical after a path is not automatically a citation. Both regex failure modes, on prose whose span closes before the parenthesis: `` `agents/triage-reviewer.md` (architect lens) `` exits 1 - a false drift report; `` `skills/setup/SKILL.md` (Phase 2) `` returns a `PRIMARY` row on a prose mention of "Phase 2" above the heading - a confident wrong answer.
+2. **Resolve, then feed both briefs.** Invoke `${CLAUDE_PLUGIN_ROOT}/scripts/resolve-citation.{sh,ps1}` (pwsh on Windows, bash elsewhere) once per citation, with `<file-path> <anchor-text>` as arguments. Exit 0 prints a `PRIMARY` row then zero or more `MATCH` rows, TAB-delimited, file order. Pass those rows, as printed, into both Step 3 briefs as the resolved citations - once per issue, not once per reviewer.
 
 **Degradation:**
 - **No `path (anchor)` citation on an issue** → a no-op: no resolver call, no error.
@@ -137,7 +137,7 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 - The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria, labels) - read first, never pasted inline.
 - Its recorded design decisions: the same file (comments and any `design-cleared` notes are part of its record).
 - The milestone description: the path of `<scratch>/milestone.md` - batch mode only; pass an empty string in single mode.
-- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (one step - after the framework's own docs, before repo patterns - in the agent's research path for verifying a found convention is a framework idiom; omit when the expansion is empty).
+- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (the agent's last research step, invoked only after a dry repo-pattern search and a dry framework-docs step; omit when the expansion is empty).
 - The cited `.project/` anchors for this issue, with the `read-doc-section` path - omit when that block was a no-op for this issue.
 - The prose contract path and its four section names; omit when `skills/output-style.md` is absent.
 - The resolved citations for this issue; omit when that block was a no-op.
@@ -156,7 +156,7 @@ GAPS:
     severity: Blocker | Advisory
     type: contradiction | not-buildable | missing-criteria | undeclared-dependency | risky-design
     description: <one line>
-    to_clear: <the ONE decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the one decision or artifact the human must record, as an instruction they can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two decisions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -181,7 +181,7 @@ GAPS:
     severity: Blocker | Advisory
     type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
-    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the one suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -381,4 +381,4 @@ Read `${CLAUDE_PLUGIN_ROOT}/skills/citation-format.md` - the one format every ci
 
 - **Authors no code, opens no PRs.** The triage phase is read-only except for posting issue comments: it never edits a source file, creates no branch, opens no PR, applies no label, and moves no file. Triage performs no migration move: relocating a legacy root `milestone-driver.json` to `.milestone-config/driver.json` is owned by `setup` and `solve-issue` (the commands with a commit path; `solve-milestone` migrates via its dispatched build).
 - **No interactive prompts.** Blocker comments are durable async handoffs on the originating issue, never a mid-run pause awaiting a human reply.
-- **No fabricated findings.** Every gap cites its grounding (the exact recorded line, or `file:line` for a dependency). A claim ungroundable in the artifact is emitted as a Blocker ("cannot verify X from the issue/code"), never as a confident guess. If an issue cannot be retrieved, STOP - do not fabricate a stand-in.
+- **No fabricated findings.** Every gap cites its grounding (the exact recorded line, or `file:line` for a dependency). A claim ungroundable in the artifact is emitted as a Blocker ("cannot verify X from the issue/code"), never as a confident guess. If an issue cannot be retrieved, stop and report it; do not fabricate a stand-in.

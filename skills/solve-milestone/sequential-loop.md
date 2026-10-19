@@ -15,7 +15,7 @@ For each buildable issue, in dependency-graph order:
 
    **Operator redirect window.** Between issues the main line is interactive, so the operator can redirect before the next issue begins. SendMessage addressing: the main line can send a dispatched leaf a mid-run message (delivered at its next tool-use round, not instantaneously) - but only by that leaf's own dispatched ID/name; an agent-type name (e.g. `milestone-driver:implementer`) is not a reachable address, and only the session that spawned the leaf can message it. Dispatched leaves never call PushNotification; the main line emits at this boundary.
 
-   After each issue completes, post the chunk-boundary board first (Template 2, core `SKILL.md` `## Output spec`), then emit a `PushNotification` for the just-completed issue's terminal state (parallel mode emits its parks at `parallel-waves.md`'s Phase 1 step 9 instead):
+   After each issue completes, emit a `PushNotification` for its terminal state (parallel mode emits its parks at `parallel-waves.md`'s Phase 1 step 9 instead). When that issue closes out its Wave, post Template 2 (core `SKILL.md` `## Output spec`) first:
    - **Issue parked** (any subtype - triage-park, dependency-hold, STOP/build-park): emit `⏸️ #N parked - <reason>`, `<reason>` being the park label + brief blocker description, e.g. "needs decision: new dependency".
    - **Issue completed** (merged): no per-issue notification - the 🏁 run-complete notification, emitted after the Final summary, is the aggregate end signal.
 

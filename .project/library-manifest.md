@@ -27,7 +27,7 @@ One approved choice per purpose, so a redundant alternative is easy to spot.
 
 ## Adding a dependency (the gate)
 A new dependency is a PAUSE, not an autonomous call. Record what it buys, its license / OSS status, and why nothing approved suffices; a human approves before it's added.
-> A new dependency is a **STOP-and-ask**, parked with the `needs decision` label - the implementer halts and surfaces it rather than adding it autonomously (`docs/architecture.md#Label taxonomy`; the implementer subagent's new-dependency PAUSE gate). For this plugin the bar is especially high: a core non-negotiable is "**no new tool dependency**" - e.g. the CI-preflight parser deliberately uses a line-oriented parser over the narrow YAML surface rather than pulling in a YAML library (`docs/architecture.md#Preflight (optional)`, "no YAML library and **no new tool dependency**").
+> A new dependency is a **STOP-and-ask**, parked with the `needs decision` label - the implementer halts and surfaces it rather than adding it autonomously (`docs/architecture.md#Label taxonomy`; the implementer subagent's new-dependency PAUSE gate). For this plugin the bar is especially high: the CI-preflight parser is line-oriented over the narrow YAML surface rather than a YAML library (`docs/architecture.md#Preflight (optional)`, "no YAML library, no network call").
 
 ## Avoid / banned
 Libraries explicitly not to use, and why.
