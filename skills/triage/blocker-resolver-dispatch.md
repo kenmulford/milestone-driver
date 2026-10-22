@@ -37,7 +37,7 @@ RESOLUTIONS:
 
 An issue whose Blockers are **all** dropped reaches Step 4 carrying no Blocker gap and aggregates to `issueStates[n].blockers == false`, `label: null` - unparked. An issue with at least one survivor parks on the survivors alone. Advisory gaps pass through untouched: they never gate, so this pass neither reads nor resolves them.
 
-Step 6 posts the outcome - one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)` and carrying the return's `DOMAIN_SKILLS_INVOKED` on its own line (**ungated**: `none` never blocks, parks, or fails anything), and a `🔴 Triage` comment covering the survivors only.
+Step 6 posts the outcome - one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)` and carrying the return's `DOMAIN_SKILLS_INVOKED` on its own line, plus any `Domain skills missed:` line (`skills/triage/SKILL.md (Domain-skills gate)`), and a `🔴 Triage` comment covering the survivors only.
 
 ### Unparking
 

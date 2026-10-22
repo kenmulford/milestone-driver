@@ -3,6 +3,34 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.30.3 - every agent loads the domain skills first
+
+**Theme:** The planner, implementer, triage reviewer, design reviewer and blocker resolver invoke every expanded `domainSkills` name as their first action on every dispatch, and the orchestrator re-dispatches a return that skipped one.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| - | #757 | `agents/planner.md`, `agents/implementer.md`, `agents/triage-reviewer.md`, `agents/design-reviewer.md`, `agents/blocker-resolver.md`: invoke each `domainSkills` name with the Skill tool before reading any file, with or without a packet. `DOMAIN_SKILLS_INVOKED` lists every name. A skill that contradicts a repo pattern outranks it, and the return names both. The implementer reports a skill that contradicts the packet, where `## Verified facts` leaves the point open, as a `PACKET_GAP:` stop. The planner's 25-call budget excludes Skill calls. |
+| - | #757 | `skills/solve-issue/SKILL.md` steps 2 and 3, `skills/triage/SKILL.md` Step 3 (`Domain-skills gate`): a planner, reviewer or resolver return, or the first `COMPLETE` implementer return, whose `DOMAIN_SKILLS_INVOKED` misses an expanded name is re-dispatched once, naming the missing skills. A second miss continues and records `Domain skills missed: <names>` in the issue's Decision Log or triage comment. A planner packet that passed check-packet is copied to `issue-<n>.approved.md` first and restored if the re-dispatch is denied or fails. The implementer re-dispatch fixes what the skills contradict in its diff, with no new RED run. A re-dispatched triage return replaces the first. `skills/solve-milestone/parallel-waves.md` routes both re-dispatches through its ladder. |
+| - | #757 | `skills/solve-milestone/simplify-pass.md` and `skills/solve-milestone/milestone-end-gates.md` brief their packet-less implementer dispatch with the expanded `domainSkills`. |
+| - | #757 | `docs/profile-schema.md` `domainSkills` row and `skills/setup/SKILL.md`'s question describe load-first. `skills/output-style.md` adds the `Domain skills missed:` line to the Decision Log comment and keeps it in the choice-only Decision Log. |
+
+### Consumer notes (upgrading from v1.30.2)
+
+- No schema changes and no new profile keys.
+- A repo with `domainSkills` set sees one Skill call per name in every planner, implementer and reviewer dispatch, and one extra dispatch for each return that skips a name.
+- The planner's skills re-dispatch uses its second planner dispatch, so a later packet-gap re-plan on that issue parks `blocked`. The implementer's uses one of its three dispatches.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- No ceiling raised. At or near: `agents/planner.md` WORD 898/900, `agents/implementer.md` WORD 2497/2500, `skills/solve-issue/SKILL.md` LINE 320/320 and CLOSURE 13392/13400, `skills/triage/SKILL.md` WORD 4978/5000, `agents/triage-reviewer.md` BYTE 16308/16500, `skills/output-style.md` WORD 1790/1800.
+- A triage skills miss on an all-clear issue is recorded only in Step 5's terminal output; no issue comment posts for it.
+- The `simplify-pass` and `milestone-end-gates` implementer dispatches carry the expanded names but run no domain-skills gate.
+- v1.30.2 (#756) has no CHANGELOG entry.
+
 ## v1.30.1 - triage and the planner reuse the recorded site search
 
 The triage reviewer re-runs the issue's `Sites searched:` grep instead of running its own site search. The planner takes the issue's pointer lines as the full site list when that line passes triage's test.
