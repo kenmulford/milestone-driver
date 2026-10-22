@@ -44,11 +44,10 @@ Write every file as **UTF-8 without a BOM** - a BOM breaks bash/sh shebang lines
    **`risk:light` clause.** When the dispatch brief carries `risk:light` and the change is cosmetic, documentation-only, or otherwise low-risk (no shared interface, no auth/payment path, no UI surface with a design gap): skip the red→green ceremony, but still verify behavior by the best available means. Report that verification explicitly - use the `VERIFICATION (no test layer)` section of the output format. Absent `risk:light` in the brief, the full TDD-first behavior above applies unchanged.
    - **One test-suite process at a time.** Never run two test-suite processes concurrently against the same database - concurrent suites race on the shared test database's startup clean step and deadlock. Wait for any running suite - foreground or background - to exit before launching another.
    - **Migrate call-sites before the full suite.** Without a packet: for replace/extract/rename changes that touch a widely-referenced pattern, first grep the old pattern to enumerate every call-site and migrate them all; run focused specs while iterating. Under the GREEN scope condition above, that focused-specs run is the GREEN evidence; otherwise run the full suite once as the final gate.
-4. **Cite when a citable source applies.** For every non-trivial choice where a citable source exists - framework / library docs for the version actually in use, the profile's `domainSkills`, or established patterns already in this repo - cite it. Research path, in order:
-   1. Official docs for the framework/library **version actually in use** - prefer a docs MCP for the stack if one is available in the environment (e.g. Microsoft Learn for .NET), else web search.
-   2. The profile's `domainSkills` - invoke each name with the Skill tool before step 3 of this path; never locate a skill file on disk.
-   3. Established patterns already in this repo (cite a repo ref per `citationFormatPath`).
-   Surface citations for the orchestrator to post on the issue. **Never fabricate a citation** - if no citable source applies, say so and state the rationale in plain language. With a packet: skip the research path and every `domainSkills` invocation, and report `DOMAIN_SKILLS_INVOKED: none`.
+4. **Load the domain skills first, then cite.** Your first action, with or without a packet: invoke each `domainSkills` name with the Skill tool, before reading any file; never locate a skill file on disk. `DOMAIN_SKILLS_INVOKED` lists them all. A skill contradicting a repo pattern outranks it: follow the skill and log both in a Decision Log entry; one contradicting the packet where `## Verified facts` leaves it open is a `PACKET_GAP:` stop. Cite every non-trivial choice a source covers: version-matched docs, an invoked skill, or a repo pattern. Research path without a packet, in order:
+   1. Official docs for the **version actually in use** - a docs MCP for the stack when available (e.g. Microsoft Learn for .NET), else web search.
+   2. Established patterns already in this repo (cite a repo ref per `citationFormatPath`).
+   Surface citations for the orchestrator to post on the issue. **Never fabricate a citation** - if no citable source applies, say so and state the rationale in plain language.
 5. **New dependency → `STATUS: PAUSED-FOR-APPROVAL`.** If the optimal solution genuinely requires a new library/toolkit, do not add it. Record the library, what it buys, and its license / OSS status in `BLOCKER`, and return.
 6. **Verify before done.** With `unitTestCmd` defined in the profile and `CLAUDE_HOOK_DISABLE_TESTS_GREEN` not `1`: run only the spec file(s) you added or touched and report that command's real output, never "should pass" - the step 4 Unit gate, or the milestone-end unit gate, is the full-suite run. With `unitTestCmd` defined and the escape hatch set: run it in full and report real output. Without `unitTestCmd`, verify by the best available means and report what was done. Either way honor the `nonNegotiables` (framework versions, platform targets) when defined.
 7. **Leave changes uncommitted.** You never `git commit`, `git push`, `gh pr create`, or merge. You make the edits and run the tests, then hand an uncommitted working tree plus your report back to the orchestrator, which owns review, commit, PR, and merge.
@@ -64,7 +63,7 @@ Write every file as **UTF-8 without a BOM** - a BOM breaks bash/sh shebang lines
 ## Do not (with a packet)
 
 - Read outside `## Files`, or use a symbol not quoted under `## Calls`.
-- Take the research path, or invoke `domainSkills`.
+- Take the research path. Rule 4's `domainSkills` invocation still runs.
 - Run anything beyond `## Verify` and each `## Tests` test's RED run.
 - Write a test `## Tests` does not name.
 
@@ -84,7 +83,7 @@ assistant: "Dispatching the implementer subagent with the `PACKET:` path, profil
 Context: Mid-implementation, the only clean solution needs a new third-party package.
 user: (implementer is running) the optimal fix would pull in a new date library
 assistant: "STATUS: PAUSED-FOR-APPROVAL - the library, what it buys, and its license / OSS status go in the report's BLOCKER slot; hand back for approval before adding any dependency."
-<commentary>`PAUSED-FOR-APPROVAL` is the literal STATUS value `skills/solve-issue/SKILL.md` routes to its new-dependency gate - a bare "PAUSE" is not one of the three enum values and is not parsed. The orchestrator posts the library and its license on the issue; this agent never does.</commentary>
+<commentary>`PAUSED-FOR-APPROVAL` is the literal STATUS value `skills/solve-issue/SKILL.md` routes to its new-dependency gate; a bare "PAUSE" is not parsed. The orchestrator posts the library and its license on the issue; this agent never does.</commentary>
 </example>
 
 <example>

@@ -4,9 +4,6 @@ The single source of truth for milestone-driver's output contract. Every skill's
 `## Output style` section and every agent's `## Communication style` section points
 here.
 
-It sits one level up from the skill folders, for the reason
-`skills/notices.md (It sits here - a peer of the skill)` records.
-
 ## The surface split - read this first
 
 | Surface | What it is | Governed by |
@@ -59,7 +56,7 @@ Each shape is defined **once, here**. Its call sites point at this section; they
 | **Blocked comment** (dependency hold, `solve-milestone`) | `🔴 Blocked - ` | the same three: reason · evidence (the unmerged upstream issue numbers) · what unblocks it (merge the upstream, re-run; the `blocked` label self-clears) |
 | **STOP/PAUSE reason** (`solve-milestone` park step) | `🔴 Parked - ` | the same three, sourced from the implementer's or `solve-issue`'s own return - confirm all three are present before accepting the existing comment |
 | **Decision Log entry** (PR body) | - | choice · rationale · citation (doc URL, repo ref per `citationFormatPath`, or skill - never fabricated) · rejected alternatives |
-| **📋 Decision Log comment** (`solve-issue` step 6.2) | `📋 Decision Log` | one entry per line (choice · rationale · citation · rejected alternatives) · the `DOMAIN_SKILLS_INVOKED` line · the implementer's CITATIONS block |
+| **📋 Decision Log comment** (`solve-issue` step 6.2) | `📋 Decision Log` | one entry per line (choice · rationale · citation · rejected alternatives) · the `DOMAIN_SKILLS_INVOKED` lines and any `Domain skills missed:` line · the implementer's CITATIONS block |
 | **`## Code Review` section** (PR body) | - | run + effort · finding count · per-finding resolution · evidence (each finding's ref per `citationFormatPath`, or the effort level when the count is 0) · park-trigger list |
 | **Triage comment** (`triage`) | `🔴 Triage` | a structured gap list - one row per Blocker: lens/type · description · evidence · `to_clear`. The closing line stays prose only when it carries something the structure does not (the durable-async-note instruction); otherwise it is cut. |
 | **Wave PR body** (`parallel-waves`) | - | the Wave's built-green issues, UI included · evidence (per issue: its branch and the gates it passed on the wave branch) · a choice-only Decision Log · exactly one anchored `## Code Review` heading at column 0, one `<details>`-collapsed `### #<n>` sub-entry per issue, a one-issue Wave included, no special case (`skills/solve-milestone/milestone-granularity.md (aggregates these blocks under)`) |
@@ -69,7 +66,7 @@ Each shape is defined **once, here**. Its call sites point at this section; they
 | **Resolved comment** (`triage`) | `🟢 Resolved` | one row per resolved Blocker: original gap · resolution · evidence · the edit a builder applies; closes on the park label to clear |
 | **`to_clear` field** (both reviewer agents; both `triage` return blocks) | - | the decision or artifact a human must record, plus its evidence reference (per `citationFormatPath`) when one exists. Structural constraint, not a word count: one decision, stated as an instruction a human can act on without reading the rest of the block. A `to_clear` carrying two decisions is two gaps. |
 
-**Choice-only Decision Log** - the two aggregate PR-body shapes above, and nothing else: one line per issue, `- #<n>: <choice>; <choice>; …`, each `<choice>` the text before the first ` · ` of that issue's Decision Log entries, the `DOMAIN_SKILLS_INVOKED:` line excluded. Closed by the line `Full entries (choice · rationale · citation · rejected alternatives) are on each issue's Decision Log comment.` (`skills/solve-issue/SKILL.md` step 6.2). No slot is lost, only relocated: the Decision Log entry row still governs every per-issue PR body and the integration commit, and the `📋 Decision Log` comment holds the four slots once the squash and `--delete-branch` have discarded that commit.
+**Choice-only Decision Log** - the two aggregate PR-body shapes above, and nothing else: one line per issue, `- #<n>: <choice>; <choice>; …`, each `<choice>` the text before the first ` · ` of that issue's Decision Log entries, the `DOMAIN_SKILLS_INVOKED:` lines excluded and any `Domain skills missed:` line kept. Closed by the line `Full entries (choice · rationale · citation · rejected alternatives) are on each issue's Decision Log comment.` (`skills/solve-issue/SKILL.md` step 6.2). No slot is lost, only relocated: the Decision Log entry row still governs every per-issue PR body and the integration commit, and the `📋 Decision Log` comment holds the four slots once the squash and `--delete-branch` have discarded that commit.
 
 **`<details>` sub-entry wrapper** - every `## Code Review` sub-entry of those same two shapes, `### /simplify` included: `<details><summary>#<n></summary>`, a blank line, the `### #<n>` heading and its Code-Review block de-indented to column 0, a blank line, `</details>`. The summary is the issue number alone (`/simplify` for that sub-entry), never its title: a title inside the `## Code Review` span could carry `/code-review run:` or `## Code Review` and deny or mis-scope the gate's verdict parse (`hooks/code-review-gate.sh (heading_match <text>)`).
 

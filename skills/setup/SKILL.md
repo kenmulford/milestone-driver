@@ -146,7 +146,7 @@ See the Phase 3 write rule for why a Yes/No answer records an explicit boolean.
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `domainSkills` | "Any stack-specific skills the implementer and reviewers should invoke for citations? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
+| `domainSkills` | "Any stack-specific skills every planner, implementer and reviewer loads first, on every dispatch? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Agents rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
 | `standingDocs` | "Any `.project/` sections every build should read? `<doc>#<heading>` entries (e.g. `[\"conventions.md#Naming\", \"design-philosophy.md#Error & failure philosophy\"]`)" | Skip → "No standing docs. Each packet quotes the rules its change needs." |
 

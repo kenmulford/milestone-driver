@@ -134,10 +134,10 @@ Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-revi
 
 **Brief each agent with:**
 
-- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria, labels) - read first, never pasted inline.
+- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria, labels) - read right after the skills, never pasted inline.
 - Its recorded design decisions: the same file (comments and any `design-cleared` notes are part of its record).
 - The milestone description: the path of `<scratch>/milestone.md` - batch mode only; pass an empty string in single mode.
-- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (the agent's last research step, invoked only after a dry repo-pattern search and a dry framework-docs step; omit when the expansion is empty).
+- The profile: `sourceGlobs`, `uiSurfaceGlobs`, `nonNegotiables`, `domainSkills` (the agent invokes each name first, before reading any file; omit when the expansion is empty).
 - The cited `.project/` anchors for this issue, with the `read-doc-section` path - omit when that block was a no-op for this issue.
 - The prose contract path and its four section names; omit when `skills/output-style.md` is absent.
 - The resolved citations for this issue; omit when that block was a no-op.
@@ -164,10 +164,10 @@ For each MISS issue whose `triageAgent` return carries `NEEDS_DESIGN_REVIEW: yes
 
 **Brief the design agent with:**
 
-- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria) - read first, never pasted inline.
+- The issue: the path of `<scratch>/issue-<n>.md` (title, body, acceptance criteria) - read right after the skills, never pasted inline.
 - Its recorded design decisions: the same file.
 - Pointers to existing UI surfaces the issue neighbors - via `uiSurfaceGlobs` from the profile.
-- The profile: `uiSurfaceGlobs`, `domainSkills` (the same research-path step as the `triageAgent` brief above; omit when the expansion is empty).
+- The profile: `uiSurfaceGlobs`, `domainSkills` (invoked first, as in the `triageAgent` brief above; omit when the expansion is empty).
 - The cited `.project/` anchors, the prose contract path, and the resolved citations - the **same** ones passed to the `triageAgent` above; omit each when its block was a no-op. Plus `citationFormatPath`, never omitted.
 - The repo root - same as above.
 
@@ -184,6 +184,8 @@ GAPS:
     to_clear: <the one suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
+
+**Domain-skills gate.** A `triageAgent`, design-agent, or Step 3.5 resolver return whose `DOMAIN_SKILLS_INVOKED` misses an expanded `domainSkills` name is re-dispatched once, same brief plus the missing names; the new return replaces the first, its `NEEDS_DESIGN_REVIEW` and `GAPS` included. A second miss keeps that return; Step 5's output and any Step 6 comment on that issue carry `Domain skills missed: <names>`.
 
 ### Step 3.5 - Resolve Blockers before they park
 
@@ -290,7 +292,7 @@ For each qualifying MISS issue:
 2. **Post a triage comment** (`gh issue comment <n> --body "..."`) in the triage-comment shape (`skills/output-style.md`) on ≥1 surviving Blocker. The comment body must:
    - Open with `🔴 Triage` - byte-fixed, parsed downstream at `skills/solve-milestone/SKILL.md (Issues parked)` and probed at `skills/solve-milestone/parallel-waves.md (the probe found a park label)`. Only what FOLLOWS the opener is structured here.
    - Render the surviving Blocker gaps as a **structured table**, one row per gap - lens/type · description · evidence · what clears it (the agent's `to_clear`) - not as prose bullets. A row with an empty evidence cell is an unfilled slot, not a shorter row.
-   - Carry the `DOMAIN_SKILLS_INVOKED` value of both reviewer lenses - `triageAgent`, and `designReviewAgent` when it ran - on its own line. **Ungated**: `none` never blocks, parks, or fails anything.
+   - Carry the `DOMAIN_SKILLS_INVOKED` value of both reviewer lenses - `triageAgent`, and `designReviewAgent` when it ran - on its own line, plus any `Domain skills missed:` line.
    - Close with the durable-async instruction, verbatim: "This is a durable async note - no reply needed now. Record the decision on this issue - run `/milestone-feeder:remediate <n>` to apply these findings, then clear the label - or re-run triage or solve-issue when ready." That line stays **prose**: it qualifies every row at once, so it has no cell to live in (`skills/output-style.md`, `## When prose is the correct form`). Name the remediate verb unconditionally: it reads as an optional tool, so do not probe whether the feeder plugin is installed, and do not run it from here (`skills/triage/SKILL.md#Non-negotiables`).
 
    Example:

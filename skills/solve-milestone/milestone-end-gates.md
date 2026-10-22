@@ -26,7 +26,7 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 
 Collect every `/code-review` finding from step 4 and every red gate from steps 5-7; step 3's coherence findings never enter it.
 
-- One or more collected: dispatch the `implementerAgent` once, briefed with `<range>` and every finding and failure. It returns an uncommitted working tree, per its own contract.
+- One or more collected: dispatch the `implementerAgent` once, briefed with `<range>`, every finding and failure, and the expanded `domainSkills`.
 - Commit: subject line, the fix's summary, step 4's `/code-review` result in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md § The integration commit`, then a final paragraph of exactly `Milestone-End-Fix: <milestone-number>` (the milestone path's shape at `skills/solve-milestone/simplify-pass.md (## Land the findings)`). No `Issue:` line.
 - Re-run the sequence from step 4, never re-running step 3's coherence pass on a fix commit.
 
