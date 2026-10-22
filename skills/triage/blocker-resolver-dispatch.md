@@ -37,7 +37,7 @@ RESOLUTIONS:
 
 An issue whose Blockers are **all** dropped reaches Step 4 carrying no Blocker gap and aggregates to `issueStates[n].blockers == false`, `label: null` - unparked. An issue with at least one survivor parks on the survivors alone. Advisory gaps pass through untouched: they never gate, so this pass neither reads nor resolves them.
 
-Step 6 posts the outcome - one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)` and carrying the return's `DOMAIN_SKILLS_INVOKED` on its own line (**ungated**: `none` never blocks, parks, or fails anything), and a `🔴 Triage` comment covering the survivors only.
+Step 6 posts the outcome - one `🟢 Resolved` comment per issue with at least one dropped Blocker, in the shape at `skills/output-style.md (Resolved comment)` and carrying the return's `DOMAIN_SKILLS_INVOKED` on its own line, plus any `Domain skills missed:` line (`skills/triage/SKILL.md (Domain-skills gate)`), and a `🔴 Triage` comment covering the survivors only.
 
 ### Unparking
 
@@ -48,7 +48,7 @@ That `🟢 Resolved` comment closes on the same instruction, naming the label - 
 ### Degradation (no error, ever)
 
 - **`blockerResolverAgent` absent from the profile** → the bundled default applies and nothing degrades.
-- **The agent is unresolvable** - not installed, or not dispatchable in this session → skip the pass: every Blocker survives and parks exactly as it does today, one log line, no error, and no park of its own.
+- **The agent is unresolvable** - not installed, or not dispatchable in this session → skip the pass: every Blocker survives and parks, one log line, no error, and no park of its own.
 - **A dispatch fails, or returns a block that cannot be parsed** → the same skip, scoped to that one issue.
 
 Resolution text is **never cached**. Step 6.5 stores the post-resolution `blockers` value and nothing else from this step, so an invalidated entry re-resolves from scratch instead of replaying a stale verdict.

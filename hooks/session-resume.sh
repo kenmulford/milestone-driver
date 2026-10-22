@@ -69,5 +69,5 @@ printf '%s\n' '|---|---|---|---|---|'
 printf '%s' "$table"
 [ "$more" -gt 0 ] && printf '… %s more\n' "$more"
 printf '\n'
-printf '%s\n' 'skills/solve-milestone/parallel-waves.md (Wave-state checkpoint - consult before probing)'
+printf '%s\n' "${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/}skills/solve-milestone/parallel-waves.md (Wave-state checkpoint - consult before probing)"
 exit 0

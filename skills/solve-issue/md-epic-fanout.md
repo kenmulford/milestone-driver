@@ -8,7 +8,7 @@ A parent issue's body carries an ordered list of milestones - the build order fo
 
 1. **Profile read only.** Run SKILL.md's `## Before starting` step 1 (profile read) - the fan-out loop needs `integrationBranch` to re-sync between milestones, and `integrationGranularity` for step 6. Skip SKILL.md steps 2 and 3 (the clean-tree check and the branch-state probe): a parent issue authors no code, so it has no feature branch and no branch state to probe.
 
-2. **Parse the ordered milestone list** from `#n`'s raw body (pwsh on Windows, bash elsewhere - same host selection as `${CLAUDE_PLUGIN_ROOT}/scripts/ci-preflight-steps.{sh,ps1}` at SKILL.md step 6.1):
+2. **Parse the ordered milestone list** from `#n`'s raw body (pwsh on Windows, bash elsewhere, per SKILL.md `## Before starting`):
 
    ```bash
    gh issue view <n> --json body --jq .body | bash "${CLAUDE_PLUGIN_ROOT}/scripts/parse-md-epic-order.sh"

@@ -1,6 +1,6 @@
 ## Wave-granularity clauses (`integrationGranularity: "wave"`)
 
-Reaching this file means the caller resolved `integrationGranularity` to `"wave"` from the profile at step 1 (`skills/solve-issue/SKILL.md (Resolved from the profile at step)`). `### Clauses` is the complete set of per-step deltas that mode applies, and every one applies to **every** issue in the Wave, UI included. The wave branch, the one wave PR, the explicit close, and its disposition belong to `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/integration-granularity.md § "wave"`.
+Reaching this file means the caller resolved `integrationGranularity` to `"wave"` from the profile at step 1 (`skills/solve-issue/SKILL.md (Resolved from the profile at step)`). `### Clauses` is the complete set of per-step deltas that mode applies, and every one applies to **every** issue in the Wave, UI included. The wave branch, the one wave PR, the explicit close, and its disposition belong to `skills/solve-milestone/integration-granularity.md:13-26`.
 
 ### Clauses
 

@@ -1,6 +1,6 @@
 ---
 name: setup
-description: This skill should be used when "milestone-driver:setup" is invoked directly, OR auto-invoked by solve-issue/solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues - no re-invocation needed.
+description: This skill should be used when "milestone-driver:setup" is invoked directly, OR auto-invoked by triage, solve-issue, or solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues - no re-invocation needed.
 ---
 
 # setup - first-run profile bootstrap
@@ -16,10 +16,10 @@ Generate or repair the driver profile through a guided, inference-first flow. Th
 
 ## When this runs
 
-- **Auto-invoked** by `solve-issue`/`solve-milestone` when the driver profile is absent or missing a required Core key.
+- **Auto-invoked** by `triage`, `solve-issue`, or `solve-milestone` when the driver profile is absent or missing a required Core key.
 - **Direct invocation** (`/milestone-driver:setup`) when onboarding a new repo or repairing an existing profile.
 
-**Migration preamble (run first, before Phase 1),** so Phase 1 pre-fills from the already-migrated canonical file. Resolve the profile: `<repo>/.milestone-config/driver.json` exists → use it. Else a legacy root `<repo>/milestone-driver.json` exists → migrate it first (`mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` when git-tracked, else plain `mv`), then continue. Else it is a new project (Phase 3 creates the canonical file). Idempotent: once `.milestone-config/driver.json` exists this is a no-op. Both present → `.milestone-config/driver.json` wins; no move, no overwrite, no deletion of the leftover root file. The transitional READ covers the gap before the move lands.
+**Migration preamble (run first, before Phase 1),** so Phase 1 pre-fills from the already-migrated canonical file. Resolve the profile: `<repo>/.milestone-config/driver.json` exists → use it. Else a legacy root `<repo>/milestone-driver.json` exists → migrate it first (`mkdir -p .milestone-config`; `git mv <repo>/milestone-driver.json <repo>/.milestone-config/driver.json` when git-tracked, else plain `mv`), then continue. Else it is a new project (Phase 3 creates the canonical file). Idempotent: once `.milestone-config/driver.json` exists this is a no-op. Both present → `.milestone-config/driver.json` wins; no move, no overwrite, no deletion of the leftover root file. The transitional read covers the gap before the move lands.
 
 ## Procedure
 
@@ -112,7 +112,7 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `integrationGranularity` | "How should built issues integrate: one PR per issue, one PR per dependency wave, or one PR for the whole milestone (default)? Milestone mode folds every issue in locally and pushes once at the end, so a milestone costs one push, one PR, and one CI run instead of one per issue (branch mechanics: `skills/solve-milestone/milestone-granularity.md`)." | Skip → `milestone` (one push, one PR, one CI run for the whole milestone). |
+| `integrationGranularity` | "How should built issues integrate: one PR per issue, one PR per dependency wave, or one PR for the whole milestone (default)? Milestone mode folds every issue in locally and pushes once at the end, so a milestone costs one push, one PR, and one CI run instead of one per issue (branch mechanics: `skills/solve-milestone/milestone-granularity.md`)." | Skip → `milestone` under `solve-milestone` (one push, one PR, one CI run for the whole milestone); a standalone `solve-issue` run integrates per issue. |
 
 **Wave precondition prompt.** When - and only when - the user selects `"wave"`, fire this informational, non-blocking prompt (every wave selection, unconditionally - not gated on detected gate-strength):
 
@@ -146,7 +146,7 @@ See the Phase 3 write rule for why a Yes/No answer records an explicit boolean.
 
 | Key | Plain-language label | Skip-consequence |
 |---|---|---|
-| `domainSkills` | "Any stack-specific skills the implementer and reviewers should invoke for citations? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Implementer and reviewers rely on general docs + repo conventions only." |
+| `domainSkills` | "Any stack-specific skills every planner, implementer and reviewer loads first, on every dispatch? Exact `plugin:skill` names (e.g. `[\"maui-skills:maui-data-binding\", \"maui-skills:maui-shell-navigation\"]`)" | Skip → "Agents rely on general docs + repo conventions only." |
 | `nonNegotiables` | "Any hard constraints the implementer must honour? (framework versions, platform targets)" | Skip → "None recorded." |
 | `standingDocs` | "Any `.project/` sections every build should read? `<doc>#<heading>` entries (e.g. `[\"conventions.md#Naming\", \"design-philosophy.md#Error & failure philosophy\"]`)" | Skip → "No standing docs. Each packet quotes the rules its change needs." |
 
@@ -225,7 +225,7 @@ After the profile is written (Phase 3) and before returning control, ensure all 
 
 #### Reconcile the existing `judgment-call` label
 
-Run this FIRST, before bulk provisioning. A repo may carry a legacy label named `judgment-call` or `⚠ judgment-call`; renaming it here preserves all existing issue/PR associations:
+Run this before bulk provisioning. A repo may carry a legacy label named `judgment-call` or `⚠ judgment-call`; renaming it here preserves all existing issue/PR associations:
 
 ```
 # If the legacy label exists, rename it (preserves all issue/PR associations):
@@ -251,7 +251,7 @@ gh label create "judgment call"  --color FBCA04 --description "Borderline autono
 
 #### Apply-time label helper (for consuming skills)
 
-The `gh label create --force` idiom above is the **canonical apply-time label helper** that `triage`, `solve-milestone`, and `solve-issue` must call immediately before each `gh issue edit --add-label "<name>"`:
+The `gh label create --force` idiom above is the **canonical apply-time label helper** that `solve-milestone` and `solve-issue` call immediately before each `gh issue edit --add-label "<name>"`, including when they apply a label `triage` recommended:
 
 ```
 gh label create "<name>" --color <hex> --description "<desc>" --force
@@ -261,7 +261,7 @@ using the color and description from the taxonomy table above, so a fresh consum
 
 ### Phase 5 - Return control
 
-Return control to the caller immediately. Do **not** ask the user to re-run `/milestone-driver:solve-issue` or `/milestone-driver:solve-milestone`. The bootstrap is a sub-step, not a restart.
+Return control to the caller immediately. Do **not** ask the user to re-run the calling skill. The bootstrap is a sub-step, not a restart.
 
 ## Output style
 

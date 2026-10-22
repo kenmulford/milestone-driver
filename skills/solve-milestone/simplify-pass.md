@@ -57,7 +57,7 @@ Run `/simplify` on the orchestrator's own main line, **never as a dispatched age
 
 **Step 5 stops at that review output; step 8 does the applying.** `/simplify` has its caller apply each finding, and those edits are main-thread writes: `hooks/force-subagent.sh` is `PreToolUse` on `Write|Edit|MultiEdit|NotebookEdit`, exits 0 only for input carrying an agent identity, and so denies every one landing under `sourceGlobs` at exit 2 (`hooks/force-subagent.sh (main-thread edits to source)`). The command exposes no findings-only flag, so the stopping point is a rule here, not an argument there: do not carry out its apply phase on this line, and do not collapse steps 5 and 8 back together. A collapsed pass takes that denial into step 6's failure line and logs a dead feature as a failed run.
 
-Brief the `implementerAgent` once with the findings, the diff range, and the expected file scope; it returns an uncommitted working tree, commits nothing, pushes nothing, opens nothing. Route **every** fix through that one dispatch, including a fix landing outside `sourceGlobs` where the gate would have allowed a main-line edit: one rule, not two.
+Brief the `implementerAgent` once with the findings, the diff range, the expected file scope, and the expanded `domainSkills`; it returns an uncommitted working tree. Route **every** fix through that one dispatch, including a fix landing outside `sourceGlobs` where the gate would have allowed a main-line edit: one rule, not two.
 
 ## Land the findings
 

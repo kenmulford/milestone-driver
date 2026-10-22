@@ -87,7 +87,8 @@ if (Test-Path -LiteralPath $file) {
 
 if ($count -ge $Cap) {
     $what = if ($key -match '^[0-9]+$') { "issue $key" } else { "branch $key" }
-    [Console]::Error.WriteLine("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (skills/review-depth.md § The ladder). Park the issue instead of dispatching again. Reset: delete '$file', or set CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1 to override.")
+    $root = if ($env:CLAUDE_PLUGIN_ROOT) { "$($env:CLAUDE_PLUGIN_ROOT)/" } else { '' }
+    [Console]::Error.WriteLine("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (${root}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
     exit 2
 }
 

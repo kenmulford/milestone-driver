@@ -12,7 +12,7 @@ The `"wave"` value · The `"milestone"` value · Phase 1 deltas · Phase 2 delta
 
 ## `"wave"`
 
-The merge-tail **MECHANISM is the same as under `"issue"` granularity** (merge-in + re-verify against accumulated state + bounded auto-resolve); only the target and PR-opening differ:
+The merge-tail **mechanism is the same as under `"issue"` granularity** (merge-in + re-verify against accumulated state + bounded auto-resolve); only the target and PR-opening differ:
 
 - **No per-issue PR.** Phase 1's per-issue tail (step 8) builds, verifies, commits, and pushes each issue branch but opens no per-issue PR: `solve-issue` step 6.6 is granularity-conditional, and wave granularity suppresses it. The wave-state entry for such an issue carries `pr: null`.
 - **Integrate into a wave branch.** Integrate the Wave's built-green branches, UI included, into a wave branch `wave/<milestone>-w<N>` (N = the Wave number). Create it fresh and idempotently: the wave branch is a regenerable integration artifact assembled entirely from already-pushed per-issue branches, so it is safe to force-clear and rebuild every run - unlike the per-issue `issue/<n>-<slug>` branches, which may carry unpushed commits Phase 1's pre-clean guard must preserve (`parallel-waves.md` step 2). Before creating it, delete any stale leftover from an interrupted prior run (`git branch -D wave/<milestone>-w<N>` locally; `git push origin --delete wave/<milestone>-w<N>` if it was pushed) and recreate it from the current `integrationBranch` tip. Then apply the policy unchanged: merge each branch into the wave branch, re-verify against accumulated state (unit + deferred E2E / port-binding gates), bounded auto-resolve on conflict, else park `blocked` (label + comment + preserve branch) and continue with the next branch.
@@ -26,7 +26,7 @@ The merge-tail **MECHANISM is the same as under `"issue"` granularity** (merge-i
 
 ## `"milestone"`
 
-The merge-tail **MECHANISM is the same as under `"issue"` granularity**; only the target and the on-green action differ. The mechanics are `milestone-granularity.md`'s and are not restated here or in core `SKILL.md`; this section is the pointer:
+The merge tail **differs from `"issue"` granularity**: built-green branches squash-merge locally onto the milestone branch, with no merge-in and no fold re-verify; bounded auto-resolve is unchanged. The mechanics are `milestone-granularity.md`'s and are not restated here or in core `SKILL.md`; this section is the pointer:
 
 - **Nothing is pushed, and no per-issue PR is opened for any issue, UI included.** Phase 1 builds, verifies, and commits on `issue/<n>-<slug>` branches cut from the milestone branch `milestone-<number>-<slug>`; Phase 2 folds each built-green branch onto that branch with the local squash-merge-plus-one-commit of `milestone-granularity.md § Folding an issue into the milestone branch`, whose `Issue: #<n>` trailer answers every resume and buildability read (`§ Resume and buildability from the trailer`). The same two sections serve the sequential loop's local merge.
 - **One push, one PR, one CI run at milestone end.**
@@ -39,7 +39,7 @@ Each row names a site in `parallel-waves.md § Parallel mode - Phase 1: concurre
 
 | Site | Value | Delta |
 |---|---|---|
-| `### Parallelizable-set selection`, buildable condition (a) | `"milestone"` | A dependency counts as satisfied when it carries its `Issue: #<n>` trailer inside the milestone branch's merge-base window, **not** when it is merged to `integrationBranch` - nothing merges there before milestone end (`milestone-granularity.md § Resume and buildability from the trailer`). |
+| `### Parallelizable-set selection`, buildable condition (a) | `"milestone"` | A dependency counts as satisfied when it carries its `Issue: #<n>` trailer inside the milestone branch's merge-base window, or reads `CLOSED` after `milestone-granularity.md § Merging finished issues mid-milestone` (`milestone-granularity.md § Resume and buildability from the trailer`). |
 | Phase 1 / Phase 2 summary bullets; step 11's held set | `"milestone"` | The green set is held **built only, nothing pushed and no per-issue PR**. Phase 1 performs no merge to the milestone branch: that's Phase 2's target. |
 | Wave-loop preamble, Wave-boundary barrier | `"milestone"` | Phase 2's squash-merges land on the **milestone branch**; the local `integrationBranch` re-sync is a no-op, nothing having been pushed. |
 | Step 2, `<base>` | `"milestone"` | `<base>` is the milestone branch `milestone-<number>-<slug>` (`milestone-granularity.md § Branch model`), not `integrationBranch`. |
