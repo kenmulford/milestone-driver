@@ -6,7 +6,7 @@ The branch that reaches this file belongs to the caller, which runs the probe an
 
 **(a) A PR exists for `issue/<n>-*`.**
 - **merged** → the work is already integrated; do not re-implement or open a new PR; resume at step 6.9 (confirm the issue is closed / close it). A merged PR means the branch was deleted; this state follows an interrupt between merge and close.
-- **open** → check out that branch; resume at auto-merge (step 6.8) - do not re-implement and do not open a second PR. The open PR is the authoritative "work is built and submitted" signal.
+- **open** → check out that branch; resume at auto-merge (step 6.8) - do not re-implement and do not open a second PR.
 
 **(b) No PR; the branch exists with commits ahead.** Check both local and remote refs (`git branch -a --list "*issue/<n>-*"` or `git ls-remote --heads origin "issue/<n>-*"`); with no local branch, track the remote (`git checkout --track origin/issue/<n>-<slug>`) and compute commits ahead against the remote-tracking ref. Skip re-implementation. Re-verify first - if `unitTestCmd` is defined, run step 4's `unit-gate` and confirm green; if absent (no test layer), confirm the branch diff is non-empty and based on `integrationBranch` (`git diff <integrationBranch>...HEAD --stat`). Then resume at step 6.1 (`/code-review`) and follow step 6's normal flow (commit only if there are uncommitted changes, push, open PR). A red re-verify, or a diff that is empty / clearly on the wrong base, falls into the normal step-4 red-suite path (step 4's cap; park if non-converging). That implementer re-dispatch carries the packet at step 2's pinned path when its `Base:` equals the worktree HEAD; otherwise re-run step 2 first.
 

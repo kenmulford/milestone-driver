@@ -3,6 +3,33 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.30.4 - prompt-audit follow-ups
+
+**Theme:** The agent and skill instruction files the v1.30.3 audit flagged now agree with each other. Two citations point at their definers, three files keep a CRLF size margin, and five leftover caps words are lowercase.
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #760 Give implementer GREEN scope a branch for a test layer without unitTestCmd | - | `agents/implementer.md` rule 3 GREEN scope and rule 6: with a test layer and no `unitTestCmd`, the implementer runs the spec files it added or touched with the repo's own runner and reports that output as GREEN. The `VERIFICATION` label, and `skills/solve-issue/SKILL.md` step 3's contract check, apply when no test layer exists or under `risk:light`. |
+| #761 Cite the wave-branch anchor in wave-clauses instead of a line range | - | `skills/solve-issue/wave-clauses.md` cites `integration-granularity.md (Integrate into a wave branch.)` in place of a line range. |
+| #762 Point milestone-end-gates at the Code-Review block's definer | - | `skills/solve-milestone/milestone-end-gates.md` and `skills/solve-milestone/simplify-pass.md` take the `Code-Review:` block shape from `milestone-granularity.md (Wave granularity keeps the block.)`. Before this they cited the section that says a milestone commit carries no block. |
+| #763 Fix blocker-resolver source 6 opener and verdict-row wording | - | `agents/blocker-resolver.md`: source 6 runs when sources 1-5 leave the Blocker open, and a conventional default resolves only once it is verified against sources 5 and 6. |
+| #764 Trim three files so free bytes exceed line count under CRLF | - | `skills/solve-milestone/integration-granularity.md`, `skills/solve-issue/resume-paths.md`, `skills/solve-milestone/SKILL.md` and `skills/solve-milestone/milestone-end-gates.md` keep more free bytes than lines, so a CRLF checkout passes `check-size-budgets`. |
+| #765 Lowercase caps residue in five files and align the design-reviewer Blocker row | - | Five caps-emphasis words are lowercased. The `agents/design-reviewer.md` Blocker row reads "will produce a poor result, after a genuinely dry search or with no conventional default", matching criterion 3. |
+
+### Consumer notes (upgrading from v1.30.3)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- In a repo with a test layer and no `unitTestCmd`, the implementer reports a scoped TDD EVIDENCE run in place of a `VERIFICATION` section.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- With a test layer and no `unitTestCmd`, no local gate runs the full suite: the implementer runs touched specs and the Unit gate skips. Only CI runs the full suite.
+- No ceiling raised. At or near: `agents/implementer.md` WORD 2499/2500, `skills/solve-issue/SKILL.md` LINE 320/320 and CLOSURE 13393/13400, `skills/solve-milestone/SKILL.md` LINE 330/330, `agents/blocker-resolver.md` WORD 1793/1800, `skills/solve-milestone/simplify-pass.md` WORD 1591/1600.
+
 ## v1.30.3 - every agent loads the domain skills first
 
 **Theme:** The planner, implementer, triage reviewer, design reviewer and blocker resolver invoke every expanded `domainSkills` name as their first action on every dispatch, and the orchestrator re-dispatches a return that skipped one.

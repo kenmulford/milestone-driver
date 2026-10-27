@@ -86,7 +86,7 @@ Render the two blocks from their existing definitions; this section adds only th
 | Where | Render per | Delta |
 |---|---|---|
 | PR body, beneath the `## Simplify pass` block | `skills/solve-issue/SKILL.md` step 6.3 | effort is the verdict's, not a fixed `medium` |
-| Commit message | `skills/solve-milestone/milestone-granularity.md § The integration commit` | no `Issue: #<n>` trailer |
+| Commit message | `skills/solve-milestone/milestone-granularity.md (Wave granularity keeps the block.)` | no `Issue: #<n>` trailer |
 
 **No Decision Log** on either path, the same non-issue-PR exemption the CHANGELOG PR carries (`skills/solve-milestone/changelog-authoring.md (doc-only CHANGELOG entry, no executable surface)`).
 

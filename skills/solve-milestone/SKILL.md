@@ -81,7 +81,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    **The permission pre-flight gate runs here, once** (`### Permission pre-flight gate`): a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (`sequential-loop.md` step 2, `parallel-waves.md` Phase 1 step 3) read this decision; the gate never re-fires mid-loop.
 
-   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the prompt, the Yes/No branches writing `parallel: true`/`false` to `.milestone-config/driver.json`, the persistence rule, and the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which skips the prompt, falls to sequential with a loud note, and persists nothing. On any other row it is never read.
+   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the prompt, the Yes/No branches writing `parallel: true`/`false` to `.milestone-config/driver.json`, the persistence rule, and the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which skips the prompt, falls to sequential with a loud note, and persists nothing.
 
       **Nothing to decide:** `parallel` absent and `unitTestCmd` absent → row 5 → parallel, quiet; no interview, no persisted value.
 
@@ -103,7 +103,7 @@ The **milestone description is the ordering source of truth**. Read it (`gh api 
 
 Read `versioning`. **`versioning: false`** → skip this step; record "version-free run - no version determined or bumped" and proceed to Phase 0.
 
-**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its branch table, fail-open behavior, and non-interactive degradation. Hold that target for the loop. Under `versioning: false` it is never read.
+**Otherwise** (`true` or absent) → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/version-target.md` and run it: the deterministic extractor `${CLAUDE_PLUGIN_ROOT}/scripts/extract-version.{sh,ps1}` (never parse by judgment), its branch table, fail-open behavior, and non-interactive degradation. Hold that target for the loop.
 
 ### Phase 0 - Triage
 
@@ -149,7 +149,7 @@ Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave,
 
 The loop **never waits on a human**. Every issue ends merged or parked (label, open branch if applicable, comment), UI included. Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
 
-In **versioned mode** the first issue's commit sets `plugin.json` to the target version; every later PR is idempotent. In version-free mode no PR carries a version change.
+In **versioned mode** the first issue's commit sets `plugin.json` to the target version; every later PR is idempotent.
 
 ### Permission pre-flight gate
 
@@ -235,7 +235,7 @@ Show after each Wave completes.
 ▶ Next: Wave 2 (#203 👁️, #204) - redirect or reprioritize before it lands.
 ```
 PR cell: the PR number if the issue has one, else -.
-Note cell: an issue sent through the Auto loop shows `remediated, cleared` (clean re-triage, label cleared), `remediated, still parked` (cap spent or still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`); Result still shows the state reached. No Auto loop → cell unchanged. A slow first build adds its note per `skills/solve-issue/SKILL.md (Slow first build:)`.
+Note cell: an issue sent through the Auto loop shows `remediated, cleared` (clean re-triage, label cleared), `remediated, still parked` (cap spent or still dirty), or `NEEDS_HUMAN, parked` (`skills/remediate-handoff.md (Park for good)`). No Auto loop → cell unchanged. A slow first build adds its note per `skills/solve-issue/SKILL.md (Slow first build:)`.
 
 **Milestone end row** (`integrationGranularity: "milestone"` only). Once `skills/solve-milestone/milestone-end-gates.md`'s sequence finishes, print one Template-2-shaped table before Template 3:
 
@@ -292,7 +292,7 @@ The orchestrator never `Read`s a persisted tool-result file (`~/.claude/projects
 Use Template 3 as the layout. On completion or systemic-failure halt, report:
 
 - **Issues built and merged** to `integrationBranch`, with PR links.
-- **Issues parked** - per issue: number, title, park label, blocker reason, the Auto-loop outcome if attempted, and the open feature branch if applicable. Take the reason from tracked context (triage gap, STOP/PAUSE reason, or unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent matching comment, maybe from a prior run: opening `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
+- **Issues parked** - per issue: number, title, park label, blocker reason, the Auto-loop outcome if attempted, and the open feature branch if applicable. Take the reason from tracked context (triage gap, STOP/PAUSE reason, or unmerged upstream). Not in active context → read `gh issue view <n> --json comments` and use the most recent matching comment: opening `🔴 Triage` (triage-park), `🔴 Blocked` (dependency-hold), or `🔴 Parked` (build-park). gh returns comments oldest-first, so take the LAST match. No anchored match → report "park reason not recorded (pre-1.7.0 park format)". Never invent a reason.
 - **PRs carrying a `judgment call` label**, flagged for post-run review.
 - **PRs missing a `## Code Review` section**, flagged the same way, for review before the `integrationBranch` → `protectedBranch` merge.
 - **Auto-resolved-conflict issues** (parallel mode) - those whose merge conflict the serial verified merge tail auto-resolved, for a human to sanity-check.
@@ -315,7 +315,7 @@ The parked count comes from this run's **in-context tracking** - every issue tha
 
 Either condition holding → post _"Skipping CHANGELOG authoring - run did not fully complete (N parked)."_ and go straight to `## Run-complete notification` - except under `integrationGranularity: "milestone"`, where it skips only `changelog-authoring.md` steps 6.1-6.5: `milestone-granularity.md § Milestone end` still runs gates, push, and PR for whatever merged (`skills/solve-milestone/milestone-granularity.md (Steps 2 to 6 run for whatever did merge.)`).
 
-**Guard passes** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/changelog-authoring.md` and run its steps 6.1–6.9 (idempotency check → PR summaries → categorize → theme → author the entry → branch name → doc-only PR → CI result → surface in the final summary). While the guard holds it is never read.
+**Guard passes** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/changelog-authoring.md` and run its steps 6.1–6.9 (idempotency check → PR summaries → categorize → theme → author the entry → branch name → doc-only PR → CI result → surface in the final summary).
 
 ## Run-complete notification
 

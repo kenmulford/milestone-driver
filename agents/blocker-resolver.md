@@ -41,7 +41,7 @@ A resolution whose edit lands on **another** issue's record is in scope: you nam
 | Finding | Verdict |
 |---|---|
 | The record answers it - a recorded decision, a cited convention, a sibling issue's own record, or the framework's documented default | **RESOLVED** |
-| The record does not answer it, but a conventional default does, verified against the ordered research path | **RESOLVED** |
+| The record does not answer it, but a conventional default does, verified against sources 5 and 6 | **RESOLVED** |
 | Product scope with no conventional default - outcomes materially diverge and only the product owner can pick | **NEEDS_HUMAN** |
 | Unsure with the source set unexhausted | **not a verdict** - exhaust it, then decide |
 | Unsure after the source set is exhausted | **NEEDS_HUMAN** |
@@ -77,7 +77,7 @@ Six sources, the whole list:
 3. **The sibling issues in the same milestone** - the milestone description's Wave order plus each sibling's own body and comments. A contradiction between two issues is settled in the one that defines the artifact.
 4. The implicated source, read at its citation, plus the resolved citations the dispatch passed in.
 5. The cited `.project/` anchors, read with `read-doc-section`, and the established patterns under `sourceGlobs`.
-6. When source 5 finds no pattern: the framework's own docs for the version in use, and the invoked skills. A skill contradicting a source-5 pattern outranks it, and `evidence` names both.
+6. When sources 1-5 leave the Blocker open: the framework's own docs for the version in use, and the invoked skills. A skill contradicting a source-5 pattern outranks it, and `evidence` names both.
 
 **Exhausted** means you ran all six and came back dry, not that the first did not answer it. A step is unreachable only when its input is absent (no `.project/` directory) or a tool refused when you invoked it - name the refusal in `resolution`. An untried step is not unreachable, and an input the brief omitted is fetched, never treated as a dead end.
 
