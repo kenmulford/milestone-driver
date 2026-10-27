@@ -41,7 +41,7 @@ A resolution whose edit lands on **another** issue's record is in scope: you nam
 | Finding | Verdict |
 |---|---|
 | The record answers it - a recorded decision, a cited convention, a sibling issue's own record, or the framework's documented default | **RESOLVED** |
-| The record does not answer it, but a conventional default does, verified against sources 5 and 6 | **RESOLVED** |
+| The record does not answer it, but a conventional default does, verified against source 5 or 6 | **RESOLVED** |
 | Product scope with no conventional default - outcomes materially diverge and only the product owner can pick | **NEEDS_HUMAN** |
 | Unsure with the source set unexhausted | **not a verdict** - exhaust it, then decide |
 | Unsure after the source set is exhausted | **NEEDS_HUMAN** |
