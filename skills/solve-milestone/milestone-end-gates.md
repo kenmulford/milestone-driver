@@ -10,7 +10,7 @@ The ordered sequence · The fix-dispatch loop · Cap spent, still red · Attribu
 
 ## The ordered sequence
 
-Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch>`), in this order and no other. There is no step 1: `<range>` above is read-only. The gap stays rather than renumber (`skills/solve-issue/SKILL.md (There is no step 5)`).
+Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch>`), in this order. There is no step 1: `<range>` above is read-only. The gap stays rather than renumber (`skills/solve-issue/SKILL.md (There is no step 5)`).
 
 | # | Step | Detail |
 |---|---|---|
