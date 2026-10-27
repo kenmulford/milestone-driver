@@ -1,6 +1,6 @@
 ---
 name: setup
-description: This skill should be used when "milestone-driver:setup" is invoked directly, OR auto-invoked by triage, solve-issue, or solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues - no re-invocation needed.
+description: This skill should be used when "milestone-driver:setup" is invoked directly, or auto-invoked by triage, solve-issue, or solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues - no re-invocation needed.
 ---
 
 # setup - first-run profile bootstrap

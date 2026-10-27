@@ -46,7 +46,7 @@ GAPS:
     severity: Blocker | Advisory
     type: spec-insufficiency | scalability | pattern-inconsistency | missing-state | missing-affordance | accessibility
     description: <one line>
-    to_clear: <the ONE suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
+    to_clear: <the one suggested resolution or reference pattern (e.g. "group under collection headers like ConfirmImportPage"), as an instruction the human can act on without reading the rest of the block, plus its evidence reference (per `citationFormatPath`) when one exists - structural, not a word count; two resolutions here is two gaps (skills/output-style.md, "to_clear field" row)>
   - … (or "none")
 ```
 
@@ -67,7 +67,7 @@ Five sources, the whole list:
 | Finding | Severity |
 |---|---|
 | Approved design will produce a poor result at realistic data volumes (scalability) | **Blocker** |
-| Pattern divergence with no recorded justification after a dry search and no conventional default | **Blocker** |
+| Pattern divergence with no recorded justification that will produce a poor result, after a genuinely dry search or with no conventional default | **Blocker** |
 | Missing required affordance (confirm dialog on destructive op; Save/Cancel; enablement rule) | **Blocker** |
 | Missing required state (empty/error/loading/disabled when the interaction demands it) | **Blocker** |
 | Spec absent/vague/self-contradictory with a genuinely dry search | **Blocker** |
