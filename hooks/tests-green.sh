@@ -4,7 +4,8 @@
 # Deny: hook-deny.{sh,ps1}. Requires jq. Escape: CLAUDE_HOOK_DISABLE_TESTS_GREEN=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_TESTS_GREEN:-}" = "1" ] && exit 0
 input="$(cat)"; [ -z "$input" ] && exit 0
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 command -v jq >/dev/null 2>&1 || exit 0
 # Self-scope to commits (parity with no-push; defends the "if predicate runs
 # always when the command is too complex to parse" fallthrough).

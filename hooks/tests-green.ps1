@@ -92,7 +92,8 @@ if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
 $LASTEXITCODE = 0
 Push-Location $projectDir
 try {
-    $testOutput = Invoke-Expression $unitCmd 2>&1
+    # *>&1: every stream, so nothing reaches stdout ahead of the Codex deny JSON.
+    $testOutput = Invoke-Expression $unitCmd *>&1
     $testCode = $LASTEXITCODE
     $testOutput | ForEach-Object { [Console]::Error.WriteLine($_) }
 } finally { Pop-Location }

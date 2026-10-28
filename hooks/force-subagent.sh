@@ -11,7 +11,8 @@
 [ "${CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT:-}" = "1" ] && exit 0
 
 input="$(cat)"
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -21,7 +22,7 @@ for field in agent_id agent_type parent_session_id; do
   [ -n "$val" ] && exit 0
 done
 
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patch-input.sh"
+. "$hook_dir/patch-input.sh"
 paths=()
 tool="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)"
 if [ "$tool" = apply_patch ]; then

@@ -78,7 +78,7 @@ Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
 | Exit 2 does not block. Only stdout `hookSpecificOutput.permissionDecision: "deny"` with exit 0 blocks. | Every deny goes through `hooks/hook-deny.{sh,ps1}`: a payload carrying `turn_id` (Codex) gets the JSON deny, any other payload exit 2 + stderr. |
 | No `if` pre-filter. | Each Bash gate self-filters on `tool_input.command` and exits 0 for a non-matching command. |
 | A `spawn_agent` child's payload carries `agent_id` and `agent_type: "default"`. The main thread carries neither. `session_id` is the parent's in both. | force-subagent and dispatch-cap guard the main thread only. Any child may edit source, including another plugin's child. This is a Codex limitation. |
-| The `spawn_agent` message is encrypted. The tool is named `collaborationspawn_agent` in the payload. | dispatch-cap reads the agent and issue from `tool_input.task_name` (`<name>_issue_<n>_<attempt>`, set per `skills/runtime-codex.md`). |
+| The `spawn_agent` message is encrypted. The tool is named `collaborationspawn_agent` in the payload. | dispatch-cap reads the agent and issue from `tool_input.task_name` (`<name>_issue_<n>_<attempt>`, set per `skills/runtime-codex.md`). It counts only spawns that follow this convention. Any other `task_name` is uncounted. |
 | No `Skill` tool. | The 3-run `/code-review` cap is enforced by the orchestrator's own count on Codex, not by dispatch-cap. |
 | Plugin hooks run only after the user trusts them in `/hooks`. | A changed hook needs re-trust after each upgrade. |
 

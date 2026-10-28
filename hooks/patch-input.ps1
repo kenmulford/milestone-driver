@@ -3,13 +3,14 @@ function Read-CodexPatch([string]$Command) {
     $active = $false; $mode = ''; $firstAdd = $false; $addedBlock = $false; $hasBom = $false
     foreach ($line in ($Command -split "`n")) {
         $line = $line.TrimEnd("`r")
+        # Markers and headers match trimmed, as Codex's parser trims them; content lines stay raw.
+        $t = $line.Trim()
         if (-not $active) {
-            if ($line -eq '*** Begin Patch') { $active = $true }
+            if ($t -eq '*** Begin Patch') { $active = $true }
             continue
         }
-        # Headers match trimmed, as Codex's parser trims them; content lines stay raw.
-        $t = $line.Trim()
-        if ($t -eq '*** End Patch') { break }
+        # Raw: a context line ' *** End Patch' must not end the scan early.
+        if ($line -eq '*** End Patch') { break }
         if ($t -cmatch '^\*\*\* (Add|Update|Delete) File: (.+)$') {
             $mode = $Matches[1]; $paths.Add($Matches[2]); $firstAdd = $true; $addedBlock = $false
         } elseif ($t -cmatch '^\*\*\* Move to: (.+)$') {

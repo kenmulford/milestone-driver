@@ -4,7 +4,8 @@
 # Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_NO_PUSH:-}" = "1" ] && exit 0
 input="$(cat)"; [ -z "$input" ] && exit 0
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 command -v jq >/dev/null 2>&1 || exit 0
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$cmd" ] && exit 0

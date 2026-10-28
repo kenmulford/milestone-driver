@@ -4,13 +4,14 @@ read_codex_patch() {
   while IFS= read -r line || [ -n "$line" ]; do
     # Git Bash jq emits each \n as \r\n, so a CRLF patch arrives as \r\r\n.
     while [ "${line%$'\r'}" != "$line" ]; do line="${line%$'\r'}"; done
+    # Markers and headers match trimmed, as Codex's parser trims them; content lines stay raw.
+    t="${line#"${line%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
     if [ "$active" = 0 ]; then
-      [ "$line" = '*** Begin Patch' ] && active=1
+      [ "$t" = '*** Begin Patch' ] && active=1
       continue
     fi
-    # Headers match trimmed, as Codex's parser trims them; content lines stay raw.
-    t="${line#"${line%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
-    [ "$t" = '*** End Patch' ] && break
+    # Raw: a context line ` *** End Patch` must not end the scan early.
+    [ "$line" = '*** End Patch' ] && break
     case "$t" in
       '*** Add File: '*) mode=Add; PATCH_PATHS+=("${t#'*** Add File: '}"); first_add=1; added_block=0; continue ;;
       '*** Update File: '*) mode=Update; PATCH_PATHS+=("${t#'*** Update File: '}"); first_add=1; added_block=0; continue ;;

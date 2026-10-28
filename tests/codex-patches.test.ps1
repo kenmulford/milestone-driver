@@ -65,6 +65,9 @@ try {
     [IO.File]::WriteAllText("$tmp/.milestone-config/driver.json", '{"sourceGlobs":["*.rb","docs/**"]}', $utf8)
     Check 'trailing space vs suffix glob' force-subagent (Patch "*** Add File: lib/a.rb `n+a") 2
     [IO.File]::WriteAllText("$tmp/.milestone-config/driver.json", '{"sourceGlobs":["app/**","spec/**","docs/**"]}', $utf8)
+    Check 'indented begin marker' force-subagent @{tool_name='apply_patch'; cwd=$tmp; tool_input=@{command="  *** Begin Patch`n*** Add File: app/a.rb`n+a`n*** End Patch"}} 2
+    Check 'heredoc wrapper' force-subagent @{tool_name='apply_patch'; cwd=$tmp; tool_input=@{command="<<'EOF'`n*** Begin Patch`n*** Add File: app/a.rb`n+a`n*** End Patch`nEOF"}} 2
+    Check 'context line is not the end marker' force-subagent (Patch "*** Update File: notes/a.md`n@@`n *** End Patch`n-a`n+b`n*** Add File: app/a.rb`n+a") 2
     Check 'indented header' force-subagent (Patch "  *** Update File: app/a.rb`n@@`n-a`n+b") 2
     Check 'indented move header' force-subagent (Patch "*** Update File: notes/a.md`n  *** Move to: app/a.rb`n@@`n-a`n+b") 2
     Check 'CRLF patch BOM blocked' no-bom $crlf 2

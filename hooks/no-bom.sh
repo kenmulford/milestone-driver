@@ -5,7 +5,8 @@
 [ "${CLAUDE_HOOK_DISABLE_NO_BOM:-}" = "1" ] && exit 0
 
 input="$(cat)"
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -25,7 +26,7 @@ has_bom() {
 
 case "$tool" in
   apply_patch)
-    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patch-input.sh"
+    . "$hook_dir/patch-input.sh"
     patch="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
     read_codex_patch "$patch"
     if [ "$PATCH_HAS_BOM" = 1 ]; then

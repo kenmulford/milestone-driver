@@ -85,6 +85,10 @@ try {
   [IO.File]::WriteAllText("$wt/a.txt", "x`n", $utf8); git -C $wt add a.txt
   $p = Fixture pretooluse-main-bash $wt; $p.tool_input.command = 'git commit -m x'
   Both 'commit on red suite' tests-green $p
+  # Suite output must not reach stdout, where it would corrupt the Codex deny JSON.
+  $noisy = if ($Leg -eq 'ps1') { 'Write-Host noise; Write-Output noise; git not-a-real-subcommand' } else { 'echo noise; git not-a-real-subcommand' }
+  [IO.File]::WriteAllText("$wt/.milestone-config/driver.json", (@{sourceGlobs=@('*.txt'); unitTestCmd=$noisy; integrationGranularity='issue'} | ConvertTo-Json -Compress), $utf8)
+  Expect-Deny 'commit on red suite with noisy output' (Run tests-green $p)
 
   # dispatch-cap: Codex encrypts the spawn message, so the agent and issue come
   # from task_name `<agent>_issue_<n>_<attempt>`. Captured tool_name is
