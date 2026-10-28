@@ -36,7 +36,7 @@
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
 #
-# Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1.
 # Fail-open: unparsed stdin, gh unavailable, an unreadable --body-file, or a
 # failed `gh pr view` all exit 0.
 
@@ -45,6 +45,7 @@ if ($env:CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE -eq '1') { exit 0 }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
+. (Join-Path $PSScriptRoot 'hook-deny.ps1')
 
 $cmd = $hook.tool_input.command
 if (-not $cmd) { exit 0 }
@@ -72,8 +73,7 @@ $runSlot = '/code-review run:'
 $suffix = " or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 
 function Deny([string]$msg) {
-  [Console]::Error.WriteLine("milestone-driver: $msg$suffix")
-  exit 2
+  Invoke-HookDeny $hook ("milestone-driver: $msg$suffix")
 }
 
 # HeadingMatch <text> - true iff <text> contains an ANCHORED `## Code Review`
@@ -161,7 +161,10 @@ if ($isCreate) {
     if (-not $fm.Success) { $fm = [regex]::Match($cmd, '(?:--body-file|-F)[=\s]+(?<v>\S+)') }
     if (-not $fm.Success) { exit 0 }   # fail-open: flag present but no parseable path
     $bf = $fm.Groups['v'].Value
-    if ($bf -notmatch '^/') { $bf = Join-Path $projectDir $bf }
+    $driveRooted = $bf -match '^\\(?!\\)'
+    $bf = $bf.Replace('\', '/')
+    if ($driveRooted -and $projectDir -match '^[A-Za-z]:/') { $bf = $projectDir.Substring(0, 2) + $bf }
+    if ($bf -notmatch '^(/|[A-Za-z]:/)') { $bf = Join-Path $projectDir $bf }
     if (Test-Path $bf -PathType Leaf) {
       try { $fileContent = Get-Content $bf -Raw -ErrorAction Stop }
       catch { exit 0 }

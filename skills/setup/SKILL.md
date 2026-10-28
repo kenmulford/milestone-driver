@@ -2,6 +2,7 @@
 name: setup
 description: This skill should be used when "milestone-driver:setup" is invoked directly, or auto-invoked by triage, solve-issue, or solve-milestone when the driver profile is absent or missing a required Core key (`integrationBranch`, `protectedBranch`, or `sourceGlobs`). Guides an interactive first-run bootstrap that infers every profile key from repo signals, presents detected defaults with plain-language descriptions, lets the user accept/edit/skip optional keys (stating each skip-consequence), migrates a legacy root `milestone-driver.json` to `.milestone-config/driver.json` on first run and writes the assembled profile there, and returns control so the original task continues - no re-invocation needed.
 ---
+If `${CLAUDE_PLUGIN_ROOT}` appears unexpanded, it is the parent of the `skills/` directory that holds this file.
 
 # setup - first-run profile bootstrap
 
@@ -53,7 +54,7 @@ Before asking anything, gather signals from the repo. Run these checks silently 
 
 ### Phase 2 - Tier-by-tier confirmation
 
-Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → Visual Capture → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key: state the plain-language label, show the detected default (or an illustrative example if none was detected), and - for optional keys - state the skip-consequence on the same line. Accept, edit, or skip; never leave a field blank without an explicit skip choice.
+Present keys in these tiers: **Core → Testing → E2E → Triage / Visual → Visual Capture → Preflight → Integration → Release → Enrichment → External integrations**. Within each tier, show one key at a time (or a logical group). For every key: state the plain-language label, show the detected default (or an illustrative example if none was detected), and - for optional keys - state the skip-consequence on the same line. Accept, edit, or skip; never leave a field blank without an explicit skip choice. On Codex each question is a mandatory gate and the Skill tool is `$skill-name`: `skills/runtime-codex.md`.
 
 **Tier: Core** - `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required and cannot be skipped (hard-stop if genuinely unknowable). `implementerAgent` is auto-filled with the bundled default - show it, confirm, move on; it never hard-stops.
 
@@ -114,11 +115,11 @@ The `visualCapture` block declares how an automated visual-capture flow boots a 
 |---|---|---|
 | `integrationGranularity` | "How should built issues integrate: one PR per issue, one PR per dependency wave, or one PR for the whole milestone (default)? Milestone mode folds every issue in locally and pushes once at the end, so a milestone costs one push, one PR, and one CI run instead of one per issue (branch mechanics: `skills/solve-milestone/milestone-granularity.md`)." | Skip → `milestone` under `solve-milestone` (one push, one PR, one CI run for the whole milestone); a standalone `solve-issue` run integrates per issue. |
 
-**Wave precondition prompt.** When - and only when - the user selects `"wave"`, fire this informational, non-blocking prompt (every wave selection, unconditionally - not gated on detected gate-strength):
+**Wave precondition prompt.** When - and only when - the user selects `"wave"`, fire this informational, non-blocking prompt:
 
 > "Wave mode blocks the whole wave on one red CI run; it needs strong local gates. Is `preflightCmd` set, and is `unitTestCmd` your full suite (not a subset)? If you want partial-merge - the failing issue isolates, the rest merge - use `issue`."
 
-`"full suite?"` is posed as a question to the human, not a check the skill performs - it is not machine-detectable at setup time. The prompt does **not** block: after acknowledgement, `"wave"` is still written.
+The prompt does **not** block: after acknowledgement, `"wave"` is still written.
 
 **Milestone precondition prompt.** When, and only when, the user selects `"milestone"`, fire this informational, non-blocking prompt. After acknowledgement, `"milestone"` is still written:
 

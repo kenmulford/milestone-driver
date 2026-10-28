@@ -1,0 +1,11 @@
+{
+  "session_id": "01a18295-10fd-7073-b643-8c30d92f4301",
+  "turn_id": "01a18295-81fb-75b3-8bde-84dd62b7a957",
+  "transcript_path": "<transcript>",
+  "cwd": "<cwd>",
+  "hook_event_name": "SubagentStart",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "bypassPermissions",
+  "agent_id": "01a18295-7ced-7b12-9994-110ed6f00768",
+  "agent_type": "default"
+}

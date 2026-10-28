@@ -4,7 +4,7 @@ Loaded by solve-milestone's *Resolve execution mode* Before-starting step only w
 
 ---
 
-**Interactive (row 4).** Prompt:
+**Interactive (row 4).** Prompt (Codex: gate rule in `skills/runtime-codex.md`):
 
 ```text
 ⚠ This repo runs unitTestCmd, and concurrent builds share external services like your

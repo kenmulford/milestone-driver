@@ -1,0 +1,15 @@
+{
+  "session_id": "01a18295-10fd-7073-b643-8c30d92f4301",
+  "turn_id": "01a18295-12b3-75e0-ad7f-c292c90a9109",
+  "transcript_path": "<transcript>",
+  "cwd": "<cwd>",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "collaborationspawn_agent",
+  "tool_input": {
+    "task_name": "child",
+    "message": "gAAAAABq4fEDXlb0x5Hoige7xK_bcG6cG7Y5pJGTnPsx3r_nNTavd6lHr2KLfjjOq-5UvZxnTbqkEHPTK4KL8F0HvCOXn8dg0Yve4bBhKx0NZv3pOvuolvrBYnWIgDju2vLEtgMrin3LkNgxGKip4WTDiF8lyIIxrVIn_6QOqvIX0CM2fu7Gn05zbdT7LXZbOx6_y6PD14gBRHqhkxzm_hDJFiB3FP-Izyx_imVBMc-gSMxfoe6geTk219zVM3wpXJ6qgiX_oK5D0jx8a0x8Q_AqBUHbJnGdTw=="
+  },
+  "tool_use_id": "call_b202e74d61d743918f51032538ae79c9"
+}

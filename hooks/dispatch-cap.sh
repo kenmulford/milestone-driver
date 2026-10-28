@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# milestone-driver - dispatch-cap gate (Claude PreToolUse: Agent|Task|Skill)
+# milestone-driver - dispatch-cap gate (Claude PreToolUse: Agent|Task|Skill, Codex: spawn_agent)
 #
 # Per issue: at most 3 `/code-review` runs (Skill `code-review` / `*:code-review`)
 # and 3 implementer dispatches (Agent/Task whose subagent_type is the profile's
@@ -10,13 +10,15 @@
 # branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
 # holds `<HEAD> <count>`; a moved HEAD or a park (`scripts/reset-dispatch-cap`)
 # resets it.
-# Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.
 # Fail-open on missing jq/git, no repo, or unparsed stdin. bash-3.2-safe (the
 # =~ patterns sit in variables: 3.2 mis-parses a quoted inline regex).
 
 [ "${CLAUDE_HOOK_DISABLE_DISPATCH_CAP:-}" = "1" ] && exit 0
 
 input="$(cat)"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 command -v git >/dev/null 2>&1 || exit 0
@@ -48,6 +50,13 @@ case "$tool" in
   Agent|Task)
     tool='Agent'; field='prompt'
     who="$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)" ;;
+  *spawn_agent)
+    # Codex encrypts the spawn message, so runtime-codex.md names the child
+    # `<agent>_issue_<n>_<attempt>` in task_name; the bare name maps back to the row.
+    tool='Agent'; field='task_name'
+    who="$(printf '%s' "$input" | jq -r '.tool_input.task_name // empty' 2>/dev/null | tr -d '\r')"
+    who="${who##*/}"; who="${who%%_issue*}"
+    if [ "$who" = "${implementer##*:}" ]; then who="$implementer"; else who="milestone-driver:$who"; fi ;;
   *) exit 0 ;;
 esac
 
@@ -107,8 +116,7 @@ case "$count" in ''|*[!0-9]*) count=0 ;; esac
 
 if [ "$count" -ge "$cap" ]; then
   case "$key" in *[!0-9]*) what="branch $key" ;; *) what="issue $key" ;; esac
-  echo "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1." >&2
-  exit 2
+  hook_deny "$input" "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
 fi
 
 printf '%s %s\n' "$head" "$((count + 1))" > "$file" 2>/dev/null

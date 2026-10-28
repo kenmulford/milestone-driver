@@ -3,6 +3,39 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.31.0 - Codex support
+
+**Theme:** milestone-driver installs and runs in the OpenAI Codex CLI (verified on codex-cli 0.163.0). The same skills, agents and gate scripts serve both runtimes, and Claude Code behavior is unchanged.
+
+### ✨ Codex runtime
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `.codex-plugin/plugin.json` (same name, version, description as `.claude-plugin/plugin.json`) and `hooks/codex-hooks.json` wire the gates for Codex: `apply_patch`, `spawn_agent` and `Bash` matchers, `commandWindows` per gate, no `if` fields. `hooks/hooks.json` stays Claude-only. |
+| - | - | New `skills/runtime-codex.md`: the tool-name mapping, brief-from-file agent dispatch (`spawn_agent` with no `agent_type`, `task_name` `<name>_issue_<n>_<attempt>`), cross-plugin agent resolution, and fail-closed human gates. Each `SKILL.md` points to it at its first Claude-only tool use and resolves an unexpanded `${CLAUDE_PLUGIN_ROOT}`. |
+| - | - | Every gate denies through `hooks/hook-deny.{sh,ps1}`: a Codex payload (it carries `turn_id`) gets a stdout `permissionDecision: "deny"` with exit 0, because Codex does not block on exit 2. Claude Code keeps exit 2 + stderr. |
+| - | - | force-subagent and no-bom parse `apply_patch` (`hooks/patch-input.{sh,ps1}`): every add, update, delete and move target, with paths normalized. CRLF patches parse on Git Bash. |
+| - | - | dispatch-cap counts Codex `spawn_agent` dispatches by `task_name`, because Codex encrypts the spawn message. |
+| - | - | Read-only agents state "never write files" in their body text, which Codex honors where `tools:` frontmatter has no effect. |
+
+### 🔒 Security: Windows gates failed open (Claude Code)
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `hooks/run-hook.cmd` preserves the gate's exit status on Windows. `%ERRORLEVEL%` inside a parenthesized block expanded before the gate ran, so a blocking exit 2 came back as 0 and every gate allowed the call on any Windows machine with Git Bash. Affects every release before v1.31.0. |
+
+### 🔧 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| - | - | `code-review-gate` resolves quoted, drive-rooted and UNC `--body-file` paths. |
+
+### Consumer notes (upgrading from v1.30.4)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- Codex: install from the milestone-suite marketplace, trust the hooks in `/hooks`, invoke with `$milestone-driver:<skill>`. See README `## Codex`.
+- On Codex the gates guard the main thread only: any `spawn_agent` child may edit source. The `/code-review` 3-run cap is enforced by the orchestrator's own count, not by dispatch-cap.
+
 ## v1.30.4 - prompt-audit follow-ups
 
 **Theme:** The agent and skill instruction files the v1.30.3 audit flagged now agree with each other. Two citations point at their definers, three files keep a CRLF size margin, and five leftover caps words are lowercase.

@@ -1,0 +1,16 @@
+{
+  "session_id": "01a18295-10fd-7073-b643-8c30d92f4301",
+  "turn_id": "01a18295-81fb-75b3-8bde-84dd62b7a957",
+  "agent_id": "01a18295-7ced-7b12-9994-110ed6f00768",
+  "agent_type": "default",
+  "transcript_path": "<transcript>",
+  "cwd": "<cwd>",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo CHILD_BASH"
+  },
+  "tool_use_id": "exec-7d562886-03ba-45e2-88de-a38e2ea02b5b"
+}

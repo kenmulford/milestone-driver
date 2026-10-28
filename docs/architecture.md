@@ -17,6 +17,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Blocker-resolver agent | `agents/blocker-resolver.md` | Triage Step 3.5: returns `RESOLVED` or `NEEDS_HUMAN` per Blocker gap, so only a Blocker needing a human parks (read-only; profile-overridable) |
 | Hooks | `hooks/` | The eight shipped hooks (see `hooks/hooks.json`) are the seven `PreToolUse` gates - `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`, `dispatch-cap` - plus `session-resume`, the one `SessionStart` hook (matcher `compact`) - all invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). `session-resume` never gates: it re-injects the milestone run's wave-state checkpoint after an auto-compaction. The triage / declaration layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
+| Codex manifest plus registration | `.codex-plugin/plugin.json`, `hooks/codex-hooks.json`, `skills/runtime-codex.md` | Codex metadata, Codex hook wiring, and the Codex tool-name and dispatch mapping (see [Gates on Codex](#gates-on-codex)) |
 
 ## Plugin version
 
@@ -56,15 +57,34 @@ A parked issue carries exactly one blocker label (`blocked` / `needs design` / `
 
 | Gate | Mechanism |
 |---|---|
-| force-subagent | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`NotebookEdit`): denies edits to `sourceGlobs` from the main thread (no subagent context); only the dispatched subagent may author app/test code. Docs, plans, and `.claude/**` stay editable by the orchestrator. |
-| no-bom | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`): rejects writes whose content begins with the UTF-8 BOM. Reads no profile keys - it is a content byte-check. |
+| force-subagent | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`apply_patch`): denies main-thread edits matching `sourceGlobs`. Codex patches use `tool_input.command`; every add, update, delete and move destination is checked after resolving relative paths and dot segments. Docs, `.claude/**` and `Obsidian/**` remain exempt. |
+| no-bom | Plugin `PreToolUse` (`Write`/`Edit`/`MultiEdit`/`apply_patch`): rejects leading UTF-8 BOMs in write content, replacement strings, patch add-file content and each contiguous update addition block. Embedded BOMs and later lines within one added block remain allowed. Reads no profile keys. |
 | tests-green | Plugin `PreToolUse` (`Bash(git commit *)`): runs `unitTestCmd` when staged files touch `sourceGlobs`; blocks the commit on red. Under resolved `integrationGranularity: "milestone"` it skips commits on `issue/*` and `milestone-*` branches; the suite runs once at milestone end. |
 | no-push | Plugin `PreToolUse` (`Bash(git push *)`): rejects pushes to `protectedBranch`. GitHub branch protection is the server-side backstop. |
 | no-pr-to-protected | Plugin `PreToolUse` (`Bash(gh pr create *)`): blocks `gh pr create --base <protectedBranch>`. |
 | code-review-gate | Plugin `PreToolUse` (`Bash(gh pr create *)` / `Bash(gh pr merge *)`): blocks a PR create/merge whose PR body lacks a `## Code Review` heading, and whose `/code-review run:` verdict under it is not `yes` or `n/a - <reason>` (`no`, an unrecognized or empty value, and a missing slot each deny). A command targeting `protectedBranch` is exempt, so the manual release-PR flow is never gated. |
-| dispatch-cap | Plugin `PreToolUse` (`Agent`/`Task`/`Skill`): denies the 4th `/code-review` run and the 4th implementer dispatch for one issue - the first build plus 2 fixes, across every gate and the review loop - the caps `skills/review-depth.md` states - and the 3rd planner dispatch (`milestone-driver:planner`). Counter under the git common dir, keyed by issue (branch `issue/<n>-*`, else the brief), reset when HEAD moves. |
+| dispatch-cap | Plugin `PreToolUse` (`Agent`/`Task`/`Skill`, Codex `spawn_agent`): denies the 4th `/code-review` run and the 4th implementer dispatch for one issue - the first build plus 2 fixes, across every gate and the review loop - the caps `skills/review-depth.md` states - and the 3rd planner dispatch (`milestone-driver:planner`). Counter under the git common dir, keyed by issue (branch `issue/<n>-*`, else the brief), reset when HEAD moves. |
 
 Each hook honors a `CLAUDE_HOOK_DISABLE_*` escape hatch.
+
+`hooks/patch-input.{sh,ps1}` parses patch headers and addition blocks for both gates. Header-like text prefixed by a content marker is file content. Path normalization is lexical; it does not resolve symlinks. These gates do not inspect source writes performed through shell commands.
+
+### Gates on Codex
+
+`hooks/codex-hooks.json` wires the same scripts for Codex (matchers `apply_patch`, `spawn_agent`, `Bash`). Verified against codex-cli 0.163.0 payloads in `tests/fixtures/codex/`.
+
+| Codex behavior | Gate consequence |
+|---|---|
+| Exit 2 does not block. Only stdout `hookSpecificOutput.permissionDecision: "deny"` with exit 0 blocks. | Every deny goes through `hooks/hook-deny.{sh,ps1}`: a payload carrying `turn_id` (Codex) gets the JSON deny, any other payload exit 2 + stderr. |
+| No `if` pre-filter. | Each Bash gate self-filters on `tool_input.command` and exits 0 for a non-matching command. |
+| A `spawn_agent` child's payload carries `agent_id` and `agent_type: "default"`. The main thread carries neither. `session_id` is the parent's in both. | force-subagent and dispatch-cap guard the main thread only. Any child may edit source, including another plugin's child. This is a Codex limitation. |
+| The `spawn_agent` message is encrypted. The tool is named `collaborationspawn_agent` in the payload. | dispatch-cap reads the agent and issue from `tool_input.task_name` (`<name>_issue_<n>_<attempt>`, set per `skills/runtime-codex.md`). It counts only spawns that follow this convention. Any other `task_name` is uncounted. |
+| No `Skill` tool. | The 3-run `/code-review` cap is enforced by the orchestrator's own count on Codex, not by dispatch-cap. |
+| Plugin hooks run only after the user trusts them in `/hooks`. | A changed hook needs re-trust after each upgrade. |
+
+The Windows launcher preserves the selected interpreter's exit status, including blocking status 2, and tries Git Bash before PATH Bash, then PowerShell. Missing interpreters fail open. Unix retains the Bash polyglot path.
+
+`code-review-gate` resolves relative body-file paths against the project directory and preserves absolute drive, slash-rooted and UNC paths. Single- and double-quoted paths may contain spaces. A single leading backslash uses the project's Windows drive. Unreadable body files retain their existing fail-open behavior.
 
 ## Preflight (optional)
 
@@ -181,7 +201,7 @@ The seven mechanical gates behave correctly inside a worktree with no worktree-s
 | Gate | Behavior in a worktree |
 |---|---|
 | force-subagent | The implementer is a dispatched subagent, so its edits are already allowed. The profile is a committed file present in every worktree, and the hook resolves it relative to the working directory, so it fires identically per-worktree. |
-| no-bom | Unaffected. It inspects only the tool-input bytes (`content` / `new_string`) and reads no profile keys and no paths, so it behaves identically in any working directory. |
+| no-bom | Unaffected. It inspects only tool-input content (`content`, `new_string`, or patch additions in `command`) and reads no profile keys or paths, so it behaves identically in any working directory. |
 | tests-green | The `.milestone-config/tests-stamp` is keyed `branch:treeSHA`, so a per-worktree stamp is correct, not a collision. Each worktree's branch and tree get their own key. |
 | no-push | Unaffected. It guards only `protectedBranch`; feature-branch pushes from a worktree are allowed. |
 | no-pr-to-protected | Unaffected. The orchestrator opens PRs with `--base <integrationBranch>`, so they pass. |

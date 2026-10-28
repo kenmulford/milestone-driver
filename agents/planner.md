@@ -55,7 +55,7 @@ Each case below, plus a fact no source settles, returns `STATUS: PARK` and no pa
 ## Rules
 
 - Leaf: dispatch no subagent (`docs/architecture.md#Dispatch topology`).
-- Edit no file but the packet.
+- Read-only: write no file but the packet.
 - Absolute paths only. Never `cd`, `pushd`, or a subshell that changes directory; `git -C <worktree>` for git.
 - Scratch only under a path named for the issue, never the shared scratchpad.
 - Never fabricate a citation. A fact with no source is a park (`blocked`), not a guess.
