@@ -4,6 +4,7 @@ if ($env:CLAUDE_HOOK_DISABLE_TESTS_GREEN -eq '1') { exit 0 }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
+. (Join-Path $PSScriptRoot 'hook-deny.ps1')
 # Self-scope to commits (parity with no-push; defends the "if predicate runs
 # always when the command is too complex to parse" fallthrough).
 $cmd = $hook.tool_input.command
@@ -99,8 +100,7 @@ if ($testCode -ne 0) {
     # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
     if (Test-Path $stampPath) { Remove-Item -LiteralPath $stampPath -Force -ErrorAction SilentlyContinue }
     if (Test-Path $oldStampPath) { Remove-Item -LiteralPath $oldStampPath -Force -ErrorAction SilentlyContinue }
-    [Console]::Error.WriteLine("milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
-    exit 2
+    Invoke-HookDeny $hook ("milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override.")
 }
 # Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # Ensure .milestone-config/ exists first; remove the stale legacy root stamp once the

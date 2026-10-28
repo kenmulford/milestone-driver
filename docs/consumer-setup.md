@@ -378,8 +378,10 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | Test | Expected |
 |---|---|
 | Main-thread `Edit` to a `sourceGlobs` file | **blocked** (force-subagent) - dispatch the implementer instead |
+| Main-thread `apply_patch` adding, updating, deleting or moving a `sourceGlobs` file, including a later file after an allowed docs edit | **blocked** (force-subagent) |
 | The same edit from a dispatched subagent | allowed |
 | A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) - write BOM-less UTF-8 instead |
+| `apply_patch` with a BOM at the start of add-file content or a contiguous update addition block | **blocked** (no-bom); embedded BOMs and later lines in the same block remain allowed |
 | `git commit` with the unit suite red (staged source) - when `unitTestCmd` is defined | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
@@ -388,6 +390,10 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | A 3rd planner dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
+
+Patch gates read `tool_input.command` and normalize relative paths, slash forms and dot segments before checking exemptions and source globs. They do not inspect shell-written source.
+
+On Codex, trust the plugin hooks in `/hooks` first; an untrusted hook never runs. A blocked call shows the gate's `milestone-driver:` reason as a denied tool call. The gates guard the main thread only: any `spawn_agent` child may edit source (see `docs/architecture.md` → `### Gates on Codex`).
 
 Each gate honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for deliberate
 human override.

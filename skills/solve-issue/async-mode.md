@@ -6,7 +6,7 @@ The retirement record for the `--async` token: why it is inert, what replaced it
 
 ## What `--async` meant, and why it is retired
 
-`--async` told the caller to dispatch the whole `solve-issue` pipeline as `Agent(run_in_background: true)`.
+`--async` told the caller to dispatch the whole `solve-issue` pipeline as `Agent(run_in_background: true)` (Codex: `skills/runtime-codex.md`).
 
 That is exactly the shape the dispatch topology forbids (`docs/architecture.md` → `## Dispatch topology`): **no dispatched agent may dispatch a child whose result it needs.** The pipeline dispatches an implementer (step 3) and a `/code-review` fan-out (step 6.1), so inside a background agent both sit at depth 2, where a completion notification never arrives (anthropics/claude-code#75043). The agent's turn ends at the dispatch and nothing re-invokes it, so the run stops mid-pipeline with work uncommitted, no PR, and no park label. There is no flag that repairs this: nested children run async regardless of `run_in_background`.
 

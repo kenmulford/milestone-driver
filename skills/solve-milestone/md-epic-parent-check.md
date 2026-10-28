@@ -4,7 +4,7 @@ Loaded by solve-milestone's Before-starting step 3.6 only when that step's paren
 
 ---
 
-Prompt the human with exactly three options:
+Prompt the human with exactly three options (Codex: gate rule in `skills/runtime-codex.md`):
 
 ```text
 🔴 Milestone "<resolved-title>" belongs to parent issue #<parent-number>, which spans

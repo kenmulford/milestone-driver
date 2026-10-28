@@ -32,7 +32,7 @@ the human may run, and asks for nothing.
 
 ## The run-start question
 
-Asked once per run, after the gate passes, verbatim:
+Asked once per run, after the gate passes, verbatim (Codex: gate rule in `skills/runtime-codex.md`):
 
 ```text
 Should I send blocked issues through `/milestone-feeder:remediate` automatically, or leave them for you?

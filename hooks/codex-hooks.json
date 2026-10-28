@@ -1,0 +1,37 @@
+{
+  "description": "milestone-driver mechanical gates for Codex. Same gate scripts as the Claude Code wiring. Codex has no `if` pre-filter, so every Bash gate self-filters on tool_input.command and exits 0 for a non-matching command. apply_patch carries edits in tool_input.command. spawn_agent is the Codex dispatch tool. Plugin hooks run only after the user trusts them in /hooks; a changed hook needs re-trust.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" session-resume", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/session-resume.ps1\"", "timeout": 15 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" force-subagent", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/force-subagent.ps1\"", "timeout": 15 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-bom", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/no-bom.ps1\"", "timeout": 15 }
+        ]
+      },
+      {
+        "matcher": "collaborationspawn_agent|spawn_agent",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" dispatch-cap", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-cap.ps1\"", "timeout": 15 }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" tests-green", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/tests-green.ps1\"", "timeout": 600 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-push", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/no-push.ps1\"", "timeout": 15 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-pr-to-protected", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/no-pr-to-protected.ps1\"", "timeout": 15 },
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" code-review-gate", "commandWindows": "pwsh -NoProfile -File \"${CLAUDE_PLUGIN_ROOT}/hooks/code-review-gate.ps1\"", "timeout": 15 }
+        ]
+      }
+    ]
+  }
+}

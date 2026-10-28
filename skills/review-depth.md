@@ -77,7 +77,7 @@ regardless of how it was classified going in.
 
 No third cycle runs beyond that: `hooks/dispatch-cap.sh` denies the 4th
 `/code-review` run and the 4th implementer dispatch per issue (first build
-plus 2 fixes, across every gate and this loop). A denied dispatch is the park.
+plus 2 fixes, across every gate and this loop). A denied dispatch is the park. On Codex the orchestrator counts runs, parking at the 4th.
 
 ## Which findings get fixed
 

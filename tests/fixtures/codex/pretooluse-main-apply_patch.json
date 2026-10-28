@@ -1,0 +1,14 @@
+{
+  "session_id": "01a18295-10fd-7073-b643-8c30d92f4301",
+  "turn_id": "01a18295-12b3-75e0-ad7f-c292c90a9109",
+  "transcript_path": "<transcript>",
+  "cwd": "<cwd>",
+  "hook_event_name": "PreToolUse",
+  "model": "gpt-6.1-sol",
+  "permission_mode": "bypassPermissions",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Add File: main.txt\n+main\n*** End Patch"
+  },
+  "tool_use_id": "exec-b1d2ed4e-34ab-4f90-8242-d499bcfd6e35"
+}

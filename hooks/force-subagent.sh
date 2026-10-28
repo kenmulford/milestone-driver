@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# milestone-driver - force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit)
+# milestone-driver - force-subagent gate (Claude PreToolUse: Write|Edit|MultiEdit|NotebookEdit|apply_patch)
 #
 # Bash parity of force-subagent.ps1. Blocks main-thread edits to the consuming
 # repo's source/test globs so application/test code is authored only by the
 # dispatched implementer subagent. Requires `jq`.
 #
-# Deny mechanism: exit 2 + stderr. Escape hatch: CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1
+# Deny mechanism: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape hatch: CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1
 # Fail-open: missing jq / parse errors exit 0 so a hook bug never bricks editing.
 
 [ "${CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT:-}" = "1" ] && exit 0
 
 input="$(cat)"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -20,29 +21,26 @@ for field in agent_id agent_type parent_session_id; do
   [ -n "$val" ] && exit 0
 done
 
-file_path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
-[ -z "$file_path" ] && exit 0
-norm="${file_path//\\//}"
-
-# Always-exempt paths. Source globs are gated even when markdown.
-case "$norm" in
-  */docs/*)      exit 0 ;;
-  */.claude/*)   exit 0 ;;
-  */Obsidian/*)  exit 0 ;;
-esac
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patch-input.sh"
+paths=()
+tool="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)"
+if [ "$tool" = apply_patch ]; then
+  patch="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+  read_codex_patch "$patch"
+  paths=("${PATCH_PATHS[@]}")
+else
+  file_path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null)"
+  [ -n "$file_path" ] && paths=("$file_path")
+fi
+[ "${#paths[@]}" -eq 0 ] && exit 0
 
 project_dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
 [ -z "$project_dir" ] && project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
-project_dir="${project_dir//\\//}"
+project_dir="$(normalize_hook_path "$project_dir" "$PWD")"
 
 profile="$project_dir/.milestone-config/driver.json"
 [ -f "$profile" ] || profile="$project_dir/milestone-driver.json"
 [ -f "$profile" ] || exit 0
-
-rel="$norm"
-case "$norm" in
-  "$project_dir"/*) rel="${norm#"$project_dir"/}" ;;
-esac
 
 # GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
 # and `hooks/tests-green.sh` collapse `**` to `*` and match with a shell `case`;
@@ -63,19 +61,24 @@ esac
 # stopped matching and this gate silently allowed source edits (#571). Quoting
 # through $STARSTAR/$STAR is byte-identical on 3.2.57 and 5.3.15.
 STARSTAR='**'; STAR='*'
-while IFS= read -r g; do
-  g="${g%$'\r'}"          # strip trailing CR (jq on Windows/msys emits CRLF)
-  [ -z "$g" ] && continue
-  pat="${g//"$STARSTAR"/$STAR}"
-  blocked=0
-  # shellcheck disable=SC2254
-  case "$rel"  in $pat)    blocked=1 ;; esac
-  # shellcheck disable=SC2254
-  case "$norm" in */$pat)  blocked=1 ;; esac
-  if [ "$blocked" = "1" ]; then
-    echo "milestone-driver: main-thread edits to source ('$rel') are blocked. Dispatch the implementer subagent to author application/test code, or set CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1 to override." >&2
-    exit 2
-  fi
-done < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
+for file_path in "${paths[@]}"; do
+  norm="$(normalize_hook_path "$file_path" "$project_dir")"
+  case "$norm" in */docs/*|*/.claude/*|*/Obsidian/*) continue ;; esac
+  rel="$norm"
+  case "$norm" in "$project_dir"/*) rel="${norm#"$project_dir"/}" ;; esac
+  while IFS= read -r g; do
+    g="${g%$'\r'}"          # strip trailing CR (jq on Windows/msys emits CRLF)
+    [ -z "$g" ] && continue
+    pat="${g//"$STARSTAR"/$STAR}"
+    blocked=0
+    # shellcheck disable=SC2254
+    case "$rel"  in $pat)    blocked=1 ;; esac
+    # shellcheck disable=SC2254
+    case "$norm" in */$pat)  blocked=1 ;; esac
+    if [ "$blocked" = "1" ]; then
+      hook_deny "$input" "milestone-driver: main-thread edits to source ('$rel') are blocked. Dispatch the implementer subagent to author application/test code, or set CLAUDE_HOOK_DISABLE_FORCE_SUBAGENT=1 to override."
+    fi
+  done < <(jq -r '.sourceGlobs[]? // empty' "$profile" 2>/dev/null)
+done
 
 exit 0

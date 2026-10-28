@@ -99,8 +99,8 @@ jobs:
           brew list bash >/dev/null 2>&1 || brew install bash
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       - name: hook suites, sh leg, children on /bin/bash 3.2
-        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,tests-green,dispatch-cap,code-review-gate,session-resume
+        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume
         env:
           MD_BASH_BIN: /bin/bash
       - name: script suites, sh leg
-        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,tests-green,dispatch-cap,code-review-gate,session-resume
+        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume

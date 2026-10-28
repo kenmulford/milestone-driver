@@ -93,6 +93,20 @@ Run it on a whole milestone, or on a single issue:
 
 No profile yet? On the first run the setup skill bootstraps one with you. Full setup walkthrough: [docs/consumer-setup.md](docs/consumer-setup.md). Every profile key: [docs/profile-schema.md](docs/profile-schema.md).
 
+## Codex
+
+milestone-driver also runs in the OpenAI Codex CLI. Add the marketplace:
+
+```
+codex plugin marketplace add kenmulford/milestone-suite
+```
+
+1. Install `milestone-driver` (and `superpowers`) from `/plugins`.
+2. Trust the plugin's hooks in `/hooks`. Codex skips an untrusted hook, and a changed hook needs re-trust after each upgrade.
+3. Invoke a skill by its namespaced mention: `$milestone-driver:solve-milestone "1.4.0"`, `$milestone-driver:solve-issue 58`.
+
+Codex reads `.codex-plugin/plugin.json` and wires the gates from `hooks/codex-hooks.json`. Agents run as `spawn_agent` children that read their role file from `agents/`. Runtime differences are listed in [`skills/runtime-codex.md`](skills/runtime-codex.md).
+
 ## When to use it
 
 - You have a milestone of issues that can be built mostly independently.

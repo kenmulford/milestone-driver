@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
 # Runs unitTestCmd when staged files touch sourceGlobs; blocks the commit on red.
-# Deny: exit 2. Requires jq. Escape: CLAUDE_HOOK_DISABLE_TESTS_GREEN=1. Fail-open.
+# Deny: hook-deny.{sh,ps1}. Requires jq. Escape: CLAUDE_HOOK_DISABLE_TESTS_GREEN=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_TESTS_GREEN:-}" = "1" ] && exit 0
 input="$(cat)"; [ -z "$input" ] && exit 0
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
 command -v jq >/dev/null 2>&1 || exit 0
 # Self-scope to commits (parity with no-push; defends the "if predicate runs
 # always when the command is too complex to parse" fallthrough).
@@ -96,8 +97,7 @@ if ! ( cd "$project_dir" && eval "$unit_cmd" ) >&2; then
   # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
   [ -f "$stamp_path" ] && rm -f "$stamp_path"
   [ -f "$old_stamp_path" ] && rm -f "$old_stamp_path"
-  echo "milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override." >&2
-  exit 2
+  hook_deny "$input" "milestone-driver: unit tests failed - commit blocked. Fix the suite, or set CLAUDE_HOOK_DISABLE_TESTS_GREEN=1 to override."
 fi
 # Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # mkdir -p first; no writer may assume .milestone-config/ exists. Remove the stale

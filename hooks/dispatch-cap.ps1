@@ -1,14 +1,15 @@
 #!/usr/bin/env pwsh
-# milestone-driver - dispatch-cap gate (Claude PreToolUse: Agent|Task|Skill)
+# milestone-driver - dispatch-cap gate (Claude PreToolUse: Agent|Task|Skill, Codex: spawn_agent)
 #
 # pwsh twin of dispatch-cap.sh (rules and key/counter shape documented there).
-# Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1. Fail-open.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1. Fail-open.
 
 if ($env:CLAUDE_HOOK_DISABLE_DISPATCH_CAP -eq '1') { exit 0 }
 
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
+. (Join-Path $PSScriptRoot 'hook-deny.ps1')
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { exit 0 }
 
 foreach ($field in @($hook.agent_id, $hook.agent_type, $hook.parent_session_id)) {
@@ -37,6 +38,12 @@ if ($tool -ceq 'Skill') {
 } elseif ($tool -ceq 'Agent' -or $tool -ceq 'Task') {
     $tool = 'Agent'; $field = 'prompt'
     $who = [string]$hook.tool_input.subagent_type
+} elseif ($tool -clike '*spawn_agent') {
+    # Codex encrypts the spawn message, so runtime-codex.md names the child
+    # `<agent>_issue_<n>_<attempt>` in task_name; the bare name maps back to the row.
+    $tool = 'Agent'; $field = 'task_name'
+    $who = ([string]$hook.tool_input.task_name) -replace '^.*/', '' -replace '_issue.*$', ''
+    $who = if ($who -ceq $implementer.Substring($implementer.LastIndexOf(':') + 1)) { $implementer } else { "milestone-driver:$who" }
 } else {
     exit 0
 }
@@ -88,8 +95,7 @@ if (Test-Path -LiteralPath $file) {
 if ($count -ge $Cap) {
     $what = if ($key -match '^[0-9]+$') { "issue $key" } else { "branch $key" }
     $root = if ($env:CLAUDE_PLUGIN_ROOT) { "$($env:CLAUDE_PLUGIN_ROOT)/" } else { '' }
-    [Console]::Error.WriteLine("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (${root}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
-    exit 2
+    Invoke-HookDeny $hook ("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (${root}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
 }
 
 try { [System.IO.File]::WriteAllText($file, "$head $($count + 1)`n", [System.Text.UTF8Encoding]::new($false)) } catch { }

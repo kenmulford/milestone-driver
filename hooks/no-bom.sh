@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
+# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit|apply_patch).
 # Denies writes whose content begins with the UTF-8 BOM (EF BB BF / U+FEFF).
-# Deny: exit 2 + stderr. Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_NO_BOM:-}" = "1" ] && exit 0
 
 input="$(cat)"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -23,16 +24,22 @@ has_bom() {
 }
 
 case "$tool" in
+  apply_patch)
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patch-input.sh"
+    patch="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
+    read_codex_patch "$patch"
+    if [ "$PATCH_HAS_BOM" = 1 ]; then
+      hook_deny "$input" 'milestone-driver: no-bom gate - patch content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.'
+    fi
+    ;;
   Write)
     if has_bom ".tool_input.content"; then
-      echo "milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
-      exit 2
+      hook_deny "$input" "milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override."
     fi
     ;;
   Edit)
     if has_bom ".tool_input.new_string"; then
-      echo "milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
-      exit 2
+      hook_deny "$input" "milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override."
     fi
     ;;
   MultiEdit)
@@ -40,8 +47,7 @@ case "$tool" in
     [[ "$count" =~ ^[0-9]+$ ]] || exit 0
     for (( i=0; i<count; i++ )); do
       if has_bom ".tool_input.edits[$i].new_string"; then
-        echo "milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override." >&2
-        exit 2
+        hook_deny "$input" "milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override."
       fi
     done
     ;;
