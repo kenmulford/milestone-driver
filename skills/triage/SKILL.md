@@ -2,6 +2,7 @@
 name: triage
 description: This skill should be used when the user invokes "/milestone-driver:triage <milestone-name | issue-number>", or asks to "triage the milestone/issue", "triage the milestone", "review for gaps", or "review this issue for gaps". Reviews issues for design gaps and dependency ordering before building - the Layer 0 pre-build phase. Authors no code; opens no PRs.
 ---
+If `${CLAUDE_PLUGIN_ROOT}` appears unexpanded, it is the parent of the `skills/` directory that holds this file.
 
 # triage - pre-build review phase
 
@@ -99,7 +100,7 @@ The partition contract those records implement:
 
 ### Resolve cited project-docs sections (once per issue, before dispatch)
 
-Resolve each issue's cited `.project/` sections **once, here in the triage skill**, for every issue in the MISS set (HIT issues skip dispatch). It is additive grounding: it changes no gate, cap, or step logic - it only adds an input to the two dispatch briefs (Step 3).
+Resolve each issue's cited `.project/` sections **once, here in the triage skill**, for every issue in the MISS set (HIT issues skip dispatch). It is additive grounding: it only adds an input to the two dispatch briefs (Step 3).
 
 1. **Source the docs root.** Use `projectDocs` already resolved at Step 1 (defaults to `.project/`). Do not re-resolve the profile here.
 2. **Parse the cited anchors.** Collect the `.project/<doc>#<section>` anchors (`<doc>` the docs-root path, `<section>` the heading text, e.g. `design-system.md#data-tables`) from each MISS issue's record file (`<scratch>/issue-<n>.md`) via a targeted extraction, never a whole-file read (same discipline as `skills/solve-milestone/SKILL.md § Main-thread context`):
@@ -130,7 +131,7 @@ Resolve each MISS issue's `path (anchor)` citations (`skills/citation-format.md`
 
 ### Step 3 - Dispatch `triageAgent` per issue
 
-Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only**. Dispatches are parallelizable: run them concurrently where the tool environment supports it. The brief must also carry this scratch-hygiene rule: write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. The brief must also carry this command-shape rule: absolute paths only, and never change directory (`cd`, `pushd`, or a subshell); `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`; a command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
+Dispatch the agent named in `triageAgent` (default `milestone-driver:triage-reviewer`) for each issue **in the MISS set only**. Dispatches are parallelizable: run them concurrently where the tool environment supports it. Briefs carry resolved absolute paths, never the token (Codex: `skills/runtime-codex.md`). The brief must also carry this scratch-hygiene rule: write scratch only under a path named for that issue or that agent, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. The brief must also carry this command-shape rule: absolute paths only, and never change directory (`cd`, `pushd`, or a subshell); `git -C <dir>` for git, absolute file paths for `grep`, `cat`, `sed`, and `find`; a command needing a working directory (`unitTestCmd`, `preflightCmd`, `npm ci`) runs with the absolute worktree path as its cwd.
 
 **Brief each agent with:**
 

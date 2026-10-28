@@ -278,8 +278,8 @@ These three keys satisfy the consumer-driven rule above with a real consumer, no
 
 | Gate | Profile keys read |
 |---|---|
-| `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`) | `sourceGlobs` |
-| `no-bom` (PreToolUse `Write`/`Edit`/`MultiEdit`) | none (content byte-check; reads no profile keys) |
+| `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`apply_patch`) | `sourceGlobs` |
+| `no-bom` (PreToolUse `Write`/`Edit`/`MultiEdit`/`apply_patch`) | none (content byte-check; reads no profile keys) |
 | `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `integrationGranularity` (resolved `"milestone"` skips commits on `issue/*` and `milestone-*` branches; absent resolves to `"milestone"` only when a local `milestone-*` branch exists, else `"issue"`), `sourceGlobs`; see stamp-skip note below |
 | `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
 | `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |

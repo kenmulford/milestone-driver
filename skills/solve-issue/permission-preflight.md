@@ -1,6 +1,6 @@
 ## Permission pre-flight - tool surface and gap response
 
-Reaching this file means the caller is about to dispatch a leaf as `Agent(run_in_background: true)` and has read the union of the three settings layers (`skills/solve-issue/SKILL.md (Background subagents auto-deny any)`). A fully synchronous run never reaches it. `### Tool surface and response` is what that union is tested against, and what happens when it falls short.
+Reaching this file means the caller is about to dispatch a leaf as `Agent(run_in_background: true)` (Codex: `skills/runtime-codex.md`) and has read the union of the three settings layers (`skills/solve-issue/SKILL.md (Background subagents auto-deny any)`). A fully synchronous run never reaches it. `### Tool surface and response` is what that union is tested against, and what happens when it falls short.
 
 ### Tool surface and response
 

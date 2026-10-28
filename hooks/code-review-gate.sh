@@ -73,7 +73,7 @@
 # merge whose fetched baseRefName is protectedBranch) is exempt - Ken's manual
 # release-PR flow must never fight this gate.
 #
-# Deny: exit 2 + stderr. Requires jq (to decode the PreToolUse JSON and read
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Requires jq (to decode the PreToolUse JSON and read
 # the profile). Escape: CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1.
 # Fail-open: missing jq/gh, unparsed stdin, an unreadable --body-file, or a
 # failed `gh pr view` all exit 0 - a hook that crashes is a hook that (silently)
@@ -82,6 +82,8 @@
 [ "${CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE:-}" = "1" ] && exit 0
 
 input="$(cat)"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -108,8 +110,7 @@ heading='## Code Review'
 runslot='/code-review run:'
 
 deny() {
-  echo "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override." >&2
-  exit 2
+  hook_deny "$input" "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 }
 
 # heading_match <text> - true iff <text> contains an ANCHORED `## Code
@@ -195,12 +196,28 @@ if [ "$is_create" = "1" ]; then
   file_content=""
   if [ "$has_file" = "1" ]; then
     path_val=""
-    if [[ "$cmd" =~ (--body-file[=[:space:]]+|-F[[:space:]]+)\"?\'?([^[:space:]\"\']+) ]]; then
+    double_file_pattern='(--body-file[=[:space:]]+|-F[[:space:]]+)"([^"]*)"'
+    single_file_pattern="(--body-file[=[:space:]]+|-F[[:space:]]+)'([^']*)'"
+    bare_file_pattern='(--body-file[=[:space:]]+|-F[[:space:]]+)([^[:space:]]+)'
+    if [[ "$cmd" =~ $double_file_pattern ]]; then
+      path_val="${BASH_REMATCH[2]}"
+    elif [[ "$cmd" =~ $single_file_pattern ]]; then
+      path_val="${BASH_REMATCH[2]}"
+    elif [[ "$cmd" =~ $bare_file_pattern ]]; then
       path_val="${BASH_REMATCH[2]}"
     fi
     [ -z "$path_val" ] && exit 0   # fail-open: flag present but no parseable path
+    drive_rooted=0
+    case "$path_val" in \\*) drive_rooted=1 ;; esac
+    path_val="${path_val//\\//}"
+    if [ "$drive_rooted" = 1 ]; then
+      case "$path_val" in
+        //*) ;;
+        /*) case "$project_dir" in [A-Za-z]:/*) path_val="${project_dir:0:2}$path_val" ;; esac ;;
+      esac
+    fi
     case "$path_val" in
-      /*) bf="$path_val" ;;
+      /*|[A-Za-z]:/*) bf="$path_val" ;;
       *) bf="$project_dir/$path_val" ;;
     esac
     if [ -r "$bf" ]; then

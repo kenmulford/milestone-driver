@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # milestone-driver - no-push gate (Claude PreToolUse: Bash, if: Bash(git push *)).
-# Blocks a push targeting protectedBranch. Deny: exit 2. Requires jq.
+# Blocks a push targeting protectedBranch. Deny: hook-deny.{sh,ps1}. Requires jq.
 # Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_NO_PUSH:-}" = "1" ] && exit 0
 input="$(cat)"; [ -z "$input" ] && exit 0
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 command -v jq >/dev/null 2>&1 || exit 0
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$cmd" ] && exit 0
@@ -23,7 +25,6 @@ if [[ "$cmd" =~ (^|[[:space:]:/])"$protected"([[:space:]]|$) ]]; then blocked=1;
 cur="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 [ "$cur" = "$protected" ] && blocked=1
 if [ "$blocked" = "1" ]; then
-  echo "milestone-driver: pushing to protected branch '$protected' is blocked. Push the integration branch and open a PR, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override. (GitHub branch protection is the server-side backstop.)" >&2
-  exit 2
+  hook_deny "$input" "milestone-driver: pushing to protected branch '$protected' is blocked. Push the integration branch and open a PR, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override. (GitHub branch protection is the server-side backstop.)"
 fi
 exit 0

@@ -7,23 +7,26 @@ REM Usage: run-hook.cmd <gate>   (gate = base name, e.g. force-subagent)
 if "%~1"=="" (echo run-hook.cmd: missing gate name>&2& exit /b 1)
 set "HOOK_DIR=%~dp0"
 set "GATE=%~1"
-if exist "C:\Program Files\Git\bin\bash.exe" (
-    "C:\Program Files\Git\bin\bash.exe" "%HOOK_DIR%%GATE%.sh"
-    exit /b %ERRORLEVEL%
-)
-if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
-    "C:\Program Files (x86)\Git\bin\bash.exe" "%HOOK_DIR%%GATE%.sh"
-    exit /b %ERRORLEVEL%
-)
-where bash >nul 2>nul && (
-    bash "%HOOK_DIR%%GATE%.sh"
-    exit /b %ERRORLEVEL%
-)
-where pwsh >nul 2>nul && (
-    pwsh -NoProfile -File "%HOOK_DIR%%GATE%.ps1"
-    exit /b %ERRORLEVEL%
-)
+REM Child calls stay outside blocks so ERRORLEVEL is read after execution.
+if exist "C:\Program Files\Git\bin\bash.exe" goto git64
+if exist "C:\Program Files (x86)\Git\bin\bash.exe" goto git32
+where bash >nul 2>nul
+if not errorlevel 1 goto path_bash
+where pwsh >nul 2>nul
+if not errorlevel 1 goto path_pwsh
 exit /b 0
+:git64
+"C:\Program Files\Git\bin\bash.exe" "%HOOK_DIR%%GATE%.sh"
+exit /b %ERRORLEVEL%
+:git32
+"C:\Program Files (x86)\Git\bin\bash.exe" "%HOOK_DIR%%GATE%.sh"
+exit /b %ERRORLEVEL%
+:path_bash
+bash "%HOOK_DIR%%GATE%.sh"
+exit /b %ERRORLEVEL%
+:path_pwsh
+pwsh -NoProfile -File "%HOOK_DIR%%GATE%.ps1"
+exit /b %ERRORLEVEL%
 CMDBLOCK
 
 # Unix: bash ran this file, so bash exists -> run the gate's .sh.

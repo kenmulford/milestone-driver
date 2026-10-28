@@ -20,7 +20,7 @@ Step 9's classifier does not distinguish these; the ladder below does. Read the 
 
 **Check the branch first.** Already carrying commits ahead of `<base>` (probe path b non-zero) → the implementation is present: skip the recovery leaf entirely and re-run the orchestrator's own Stage B review (`parallel-waves.md` step 7) and per-issue tail (step 8), where the interrupted commit-then-push seam left off.
 
-Otherwise dispatch one `implementerAgent` leaf into that issue's existing worktree as `Agent(run_in_background: true)`, **no more than `maxParallelWorkers` leaves in flight at once across the whole abandoned set** (step 3's same cap; step 6's ladder does not run here, every Stage A/B chain having returned).
+Otherwise dispatch one `implementerAgent` leaf into that issue's existing worktree as `Agent(run_in_background: true)` (Codex: `skills/runtime-codex.md`), **no more than `maxParallelWorkers` leaves in flight at once across the whole abandoned set** (step 3's same cap; step 6's ladder does not run here, every Stage A/B chain having returned).
 
 **The cap counts every leaf this ladder causes, not the recovery leaves alone, and the refill trigger is a slot freeing, never a recovery leaf returning:** a returning recovery leaf holds its slot for the step-7 leaf its resume dispatches (step 6's carve-out shape), and the skip-the-recovery-leaf branch above takes a slot from the same cap before dispatching its step-7 leaf. The slot frees when that step-7 leaf returns, and that is when the next abandoned issue is dispatched, so a set wider than the cap still drains.
 

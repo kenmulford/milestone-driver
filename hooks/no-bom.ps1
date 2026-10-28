@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
-# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit).
+# milestone-driver - no-bom gate (Claude PreToolUse: Write|Edit|MultiEdit|apply_patch).
 # Denies writes whose content begins with the UTF-8 BOM (EF BB BF / U+FEFF).
-# Deny: exit 2 + stderr. Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_NO_BOM=1. Fail-open.
 
 if ($env:CLAUDE_HOOK_DISABLE_NO_BOM -eq '1') { exit 0 }
 
@@ -13,6 +13,7 @@ try { [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false) } catch
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
+. (Join-Path $PSScriptRoot 'hook-deny.ps1')
 
 $BOM = [char]0xFEFF
 
@@ -23,18 +24,22 @@ function Test-LeadingBom([string]$s) {
 $tool = $hook.tool_name
 
 switch ($tool) {
+    'apply_patch' {
+        . (Join-Path $PSScriptRoot 'patch-input.ps1')
+        if ((Read-CodexPatch $hook.tool_input.command).HasBom) {
+            Invoke-HookDeny $hook ('milestone-driver: no-bom gate - patch content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.')
+        }
+    }
     'Write' {
         $content = $hook.tool_input.content
         if ($content -and (Test-LeadingBom $content)) {
-            [Console]::Error.WriteLine("milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
-            exit 2
+            Invoke-HookDeny $hook ("milestone-driver: no-bom gate - content begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
         }
     }
     'Edit' {
         $ns = $hook.tool_input.new_string
         if ($ns -and (Test-LeadingBom $ns)) {
-            [Console]::Error.WriteLine("milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
-            exit 2
+            Invoke-HookDeny $hook ("milestone-driver: no-bom gate - new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
         }
     }
     'MultiEdit' {
@@ -44,8 +49,7 @@ switch ($tool) {
         foreach ($edit in $edits) {
             $ns = $edit.new_string
             if ($ns -and (Test-LeadingBom $ns)) {
-                [Console]::Error.WriteLine("milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
-                exit 2
+                Invoke-HookDeny $hook ("milestone-driver: no-bom gate - edits[$i].new_string begins with the UTF-8 BOM (U+FEFF). Write BOM-less UTF-8 instead, or set CLAUDE_HOOK_DISABLE_NO_BOM=1 to override.")
             }
             $i++
         }

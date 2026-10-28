@@ -4,12 +4,11 @@ argument-hint: <milestone-name | milestone-number>
 description: >-
   This skill should be used when the user invokes "/milestone-driver:solve-milestone <name>", or asks to "solve a milestone", "drive a milestone", or "work the milestone autonomously". Iterates every issue in a GitHub milestone in dependency order via /milestone-driver:solve-issue, integrating per the resolved integrationGranularity. Runs unattended: parks blocked or gapped issues and continues; only a systemic failure ends a run early. Builds mutually-independent issues within a Wave concurrently in git worktrees by default; a run-start barrier check drops to sequential only when a barrier is present.
 ---
+If `${CLAUDE_PLUGIN_ROOT}` appears unexpanded, it is the parent of the `skills/` directory that holds this file.
 
 # solve-milestone - autonomous driver
 
-Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline.
-
-**Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity. Under wave granularity in parallel mode it also runs at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
+Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline. **Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity. Under wave granularity in parallel mode it also runs at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
 
 **Blast radius.** Merge only to `integrationBranch`, never `protectedBranch`. Release, closing the milestone object, and deploy are human-only. This skill closes the milestone's issues and authors the CHANGELOG; never the milestone.
 
@@ -136,7 +135,7 @@ Invoke triage across the milestone before the build loop:
 **Mode branch point.** In parallel mode: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/parallel-waves.md` and run its Wave loop - `parallel-waves.md § Parallelizable-set selection (parallel mode)`, then `§ Parallel mode - Phase 1: concurrent stage dispatch`, `§ Parallel mode - Phase 2: serial verified merge tail`, `§ Integration granularity (issue vs wave)` - instead of the sequential build steps below. Never silently degrade to sequential. In sequential mode it is never read.
 - **Granularity branch point** (orthogonal to the mode branch). Under `integrationGranularity: "milestone"`, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/milestone-granularity.md`: `§ Branch model` and `§ Folding an issue into the milestone branch` own condition (a) and every re-sync below; `§ Creating the milestone branch` cuts `milestone-<number>-<slug>` from `integrationBranch` here, before any issue branch. Every issue branch this run is cut from it; nothing reaches origin until milestone end. Under `"issue"` never read; under `"wave"` only where cited.
 
-Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave, mutually independent issues may be taken in any order. For each issue, determine whether it is **buildable this pass** - iff all three hold:
+Create one TodoWrite item per issue (Codex: `skills/runtime-codex.md`). Process issues Wave by Wave; within a Wave, mutually independent issues may be taken in any order. For each issue, determine whether it is **buildable this pass** - iff all three hold:
 
 - **(a)** every issue in `dependencyGraph.edges["<n>"]` (those this issue directly DEPENDS_ON) is already merged to `integrationBranch`, or, under `integrationGranularity: "milestone"`, carries its `Issue: #<n>` trailer on the milestone branch (`milestone-granularity.md § Resume and buildability from the trailer`); and
   - Before (b): where (a) holds and `edges["<n>"]` is non-empty, read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/blocked-label-clear.md` and run it.
@@ -147,7 +146,7 @@ Create one TodoWrite item per issue. Process issues Wave by Wave; within a Wave,
 
 **If not buildable** (triage-parked, live-label park, or dependency not yet merged): read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/not-buildable.md` and run it: the park-label back-fill for a triage/prior-run park, and the `blocked` label, `🔴 Blocked` comment, and transitive holds for a dependency hold. Both modes read it when an issue is not buildable.
 
-The loop **never waits on a human**. Every issue ends merged or parked (label, open branch if applicable, comment), UI included. Comment provenance: triage parks carry Phase 0's `🔴 Triage` comment; build-time STOP/PAUSE parks the reason posted at the park step (`sequential-loop.md` step 3c); dependency holds the `🔴 Blocked` comment (`not-buildable.md`).
+The loop **never waits on a human**. Every issue ends merged or parked (label, open branch if applicable, comment), UI included. Park comments: triage parks carry Phase 0's `🔴 Triage` comment; build-time parks, the reason posted at `sequential-loop.md` step 3c; dependency holds, `🔴 Blocked` (`not-buildable.md`).
 
 In **versioned mode** the first issue's commit sets `plugin.json` to the target version; every later PR is idempotent.
 
@@ -193,7 +192,7 @@ The run ends when no buildable issues remain.
 
 - **Unattended between systemic failures.** Operate autonomously within an explicit `/milestone-driver:solve-milestone` run. A `solve-issue` STOP or PAUSE parks that issue (label + open branch + comment) and the loop continues.
 - **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and any reference file this skill read-directs being missing or unreadable once its condition has fired - `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`, `milestone-end-gates.md`. Best-effort integrations (`trello-sync.md`, `simplify-pass.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the tree clean, all in-flight issues parked, present the summary, and stop - `## Run-complete notification` emits `🚨 Run halted - <reason>`.
-- **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign. For architecture vs implementation detail, see `solve-issue`'s Autonomy model.
+- **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch`.
 
 ## Output spec

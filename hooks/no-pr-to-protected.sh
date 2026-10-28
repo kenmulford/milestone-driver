@@ -4,7 +4,7 @@
 # Companion to the no-push gate: blocks `gh pr create --base <protected>`
 # so the loop never opens a PR targeting the protected branch.
 #
-# Deny: exit 2 + stderr. Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1.
+# Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Requires jq. Escape: CLAUDE_HOOK_DISABLE_NO_PUSH=1.
 # Fail-open on parse/missing-profile.
 #
 # Residual risk: a bare `gh pr create` with no --base targets the repo's default
@@ -14,6 +14,8 @@
 [ "${CLAUDE_HOOK_DISABLE_NO_PUSH:-}" = "1" ] && exit 0
 
 input="$(cat)"
+hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
+. "$hook_dir/hook-deny.sh"
 [ -z "$input" ] && exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -38,7 +40,6 @@ if [[ "$cmd" =~ (--base[=[:space:]]+|-B[[:space:]]+)\"?\'?([^[:space:]\"\']+) ]]
 fi
 
 if [ "$base" = "$protected" ]; then
-  echo "milestone-driver: opening a PR to protected branch '$protected' is blocked. Target the integration branch instead, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override." >&2
-  exit 2
+  hook_deny "$input" "milestone-driver: opening a PR to protected branch '$protected' is blocked. Target the integration branch instead, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override."
 fi
 exit 0
