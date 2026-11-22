@@ -13,12 +13,12 @@
 #   Any OMITTED (or null) token/wallClock field defaults to 0; absent tiers -> {}.
 #   A PRESENT-but-non-numeric token/wallClock value is MALFORMED (fail-open).
 #
-# Rate snapshot (hardcoded - NOT read from disk; source: kenmulford/milestone-suite
-#   benchmarks/after/RESULTS.md ~lines 100-111, as-of 2026-07):
-#     Opus 4.8  $5 in / $25 out per MTok ; Sonnet 4.6 $3 / $15.
-#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.1 x tier input rate.
+# Rate snapshot (hardcoded - NOT read from disk; source:
+#   https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21):
+#     Opus 5.5  $4 in / $20 out per MTok ; Sonnet 5.5 $2 / $10.
+#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.05 x tier input rate.
 #   Per-tier costUsd = (in*inRate + out*outRate + cWrite*inRate*1.25
-#                       + cRead*inRate*0.1) / 1000000. Total = sum of PRICED tiers
+#                       + cRead*inRate*0.05) / 1000000. Total = sum of PRICED tiers
 #   only (rate-table keys: exactly opus + sonnet). Unknown tiers -> unpricedTiers,
 #   excluded from costUsd, one stderr note each.
 #
@@ -39,10 +39,10 @@ function Fail([string]$msg) { [Console]::Error.WriteLine("write-cost-record: $ms
 
 # rateSnapshot provenance base (single-quoted so $ is literal). Byte-identical to
 # the .sh twin and both test runners (behavior-identical contract).
-$rateBase = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
+$rateBase = 'Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.05x tier input rate; source: https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21'
 
 # Rate table: exactly opus + sonnet are priced (parity with the .sh $rates).
-$rates = @{ opus = @{ inr = 5.0; outr = 25.0 }; sonnet = @{ inr = 3.0; outr = 15.0 } }
+$rates = @{ opus = @{ inr = 4.0; outr = 20.0 }; sonnet = @{ inr = 2.0; outr = 10.0 } }
 
 # numify: omitted (absent property) or null -> 0; a JSON number -> its value; any
 # other present type -> malformed (throw, caught below into the fail-open path).
@@ -236,7 +236,7 @@ try {
     return ( (Numify $t 'inputTokens') * $r.inr +
              (Numify $t 'outputTokens') * $r.outr +
              (Numify $t 'cacheWriteTokens') * ($r.inr * 1.25) +
-             (Numify $t 'cacheReadTokens') * ($r.inr * 0.1) ) / 1000000
+             (Numify $t 'cacheReadTokens') * ($r.inr * 0.05) ) / 1000000
   }
   # toks: the four raw token counts, normalized to numbers (order matches the .sh toks).
   function Get-Toks($t) {

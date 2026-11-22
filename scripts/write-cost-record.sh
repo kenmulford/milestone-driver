@@ -13,12 +13,12 @@
 #   Any OMITTED (or null) token/wallClock field defaults to 0; absent tiers -> {}.
 #   A PRESENT-but-non-numeric token/wallClock value is MALFORMED (fail-open).
 #
-# Rate snapshot (hardcoded - NOT read from disk; source: kenmulford/milestone-suite
-#   benchmarks/after/RESULTS.md ~lines 100-111, as-of 2026-07):
-#     Opus 4.8  $5 in / $25 out per MTok ; Sonnet 4.6 $3 / $15.
-#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.1 x tier input rate.
+# Rate snapshot (hardcoded - NOT read from disk; source:
+#   https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21):
+#     Opus 5.5  $4 in / $20 out per MTok ; Sonnet 5.5 $2 / $10.
+#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.05 x tier input rate.
 #   Per-tier costUsd = (in*inRate + out*outRate + cWrite*inRate*1.25
-#                       + cRead*inRate*0.1) / 1000000. Total = sum of PRICED tiers
+#                       + cRead*inRate*0.05) / 1000000. Total = sum of PRICED tiers
 #   only (rate-table keys: exactly opus + sonnet). Unknown tiers -> unpricedTiers,
 #   excluded from costUsd, one stderr note each.
 #
@@ -82,7 +82,7 @@ fail() { printf 'write-cost-record: %s\n' "$*" >&2; exit 0; }
 
 # rateSnapshot provenance base (single-quoted so $ is literal). Byte-identical to
 # the .ps1 twin and both test runners (behavior-identical contract).
-RATE_BASE='Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
+RATE_BASE='Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.05x tier input rate; source: https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21'
 
 # sanitize_for_filename <str> -> map every byte outside [A-Za-z0-9._-] to '-'.
 # One definition shared by the default mode's runId, --append, and --finalize,
@@ -194,8 +194,8 @@ def toks(t): { inputTokens: numify(t.inputTokens), outputTokens: numify(t.output
 def tcost(t; r): ( numify(t.inputTokens) * r.in
                  + numify(t.outputTokens) * r.out
                  + numify(t.cacheWriteTokens) * (r.in * 1.25)
-                 + numify(t.cacheReadTokens) * (r.in * 0.1) ) / 1000000;
-({"opus":{"in":5,"out":25},"sonnet":{"in":3,"out":15}}) as $rates
+                 + numify(t.cacheReadTokens) * (r.in * 0.05) ) / 1000000;
+({"opus":{"in":4,"out":20},"sonnet":{"in":2,"out":10}}) as $rates
 | (if (.runId|type)=="string" and (.runId|length) > 0 then . else error("badrunid") end)
 | . as $root
 | ((.tiers // {}) | to_entries) as $entries

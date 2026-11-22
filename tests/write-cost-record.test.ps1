@@ -7,7 +7,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here '_lib.ps1'); Set-Leg $Leg
 $script = Join-Path $here '..' 'scripts' 'write-cost-record'
 
-$BASE = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
+$BASE = 'Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.05x tier input rate; source: https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21'
 
 $pass = 0; $fail = 0
 function Ok { $script:pass++ }
@@ -40,10 +40,10 @@ try {
   if ($r.rc -eq 0 -and $r.err -eq '' -and $j -and
       ($r.out -match 'cost-records/run-happy-[0-9]+-.+\.json') -and
       (Test-Path (Join-Path $r.ws ($r.out.Trim()))) -and
-      $j.runId -eq 'run-happy' -and $j.wallClockSeconds -eq 42 -and $j.costUsd -eq 17 -and
+      $j.runId -eq 'run-happy' -and $j.wallClockSeconds -eq 42 -and $j.costUsd -eq 10.6 -and
       $j.tiers.opus.inputTokens -eq 400000 -and $j.tiers.opus.outputTokens -eq 40000 -and
       $j.tiers.opus.cacheReadTokens -eq 2000000 -and $j.tiers.opus.cacheWriteTokens -eq 160000 -and
-      $j.tiers.opus.costUsd -eq 5 -and $j.tiers.sonnet.costUsd -eq 12 -and
+      $j.tiers.opus.costUsd -eq 3.6 -and $j.tiers.sonnet.costUsd -eq 7 -and
       (@($j.unpricedTiers.PSObject.Properties).Count -eq 0) -and
       ($rawJson -match '"writtenAt":\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"') -and
       $j.rateSnapshot -eq $BASE) { Ok } else {
@@ -53,16 +53,16 @@ try {
   $r = Run-Case '{"runId":"run/1 x","tiers":{"opus":{"inputTokens":1000000}}}'
   $j = Rec-Json $r.ws
   if ($r.rc -eq 0 -and $j -and ($r.out -match 'cost-records/run-1-x-[0-9]+-.+\.json') -and
-      $j.runId -eq 'run/1 x' -and $j.tiers.opus.costUsd -eq 5) { Ok } else {
+      $j.runId -eq 'run/1 x' -and $j.tiers.opus.costUsd -eq 4) { Ok } else {
     No "sanitize: rc=$($r.rc) out=[$($r.out)] runId=[$(if($j){$j.runId})]" }
 
   # ---- omitted wallClock / tier / token-fields -> zeros -------------------
   $r = Run-Case '{"runId":"run-omit","tiers":{"opus":{"inputTokens":1000000}}}'
   $j = Rec-Json $r.ws
-  if ($r.rc -eq 0 -and $j -and $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 5 -and
+  if ($r.rc -eq 0 -and $j -and $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 4 -and
       $j.tiers.opus.inputTokens -eq 1000000 -and $j.tiers.opus.outputTokens -eq 0 -and
       $j.tiers.opus.cacheReadTokens -eq 0 -and $j.tiers.opus.cacheWriteTokens -eq 0 -and
-      $j.tiers.opus.costUsd -eq 5) { Ok } else { No "omit-zeros: rc=$($r.rc)" }
+      $j.tiers.opus.costUsd -eq 4) { Ok } else { No "omit-zeros: rc=$($r.rc)" }
 
   # ---- empty-state: omitted fields -> zeros present in record -------------
   $r = Run-Case '{"runId":"run-empty"}'
@@ -71,7 +71,7 @@ try {
       $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 0 -and
       (@($j.tiers.PSObject.Properties).Count -eq 0) -and
       (@($j.unpricedTiers.PSObject.Properties).Count -eq 0) -and
-      $j.PSObject.Properties['rateSnapshot'] -and $j.PSObject.Properties['writtenAt']) { Ok } else {
+      $j.rateSnapshot -eq $BASE -and $j.PSObject.Properties['writtenAt']) { Ok } else {
     No "empty-state: rc=$($r.rc) err=[$($r.err)]" }
 
   # ---- fail-open cases: exactly one stderr line, NO record, exit 0 --------
@@ -92,8 +92,8 @@ try {
   $r = Run-Case '{"runId":"run-unpriced","tiers":{"opus":{"inputTokens":1000000},"weirdmodel":{"inputTokens":5,"outputTokens":6,"cacheReadTokens":7,"cacheWriteTokens":8}}}'
   $j = Rec-Json $r.ws
   if ($r.rc -eq 0 -and $j -and ($r.err -match 'weirdmodel') -and
-      $j.costUsd -eq 5 -and (-not $j.tiers.PSObject.Properties['weirdmodel']) -and
-      $j.tiers.opus.costUsd -eq 5 -and
+      $j.costUsd -eq 4 -and (-not $j.tiers.PSObject.Properties['weirdmodel']) -and
+      $j.tiers.opus.costUsd -eq 4 -and
       $j.unpricedTiers.weirdmodel.inputTokens -eq 5 -and $j.unpricedTiers.weirdmodel.outputTokens -eq 6 -and
       $j.unpricedTiers.weirdmodel.cacheReadTokens -eq 7 -and $j.unpricedTiers.weirdmodel.cacheWriteTokens -eq 8 -and
       (-not $j.unpricedTiers.weirdmodel.PSObject.Properties['costUsd'])) { Ok } else {
@@ -128,7 +128,7 @@ try {
   # ---- tiny sub-1e-4 costUsd asserted by NUMERIC VALUE (not float bytes) -----
   $r = Run-Case '{"runId":"run-tiny","tiers":{"opus":{"outputTokens":2}}}'
   $j = Rec-Json $r.ws
-  if ($r.rc -eq 0 -and $j -and $j.costUsd -eq 5e-05 -and $j.tiers.opus.costUsd -eq 5e-05) { Ok } else {
+  if ($r.rc -eq 0 -and $j -and $j.costUsd -eq 4e-05 -and $j.tiers.opus.costUsd -eq 4e-05) { Ok } else {
     No "tiny-sci: rc=$($r.rc) costUsd=[$(if($j){$j.costUsd})]" }
 
   # ---- fail-open AT THE WRITE + unpriced tier -> STILL exactly one stderr line -
@@ -323,8 +323,8 @@ try {
   $jf = Rec-Json $wsF
   if ($rf.rc -eq 0 -and $rf.err -eq '' -and $jf -and
       $jf.runId -eq 'run-final' -and $jf.wallClockSeconds -eq 15 -and
-      $jf.tiers.opus.inputTokens -eq 500000 -and $jf.tiers.opus.costUsd -eq 2.5 -and
-      $jf.costUsd -eq 2.5 -and $jf.rateSnapshot -eq "$BASE; note: unsplit-total-as-input" -and
+      $jf.tiers.opus.inputTokens -eq 500000 -and $jf.tiers.opus.costUsd -eq 2 -and
+      $jf.costUsd -eq 2 -and $jf.rateSnapshot -eq "$BASE; note: unsplit-total-as-input" -and
       $jf.agents -and (@($jf.agents)).Count -eq 2 -and
       ($jf.agents[0].agent -eq 'implementer') -and ($jf.agents[0].durationMs -eq 10000) -and
       ($jf.agents[1].agent -eq 'code-review') -and ($jf.agents[1].durationMs -eq 5000)) { Ok } else {
@@ -339,8 +339,8 @@ try {
   $rf2 = Run-Finalize $wsF2 'run-final2'
   $jf2 = Rec-Json $wsF2
   if ($rf2.rc -eq 0 -and ($rf2.err -match 'haiku') -and $jf2 -and
-      $jf2.tiers.opus.costUsd -eq 5 -and $jf2.tiers.sonnet.costUsd -eq 3 -and
-      $jf2.costUsd -eq 8 -and $jf2.unpricedTiers.haiku.inputTokens -eq 500 -and
+      $jf2.tiers.opus.costUsd -eq 4 -and $jf2.tiers.sonnet.costUsd -eq 2 -and
+      $jf2.costUsd -eq 6 -and $jf2.unpricedTiers.haiku.inputTokens -eq 500 -and
       $jf2.wallClockSeconds -eq 3.5 -and (@($jf2.agents)).Count -eq 3) { Ok } else {
     No "finalize-multi-tier: rc=$($rf2.rc) err=[$($rf2.err)]" }
 
@@ -364,7 +364,7 @@ try {
   Run-Append $wsFm 'run-fm' '{"agent":"a","tier":"opus","totalTokens":1000000,"durationMs":1000,"steps":3,"stepsBeforeFirstEdit":1,"minutesToFirstEdit":0.5}' | Out-Null
   $rfm = Run-Finalize $wsFm 'run-fm'
   $jfm = Rec-Json $wsFm
-  if ($rfm.rc -eq 0 -and $rfm.err -eq '' -and $jfm -and $jfm.costUsd -eq 5 -and $jfm.wallClockSeconds -eq 1 -and
+  if ($rfm.rc -eq 0 -and $rfm.err -eq '' -and $jfm -and $jfm.costUsd -eq 4 -and $jfm.wallClockSeconds -eq 1 -and
       (@($jfm.agents[0].PSObject.Properties.Name) -join ',') -ceq 'agent,tier,totalTokens,durationMs') { Ok } else {
     No "finalize-metrics-shape: rc=$($rfm.rc) err=[$($rfm.err)] j=[$(if($jfm){$jfm | ConvertTo-Json -Compress -Depth 5})]" }
 
