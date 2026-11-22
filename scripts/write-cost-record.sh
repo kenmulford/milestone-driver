@@ -54,22 +54,38 @@
 #                           first start time. Prints the relative path. Fail-open
 #                           like --append: missing runId arg, an uncreatable dir,
 #                           or an unwritable file -> one stderr line, exit 0.
-#   --finalize <runId>     reads that whole .jsonl (no stdin), sums totalTokens
-#                           per tier into the default contract's `tiers.<t>.
-#                           inputTokens` (same "unsplit-total-as-input" lower-
-#                           bound this script's caller already uses for the
-#                           default mode - `skills/solve-issue/SKILL.md (Map
-#                           (auditable lower-bound))`), sums durationMs/1000 into
-#                           `wallClockSeconds`, then runs the EXACT SAME costing
-#                           pass as the default mode over that aggregate - one
-#                           rate table, one cost record shape, everywhere - and
-#                           writes the cost record with one extra field,
-#                           `agents`: the raw per-line entries verbatim, in file
-#                           order, for a per-agent durationMs breakdown the
-#                           aggregate wallClockSeconds alone cannot give back.
-#                           Fail-open: missing runId arg, missing/empty/
-#                           malformed usage file -> one stderr line, no record,
-#                           exit 0.
+#   --finalize <runId> [<transcriptDir>]
+#                           reads that whole .jsonl (no stdin) for `wallClockSeconds`
+#                           (durationMs summed, over 1000) and `agents` (the raw
+#                           per-line entries verbatim, in file order, for a per-agent
+#                           durationMs breakdown the aggregate cannot give back), then
+#                           runs the EXACT SAME costing pass as the default mode - one
+#                           rate table, one cost record shape, everywhere. `tiers` come
+#                           from one of two paths.
+#                           Per-turn: every top-level agent-*.jsonl in <transcriptDir>
+#                           (byte-sorted) whose first string `.timestamp` is at or after
+#                           the first line of
+#                           .milestone-config/.runtime/usage/<sanitized-runId>.start
+#                           (%Y-%m-%dT%H:%M:%SZ, whole seconds) has its assistant turns'
+#                           four `message.usage` counts summed per tier, each
+#                           `message.id` once per file; a missing, null or non-numeric
+#                           count is 0, `<synthetic>` is skipped, a model naming opus
+#                           or sonnet is that tier, a missing model is `?`, any other
+#                           id is its own tier and lands in unpricedTiers.
+#                           provenanceNote `per-turn-transcript-sum`.
+#                           Unsplit fallback: the usage lines' totalTokens summed per
+#                           tier into `tiers.<t>.inputTokens` (a lower bound).
+#                           provenanceNote `unsplit-total-as-input`, plus exactly one
+#                           stderr line `write-cost-record: <reason> - using unsplit
+#                           totals`, <reason> being one of: no transcript directory
+#                           argument; transcript directory <dir> not found; no start
+#                           file at <rel>; start file <rel> is not
+#                           %Y-%m-%dT%H:%M:%SZ; no agent transcript at or after
+#                           <start> in <dir>. A transcript pass that cannot complete
+#                           takes the same path with reason `cannot sum the
+#                           transcripts in <dir>`.
+#                           Fail-open: missing runId arg, missing/empty/malformed usage
+#                           file -> one stderr line, no record, exit 0.
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
@@ -145,6 +161,7 @@ fi
 # through into the SAME costing pipeline the default mode already runs below -
 # one rate table, one cost-record shape, never a second copy of either.
 finalize_agents=""
+finalize_note=""
 if [ "$mode" = "--finalize" ]; then
   runid_arg="${2:-}"
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --finalize <runId> - no record written"
@@ -174,6 +191,77 @@ if [ "$mode" = "--finalize" ]; then
     || fail "internal aggregation error over $usage_file - no record written"
   finalize_agents="$(printf '%s' "$agg" | jq -c '.agents' 2>/dev/null)" \
     || fail "internal aggregation error over $usage_file - no record written"
+
+  # Per-turn path: replace the unsplit `input.tiers` with sums over the session's
+  # agent transcripts. Any reason it cannot run keeps `input` as built above and is
+  # held in finalize_note, printed after the record write so a failed write stays
+  # one stderr line. Per-file jq, not one pass over all files: the first-timestamp
+  # start test and the message.id dedup are both per file, and a file jq cannot
+  # read or date prints nothing, so it simply does not match.
+  tdir="${3:-}"
+  start_rel=".milestone-config/.runtime/usage/$(sanitize_for_filename "$runid_arg").start"
+  if [ -z "$tdir" ]; then
+    finalize_note="no transcript directory argument"
+  elif [ ! -d "$tdir" ]; then
+    finalize_note="transcript directory $tdir not found"
+  elif [ ! -f "$start_rel" ]; then
+    finalize_note="no start file at $start_rel"
+  else
+    start_line="$(head -n 1 "$start_rel" 2>/dev/null | tr -d '\r')"
+    start_epoch="$(printf '%s\n' "$start_line" | jq -Rr '
+      if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$") then fromdate else empty end' 2>/dev/null | tr -d '\r')"
+    if [ -z "$start_epoch" ]; then
+      finalize_note="start file $start_rel is not %Y-%m-%dT%H:%M:%SZ"
+    else
+      TURN_PROG='
+        def secs: sub("\\.[0-9]+"; "") | fromdate;
+        def num(v): if (v|type) == "number" then v else 0 end;
+        [inputs | fromjson? | objects] as $evs
+        | ([$evs[] | .timestamp | strings][0]) as $first
+        | (if $first != null and ($first | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"))
+           then ($first | secs) else null end) as $t0
+        | select($t0 != null and $t0 >= $start)
+        | reduce ($evs[] | select(.type == "assistant" and (.message|type) == "object"
+                                  and (.message.usage|type) == "object")) as $e (
+            {seen: {}, turns: []};
+            ($e.message.id | tojson) as $k
+            | if .seen[$k] then .
+              else .seen[$k] = true
+                | ($e.message.model | if type == "string" then ascii_downcase else "?" end) as $m
+                | if $m == "<synthetic>" then .
+                  else .turns += [{
+                    tier: (if ($m|contains("opus")) then "opus" elif ($m|contains("sonnet")) then "sonnet" else $m end),
+                    i: num($e.message.usage.input_tokens), o: num($e.message.usage.output_tokens),
+                    cr: num($e.message.usage.cache_read_input_tokens), cw: num($e.message.usage.cache_creation_input_tokens)}]
+                  end
+              end)
+        | .turns'
+      SUM_PROG='
+        reduce (.[][]) as $t ({};
+          .[$t.tier] = ((.[$t.tier] // {inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0})
+            | .inputTokens += $t.i | .outputTokens += $t.o
+            | .cacheReadTokens += $t.cr | .cacheWriteTokens += $t.cw))'
+      matched=0
+      outs=""
+      for f in "$tdir"/agent-*.jsonl; do
+        [ -f "$f" ] || continue
+        out="$(jq -R -n -c --argjson start "$start_epoch" "$TURN_PROG" "$f" 2>/dev/null | tr -d '\r')"
+        [ -n "$out" ] || continue
+        matched=$((matched + 1))
+        outs="$outs$out
+"
+      done
+      if [ "$matched" -eq 0 ]; then
+        finalize_note="no agent transcript at or after $start_line in $tdir"
+      elif sums="$(printf '%s' "$outs" | jq -s -c "$SUM_PROG" 2>/dev/null)" \
+           && new_input="$(printf '%s' "$input" | jq -c --argjson tiers "$sums" \
+                '.tiers = $tiers | .provenanceNote = "per-turn-transcript-sum"' 2>/dev/null)"; then
+        input="$new_input"
+      else
+        finalize_note="cannot sum the transcripts in $tdir"
+      fi
+    fi
+  fi
 else
   input="$(cat)"
   [ -n "$input" ] || fail "empty stdin - no record written"
@@ -274,6 +362,7 @@ fi
 # never note(s) + the fail line. `tr -d '\r'` drops jq's Windows CRLF so a tier name
 # carries no stray CR; no empty-name guard, so a (pathological) empty-string tier key
 # still yields exactly one note - parity with the pwsh foreach.
+[ -z "$finalize_note" ] || printf 'write-cost-record: %s - using unsplit totals\n' "$finalize_note" >&2
 while IFS= read -r t; do
   printf "write-cost-record: tier '%s' has no rate table entry - recorded under unpricedTiers, excluded from costUsd\n" "$t" >&2
 done < <(printf '%s' "$wrapper" | jq -r '.unpriced[]' | tr -d '\r')

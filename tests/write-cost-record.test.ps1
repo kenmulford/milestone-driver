@@ -310,8 +310,10 @@ try {
   # =====================================================================
   # --finalize <runId>: rebuild the run-end record from the usage file alone
   # =====================================================================
-  function Run-Finalize([string]$ws, [string]$runId) {
-    return Invoke-Leg -Script $script -Args @('--finalize', $runId) -Stdin '' -Cwd $ws
+  function Run-Finalize([string]$ws, [string]$runId, [string]$dir = '') {
+    $fargs = @('--finalize', $runId)
+    if ($dir -ne '') { $fargs += $dir }
+    return Invoke-Leg -Script $script -Args $fargs -Stdin '' -Cwd $ws
   }
 
   # ---- finalize happy path: two entries, same tier, sums + agents[] --------
@@ -321,7 +323,7 @@ try {
   Run-Append $wsF 'run-final' '{"agent":"code-review","tier":"opus","totalTokens":100000,"durationMs":5000}' | Out-Null
   $rf = Run-Finalize $wsF 'run-final'
   $jf = Rec-Json $wsF
-  if ($rf.rc -eq 0 -and $rf.err -eq '' -and $jf -and
+  if ($rf.rc -eq 0 -and (Err-Lines $rf.err) -eq 1 -and ($rf.err -match 'no transcript directory argument - using unsplit totals') -and $jf -and
       $jf.runId -eq 'run-final' -and $jf.wallClockSeconds -eq 15 -and
       $jf.tiers.opus.inputTokens -eq 500000 -and $jf.tiers.opus.costUsd -eq 2 -and
       $jf.costUsd -eq 2 -and $jf.rateSnapshot -eq "$BASE; note: unsplit-total-as-input" -and
@@ -364,7 +366,7 @@ try {
   Run-Append $wsFm 'run-fm' '{"agent":"a","tier":"opus","totalTokens":1000000,"durationMs":1000,"steps":3,"stepsBeforeFirstEdit":1,"minutesToFirstEdit":0.5}' | Out-Null
   $rfm = Run-Finalize $wsFm 'run-fm'
   $jfm = Rec-Json $wsFm
-  if ($rfm.rc -eq 0 -and $rfm.err -eq '' -and $jfm -and $jfm.costUsd -eq 4 -and $jfm.wallClockSeconds -eq 1 -and
+  if ($rfm.rc -eq 0 -and (Err-Lines $rfm.err) -eq 1 -and ($rfm.err -match 'no transcript directory argument - using unsplit totals') -and $jfm -and $jfm.costUsd -eq 4 -and $jfm.wallClockSeconds -eq 1 -and
       (@($jfm.agents[0].PSObject.Properties.Name) -join ',') -ceq 'agent,tier,totalTokens,durationMs') { Ok } else {
     No "finalize-metrics-shape: rc=$($rfm.rc) err=[$($rfm.err)] j=[$(if($jfm){$jfm | ConvertTo-Json -Compress -Depth 5})]" }
 
@@ -391,6 +393,53 @@ try {
   $rf5 = Invoke-Leg -Script $script -Args @('--finalize') -Stdin '' -Cwd $wsF5
   if ($rf5.rc -eq 0 -and (Err-Lines $rf5.err) -eq 1) { Ok } else {
     No "finalize-missing-runid-arg: rc=$($rf5.rc) errlines=$(Err-Lines $rf5.err)" }
+
+  # ---- finalize per-turn: transcript sums, nested agent, dedup, start test --
+  $tfx = Join-Path $here 'fixtures' 'write-cost-record' 'transcripts'
+  function New-FinalizeWs([string]$runId, $startLine) {
+    $w = New-Ws
+    Run-Append $w $runId '{"agent":"implementer","tier":"opus","totalTokens":400000,"durationMs":10000}' | Out-Null
+    Run-Append $w $runId '{"agent":"code-review","tier":"opus","totalTokens":100000,"durationMs":5000}' | Out-Null
+    if ($null -ne $startLine) {
+      Set-Content -LiteralPath (Join-Path $w ".milestone-config/.runtime/usage/$runId.start") -Value $startLine -NoNewline
+    }
+    return $w
+  }
+  $wsP = New-FinalizeWs 'run-pt' '2026-11-21T10:00:00Z'
+  $rp = Run-Finalize $wsP 'run-pt' $tfx
+  $jp = Rec-Json $wsP
+  if ($rp.rc -eq 0 -and (Err-Lines $rp.err) -eq 1 -and ($rp.err -match "tier 'claude-haiku-4-5' has no rate table entry") -and $jp -and
+      (@($jp.tiers.PSObject.Properties.Name) -join ',') -ceq 'opus,sonnet' -and
+      $jp.tiers.opus.inputTokens -eq 1000000 -and $jp.tiers.opus.outputTokens -eq 100000 -and
+      $jp.tiers.opus.cacheReadTokens -eq 5000000 -and $jp.tiers.opus.cacheWriteTokens -eq 400000 -and $jp.tiers.opus.costUsd -eq 9 -and
+      $jp.tiers.sonnet.inputTokens -eq 1000000 -and $jp.tiers.sonnet.outputTokens -eq 100000 -and
+      $jp.tiers.sonnet.cacheReadTokens -eq 5000000 -and $jp.tiers.sonnet.cacheWriteTokens -eq 400000 -and $jp.tiers.sonnet.costUsd -eq 4.5 -and
+      $jp.costUsd -eq 13.5 -and $jp.rateSnapshot -ceq "$BASE; note: per-turn-transcript-sum" -and
+      $jp.unpricedTiers.'claude-haiku-4-5'.inputTokens -eq 1000 -and $jp.unpricedTiers.'claude-haiku-4-5'.outputTokens -eq 100 -and
+      $jp.wallClockSeconds -eq 15 -and (@($jp.agents)).Count -eq 2) { Ok } else {
+    No "finalize-per-turn: rc=$($rp.rc) err=[$($rp.err)] j=[$(if($jp){$jp | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- finalize fallbacks: one stderr line naming the reason, unsplit record -
+  function Finalize-Fallback([string]$label, $startLine, [bool]$missingDir, [string]$reasonPattern) {
+    $runId = "run-$label"
+    $w = New-FinalizeWs $runId $startLine
+    $d = if ($missingDir) { Join-Path $w 'no-such-dir' } else { $tfx }
+    $r = Run-Finalize $w $runId $d
+    $j = Rec-Json $w
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and ($r.err -match "$reasonPattern - using unsplit totals\s*$") -and $j -and
+        $j.tiers.opus.inputTokens -eq 500000 -and $j.rateSnapshot -ceq "$BASE; note: unsplit-total-as-input") { Ok } else {
+      No "$label`: rc=$($r.rc) err=[$($r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+  Finalize-Fallback 'finalize-fallback-dir-missing' '2026-11-21T10:00:00Z' $true 'transcript directory .+ not found'
+  Finalize-Fallback 'finalize-fallback-start-absent' $null $false 'no start file at \.milestone-config/\.runtime/usage/run-finalize-fallback-start-absent\.start'
+  Finalize-Fallback 'finalize-fallback-start-malformed' 'not-a-time' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-malformed\.start is not %Y-%m-%dT%H:%M:%SZ'
+  Finalize-Fallback 'finalize-fallback-none-after-start' '2026-11-21T11:00:00Z' $false 'no agent transcript at or after 2026-11-21T11:00:00Z in .+'
+
+  # ---- finalize: no usage file with a dir passed -> fail-open, no record -----
+  $wsNd = New-Ws
+  $rNd = Run-Finalize $wsNd 'run-nofile-dir' $tfx
+  if ($rNd.rc -eq 0 -and (Err-Lines $rNd.err) -eq 1 -and ($rNd.err -match 'no usage data at') -and (-not (Rec-File $wsNd))) { Ok } else {
+    No "finalize-nofile-with-dir: rc=$($rNd.rc) err=[$($rNd.err)] record=$(Rec-File $wsNd)" }
 } finally {
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
