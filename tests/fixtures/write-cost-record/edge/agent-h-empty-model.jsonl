@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-11-21T10:03:00.000Z","message":{"role":"user","content":"go"}}
+{"type":"assistant","message":{"id":"h1","model":"","usage":{"input_tokens":11,"output_tokens":1,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}

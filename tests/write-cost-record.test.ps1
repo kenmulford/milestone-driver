@@ -7,7 +7,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $here '_lib.ps1'); Set-Leg $Leg
 $script = Join-Path $here '..' 'scripts' 'write-cost-record'
 
-$BASE = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
+$BASE = 'Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.05x tier input rate; source: https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21'
 
 $pass = 0; $fail = 0
 function Ok { $script:pass++ }
@@ -16,6 +16,7 @@ function No([string]$m) { $script:fail++; Write-Host "FAIL $m" }
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ("wcr_" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $root | Out-Null
 
+function New-Ws { $w = Join-Path $root ([System.Guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $w | Out-Null; return $w }
 function Run-Case([string]$inputJson) {
   $ws = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws | Out-Null
@@ -40,10 +41,10 @@ try {
   if ($r.rc -eq 0 -and $r.err -eq '' -and $j -and
       ($r.out -match 'cost-records/run-happy-[0-9]+-.+\.json') -and
       (Test-Path (Join-Path $r.ws ($r.out.Trim()))) -and
-      $j.runId -eq 'run-happy' -and $j.wallClockSeconds -eq 42 -and $j.costUsd -eq 17 -and
+      $j.runId -eq 'run-happy' -and $j.wallClockSeconds -eq 42 -and $j.costUsd -eq 10.6 -and
       $j.tiers.opus.inputTokens -eq 400000 -and $j.tiers.opus.outputTokens -eq 40000 -and
       $j.tiers.opus.cacheReadTokens -eq 2000000 -and $j.tiers.opus.cacheWriteTokens -eq 160000 -and
-      $j.tiers.opus.costUsd -eq 5 -and $j.tiers.sonnet.costUsd -eq 12 -and
+      $j.tiers.opus.costUsd -eq 3.6 -and $j.tiers.sonnet.costUsd -eq 7 -and
       (@($j.unpricedTiers.PSObject.Properties).Count -eq 0) -and
       ($rawJson -match '"writtenAt":\s*"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"') -and
       $j.rateSnapshot -eq $BASE) { Ok } else {
@@ -53,16 +54,16 @@ try {
   $r = Run-Case '{"runId":"run/1 x","tiers":{"opus":{"inputTokens":1000000}}}'
   $j = Rec-Json $r.ws
   if ($r.rc -eq 0 -and $j -and ($r.out -match 'cost-records/run-1-x-[0-9]+-.+\.json') -and
-      $j.runId -eq 'run/1 x' -and $j.tiers.opus.costUsd -eq 5) { Ok } else {
+      $j.runId -eq 'run/1 x' -and $j.tiers.opus.costUsd -eq 4) { Ok } else {
     No "sanitize: rc=$($r.rc) out=[$($r.out)] runId=[$(if($j){$j.runId})]" }
 
   # ---- omitted wallClock / tier / token-fields -> zeros -------------------
   $r = Run-Case '{"runId":"run-omit","tiers":{"opus":{"inputTokens":1000000}}}'
   $j = Rec-Json $r.ws
-  if ($r.rc -eq 0 -and $j -and $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 5 -and
+  if ($r.rc -eq 0 -and $j -and $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 4 -and
       $j.tiers.opus.inputTokens -eq 1000000 -and $j.tiers.opus.outputTokens -eq 0 -and
       $j.tiers.opus.cacheReadTokens -eq 0 -and $j.tiers.opus.cacheWriteTokens -eq 0 -and
-      $j.tiers.opus.costUsd -eq 5) { Ok } else { No "omit-zeros: rc=$($r.rc)" }
+      $j.tiers.opus.costUsd -eq 4) { Ok } else { No "omit-zeros: rc=$($r.rc)" }
 
   # ---- empty-state: omitted fields -> zeros present in record -------------
   $r = Run-Case '{"runId":"run-empty"}'
@@ -71,7 +72,7 @@ try {
       $j.wallClockSeconds -eq 0 -and $j.costUsd -eq 0 -and
       (@($j.tiers.PSObject.Properties).Count -eq 0) -and
       (@($j.unpricedTiers.PSObject.Properties).Count -eq 0) -and
-      $j.PSObject.Properties['rateSnapshot'] -and $j.PSObject.Properties['writtenAt']) { Ok } else {
+      $j.rateSnapshot -eq $BASE -and $j.PSObject.Properties['writtenAt']) { Ok } else {
     No "empty-state: rc=$($r.rc) err=[$($r.err)]" }
 
   # ---- fail-open cases: exactly one stderr line, NO record, exit 0 --------
@@ -92,8 +93,8 @@ try {
   $r = Run-Case '{"runId":"run-unpriced","tiers":{"opus":{"inputTokens":1000000},"weirdmodel":{"inputTokens":5,"outputTokens":6,"cacheReadTokens":7,"cacheWriteTokens":8}}}'
   $j = Rec-Json $r.ws
   if ($r.rc -eq 0 -and $j -and ($r.err -match 'weirdmodel') -and
-      $j.costUsd -eq 5 -and (-not $j.tiers.PSObject.Properties['weirdmodel']) -and
-      $j.tiers.opus.costUsd -eq 5 -and
+      $j.costUsd -eq 4 -and (-not $j.tiers.PSObject.Properties['weirdmodel']) -and
+      $j.tiers.opus.costUsd -eq 4 -and
       $j.unpricedTiers.weirdmodel.inputTokens -eq 5 -and $j.unpricedTiers.weirdmodel.outputTokens -eq 6 -and
       $j.unpricedTiers.weirdmodel.cacheReadTokens -eq 7 -and $j.unpricedTiers.weirdmodel.cacheWriteTokens -eq 8 -and
       (-not $j.unpricedTiers.weirdmodel.PSObject.Properties['costUsd'])) { Ok } else {
@@ -128,7 +129,7 @@ try {
   # ---- tiny sub-1e-4 costUsd asserted by NUMERIC VALUE (not float bytes) -----
   $r = Run-Case '{"runId":"run-tiny","tiers":{"opus":{"outputTokens":2}}}'
   $j = Rec-Json $r.ws
-  if ($r.rc -eq 0 -and $j -and $j.costUsd -eq 5e-05 -and $j.tiers.opus.costUsd -eq 5e-05) { Ok } else {
+  if ($r.rc -eq 0 -and $j -and $j.costUsd -eq 4e-05 -and $j.tiers.opus.costUsd -eq 4e-05) { Ok } else {
     No "tiny-sci: rc=$($r.rc) costUsd=[$(if($j){$j.costUsd})]" }
 
   # ---- fail-open AT THE WRITE + unpriced tier -> STILL exactly one stderr line -
@@ -154,8 +155,8 @@ try {
   # =====================================================================
   # --append <runId>: one usage line per dispatch, survives compaction (D5)
   # =====================================================================
-  function Usage-File([string]$ws, [string]$sanitizedRunId) {
-    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.jsonl")
+  function Usage-File([string]$ws, [string]$sanitizedRunId, [string]$ext = 'jsonl') {
+    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.$ext")
   }
   function Run-Append([string]$ws, [string]$runId, [string]$inputJson) {
     return Invoke-Leg -Script $script -Args @('--append', $runId) -Stdin $inputJson -Cwd $ws
@@ -249,10 +250,73 @@ try {
     No "append-missing-runid-arg: rc=$($rNoId.rc) errlines=$(Err-Lines $rNoId.err)" }
 
   # =====================================================================
+  # --start <runId>: record the run's start time once, never overwrite it
+  # =====================================================================
+  function Run-Start([string]$ws, [string]$runId, [string]$sid = 'sess-start') {
+    return Invoke-Leg -Script $script -Args @('--start', $runId) -Stdin '' -Cwd $ws -Env @{ CLAUDE_CODE_SESSION_ID = $sid }
+  }
+  function Start-Bytes([string]$f) {
+    [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($f))
+  }
+
+  # ---- start first write: path on stdout, empty stderr, exact bytes, no .jsonl
+  $wsS = New-Ws
+  $rs = Run-Start $wsS 'run/1 x'
+  $sf = Usage-File $wsS 'run-1-x' 'start'
+  $usageDirS = Join-Path $wsS '.milestone-config/.runtime/usage'
+  if ($rs.rc -eq 0 -and $rs.err -eq '' -and $rs.out -ceq ".milestone-config/.runtime/usage/run-1-x.start`n" -and
+      (Test-Path -LiteralPath $sf) -and
+      (Start-Bytes $sf) -cmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\nsess-start\n\z' -and
+      @(Get-ChildItem -LiteralPath $usageDirS -Filter '*.jsonl' -ErrorAction SilentlyContinue).Count -eq 0) { Ok } else {
+    No "start-first-write: rc=$($rs.rc) err=[$($rs.err)] out=[$($rs.out)] exists=$(Test-Path -LiteralPath $sf)" }
+
+  # ---- start with no session id: line 2 is empty ------------------------------
+  $wsS0 = New-Ws
+  $rs0 = Run-Start $wsS0 'run-nosid' ''
+  if ($rs0.rc -eq 0 -and $rs0.err -eq '' -and
+      (Start-Bytes (Usage-File $wsS0 'run-nosid' 'start')) -cmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\n\n\z') { Ok } else {
+    No "start-no-session-id: rc=$($rs0.rc) err=[$($rs0.err)] bytes=[$(Start-Bytes (Usage-File $wsS0 'run-nosid' 'start'))]" }
+
+  # ---- start second call: existing file kept byte-for-byte -------------------
+  [System.IO.File]::WriteAllText($sf, "2000-01-01T00:00:00Z`n", [System.Text.UTF8Encoding]::new($false))
+  $rs2 = Run-Start $wsS 'run/1 x'
+  if ($rs2.rc -eq 0 -and $rs2.err -eq '' -and $rs2.out -ceq ".milestone-config/.runtime/usage/run-1-x.start`n" -and
+      (Start-Bytes $sf) -ceq "2000-01-01T00:00:00Z`n") { Ok } else {
+    No "start-second-call: rc=$($rs2.rc) err=[$($rs2.err)] bytes=[$(Start-Bytes $sf)]" }
+
+  # ---- start fail-open cases: one stderr line, empty stdout, no .start file --
+  function Start-FailOpen([string]$label, [string[]]$startArgs, [string]$ws) {
+    $r = Invoke-Leg -Script $script -Args $startArgs -Stdin '' -Cwd $ws
+    $made = @(Get-ChildItem -LiteralPath $ws -Recurse -File -Filter '*.start' -ErrorAction SilentlyContinue).Count
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.out -eq '' -and $made -eq 0) { Ok } else {
+      No "$label`: rc=$($r.rc) errlines=$(Err-Lines $r.err) out=[$($r.out)] startfiles=$made" }
+  }
+  Start-FailOpen 'start-missing-runid-arg' @('--start') (New-Ws)
+  Start-FailOpen 'start-empty-runid-arg' @('--start', '') (New-Ws)
+
+  $wsOcc = New-Ws
+  New-Item -ItemType Directory -Force -Path (Join-Path $wsOcc '.milestone-config/.runtime') | Out-Null
+  Set-Content -LiteralPath (Join-Path $wsOcc '.milestone-config/.runtime/usage') -Value 'x' -NoNewline
+  Start-FailOpen 'start-usage-occupied-by-file' @('--start', 'run-s') $wsOcc
+
+  $wsRo = New-Ws
+  $roDir = Join-Path $wsRo '.milestone-config/.runtime/usage'
+  New-Item -ItemType Directory -Force -Path $roDir | Out-Null
+  try { & chmod 555 $roDir 2>$null } catch {}
+  $rRo = Run-Start $wsRo 'run-s'
+  if (Test-Path -LiteralPath (Usage-File $wsRo 'run-s' 'start')) {
+    Ok  # read-only not enforced on this FS (Windows) - write fail-open path unreachable; skip
+  } elseif ($rRo.rc -eq 0 -and (Err-Lines $rRo.err) -eq 1 -and $rRo.out -eq '') { Ok } else {
+    No "start-readonly-usage: rc=$($rRo.rc) errlines=$(Err-Lines $rRo.err) out=[$($rRo.out)]" }
+  try { & chmod 755 $roDir 2>$null } catch {}
+
+  # =====================================================================
   # --finalize <runId>: rebuild the run-end record from the usage file alone
   # =====================================================================
-  function Run-Finalize([string]$ws, [string]$runId) {
-    return Invoke-Leg -Script $script -Args @('--finalize', $runId) -Stdin '' -Cwd $ws
+  function Run-Finalize([string]$ws, [string]$runId, [string]$dir = '', [hashtable]$Env = @{}) {
+    $fargs = @('--finalize', $runId)
+    if ($dir -ne '') { $fargs += $dir }
+    return Invoke-Leg -Script $script -Args $fargs -Stdin '' -Cwd $ws -Env $Env
   }
 
   # ---- finalize happy path: two entries, same tier, sums + agents[] --------
@@ -262,10 +326,10 @@ try {
   Run-Append $wsF 'run-final' '{"agent":"code-review","tier":"opus","totalTokens":100000,"durationMs":5000}' | Out-Null
   $rf = Run-Finalize $wsF 'run-final'
   $jf = Rec-Json $wsF
-  if ($rf.rc -eq 0 -and $rf.err -eq '' -and $jf -and
+  if ($rf.rc -eq 0 -and (Err-Lines $rf.err) -eq 1 -and ($rf.err -match 'no transcript directory argument - using unsplit totals') -and $jf -and
       $jf.runId -eq 'run-final' -and $jf.wallClockSeconds -eq 15 -and
-      $jf.tiers.opus.inputTokens -eq 500000 -and $jf.tiers.opus.costUsd -eq 2.5 -and
-      $jf.costUsd -eq 2.5 -and $jf.rateSnapshot -eq "$BASE; note: unsplit-total-as-input" -and
+      $jf.tiers.opus.inputTokens -eq 500000 -and $jf.tiers.opus.costUsd -eq 2 -and
+      $jf.costUsd -eq 2 -and $jf.rateSnapshot -eq "$BASE; note: unsplit-total-as-input" -and
       $jf.agents -and (@($jf.agents)).Count -eq 2 -and
       ($jf.agents[0].agent -eq 'implementer') -and ($jf.agents[0].durationMs -eq 10000) -and
       ($jf.agents[1].agent -eq 'code-review') -and ($jf.agents[1].durationMs -eq 5000)) { Ok } else {
@@ -280,8 +344,8 @@ try {
   $rf2 = Run-Finalize $wsF2 'run-final2'
   $jf2 = Rec-Json $wsF2
   if ($rf2.rc -eq 0 -and ($rf2.err -match 'haiku') -and $jf2 -and
-      $jf2.tiers.opus.costUsd -eq 5 -and $jf2.tiers.sonnet.costUsd -eq 3 -and
-      $jf2.costUsd -eq 8 -and $jf2.unpricedTiers.haiku.inputTokens -eq 500 -and
+      $jf2.tiers.opus.costUsd -eq 4 -and $jf2.tiers.sonnet.costUsd -eq 2 -and
+      $jf2.costUsd -eq 6 -and $jf2.unpricedTiers.haiku.inputTokens -eq 500 -and
       $jf2.wallClockSeconds -eq 3.5 -and (@($jf2.agents)).Count -eq 3) { Ok } else {
     No "finalize-multi-tier: rc=$($rf2.rc) err=[$($rf2.err)]" }
 
@@ -305,7 +369,7 @@ try {
   Run-Append $wsFm 'run-fm' '{"agent":"a","tier":"opus","totalTokens":1000000,"durationMs":1000,"steps":3,"stepsBeforeFirstEdit":1,"minutesToFirstEdit":0.5}' | Out-Null
   $rfm = Run-Finalize $wsFm 'run-fm'
   $jfm = Rec-Json $wsFm
-  if ($rfm.rc -eq 0 -and $rfm.err -eq '' -and $jfm -and $jfm.costUsd -eq 5 -and $jfm.wallClockSeconds -eq 1 -and
+  if ($rfm.rc -eq 0 -and (Err-Lines $rfm.err) -eq 1 -and ($rfm.err -match 'no transcript directory argument - using unsplit totals') -and $jfm -and $jfm.costUsd -eq 4 -and $jfm.wallClockSeconds -eq 1 -and
       (@($jfm.agents[0].PSObject.Properties.Name) -join ',') -ceq 'agent,tier,totalTokens,durationMs') { Ok } else {
     No "finalize-metrics-shape: rc=$($rfm.rc) err=[$($rfm.err)] j=[$(if($jfm){$jfm | ConvertTo-Json -Compress -Depth 5})]" }
 
@@ -332,6 +396,315 @@ try {
   $rf5 = Invoke-Leg -Script $script -Args @('--finalize') -Stdin '' -Cwd $wsF5
   if ($rf5.rc -eq 0 -and (Err-Lines $rf5.err) -eq 1) { Ok } else {
     No "finalize-missing-runid-arg: rc=$($rf5.rc) errlines=$(Err-Lines $rf5.err)" }
+
+  # ---- finalize per-turn: transcript sums, nested agent, dedup, start test --
+  $tfx = Join-Path $here 'fixtures' 'write-cost-record' 'transcripts'
+  function New-FinalizeWs([string]$runId, $startLine) {
+    $w = New-Ws
+    Run-Append $w $runId '{"agent":"implementer","tier":"opus","totalTokens":400000,"durationMs":10000}' | Out-Null
+    Run-Append $w $runId '{"agent":"code-review","tier":"opus","totalTokens":100000,"durationMs":5000}' | Out-Null
+    if ($null -ne $startLine) {
+      Set-Content -LiteralPath (Usage-File $w $runId 'start') -Value $startLine -NoNewline
+    }
+    return $w
+  }
+  $wsP = New-FinalizeWs 'run-pt' '2026-11-21T10:00:00Z'
+  $rp = Run-Finalize $wsP 'run-pt' $tfx
+  $jp = Rec-Json $wsP
+  if ($rp.rc -eq 0 -and (Err-Lines $rp.err) -eq 1 -and ($rp.err -match "tier 'claude-haiku-4-5' has no rate table entry") -and $jp -and
+      (@($jp.tiers.PSObject.Properties.Name) -join ',') -ceq 'opus,sonnet' -and
+      $jp.tiers.opus.inputTokens -eq 1000000 -and $jp.tiers.opus.outputTokens -eq 100000 -and
+      $jp.tiers.opus.cacheReadTokens -eq 5000000 -and $jp.tiers.opus.cacheWriteTokens -eq 400000 -and $jp.tiers.opus.costUsd -eq 9 -and
+      $jp.tiers.sonnet.inputTokens -eq 1000000 -and $jp.tiers.sonnet.outputTokens -eq 100000 -and
+      $jp.tiers.sonnet.cacheReadTokens -eq 5000000 -and $jp.tiers.sonnet.cacheWriteTokens -eq 400000 -and $jp.tiers.sonnet.costUsd -eq 4.5 -and
+      $jp.costUsd -eq 13.5 -and $jp.rateSnapshot -ceq "$BASE; note: per-turn-transcript-sum" -and
+      $jp.unpricedTiers.'claude-haiku-4-5'.inputTokens -eq 1000 -and $jp.unpricedTiers.'claude-haiku-4-5'.outputTokens -eq 100 -and
+      $jp.wallClockSeconds -eq 15 -and (@($jp.agents)).Count -eq 2) { Ok } else {
+    No "finalize-per-turn: rc=$($rp.rc) err=[$($rp.err)] j=[$(if($jp){$jp | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- finalize fallbacks: one stderr line naming the reason, unsplit record -
+  function Finalize-Fallback([string]$label, $startLine, [bool]$missingDir, [string]$reasonPattern, [hashtable]$Env = @{}) {
+    $runId = "run-$label"
+    $w = New-FinalizeWs $runId $startLine
+    $d = if ($missingDir) { Join-Path $w 'no-such-dir' } else { $tfx }
+    $r = Run-Finalize $w $runId $d $Env
+    $j = Rec-Json $w
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and ($r.err -match "$reasonPattern - using unsplit totals\s*$") -and $j -and
+        $j.tiers.opus.inputTokens -eq 500000 -and $j.rateSnapshot -ceq "$BASE; note: unsplit-total-as-input") { Ok } else {
+      No "$label`: rc=$($r.rc) err=[$($r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+  Finalize-Fallback 'finalize-fallback-dir-missing' '2026-11-21T10:00:00Z' $true 'transcript directory .+ not found'
+  Finalize-Fallback 'finalize-fallback-start-absent' $null $false 'no start file at \.milestone-config/\.runtime/usage/run-finalize-fallback-start-absent\.start'
+  Finalize-Fallback 'finalize-fallback-start-malformed' 'not-a-time' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-malformed\.start is not %Y-%m-%dT%H:%M:%SZ'
+  Finalize-Fallback 'finalize-fallback-none-after-start' '2026-11-21T11:00:00Z' $false 'no agent transcript at or after 2026-11-21T11:00:00Z in .+'
+
+  # ---- finalize and the start file's session id (line 2) ---------------------
+  Finalize-Fallback 'finalize-fallback-other-session' "2026-11-21T10:00:00Z`nsess-old" $false 'run started in another session' @{ CLAUDE_CODE_SESSION_ID = 'sess-new' }
+  Finalize-Fallback 'finalize-fallback-session-now-unset' "2026-11-21T10:00:00Z`nsess-old" $false 'run started in another session' @{ CLAUDE_CODE_SESSION_ID = '' }
+  foreach ($case in @(@('same-session', "2026-11-21T10:00:00Z`nsess-same"), @('start-without-session', "2026-11-21T10:00:00Z`n"))) {
+    $runId = "run-finalize-$($case[0])"
+    $w = New-FinalizeWs $runId $case[1]
+    $r = Run-Finalize $w $runId $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
+    $j = Rec-Json $w
+    if ($r.rc -eq 0 -and $j -and $j.rateSnapshot -ceq "$BASE; note: per-turn-transcript-sum" -and $j.tiers.opus.inputTokens -eq 1000000 -and
+        -not ($r.err -match 'using unsplit totals')) { Ok } else {
+      No "finalize-$($case[0]): rc=$($r.rc) err=[$($r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+
+  # ---- finalize clears the run's usage + start files once the record is written
+  function Run-Files($w, [string]$runId) { @((Usage-File $w $runId 'jsonl'), (Usage-File $w $runId 'start') | Where-Object { Test-Path -LiteralPath $_ }).Count }
+  foreach ($case in @(@('clear-per-turn', $true), @('clear-unsplit', $false))) {
+    $runId = "run-finalize-$($case[0])"
+    $w = New-FinalizeWs $runId "2026-11-21T10:00:00Z`nsess-same"
+    $before = Run-Files $w $runId
+    $r = Run-Finalize $w $runId $(if ($case[1]) { $tfx } else { '' }) @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
+    if ($before -eq 2 -and $r.rc -eq 0 -and (Rec-File $w) -and (Run-Files $w $runId) -eq 0) { Ok } else {
+      No "$($case[0]): before=$before after=$(Run-Files $w $runId) rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
+  }
+
+  # ---- a rerun of a finalized runId starts a fresh window: its own start, its own record
+  $w = New-FinalizeWs 'run-rerun' "2026-11-21T10:00:00Z`nsess-same"
+  Run-Finalize $w 'run-rerun' $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' } | Out-Null
+  Run-Start $w 'run-rerun' 'sess-next' | Out-Null
+  Run-Append $w 'run-rerun' '{"agent":"a","tier":"sonnet","totalTokens":10,"durationMs":2000}' | Out-Null
+  $rr = Run-Finalize $w 'run-rerun' $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-next' }
+  $recs = @(Get-ChildItem -LiteralPath (Join-Path $w '.milestone-config/.runtime/cost-records') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json })
+  $own = @($recs | Where-Object { @($_.agents).Count -eq 1 })
+  # The rerun's start is now, after every fixture turn: nothing matches, so it takes the unsplit path with only its own entry.
+  if ($rr.rc -eq 0 -and $recs.Count -eq 2 -and $own.Count -eq 1 -and $own[0].tiers.sonnet.inputTokens -eq 10 -and
+      (Run-Files $w 'run-rerun') -eq 0 -and $rr.err -match 'no agent transcript at or after') { Ok } else {
+    No "finalize-rerun: rc=$($rr.rc) records=$($recs.Count) own=$($own.Count) files=$(Run-Files $w 'run-rerun') err=[$($rr.err)]" }
+
+  # ---- a failed record write removes neither file ----------------------------
+  foreach ($case in @('occupied', 'readonly')) {
+    $runId = "run-finalize-keep-$case"
+    $w = New-FinalizeWs $runId "2026-11-21T10:00:00Z`nsess-same"
+    $crPath = Join-Path $w '.milestone-config/.runtime/cost-records'
+    if ($case -eq 'occupied') { Set-Content -LiteralPath $crPath -Value 'x' -NoNewline }
+    else { New-Item -ItemType Directory -Force -Path $crPath | Out-Null; try { & chmod 555 $crPath 2>$null } catch {} }
+    $r = Run-Finalize $w $runId $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
+    $wrote = if ($case -eq 'occupied') { $false } else { [bool](Rec-File $w) }
+    if ($wrote) { Ok  # read-only not enforced on this FS (Windows) - write fail-open path unreachable; skip
+    } elseif ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and (Run-Files $w $runId) -eq 2) { Ok } else {
+      No "finalize-keep-on-failed-write-$case`: rc=$($r.rc) errlines=$(Err-Lines $r.err) files=$(Run-Files $w $runId) err=[$($r.err)]" }
+    if ($case -eq 'readonly') { try { & chmod 755 $crPath 2>$null } catch {} }
+  }
+
+  # ---- per-turn edge paths: one fixture file per case ------------------------
+  $efx = Join-Path $here 'fixtures' 'write-cost-record' 'edge'
+  function Prop-Names($o) { if ($null -eq $o) { return '' }; (@($o.PSObject.Properties | ForEach-Object { $_.Name }) | Sort-Object) -join ',' }
+  function Edge-Final([string]$fixture, [string]$startLine = '2026-11-21T10:00:00Z') {
+    $d = New-Ws
+    Copy-Item -LiteralPath (Join-Path $efx $fixture) -Destination $d
+    $w = New-FinalizeWs "run-$fixture" $startLine
+    $r = Run-Finalize $w "run-$fixture" $d
+    $j = try { Rec-Json $w } catch { $null }
+    return @{ r = $r; j = $j }
+  }
+  $perTurn = "$BASE; note: per-turn-transcript-sum"
+  $unsplit = "$BASE; note: unsplit-total-as-input"
+
+  # a turn before the file's first timestamp line is counted
+  $e = Edge-Final 'agent-d-before-ts.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and $e.r.err -eq '' -and (Prop-Names $j.tiers) -ceq 'opus' -and
+      $j.tiers.opus.inputTokens -eq 300 -and $j.tiers.opus.outputTokens -eq 30) { Ok } else {
+    No "edge-turn-before-first-timestamp: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # an unusable first timestamp, and a file with no timestamp, skip the file: nothing matches, unsplit fallback
+  foreach ($case in @(@('agent-e-bad-ts.jsonl', 'edge-unusable-first-timestamp'), @('agent-f-no-ts.jsonl', 'edge-no-timestamp'))) {
+    $e = Edge-Final $case[0]; $j = $e.j
+    if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
+        $e.r.err -match 'no agent transcript at or after 2026-11-21T10:00:00Z in .+ - using unsplit totals\s*$' -and
+        $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
+      No "$($case[1]): err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+
+  # a line nested 70 deep is counted
+  $e = Edge-Final 'agent-g-deep.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and $e.r.err -eq '' -and (Prop-Names $j.tiers) -ceq 'sonnet' -and
+      $j.tiers.sonnet.inputTokens -eq 1000 -and $j.tiers.sonnet.outputTokens -eq 100) { Ok } else {
+    No "edge-deep-line: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # an empty model is the `?` tier, unpriced
+  $e = Edge-Final 'agent-h-empty-model.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and (Err-Lines $e.r.err) -eq 1 -and $e.r.err -match "tier '\?' has no rate table entry" -and
+      (Prop-Names $j.tiers) -ceq '' -and (Prop-Names $j.unpricedTiers) -ceq '?' -and
+      $j.unpricedTiers.'?'.inputTokens -eq 11 -and $j.unpricedTiers.'?'.outputTokens -eq 1 -and $j.costUsd -eq 0) { Ok } else {
+    No "edge-empty-model: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # only the 5.5 ids are priced: any other id is unpriced under its own name
+  $e = Edge-Final 'agent-i-other-models.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and (Err-Lines $e.r.err) -eq 3 -and
+      $e.r.err -match "tier 'claude-opus-4-8' has no rate table entry" -and $e.r.err -match "tier 'claude-sonnet-4-6' has no rate table entry" -and
+      $e.r.err -match "tier 'claude-opus-5' has no rate table entry" -and
+      (Prop-Names $j.tiers) -ceq '' -and $j.costUsd -eq 0 -and
+      (Prop-Names $j.unpricedTiers) -ceq 'claude-opus-4-8,claude-opus-5,claude-sonnet-4-6' -and
+      $j.unpricedTiers.'claude-opus-4-8'.inputTokens -eq 21 -and $j.unpricedTiers.'claude-sonnet-4-6'.outputTokens -eq 3 -and
+      $j.unpricedTiers.'claude-opus-5'.inputTokens -eq 41) { Ok } else {
+    No "edge-non-5.5-ids: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a count of 1e400 is not finite: 0, like a non-number
+  $e = Edge-Final 'agent-j-nonfinite.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and $e.r.err -eq '' -and
+      $j.tiers.sonnet.inputTokens -eq 0 -and $j.tiers.sonnet.outputTokens -eq 7 -and $j.costUsd -eq 0.00007) { Ok } else {
+    No "edge-nonfinite-count: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a provider-prefixed 5.5 id is priced by family; a mid-word match is not
+  $e = Edge-Final 'agent-k-prefixed-model.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and (Err-Lines $e.r.err) -eq 1 -and $e.r.err -match "tier 'xclaude-opus-5-5' has no rate table entry" -and
+      (Prop-Names $j.tiers) -ceq 'opus,sonnet' -and $j.tiers.opus.inputTokens -eq 1000000 -and $j.tiers.sonnet.inputTokens -eq 1000000 -and
+      $j.tiers.opus.costUsd -eq 6 -and $j.tiers.sonnet.costUsd -eq 3 -and $j.costUsd -eq 9 -and (Prop-Names $j.unpricedTiers) -ceq 'xclaude-opus-5-5') { Ok } else {
+    No "edge-prefixed-model-id: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a first timestamp with a trailing newline, and one naming an impossible date that rolls over past the start, skip the file
+  foreach ($case in @(@('agent-l-ts-newline.jsonl', '2026-11-21T10:00:00Z', 'edge-first-timestamp-trailing-newline'), @('agent-m-impossible-date.jsonl', '2026-01-01T00:00:00Z', 'edge-first-timestamp-impossible-date'))) {
+    $e = Edge-Final $case[0] $case[1]; $j = $e.j
+    if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
+        $e.r.err -match "no agent transcript at or after $($case[1]) in .+ - using unsplit totals\s*$" -and
+        $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
+      No "$($case[2]): err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+
+  # a start file naming an impossible date takes the invalid-start fallback
+  Finalize-Fallback 'finalize-fallback-start-impossible-date' '2026-02-30T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-impossible-date\.start is not %Y-%m-%dT%H:%M:%SZ'
+
+  # ---- a finalize that writes no record leaves no start file behind ----------
+  # The next --start must open a fresh window, so the transcript dir holds a turn dated 2099 to be at or after it.
+  $fut = New-Ws
+  Copy-Item -LiteralPath (Join-Path $efx 'agent-n-future.jsonl') -Destination $fut
+  $w = New-Ws
+  Run-Start $w 'run-s1s2' 'sess-1' | Out-Null
+  $r1 = Run-Finalize $w 'run-s1s2' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-1' }
+  $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-s1s2' 'start'))
+  Run-Start $w 'run-s1s2' 'sess-2' | Out-Null
+  Run-Append $w 'run-s1s2' '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' | Out-Null
+  $r2 = Run-Finalize $w 'run-s1s2' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-2' }
+  $j = Rec-Json $w
+  if ($r1.rc -eq 0 -and (Err-Lines $r1.err) -eq 1 -and $r1.err -match 'no usage data at' -and $startGone -and
+      $r2.rc -eq 0 -and $r2.err -eq '' -and $j -and $j.rateSnapshot -ceq $perTurn -and $j.tiers.opus.inputTokens -eq 1000 -and
+      (Run-Files $w 'run-s1s2') -eq 0) { Ok } else {
+    No "finalize-no-usage-clears-start: r1err=[$($r1.err)] startGone=$startGone r2err=[$($r2.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- a malformed usage file is moved aside, its start file removed, and the next run records ----
+  $w = New-Ws
+  $ufd = Join-Path $w '.milestone-config/.runtime/usage'
+  New-Item -ItemType Directory -Force -Path $ufd | Out-Null
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.jsonl'), "not json`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.start'), "2026-11-21T10:00:00Z`nsess-1`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.jsonl.bad'), "older`n", [System.Text.UTF8Encoding]::new($false))
+  $r1 = Run-Finalize $w 'run-mal' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-1' }
+  $badPath = Join-Path $ufd 'run-mal.jsonl.bad'
+  $badOk = (Test-Path -LiteralPath $badPath) -and ((Get-Content -LiteralPath $badPath -Raw) -ceq "not json`n")
+  $gone = -not (Test-Path -LiteralPath (Usage-File $w 'run-mal' 'jsonl')) -and -not (Test-Path -LiteralPath (Usage-File $w 'run-mal' 'start'))
+  Run-Start $w 'run-mal' 'sess-2' | Out-Null
+  Run-Append $w 'run-mal' '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' | Out-Null
+  $r2 = Run-Finalize $w 'run-mal' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-2' }
+  $j = Rec-Json $w
+  if ($r1.rc -eq 0 -and (Err-Lines $r1.err) -eq 1 -and $r1.err -cmatch 'malformed usage data in \.milestone-config/\.runtime/usage/run-mal\.jsonl - no record written \(moved to run-mal\.jsonl\.bad\)\s*$' -and
+      $badOk -and $gone -and $r2.rc -eq 0 -and $r2.err -eq '' -and $j -and $j.rateSnapshot -ceq $perTurn -and $j.tiers.opus.inputTokens -eq 1000) { Ok } else {
+    No "finalize-malformed-moved-aside: r1err=[$($r1.err)] bad=$badOk gone=$gone r2err=[$($r2.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- finalize: no usage file with a dir passed -> fail-open, no record -----
+  $wsNd = New-Ws
+  $rNd = Run-Finalize $wsNd 'run-nofile-dir' $tfx
+  if ($rNd.rc -eq 0 -and (Err-Lines $rNd.err) -eq 1 -and ($rNd.err -match 'no usage data at') -and (-not (Rec-File $wsNd))) { Ok } else {
+    No "finalize-nofile-with-dir: rc=$($rNd.rc) err=[$($rNd.err)] record=$(Rec-File $wsNd)" }
+
+  # ---- every finalize exit that writes no record removes the start file ------
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  $usageLine = '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' + "`n"
+  # A workspace holding a start file and, when $usageBody is not null, a usage file with that body.
+  function New-NoRecordWs([string]$runId, $usageBody) {
+    $w = New-Ws
+    $d = Join-Path $w '.milestone-config/.runtime/usage'
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+    if ($null -ne $usageBody) { [System.IO.File]::WriteAllText((Join-Path $d "$runId.jsonl"), $usageBody, $utf8) }
+    [System.IO.File]::WriteAllText((Join-Path $d "$runId.start"), "2026-11-21T10:00:00Z`nsess-1`n", $utf8)
+    return $w
+  }
+  # One no-record finalize: one stderr line matching $errPattern, no record, start file gone, usage path kept.
+  function No-Record-Case([string]$label, [string]$runId, $w, [string]$errPattern, [hashtable]$Env = @{}) {
+    $r = Run-Finalize $w $runId $tfx $Env
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w $runId 'start'))
+    $usageKept = Test-Path -LiteralPath (Usage-File $w $runId 'jsonl')
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch $errPattern -and (-not (Rec-File $w)) -and $startGone -and $usageKept) { Ok } else {
+      No "$label`: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone usageKept=$usageKept" }
+  }
+
+  # no usage file: the start file goes
+  $w = New-NoRecordWs 'run-nr-nofile' $null
+  $r = Run-Finalize $w 'run-nr-nofile' $tfx
+  if ($r.rc -eq 0 -and $r.err -cmatch 'no usage data at' -and -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nofile' 'start'))) { Ok } else {
+    No "finalize-nofile-removes-start: rc=$($r.rc) err=[$($r.err)]" }
+
+  # jq missing, and a jq that fails after the aggregation, on the sh leg: the start file still goes
+  if ((Get-Leg) -eq 'sh' -and -not $IsWindows) {
+    $nojq = Join-Path $root 'bin-nojq'; New-Item -ItemType Directory -Force -Path $nojq | Out-Null
+    foreach ($b in @('tr', 'rm')) { Add-ToolStub $b $nojq }
+    $w = New-NoRecordWs 'run-nr-nojq' $usageLine
+    $r = Run-Finalize $w 'run-nr-nojq' $tfx @{ PATH = $nojq }
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nojq' 'start'))
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'jq is required but not on PATH - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
+      No "finalize-jq-missing-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+
+    $shim = Join-Path $root 'bin-jqfail'; New-Item -ItemType Directory -Force -Path $shim | Out-Null
+    $realJq = (Get-Command jq -CommandType Application | Select-Object -First 1).Source
+    $shimPath = Join-Path $shim 'jq'
+    [System.IO.File]::WriteAllText($shimPath, "#!/bin/sh`nfor a in `"`$@`"; do [ `"`$a`" = `"`$JQ_FAIL_ARG`" ] && exit 9; done`nexec '$realJq' `"`$@`"`n", $utf8)
+    & chmod 755 $shimPath
+    foreach ($arg in @('.input', '.agents')) {
+      $rid = "run-nr-internal$($arg.TrimStart('.'))"
+      $w = New-NoRecordWs $rid $usageLine
+      $r = Run-Finalize $w $rid $tfx @{ PATH = "$shim$([System.IO.Path]::PathSeparator)$env:PATH"; JQ_FAIL_ARG = $arg }
+      $startGone = -not (Test-Path -LiteralPath (Usage-File $w $rid 'start'))
+      if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'internal aggregation error over \.milestone-config/\.runtime/usage/.+\.jsonl - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
+        No "finalize-internal-error-$arg-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+    }
+  }
+
+  # a failed move-aside is reported as such, never as a move
+  $w = New-NoRecordWs 'run-nr-mv' "not json`n"
+  $mvDir = Join-Path $w '.milestone-config/.runtime/usage'
+  try { & chmod 555 $mvDir 2>$null } catch {}
+  $r = Run-Finalize $w 'run-nr-mv' $tfx
+  try { & chmod 755 $mvDir 2>$null } catch {}
+  if (-not (Test-Path -LiteralPath (Usage-File $w 'run-nr-mv' 'jsonl'))) {
+    Ok  # read-only not enforced here (root, or Windows) - so the move cannot fail: skip
+  } elseif ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+      $r.err -cmatch 'malformed usage data in \.milestone-config/\.runtime/usage/run-nr-mv\.jsonl - no record written \(could not move it aside\)\s*$' -and
+      -not (Rec-File $w)) { Ok } else {
+    No "finalize-malformed-move-fails: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
+
+  # a usage file holding only whitespace is no usage data, like a missing one
+  $w = New-NoRecordWs 'run-nr-blank' "   `n`t`r`n  `n"
+  No-Record-Case 'finalize-whitespace-usage' 'run-nr-blank' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-blank\.jsonl - no record written\s*$'
+
+  # a directory at the usage path is no usage data
+  $w = New-NoRecordWs 'run-nr-dir' $null
+  New-Item -ItemType Directory -Force -Path (Usage-File $w 'run-nr-dir' 'jsonl') | Out-Null
+  No-Record-Case 'finalize-usage-path-is-directory' 'run-nr-dir' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-dir\.jsonl - no record written\s*$'
+
+  # an unreadable usage file is no usage data (skipped when the process can read it anyway: root, or Windows)
+  $w = New-NoRecordWs 'run-nr-unreadable' $usageLine
+  $unreadable = Usage-File $w 'run-nr-unreadable' 'jsonl'
+  try { & chmod 000 $unreadable 2>$null } catch {}
+  $canRead = try { [void][System.IO.File]::ReadAllText($unreadable); $true } catch { $false }
+  if ($canRead) {
+    try { & chmod 644 $unreadable 2>$null } catch {}
+    Ok
+  } else {
+    No-Record-Case 'finalize-unreadable-usage' 'run-nr-unreadable' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-unreadable\.jsonl - no record written\s*$'
+    try { & chmod 644 $unreadable 2>$null } catch {}
+  }
+
+  # a start file dated before 1970 takes the invalid-start fallback, and so does a first transcript timestamp before 1970
+  Finalize-Fallback 'finalize-fallback-start-pre-1970' '1969-12-31T23:59:59Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-pre-1970\.start is not %Y-%m-%dT%H:%M:%SZ'
+  Finalize-Fallback 'finalize-fallback-start-1960' '1960-01-01T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-1960\.start is not %Y-%m-%dT%H:%M:%SZ'
+  $e = Edge-Final 'agent-o-pre-1970.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
+      $e.r.err -match 'no agent transcript at or after 2026-11-21T10:00:00Z in .+ - using unsplit totals\s*$' -and
+      $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
+    No "edge-first-timestamp-before-1970: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
 } finally {
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }

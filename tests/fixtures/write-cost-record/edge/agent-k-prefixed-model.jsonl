@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-11-21T10:07:00.000Z","message":{"role":"user","content":"go"}}
+{"type":"assistant","message":{"id":"k1","model":"us.anthropic.claude-opus-5-5-20261101-v1:0","usage":{"input_tokens":1000000,"output_tokens":100000,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"assistant","message":{"id":"k2","model":"vendor/claude-sonnet-5-5","usage":{"input_tokens":1000000,"output_tokens":100000,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}
+{"type":"assistant","message":{"id":"k3","model":"xclaude-opus-5-5","usage":{"input_tokens":13,"output_tokens":1,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}

@@ -3,6 +3,38 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.32.0 - the cost record counts every turn, a pointed issue skips the planner
+
+**Theme:** The run-end cost record sums the four token counts of every agent turn the run dispatched, priced at Opus 5.5 and Sonnet 5.5 rates, and an issue whose Design block names its `Edit points:` and `Tests:` builds with no planner dispatch.
+
+### ✨ Cost record and planner skip
+
+| Issue | PR | What |
+|---|---|---|
+| #772 Add a `--start <runId>` mode to write-cost-record that records the run start time once | - | `scripts/write-cost-record.{sh,ps1} --start <runId>` writes `.milestone-config/.runtime/usage/<runId>.start`: the UTC start time on line 1 and `CLAUDE_CODE_SESSION_ID` on line 2. |
+| #773 Let the implementer build from the issue record as its packet | - | `agents/implementer.md` accepts the issue record as a locked packet: its `Edit points:`, `Tests:` and `Calls:` lines stand in for the packet's sections, and a pointer that does not match its file is a `PACKET_GAP:` stop. |
+| #774 Re-pin the cost-record rate snapshot to Opus 5.5 and Sonnet 5.5 | - | Rates are Opus 5.5 $4/$20 and Sonnet 5.5 $2/$10 per MTok in/out, cache read 0.05x and cache write 1.25x the tier input rate. Only `claude-opus-5-5*` and `claude-sonnet-5-5*` ids are priced. Any other id is recorded under its own name in `unpricedTiers`. |
+| #775 Skip the planner in solve-issue for an issue that names its edit points and tests | - | `skills/solve-issue/SKILL.md` step 2: when the issue record's `## Design (recorded, consistent)` section has non-empty `Edit points:` and `Tests:` items, no planner or check-packet runs and the implementer takes the record as `PACKET:`. A `PACKET_GAP:` stop on that path re-plans once through the planner. |
+| #776 Sum per-turn transcript usage in write-cost-record `--finalize` | - | `--finalize <runId> <transcriptDir>` sums input, output, cache-read and cache-write tokens per model over every `agent-*.jsonl` turn at or after the run start, `provenanceNote: "per-turn-transcript-sum"`. No directory, no `.start`, or a `.start` from another session falls back to `totalTokens` as input, `provenanceNote: "unsplit-total-as-input"`. After a successful write it deletes `<runId>.jsonl` and `<runId>.start`, so each invocation writes its own record. |
+| #777 Record run start and pass the transcript dir to `--finalize` in solve-issue and solve-milestone | - | Both skills run `--start` before the first dispatch and pass the session's `subagents` directory to `--finalize`, resolved once from `CLAUDE_CODE_SESSION_ID`. |
+| #778 Skip the planner leaf in parallel-waves Stage A for a pointed issue | - | `skills/solve-milestone/parallel-waves.md` step 5 applies the solve-issue skip test per issue, and a passing issue's implementer leaf takes `PACKET: <main-repo-root>/.milestone-config/.runtime/triage/issue-<n>.md`. `abandoned-recovery.md` picks its recovery leaf the same way. |
+
+### Consumer notes (upgrading from v1.31.0)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- New gitignored artifacts: `.milestone-config/.runtime/usage/<runId>.start`, and `<runId>.jsonl.bad` for a usage file `--finalize` found malformed. `--finalize` removes `<runId>.start` and `<runId>.jsonl` after writing the record, and removes `<runId>.start` on every exit that writes no record.
+- Cost records written on the per-turn path carry real cache-read and cache-write counts, so their `costUsd` is not comparable with earlier unsplit records.
+- To skip the planner for an issue, put `Edit points:` and `Tests:` list items under its `## Design (recorded, consistent)` heading, each naming `path (anchor)` pointers.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- Cache writes are priced at the 5-minute rate (1.25x). A 1-hour write (2x) is underpriced. Every local transcript so far has 0 one-hour tokens.
+- The final milestone review's findings were accepted, not fixed, once the 3 fix passes were spent. A finalize run with jq removed after the run's appends clears `<runId>.start` but keeps `<runId>.jsonl`, the twins classify a usage file of only a BOM or Unicode whitespace differently (`--append` never writes one), and a pre-1970 `.start` is reported as a format error.
+- The per-turn sum needs `CLAUDE_CODE_SESSION_ID` and exactly one matching `subagents` directory. Otherwise the record falls back to the unsplit path.
+- No ceiling raised. At or near: `skills/solve-issue/SKILL.md` LINE 320/320 and CLOSURE 13379/13400, `skills/solve-milestone/SKILL.md` LINE 330/330 and WORD 4796/4800, `skills/solve-milestone/parallel-waves.md` WORD 6188/6200.
+
 ## v1.31.0 - Codex support
 
 **Theme:** milestone-driver installs and runs in the OpenAI Codex CLI (verified live on codex-cli 0.163.0). The same skills, agents and gate scripts serve both runtimes, and Claude Code behavior is unchanged apart from the Windows security fix below.
