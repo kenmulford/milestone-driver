@@ -618,7 +618,8 @@ try {
     $w = New-Ws
     $d = Join-Path $w '.milestone-config/.runtime/usage'
     New-Item -ItemType Directory -Force -Path $d | Out-Null
-    if ($null -ne $usageBody) { [System.IO.File]::WriteAllText((Join-Path $d "$runId.jsonl"), $usageBody, $utf8) }
+    if ($usageBody -is [byte[]]) { [System.IO.File]::WriteAllBytes((Join-Path $d "$runId.jsonl"), $usageBody) }
+    elseif ($null -ne $usageBody) { [System.IO.File]::WriteAllText((Join-Path $d "$runId.jsonl"), $usageBody, $utf8) }
     [System.IO.File]::WriteAllText((Join-Path $d "$runId.start"), "2026-11-21T10:00:00Z`nsess-1`n", $utf8)
     return $w
   }
@@ -637,28 +638,52 @@ try {
   if ($r.rc -eq 0 -and $r.err -cmatch 'no usage data at' -and -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nofile' 'start'))) { Ok } else {
     No "finalize-nofile-removes-start: rc=$($r.rc) err=[$($r.err)]" }
 
-  # jq missing, and a jq that fails after the aggregation, on the sh leg: the start file still goes
+  # The usage file renamed to <runId>.jsonl.bad with $body's bytes, and no .jsonl left behind.
+  function Aside-Ok($w, [string]$runId, [byte[]]$body) {
+    $bad = Usage-File $w $runId 'jsonl.bad'
+    (Test-Path -LiteralPath $bad) -and ([Convert]::ToHexString([System.IO.File]::ReadAllBytes($bad)) -ceq [Convert]::ToHexString($body)) -and
+      -not (Test-Path -LiteralPath (Usage-File $w $runId 'jsonl'))
+  }
+  # jq missing, and a jq that fails after the aggregation, on the sh leg: the start file goes, the usage file moves aside
   if ((Get-Leg) -eq 'sh' -and -not $IsWindows) {
     $nojq = Join-Path $root 'bin-nojq'; New-Item -ItemType Directory -Force -Path $nojq | Out-Null
-    foreach ($b in @('tr', 'rm')) { Add-ToolStub $b $nojq }
+    foreach ($b in @('tr', 'rm', 'mv', 'grep')) { Add-ToolStub $b $nojq }
     $w = New-NoRecordWs 'run-nr-nojq' $usageLine
     $r = Run-Finalize $w 'run-nr-nojq' $tfx @{ PATH = $nojq }
     $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nojq' 'start'))
-    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'jq is required but not on PATH - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'jq is required but not on PATH - no record written \(moved to run-nr-nojq\.jsonl\.bad\)\s*$' -and
+        (-not (Rec-File $w)) -and $startGone -and (Aside-Ok $w 'run-nr-nojq' $utf8.GetBytes($usageLine))) { Ok } else {
       No "finalize-jq-missing-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+
+    # no usage file: the no-usage check needs no jq and runs first, so it takes that exit and moves nothing
+    $w = New-NoRecordWs 'run-nr-nojq-nousage' $null
+    $r = Run-Finalize $w 'run-nr-nojq-nousage' $tfx @{ PATH = $nojq }
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nojq-nousage' 'start'))
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+        $r.err -cmatch 'no usage data at \.milestone-config/\.runtime/usage/run-nr-nojq-nousage\.jsonl - no record written\s*$' -and
+        (-not (Rec-File $w)) -and $startGone -and -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nojq-nousage' 'jsonl.bad'))) { Ok } else {
+      No "finalize-jq-missing-no-usage: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
 
     $shim = Join-Path $root 'bin-jqfail'; New-Item -ItemType Directory -Force -Path $shim | Out-Null
     $realJq = (Get-Command jq -CommandType Application | Select-Object -First 1).Source
     $shimPath = Join-Path $shim 'jq'
     [System.IO.File]::WriteAllText($shimPath, "#!/bin/sh`nfor a in `"`$@`"; do [ `"`$a`" = `"`$JQ_FAIL_ARG`" ] && exit 9; done`nexec '$realJq' `"`$@`"`n", $utf8)
     & chmod 755 $shimPath
-    foreach ($arg in @('.input', '.agents')) {
-      $rid = "run-nr-internal$($arg.TrimStart('.'))"
+    $internalMsg = 'internal aggregation error over \.milestone-config/\.runtime/usage/{0}\.jsonl - no record written'
+    $malformedInputMsg = 'malformed input \(unparseable JSON, missing/empty runId, or non-numeric token/wallClock\) - no record written'
+    foreach ($case in @(
+        @('input', '.input', $internalMsg),
+        @('agents', '.agents', $internalMsg),
+        @('attach', '.record.agents = $agents', 'internal aggregation error attaching agents - no record written'),
+        @('written-at', 'writtenAt', $malformedInputMsg))) {
+      $rid = "run-nr-internal-$($case[0])"
       $w = New-NoRecordWs $rid $usageLine
-      $r = Run-Finalize $w $rid $tfx @{ PATH = "$shim$([System.IO.Path]::PathSeparator)$env:PATH"; JQ_FAIL_ARG = $arg }
+      $r = Run-Finalize $w $rid $tfx @{ PATH = "$shim$([System.IO.Path]::PathSeparator)$env:PATH"; JQ_FAIL_ARG = $case[1] }
       $startGone = -not (Test-Path -LiteralPath (Usage-File $w $rid 'start'))
-      if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'internal aggregation error over \.milestone-config/\.runtime/usage/.+\.jsonl - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
-        No "finalize-internal-error-$arg-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+      $msg = ($case[2] -f $rid) + " \(moved to $rid\.jsonl\.bad\)\s*$"
+      if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch $msg -and (-not (Rec-File $w)) -and $startGone -and
+          (Aside-Ok $w $rid $utf8.GetBytes($usageLine))) { Ok } else {
+        No "finalize-internal-error-$($case[0]): rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
     }
   }
 
@@ -697,14 +722,72 @@ try {
     try { & chmod 644 $unreadable 2>$null } catch {}
   }
 
-  # a start file dated before 1970 takes the invalid-start fallback, and so does a first transcript timestamp before 1970
-  Finalize-Fallback 'finalize-fallback-start-pre-1970' '1969-12-31T23:59:59Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-pre-1970\.start is not %Y-%m-%dT%H:%M:%SZ'
-  Finalize-Fallback 'finalize-fallback-start-1960' '1960-01-01T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-1960\.start is not %Y-%m-%dT%H:%M:%SZ'
+  # a start file dated before 1970 names that in its fallback, and an impossible pre-1970 date is not a timestamp
+  # at all; a first transcript timestamp before 1970 is before any start, so that transcript is skipped
+  Finalize-Fallback 'finalize-fallback-start-pre-1970' '1969-12-31T23:59:59Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-pre-1970\.start is before 1970'
+  Finalize-Fallback 'finalize-fallback-start-1960' '1960-01-01T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-1960\.start is before 1970'
+  Finalize-Fallback 'finalize-fallback-start-pre-1970-impossible' '1960-02-30T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-pre-1970-impossible\.start is not %Y-%m-%dT%H:%M:%SZ'
   $e = Edge-Final 'agent-o-pre-1970.jsonl'; $j = $e.j
   if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
       $e.r.err -match 'no agent transcript at or after 2026-11-21T10:00:00Z in .+ - using unsplit totals\s*$' -and
       $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
     No "edge-first-timestamp-before-1970: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a usage file holding only a BOM and spaces, or only a no-break space, is data jq cannot read: moved aside, not "no usage data";
+  # so is a valid line followed by a line of only a vertical tab, a form feed or a no-break space, which are not JSON whitespace
+  $lineBytes = $utf8.GetBytes($usageLine)
+  foreach ($case in @(@('bom-spaces', [byte[]](0xEF, 0xBB, 0xBF, 0x20, 0x20, 0x0A)), @('nbsp', [byte[]](0xC2, 0xA0, 0x0A)),
+      @('line-vt', [byte[]]($lineBytes + [byte[]](0x0B, 0x0A))), @('line-ff', [byte[]]($lineBytes + [byte[]](0x0C, 0x0A))),
+      @('line-nbsp', [byte[]]($lineBytes + [byte[]](0xC2, 0xA0, 0x0A))))) {
+    $rid = "run-nr-usage-$($case[0])"
+    $w = New-NoRecordWs $rid $case[1]
+    $r = Run-Finalize $w $rid $tfx
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w $rid 'start'))
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+        $r.err -cmatch "malformed usage data in \.milestone-config/\.runtime/usage/$rid\.jsonl - no record written \(moved to $rid\.jsonl\.bad\)\s*$" -and
+        (-not (Rec-File $w)) -and $startGone -and (Aside-Ok $w $rid $case[1])) { Ok } else {
+      No "finalize-usage-$($case[0]): rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+  }
+
+  # a file at the cost-records path is `cannot create` in both twins, and keeps the usage and start files, moving nothing aside
+  $rid = 'run-nr-cannot-create'
+  $w = New-FinalizeWs $rid "2026-11-21T10:00:00Z`nsess-same"
+  Set-Content -LiteralPath (Join-Path $w '.milestone-config/.runtime/cost-records') -Value 'x' -NoNewline
+  $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+      $r.err -cmatch '^write-cost-record: cannot create \.milestone-config/\.runtime/cost-records - no record written\s*$' -and
+      (Run-Files $w $rid) -eq 2 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
+    No "finalize-cannot-create-keeps-files: rc=$($r.rc) err=[$($r.err)] files=$(Run-Files $w $rid)" }
+
+  # a read-only cost-records directory is `cannot write record to` in both twins, and keeps both files
+  # (skipped as root or on Windows, where read-only does not stop the write)
+  $isRoot = -not $IsWindows -and ((& id -u) -eq '0')
+  if ($IsWindows -or $isRoot) { Ok } else {
+    $rid = 'run-nr-write-fails'
+    $w = New-FinalizeWs $rid "2026-11-21T10:00:00Z`nsess-same"
+    $crPath = Join-Path $w '.milestone-config/.runtime/cost-records'
+    New-Item -ItemType Directory -Force -Path $crPath | Out-Null
+    & chmod 555 $crPath
+    $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
+    & chmod 755 $crPath
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+        $r.err -cmatch "^write-cost-record: cannot write record to \.milestone-config/\.runtime/cost-records/$rid-[0-9]+-[0-9]+-[0-9]+-[0-9]+\.json - no record written\s*$" -and
+        (Run-Files $w $rid) -eq 2 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
+      No "finalize-write-fails-keeps-files: rc=$($r.rc) err=[$($r.err)] files=$(Run-Files $w $rid)" }
+  }
+
+  # a directory at <runId>.jsonl.bad blocks the move: the usage file stays put and the message says so
+  $rid = 'run-nr-bad-dir'
+  $w = New-NoRecordWs $rid "not json`n"
+  $badDir = Usage-File $w $rid 'jsonl.bad'
+  New-Item -ItemType Directory -Force -Path $badDir | Out-Null
+  $r = Run-Finalize $w $rid $tfx
+  $startGone = -not (Test-Path -LiteralPath (Usage-File $w $rid 'start'))
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+      $r.err -cmatch "malformed usage data in \.milestone-config/\.runtime/usage/$rid\.jsonl - no record written \(could not move it aside\)\s*$" -and
+      (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl') -PathType Leaf) -and @(Get-ChildItem -LiteralPath $badDir -Force).Count -eq 0 -and
+      $startGone -and -not (Rec-File $w)) { Ok } else {
+    No "finalize-bad-name-is-dir: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
 } finally {
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
