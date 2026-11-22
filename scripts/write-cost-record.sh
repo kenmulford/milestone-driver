@@ -86,7 +86,7 @@
 #                           totals`, <reason> being one of: no transcript directory
 #                           argument; transcript directory <dir> not found; no start
 #                           file at <rel>; start file <rel> is not
-#                           %Y-%m-%dT%H:%M:%SZ; run started in another session (line 2
+#                           %Y-%m-%dT%H:%M:%SZ; start file <rel> is before 1970; run started in another session (line 2
 #                           of the start file is non-empty and not the current
 #                           CLAUDE_CODE_SESSION_ID); no agent transcript at or after
 #                           <start> in <dir>. A transcript pass that cannot complete
@@ -97,12 +97,17 @@
 #                           deletes nothing.
 #                           Fail-open: missing runId arg, or a usage file that is missing,
 #                           not a readable regular file, whitespace-only or malformed -> one
-#                           stderr line, no record, exit 0. Every such exit deletes the .start
-#                           too (jq missing and an internal aggregation error included, a failed
-#                           write excepted), and the malformed one first renames the .jsonl to
-#                           <runId>.jsonl.bad (replacing an older one) and says `moved to <name>`,
-#                           or `could not move it aside` when the rename failed, so the next run
-#                           of that runId opens a clean window.
+#                           stderr line, no record, exit 0. Once a runId is given, every
+#                           no-record exit but a failed record write or `cannot create` deletes
+#                           the .start. The no-usage check runs before the jq check, and the
+#                           exits after it (jq missing, malformed data, an internal aggregation
+#                           error, malformed input) also rename the .jsonl to <runId>.jsonl.bad
+#                           (replacing an older file) and end with `(moved to <name>)`, or
+#                           `(could not move it aside)` when a non-file holds that name or the
+#                           rename failed, so the next run of that runId opens a clean window.
+#                           <runId>.jsonl.bad holds the usage lines of the run that hit the exit,
+#                           valid lines on the jq-missing and internal-error exits, and a later
+#                           move aside for the same runId replaces it.
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
@@ -187,13 +192,28 @@ if [ "$mode" = "--finalize" ]; then
   # An exit that writes no record also drops the .start, or the next run of this runId
   # would open its window at this one's start time (or read this session's id).
   fail_clean() { rm -f -- "$start_rel" 2>/dev/null; fail "$@"; }
-  command -v jq >/dev/null 2>&1 || fail_clean "jq is required but not on PATH - no record written"
+  # Every exit past the no-usage check also moves the usage file aside, or the next run of
+  # this runId would fail on the same data forever. A non-file at the .bad name blocks the
+  # move, since `mv -f` would put the usage file inside a directory there.
+  fail_aside() {
+    rm -f -- "$start_rel" 2>/dev/null
+    if [ -f "$usage_file" ]; then
+      bad_name="$(sanitize_for_filename "$runid_arg").jsonl.bad"
+      if { [ ! -e "$usage_dir/$bad_name" ] || [ -f "$usage_dir/$bad_name" ]; } &&
+         mv -f -- "$usage_file" "$usage_dir/$bad_name" 2>/dev/null; then fail "$1 (moved to $bad_name)"; fi
+      fail "$1 (could not move it aside)"
+    fi
+    fail "$1"
+  }
   # Not a readable regular file, or nothing but whitespace: the same no-usage exit as the .ps1.
+  # It needs no jq, so it runs first and a missing jq always finds a usage file to move aside.
   { [ -f "$usage_file" ] && [ -r "$usage_file" ] && grep -q '[^[:space:]]' "$usage_file" 2>/dev/null; } \
     || fail_clean "no usage data at $usage_file - no record written"
+  command -v jq >/dev/null 2>&1 || fail_aside "jq is required but not on PATH - no record written"
   AGG_PROG='
     def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
-    [ .[] | (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
+    (if length == 0 then error("empty") else . end)
+    | [ .[] | (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
           | (if (.tier|type)=="string" and (.tier|length) > 0 then . else error("badtier") end)
           | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }
     ] as $entries
@@ -208,17 +228,12 @@ if [ "$mode" = "--finalize" ]; then
         },
         agents: $entries
       }'
-  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" || {
-    # Moved aside so the next run of this runId starts clean instead of failing here forever.
-    bad_name="$(sanitize_for_filename "$runid_arg").jsonl.bad"
-    rm -f -- "$start_rel" 2>/dev/null
-    if mv -f -- "$usage_file" "$usage_dir/$bad_name" 2>/dev/null; then moved="moved to $bad_name"; else moved="could not move it aside"; fi
-    fail "malformed usage data in $usage_file - no record written ($moved)"
-  }
+  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" \
+    || fail_aside "malformed usage data in $usage_file - no record written"
   input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
-    || fail_clean "internal aggregation error over $usage_file - no record written"
+    || fail_aside "internal aggregation error over $usage_file - no record written"
   finalize_agents="$(printf '%s' "$agg" | jq -c '.agents' 2>/dev/null)" \
-    || fail_clean "internal aggregation error over $usage_file - no record written"
+    || fail_aside "internal aggregation error over $usage_file - no record written"
 
   # Per-turn path: replace the unsplit `input.tiers` with sums over the session's
   # agent transcripts. Any reason it cannot run keeps `input` as built above and is
@@ -241,15 +256,24 @@ if [ "$mode" = "--finalize" ]; then
     # seconds for the start file, an optional fraction for a transcript, as in the .ps1 twin.
     # `$` also matches before a trailing newline, and fromdate rolls 2026-02-30 over to
     # March 2, so a newline is refused and the date must survive a todate round trip
-    # (.NET's ParseExact in the twin rejects both).
+    # (.NET's ParseExact in the twin rejects both). fromdate rejects every year before 1970, so
+    # such a year is tested whole 400-year Gregorian cycles on (which keep every leap day), at
+    # 1970 to 2369: Windows jq's _mkgmtime fallback stops at year 3000. It returns -1, which is
+    # below any valid start; year 0 is null, as ParseExact rejects it.
     TS_DEFS='
       def ts($frac): if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
                              + (if $frac then "(\\.[0-9]+)?" else "" end) + "Z$") and (test("\n") | not)
-                     then sub("\\.[0-9]+"; "") as $w | ($w | fromdate) as $e | if ($e | todate) == $w and $e >= 0 then $e else null end
+                     then sub("\\.[0-9]+"; "") as $w | (("1" + $w[0:4] | tonumber) - 10000) as $y
+                          | if $y == 0 then null
+                            elif $y < 1970 then ((($y + 400 * (((1970 - $y) / 400) | ceil)) | tostring) + $w[4:]) as $s
+                                                | if ($s | fromdate | todate) == $s then -1 else null end
+                            else ($w | fromdate) as $e | if ($e | todate) == $w and $e >= 0 then $e else null end end
                      else null end;'
     start_epoch="$(printf '%s\n' "$start_line" | jq -Rr "$TS_DEFS"'ts(false) | values' 2>/dev/null | tr -d '\r')"
     if [ -z "$start_epoch" ]; then
       finalize_note="start file $start_rel is not %Y-%m-%dT%H:%M:%SZ"
+    elif [ "$start_epoch" = "-1" ]; then
+      finalize_note="start file $start_rel is before 1970"
     elif [ -n "$start_sid" ] && [ "$start_sid" != "${CLAUDE_CODE_SESSION_ID:-}" ]; then
       finalize_note="run started in another session"
     else
@@ -345,17 +369,18 @@ def tcost(t; r): ( numify(t.inputTokens) * r.in
                        then "; note: " + $root.provenanceNote else "" end) )
     }
   }'
+malformed_msg="malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written"
 wrapper="$(printf '%s' "$input" | jq \
             --arg writtenAt "$WRITTEN_AT" --arg rateBase "$RATE_BASE" \
             "$PROG" 2>/dev/null)" \
-  || fail "malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written"
+  || { [ "$mode" = "--finalize" ] && fail_aside "$malformed_msg"; fail "$malformed_msg"; }
 
 # --finalize only: attach the raw per-dispatch entries this mode's aggregation
 # pass set aside, so the record carries a per-agent durationMs breakdown the
 # summed wallClockSeconds above cannot give back on its own.
 if [ -n "$finalize_agents" ]; then
   wrapper="$(printf '%s' "$wrapper" | jq --argjson agents "$finalize_agents" '.record.agents = $agents' 2>/dev/null)" \
-    || fail "internal aggregation error attaching agents - no record written"
+    || fail_aside "internal aggregation error attaching agents - no record written"
 fi
 
 # Sanitize runId for the FILENAME only (raw runId stays verbatim in the body):

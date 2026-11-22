@@ -87,10 +87,14 @@ $usageDir = '.milestone-config/.runtime/usage'
 # compaction, which erases the orchestrator's in-context <usage> sums). See
 # the .sh twin's header comment for the full contract; behavior-identical here.
 # One invocation is one window: --start writes the time and CLAUDE_CODE_SESSION_ID,
-# --finalize deletes the .start and .jsonl once the record is written. A --finalize that
-# writes no record for missing, unreadable, whitespace-only or malformed usage data deletes the
-# .start too, and the malformed one first renames the .jsonl to <runId>.jsonl.bad (replacing an
-# older one) and says `moved to <name>`, or `could not move it aside` when the rename failed.
+# --finalize deletes the .start and .jsonl once the record is written. Once a runId is given,
+# every --finalize exit that writes no record, but a failed record write or `cannot create`,
+# deletes the .start. The exits after the no-usage check (malformed data, malformed input)
+# also rename the .jsonl to <runId>.jsonl.bad (replacing an older file) and end with
+# `(moved to <name>)`, or `(could not move it aside)` when a non-file holds that name or the
+# rename failed. <runId>.jsonl.bad holds the usage lines of the run that hit the exit, valid lines
+# on the .sh twin's jq-missing and internal-error exits, and a later move aside for the same runId
+# replaces it.
 $cliArgs = $args
 $mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
 
@@ -164,11 +168,11 @@ if ($mode -eq '--start') {
 # table, one cost-record shape, never a second copy of either.
 # Parse-UtcEpoch: a whole-second `yyyy-MM-ddTHH:mm:ssZ` string -> unix seconds, or
 # throws. The one form jq's fromdate accepts, so both twins reject the same strings. An
-# epoch below 0 is invalid in both: jq's fromdate rejects 1969-12-31T23:59:59Z, and the .sh twin refuses the rest.
+# epoch below 0 returns -1, below any valid start: the .sh twin returns -1 for every pre-1970 year too.
 function Parse-UtcEpoch([string]$s) {
   $e = [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
     [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
-  if ($e -lt 0) { throw 'before1970' }
+  if ($e -lt 0) { return -1 }
   return $e
 }
 
@@ -244,15 +248,40 @@ if ($mode -eq '--finalize') {
   $usageAbs = Join-Path (Get-Location).Path $usageRel
   $startRel = "$usageDir/$(Sanitize-Filename $runidArg).start"
   $startAbs = Join-Path (Get-Location).Path $startRel
-  $usageRaw = if (Test-Path -LiteralPath $usageAbs -PathType Leaf) { Get-Content -LiteralPath $usageAbs -Raw -ErrorAction SilentlyContinue } else { $null }
-  if ([string]::IsNullOrWhiteSpace($usageRaw)) {
+  # Every exit past the no-usage check also moves the usage file aside, or the next run of
+  # this runId would fail on the same data forever. A non-file at the .bad name blocks the
+  # move, since Move-Item -Force would put the usage file inside a directory there.
+  function Fail-Aside([string]$msg) {
+    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $usageAbs -PathType Leaf) {
+      $badName = "$(Sanitize-Filename $runidArg).jsonl.bad"
+      $badAbs = Join-Path (Split-Path -Parent $usageAbs) $badName
+      $moved = 'could not move it aside'
+      if (-not (Test-Path -LiteralPath $badAbs) -or (Test-Path -LiteralPath $badAbs -PathType Leaf)) {
+        try { Move-Item -LiteralPath $usageAbs -Destination $badAbs -Force -ErrorAction Stop; $moved = "moved to $badName" } catch {}
+      }
+      Fail "$msg ($moved)"
+    }
+    Fail $msg
+  }
+  # No usage data: not a readable regular file, or nothing but ASCII whitespace (the bytes are tested
+  # as Latin-1, so a no-break space or a BOM is data, as it is to the .sh twin's grep and jq).
+  $usageBytes = $null
+  if (Test-Path -LiteralPath $usageAbs -PathType Leaf) {
+    try { $usageBytes = [System.IO.File]::ReadAllBytes($usageAbs) } catch {}
+  }
+  if ($null -eq $usageBytes -or [System.Text.Encoding]::Latin1.GetString($usageBytes) -cmatch '\A[ \t\n\v\f\r]*\z') {
     # An exit that writes no record also drops the .start, or the next run of this runId
     # would open its window at this one's start time (or read this session's id).
     Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
     Fail "no usage data at $usageRel - no record written"
   }
+  # The same bytes decoded as Get-Content -Raw would, a leading UTF-8 BOM dropped.
+  $usageRaw = [System.Text.Encoding]::UTF8.GetString($usageBytes) -replace '\A\uFEFF', ''
   try {
-    $lines = @($usageRaw -split "`n" | Where-Object { $_.Trim() -ne '' })
+    # Only JSON whitespace makes a line blank, as to jq -s; a line of only \v, \f or U+00A0 reaches
+    # ConvertFrom-Json, which would skip it, so it fails as a non-object instead.
+    $lines = @($usageRaw -split "`n" | Where-Object { $_ -cnotmatch '\A[ \t\r]*\z' })
     if ($lines.Count -eq 0) { throw 'empty' }
     $tierSums = [ordered]@{}
     $totalMs = 0.0
@@ -284,12 +313,7 @@ if ($mode -eq '--finalize') {
     }
     $finalizeAgents = $agentsList
   } catch {
-    # Moved aside so the next run of this runId starts clean instead of failing here forever.
-    $badName = "$(Sanitize-Filename $runidArg).jsonl.bad"
-    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
-    $moved = "moved to $badName"
-    try { Move-Item -LiteralPath $usageAbs -Destination (Join-Path (Split-Path -Parent $usageAbs) $badName) -Force -ErrorAction Stop } catch { $moved = 'could not move it aside' }
-    Fail "malformed usage data in $usageRel - no record written ($moved)"
+    Fail-Aside "malformed usage data in $usageRel - no record written"
   }
 
   # Per-turn path: replace the unsplit `tiers` with sums over the session's agent
@@ -314,6 +338,8 @@ if ($mode -eq '--finalize') {
     } catch {}
     if ($null -eq $startEpoch) {
       $finalizeNote = "start file $startRel is not %Y-%m-%dT%H:%M:%SZ"
+    } elseif ($startEpoch -eq -1) {
+      $finalizeNote = "start file $startRel is before 1970"
     } elseif ($startSid -ne '' -and $startSid -cne [string]$env:CLAUDE_CODE_SESSION_ID) {
       $finalizeNote = 'run started in another session'
     } else {
@@ -430,7 +456,9 @@ try {
     rateSnapshot     = $snapshot
   }
 } catch {
-  Fail 'malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written'
+  $malformedMsg = 'malformed input (unparseable JSON, missing/empty runId, or non-numeric token/wallClock) - no record written'
+  if ($mode -eq '--finalize') { Fail-Aside $malformedMsg }
+  Fail $malformedMsg
 }
 
 # --finalize only: attach the raw per-dispatch entries the usage-file pass set
@@ -458,8 +486,11 @@ $abs = Join-Path $base $rel
 # scripts/render-daemon.ps1 (function Write-State), repeated there at the
 # detached serverCmd spawn. Uncreatable /
 # unwritable -> fail-open.
-try { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null } catch {
-  Fail "cannot create $dir - no record written"
+# New-Item -Force returns a file already at that path without error, which the .sh twin's
+# mkdir -p refuses; the Container test makes that the same `cannot create` exit.
+try { New-Item -ItemType Directory -Force -Path $dir -ErrorAction Stop | Out-Null } catch {}
+if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+  Fail "cannot create $reldir - no record written"
 }
 
 try {

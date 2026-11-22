@@ -3,6 +3,25 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.32.1 - write-cost-record finalize exits leave a clean window
+
+**Theme:** Every `--finalize` exit that writes no record after it finds usage data removes `<runId>.start` and moves `<runId>.jsonl` aside, and the two twins take the same exit for the same bytes.
+
+### 🐛 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #782 Finish the write-cost-record finalize exits and twin-parity cleanups | - | The jq-missing, internal aggregation error and malformed-input exits now move `<runId>.jsonl` to `<runId>.jsonl.bad` and remove `<runId>.start`, like the malformed-data exit. A `.start` before 1970 gives `start file <rel> is before 1970` on both twins. A usage file of a BOM then spaces, or of NBSP, and a usage line of only `\v`, `\f` or NBSP, take the malformed exit on both twins. A directory at `<runId>.jsonl.bad` blocks the move and prints `(could not move it aside)`. The `.ps1` prints `cannot create <dir>` with the same relative path as the `.sh`. |
+
+### Consumer notes (upgrading from v1.32.0)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- Corrects the v1.32.0 notes: `<runId>.jsonl.bad` also holds the lines of a run that hit the jq-missing or internal-error exit, which can be valid lines, and a later move aside for the same runId replaces it. The `cannot create` and failed record-write exits keep `<runId>.start` and `<runId>.jsonl`, so a retry writes the same record.
+
+### ⚖️ Post-run audit trail
+
+- #786 is open: the `.ps1` still accepts a usage line that jq rejects (an object with NBSP, `\f` or `\v` around it, a one-element array, or two objects on one line).
+
 ## v1.32.0 - the cost record counts every turn, a pointed issue skips the planner
 
 **Theme:** The run-end cost record sums the four token counts of every agent turn the run dispatched, priced at Opus 5.5 and Sonnet 5.5 rates, and an issue whose Design block names its `Edit points:` and `Tests:` builds with no planner dispatch.
