@@ -145,7 +145,7 @@ Capture needs a running app server, and booting one per UI issue would be wastef
 
 **No dispatched agent may dispatch a child whose result it needs.** An agent at depth 2 never receives its children's completion notifications (anthropics/claude-code#75043), so a dispatched agent that hands work to a child and waits has ended its turn permanently. Dispatched agents are leaves: they do the work themselves and return it. Only the main session fans out.
 
-The planner (`agents/planner.md`) is a leaf, dispatched per issue before that issue's implementer.
+The planner (`agents/planner.md`) is a leaf, dispatched before an issue's implementer only when the issue's Design block does not name its edit points and tests, and on a `PACKET_GAP:` re-plan (`skills/solve-issue/SKILL.md` step 2).
 
 This is a property of the runtime, not a plugin choice, and no flag repairs it: nested children run async regardless of `run_in_background`, and their completion notifications misdeliver to the main conversation. An agent that waits on one does not crash, which is what makes it dangerous. It reports, sincerely, that it is waiting, while nothing is waiting on it: the work sits uncommitted, no PR opens, and no park label is applied. That is a terminal state the contract does not have.
 
