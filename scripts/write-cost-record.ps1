@@ -87,7 +87,9 @@ $usageDir = '.milestone-config/.runtime/usage'
 # compaction, which erases the orchestrator's in-context <usage> sums). See
 # the .sh twin's header comment for the full contract; behavior-identical here.
 # One invocation is one window: --start writes the time and CLAUDE_CODE_SESSION_ID,
-# --finalize deletes the .start and .jsonl once the record is written.
+# --finalize deletes the .start and .jsonl once the record is written. A --finalize that
+# writes no record for missing, empty or malformed usage data deletes the .start too, and
+# the malformed one first renames the .jsonl to <runId>.jsonl.bad (replacing an older one).
 $cliArgs = $args
 $mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
 
@@ -215,7 +217,7 @@ function Read-AgentTurns([string]$path, [long]$startEpoch) {
         if (-not $seen.Add($key)) { continue }
         $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0) { $p.GetString().ToLowerInvariant() } else { '?' }
         if ($model -ceq '<synthetic>') { continue }
-        $tier = if ($model.StartsWith('claude-opus-5-5', [StringComparison]::Ordinal)) { 'opus' } elseif ($model.StartsWith('claude-sonnet-5-5', [StringComparison]::Ordinal)) { 'sonnet' } else { $model }
+        $tier = if ([regex]::IsMatch($model, '(^|[./])claude-opus-5-5', 'CultureInvariant')) { 'opus' } elseif ([regex]::IsMatch($model, '(^|[./])claude-sonnet-5-5', 'CultureInvariant')) { 'sonnet' } else { $model }
         $n = [ordered]@{ tier = $tier }
         foreach ($k in $usageFields.Keys) {
           $d = 0.0
@@ -236,8 +238,15 @@ if ($mode -eq '--finalize') {
   if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --finalize <runId> - no record written' }
   $usageRel = "$usageDir/$(Sanitize-Filename $runidArg).jsonl"
   $usageAbs = Join-Path (Get-Location).Path $usageRel
+  $startRel = "$usageDir/$(Sanitize-Filename $runidArg).start"
+  $startAbs = Join-Path (Get-Location).Path $startRel
   $usageRaw = if (Test-Path -LiteralPath $usageAbs -PathType Leaf) { Get-Content -LiteralPath $usageAbs -Raw -ErrorAction SilentlyContinue } else { $null }
-  if ([string]::IsNullOrWhiteSpace($usageRaw)) { Fail "no usage data at $usageRel - no record written" }
+  if ([string]::IsNullOrWhiteSpace($usageRaw)) {
+    # An exit that writes no record also drops the .start, or the next run of this runId
+    # would open its window at this one's start time (or read this session's id).
+    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
+    Fail "no usage data at $usageRel - no record written"
+  }
   try {
     $lines = @($usageRaw -split "`n" | Where-Object { $_.Trim() -ne '' })
     if ($lines.Count -eq 0) { throw 'empty' }
@@ -271,7 +280,11 @@ if ($mode -eq '--finalize') {
     }
     $finalizeAgents = $agentsList
   } catch {
-    Fail "malformed usage data in $usageRel - no record written"
+    # Moved aside so the next run of this runId starts clean instead of failing here forever.
+    $badName = "$(Sanitize-Filename $runidArg).jsonl.bad"
+    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
+    try { Move-Item -LiteralPath $usageAbs -Destination (Join-Path (Split-Path -Parent $usageAbs) $badName) -Force -ErrorAction Stop } catch {}
+    Fail "malformed usage data in $usageRel - no record written (moved to $badName)"
   }
 
   # Per-turn path: replace the unsplit `tiers` with sums over the session's agent
@@ -279,8 +292,6 @@ if ($mode -eq '--finalize') {
   # $finalizeNote, printed after the record write so a failed write stays one
   # stderr line (parity with the .sh twin).
   $tdir = if ($cliArgs.Count -ge 3) { $cliArgs[2] } else { $null }
-  $startRel = "$usageDir/$(Sanitize-Filename $runidArg).start"
-  $startAbs = Join-Path (Get-Location).Path $startRel
   if ([string]::IsNullOrEmpty($tdir)) {
     $finalizeNote = 'no transcript directory argument'
   } elseif (-not (Test-Path -LiteralPath $tdir -PathType Container)) {

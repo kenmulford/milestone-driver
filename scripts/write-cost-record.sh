@@ -74,7 +74,8 @@
 #                           four `message.usage` counts summed per tier, each
 #                           `message.id` once per file; a missing, null, non-numeric
 #                           or non-finite count is 0, `<synthetic>` is skipped, a model
-#                           id starting `claude-opus-5-5` is opus and one starting
+#                           id with `claude-opus-5-5` at its start or after a `.` or `/`
+#                           (`us.anthropic.claude-opus-5-5-...`) is opus and the same for
 #                           `claude-sonnet-5-5` is sonnet, a missing or empty model is
 #                           `?`, any other id is its own lowercased tier and lands in
 #                           unpricedTiers. provenanceNote `per-turn-transcript-sum`.
@@ -95,7 +96,11 @@
 #                           since `agents` carries every raw entry. A failed write
 #                           deletes nothing.
 #                           Fail-open: missing runId arg, missing/empty/malformed usage
-#                           file -> one stderr line, no record, exit 0.
+#                           file -> one stderr line, no record, exit 0. The no-usage and
+#                           malformed exits delete the .start too, and the malformed one
+#                           first renames the .jsonl to <runId>.jsonl.bad (replacing an
+#                           older one) and names it in the message, so the next run of that
+#                           runId opens a clean window.
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
@@ -177,7 +182,10 @@ if [ "$mode" = "--finalize" ]; then
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --finalize <runId> - no record written"
   command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
   usage_file="$usage_dir/$(sanitize_for_filename "$runid_arg").jsonl"
-  [ -s "$usage_file" ] || fail "no usage data at $usage_file - no record written"
+  start_rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
+  # An exit that writes no record also drops the .start, or the next run of this runId
+  # would open its window at this one's start time (or read this session's id).
+  [ -s "$usage_file" ] || { rm -f -- "$start_rel" 2>/dev/null; fail "no usage data at $usage_file - no record written"; }
   AGG_PROG='
     def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
     [ .[] | (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
@@ -195,8 +203,13 @@ if [ "$mode" = "--finalize" ]; then
         },
         agents: $entries
       }'
-  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" \
-    || fail "malformed usage data in $usage_file - no record written"
+  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" || {
+    # Moved aside so the next run of this runId starts clean instead of failing here forever.
+    bad_name="$(sanitize_for_filename "$runid_arg").jsonl.bad"
+    rm -f -- "$start_rel" 2>/dev/null
+    mv -f -- "$usage_file" "$usage_dir/$bad_name" 2>/dev/null
+    fail "malformed usage data in $usage_file - no record written (moved to $bad_name)"
+  }
   input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
     || fail "internal aggregation error over $usage_file - no record written"
   finalize_agents="$(printf '%s' "$agg" | jq -c '.agents' 2>/dev/null)" \
@@ -209,7 +222,6 @@ if [ "$mode" = "--finalize" ]; then
   # start test and the message.id dedup are both per file, and a file jq cannot
   # read or date prints nothing, so it simply does not match.
   tdir="${3:-}"
-  start_rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
   if [ -z "$tdir" ]; then
     finalize_note="no transcript directory argument"
   elif [ ! -d "$tdir" ]; then
@@ -222,11 +234,14 @@ if [ "$mode" = "--finalize" ]; then
     # mirrors scripts/measure-dispatch.sh (def secs), which truncates fractional seconds
     # because jq's fromdate rejects them. ts($frac) is the one timestamp shape: whole
     # seconds for the start file, an optional fraction for a transcript, as in the .ps1 twin.
+    # `$` also matches before a trailing newline, and fromdate rolls 2026-02-30 over to
+    # March 2, so a newline is refused and the date must survive a todate round trip
+    # (.NET's ParseExact in the twin rejects both).
     TS_DEFS='
-      def secs: sub("\\.[0-9]+"; "") | fromdate;
       def ts($frac): if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
-                             + (if $frac then "(\\.[0-9]+)?" else "" end) + "Z$")
-                     then secs else null end;'
+                             + (if $frac then "(\\.[0-9]+)?" else "" end) + "Z$") and (test("\n") | not)
+                     then sub("\\.[0-9]+"; "") as $w | ($w | fromdate) as $e | if ($e | todate) == $w then $e else null end
+                     else null end;'
     start_epoch="$(printf '%s\n' "$start_line" | jq -Rr "$TS_DEFS"'ts(false) | values' 2>/dev/null | tr -d '\r')"
     if [ -z "$start_epoch" ]; then
       finalize_note="start file $start_rel is not %Y-%m-%dT%H:%M:%SZ"
@@ -253,7 +268,7 @@ if [ "$mode" = "--finalize" ]; then
                     | ($e.message.model | if type == "string" and length > 0 then ascii_downcase else "?" end) as $m
                     | if $m == "<synthetic>" then .
                       else .turns += [{
-                        tier: (if ($m|startswith("claude-opus-5-5")) then "opus" elif ($m|startswith("claude-sonnet-5-5")) then "sonnet" else $m end),
+                        tier: (if ($m|test("(^|[./])claude-opus-5-5")) then "opus" elif ($m|test("(^|[./])claude-sonnet-5-5")) then "sonnet" else $m end),
                         inputTokens: num($e.message.usage.input_tokens), outputTokens: num($e.message.usage.output_tokens),
                         cacheReadTokens: num($e.message.usage.cache_read_input_tokens),
                         cacheWriteTokens: num($e.message.usage.cache_creation_input_tokens)}]

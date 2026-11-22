@@ -493,10 +493,10 @@ try {
   # ---- per-turn edge paths: one fixture file per case ------------------------
   $efx = Join-Path $here 'fixtures' 'write-cost-record' 'edge'
   function Prop-Names($o) { if ($null -eq $o) { return '' }; (@($o.PSObject.Properties | ForEach-Object { $_.Name }) | Sort-Object) -join ',' }
-  function Edge-Final([string]$fixture) {
+  function Edge-Final([string]$fixture, [string]$startLine = '2026-11-21T10:00:00Z') {
     $d = New-Ws
     Copy-Item -LiteralPath (Join-Path $efx $fixture) -Destination $d
-    $w = New-FinalizeWs "run-$fixture" '2026-11-21T10:00:00Z'
+    $w = New-FinalizeWs "run-$fixture" $startLine
     $r = Run-Finalize $w "run-$fixture" $d
     $j = try { Rec-Json $w } catch { $null }
     return @{ r = $r; j = $j }
@@ -548,6 +548,61 @@ try {
   if ($j -and $j.rateSnapshot -ceq $perTurn -and $e.r.err -eq '' -and
       $j.tiers.sonnet.inputTokens -eq 0 -and $j.tiers.sonnet.outputTokens -eq 7 -and $j.costUsd -eq 0.00007) { Ok } else {
     No "edge-nonfinite-count: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a provider-prefixed 5.5 id is priced by family; a mid-word match is not
+  $e = Edge-Final 'agent-k-prefixed-model.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $perTurn -and (Err-Lines $e.r.err) -eq 1 -and $e.r.err -match "tier 'xclaude-opus-5-5' has no rate table entry" -and
+      (Prop-Names $j.tiers) -ceq 'opus,sonnet' -and $j.tiers.opus.inputTokens -eq 1000000 -and $j.tiers.sonnet.inputTokens -eq 1000000 -and
+      $j.tiers.opus.costUsd -eq 6 -and $j.tiers.sonnet.costUsd -eq 3 -and $j.costUsd -eq 9 -and (Prop-Names $j.unpricedTiers) -ceq 'xclaude-opus-5-5') { Ok } else {
+    No "edge-prefixed-model-id: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # a first timestamp with a trailing newline, and one naming an impossible date that rolls over past the start, skip the file
+  foreach ($case in @(@('agent-l-ts-newline.jsonl', '2026-11-21T10:00:00Z', 'edge-first-timestamp-trailing-newline'), @('agent-m-impossible-date.jsonl', '2026-01-01T00:00:00Z', 'edge-first-timestamp-impossible-date'))) {
+    $e = Edge-Final $case[0] $case[1]; $j = $e.j
+    if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
+        $e.r.err -match "no agent transcript at or after $($case[1]) in .+ - using unsplit totals\s*$" -and
+        $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
+      No "$($case[2]): err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+  }
+
+  # a start file naming an impossible date takes the invalid-start fallback
+  Finalize-Fallback 'finalize-fallback-start-impossible-date' '2026-02-30T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-impossible-date\.start is not %Y-%m-%dT%H:%M:%SZ'
+
+  # ---- a finalize that writes no record leaves no start file behind ----------
+  # The next --start must open a fresh window, so the transcript dir holds a turn dated 2099 to be at or after it.
+  $fut = New-Ws
+  Copy-Item -LiteralPath (Join-Path $efx 'agent-n-future.jsonl') -Destination $fut
+  $w = New-Ws
+  Run-Start $w 'run-s1s2' 'sess-1' | Out-Null
+  $r1 = Run-Finalize $w 'run-s1s2' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-1' }
+  $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-s1s2' 'start'))
+  Run-Start $w 'run-s1s2' 'sess-2' | Out-Null
+  Run-Append $w 'run-s1s2' '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' | Out-Null
+  $r2 = Run-Finalize $w 'run-s1s2' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-2' }
+  $j = Rec-Json $w
+  if ($r1.rc -eq 0 -and (Err-Lines $r1.err) -eq 1 -and $r1.err -match 'no usage data at' -and $startGone -and
+      $r2.rc -eq 0 -and $r2.err -eq '' -and $j -and $j.rateSnapshot -ceq $perTurn -and $j.tiers.opus.inputTokens -eq 1000 -and
+      (Run-Files $w 'run-s1s2') -eq 0) { Ok } else {
+    No "finalize-no-usage-clears-start: r1err=[$($r1.err)] startGone=$startGone r2err=[$($r2.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- a malformed usage file is moved aside, its start file removed, and the next run records ----
+  $w = New-Ws
+  $ufd = Join-Path $w '.milestone-config/.runtime/usage'
+  New-Item -ItemType Directory -Force -Path $ufd | Out-Null
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.jsonl'), "not json`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.start'), "2026-11-21T10:00:00Z`nsess-1`n", [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText((Join-Path $ufd 'run-mal.jsonl.bad'), "older`n", [System.Text.UTF8Encoding]::new($false))
+  $r1 = Run-Finalize $w 'run-mal' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-1' }
+  $badPath = Join-Path $ufd 'run-mal.jsonl.bad'
+  $badOk = (Test-Path -LiteralPath $badPath) -and ((Get-Content -LiteralPath $badPath -Raw) -ceq "not json`n")
+  $gone = -not (Test-Path -LiteralPath (Usage-File $w 'run-mal' 'jsonl')) -and -not (Test-Path -LiteralPath (Usage-File $w 'run-mal' 'start'))
+  Run-Start $w 'run-mal' 'sess-2' | Out-Null
+  Run-Append $w 'run-mal' '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' | Out-Null
+  $r2 = Run-Finalize $w 'run-mal' $fut @{ CLAUDE_CODE_SESSION_ID = 'sess-2' }
+  $j = Rec-Json $w
+  if ($r1.rc -eq 0 -and (Err-Lines $r1.err) -eq 1 -and $r1.err -cmatch 'malformed usage data in \.milestone-config/\.runtime/usage/run-mal\.jsonl - no record written \(moved to run-mal\.jsonl\.bad\)\s*$' -and
+      $badOk -and $gone -and $r2.rc -eq 0 -and $r2.err -eq '' -and $j -and $j.rateSnapshot -ceq $perTurn -and $j.tiers.opus.inputTokens -eq 1000) { Ok } else {
+    No "finalize-malformed-moved-aside: r1err=[$($r1.err)] bad=$badOk gone=$gone r2err=[$($r2.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
 
   # ---- finalize: no usage file with a dir passed -> fail-open, no record -----
   $wsNd = New-Ws
