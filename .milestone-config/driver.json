@@ -3,7 +3,7 @@
   "protectedBranch": "main",
   "sourceGlobs": ["skills/**", "agents/**", "hooks/**", "scripts/**", "tests/**"],
   "implementerAgent": "milestone-driver:implementer",
-  "domainSkills": ["plugin-dev:*", "superpowers:writing-skills"],
+  "domainSkills": ["superpowers:writing-skills"],
   "nonNegotiables": [
     "Claude Code plugin: markdown skills + bash-first/pwsh-fallback hooks",
     "Cross-platform: bash (jq) and PowerShell 7+"
