@@ -105,6 +105,8 @@ RATE_BASE='Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; c
 # so the same runId always names the same usage file across all three.
 sanitize_for_filename() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '-'; }
 
+usage_dir=".milestone-config/.runtime/usage"
+
 mode="${1:-}"
 
 # ---- --append <runId>: one usage line per dispatch, its own short path -----
@@ -126,9 +128,8 @@ if [ "$mode" = "--append" ]; then
            if $in[$k] == null then . else . + { ($k): numify($in[$k]) } end))'
   line="$(printf '%s' "$input" | jq -c "$APPEND_PROG" 2>/dev/null)" \
     || fail "malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended"
-  dir=".milestone-config/.runtime/usage"
-  rel="$dir/$(sanitize_for_filename "$runid_arg").jsonl"
-  mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no line appended"
+  rel="$usage_dir/$(sanitize_for_filename "$runid_arg").jsonl"
+  mkdir -p "$usage_dir" 2>/dev/null || fail "cannot create $usage_dir - no line appended"
   if ! { printf '%s\n' "$line" | tr -d '\r' >> "$rel"; } 2>/dev/null; then
     fail "cannot append to $rel - no line appended"
   fi
@@ -146,12 +147,10 @@ now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 if [ "$mode" = "--start" ]; then
   runid_arg="${2:-}"
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --start <runId> - no start time written"
-  dir=".milestone-config/.runtime/usage"
-  rel="$dir/$(sanitize_for_filename "$runid_arg").start"
-  mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no start time written"
+  rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
+  mkdir -p "$usage_dir" 2>/dev/null || fail "cannot create $usage_dir - no start time written"
   if [ ! -e "$rel" ]; then
-    ts="$(now_iso)"
-    { printf '%s\n' "$ts" > "$rel"; } 2>/dev/null || fail "cannot write $rel - no start time written"
+    { printf '%s\n' "$(now_iso)" > "$rel"; } 2>/dev/null || fail "cannot write $rel - no start time written"
   fi
   printf '%s\n' "$rel"
   exit 0
@@ -166,7 +165,7 @@ if [ "$mode" = "--finalize" ]; then
   runid_arg="${2:-}"
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --finalize <runId> - no record written"
   command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
-  usage_file=".milestone-config/.runtime/usage/$(sanitize_for_filename "$runid_arg").jsonl"
+  usage_file="$usage_dir/$(sanitize_for_filename "$runid_arg").jsonl"
   [ -s "$usage_file" ] || fail "no usage data at $usage_file - no record written"
   AGG_PROG='
     def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
@@ -199,7 +198,7 @@ if [ "$mode" = "--finalize" ]; then
   # start test and the message.id dedup are both per file, and a file jq cannot
   # read or date prints nothing, so it simply does not match.
   tdir="${3:-}"
-  start_rel=".milestone-config/.runtime/usage/$(sanitize_for_filename "$runid_arg").start"
+  start_rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
   if [ -z "$tdir" ]; then
     finalize_note="no transcript directory argument"
   elif [ ! -d "$tdir" ]; then
@@ -208,50 +207,59 @@ if [ "$mode" = "--finalize" ]; then
     finalize_note="no start file at $start_rel"
   else
     start_line="$(head -n 1 "$start_rel" 2>/dev/null | tr -d '\r')"
-    start_epoch="$(printf '%s\n' "$start_line" | jq -Rr '
-      if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$") then fromdate else empty end' 2>/dev/null | tr -d '\r')"
+    # mirrors scripts/measure-dispatch.sh (def secs), which truncates fractional seconds
+    # because jq's fromdate rejects them. ts($frac) is the one timestamp shape: whole
+    # seconds for the start file, an optional fraction for a transcript, as in the .ps1 twin.
+    TS_DEFS='
+      def secs: sub("\\.[0-9]+"; "") | fromdate;
+      def ts($frac): if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                             + (if $frac then "(\\.[0-9]+)?" else "" end) + "Z$")
+                     then secs else null end;'
+    start_epoch="$(printf '%s\n' "$start_line" | jq -Rr "$TS_DEFS"'ts(false) | values' 2>/dev/null | tr -d '\r')"
     if [ -z "$start_epoch" ]; then
       finalize_note="start file $start_rel is not %Y-%m-%dT%H:%M:%SZ"
     else
-      TURN_PROG='
-        def secs: sub("\\.[0-9]+"; "") | fromdate;
+      # The first object line with a string `.timestamp` gates the file: an unusable or
+      # pre-start one breaks out before the rest is read. Turns are collected in the same
+      # pass, so nothing is held but the dedup keys and the turns themselves.
+      TURN_PROG="$TS_DEFS"'
         def num(v): if (v|type) == "number" then v else 0 end;
-        [inputs | fromjson? | objects] as $evs
-        | ([$evs[] | .timestamp | strings][0]) as $first
-        | (if $first != null and ($first | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"))
-           then ($first | secs) else null end) as $t0
-        | select($t0 != null and $t0 >= $start)
-        | reduce ($evs[] | select(.type == "assistant" and (.message|type) == "object"
-                                  and (.message.usage|type) == "object")) as $e (
-            {seen: {}, turns: []};
-            ($e.message.id | tojson) as $k
-            | if .seen[$k] then .
-              else .seen[$k] = true
-                | ($e.message.model | if type == "string" then ascii_downcase else "?" end) as $m
-                | if $m == "<synthetic>" then .
-                  else .turns += [{
-                    tier: (if ($m|contains("opus")) then "opus" elif ($m|contains("sonnet")) then "sonnet" else $m end),
-                    i: num($e.message.usage.input_tokens), o: num($e.message.usage.output_tokens),
-                    cr: num($e.message.usage.cache_read_input_tokens), cw: num($e.message.usage.cache_creation_input_tokens)}]
+        label $skip
+        | reduce (inputs | fromjson? | objects) as $e (
+            {started: false, seen: {}, turns: []};
+            (if .started or ($e.timestamp | type) != "string" then .
+             else (($e.timestamp | ts(true)) as $t0
+                   | if $t0 != null and $t0 >= $start then .started = true else break $skip end)
+             end)
+            | if $e.type == "assistant" and ($e.message|type) == "object"
+                 and ($e.message.usage|type) == "object" then
+                ($e.message.id | tojson) as $k
+                | if .seen[$k] then .
+                  else .seen[$k] = true
+                    | ($e.message.model | if type == "string" then ascii_downcase else "?" end) as $m
+                    | if $m == "<synthetic>" then .
+                      else .turns += [{
+                        tier: (if ($m|contains("opus")) then "opus" elif ($m|contains("sonnet")) then "sonnet" else $m end),
+                        inputTokens: num($e.message.usage.input_tokens), outputTokens: num($e.message.usage.output_tokens),
+                        cacheReadTokens: num($e.message.usage.cache_read_input_tokens),
+                        cacheWriteTokens: num($e.message.usage.cache_creation_input_tokens)}]
+                      end
                   end
-              end)
-        | .turns'
+              else . end)
+        | select(.started) | .turns'
       SUM_PROG='
         reduce (.[][]) as $t ({};
-          .[$t.tier] = ((.[$t.tier] // {inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0})
-            | .inputTokens += $t.i | .outputTokens += $t.o
-            | .cacheReadTokens += $t.cr | .cacheWriteTokens += $t.cw))'
-      matched=0
+          reduce ("inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens") as $k (.;
+            .[$t.tier][$k] += $t[$k]))'
       outs=""
       for f in "$tdir"/agent-*.jsonl; do
         [ -f "$f" ] || continue
         out="$(jq -R -n -c --argjson start "$start_epoch" "$TURN_PROG" "$f" 2>/dev/null | tr -d '\r')"
         [ -n "$out" ] || continue
-        matched=$((matched + 1))
         outs="$outs$out
 "
       done
-      if [ "$matched" -eq 0 ]; then
+      if [ -z "$outs" ]; then
         finalize_note="no agent transcript at or after $start_line in $tdir"
       elif sums="$(printf '%s' "$outs" | jq -s -c "$SUM_PROG" 2>/dev/null)" \
            && new_input="$(printf '%s' "$input" | jq -c --argjson tiers "$sums" \

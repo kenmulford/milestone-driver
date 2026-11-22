@@ -16,6 +16,7 @@ function No([string]$m) { $script:fail++; Write-Host "FAIL $m" }
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ("wcr_" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $root | Out-Null
 
+function New-Ws { $w = Join-Path $root ([System.Guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $w | Out-Null; return $w }
 function Run-Case([string]$inputJson) {
   $ws = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws | Out-Null
@@ -154,8 +155,8 @@ try {
   # =====================================================================
   # --append <runId>: one usage line per dispatch, survives compaction (D5)
   # =====================================================================
-  function Usage-File([string]$ws, [string]$sanitizedRunId) {
-    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.jsonl")
+  function Usage-File([string]$ws, [string]$sanitizedRunId, [string]$ext = 'jsonl') {
+    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.$ext")
   }
   function Run-Append([string]$ws, [string]$runId, [string]$inputJson) {
     return Invoke-Leg -Script $script -Args @('--append', $runId) -Stdin $inputJson -Cwd $ws
@@ -251,9 +252,6 @@ try {
   # =====================================================================
   # --start <runId>: record the run's start time once, never overwrite it
   # =====================================================================
-  function Start-File([string]$ws, [string]$sanitizedRunId) {
-    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.start")
-  }
   function Run-Start([string]$ws, [string]$runId) {
     return Invoke-Leg -Script $script -Args @('--start', $runId) -Stdin '' -Cwd $ws
   }
@@ -262,10 +260,9 @@ try {
   }
 
   # ---- start first write: path on stdout, empty stderr, exact bytes, no .jsonl
-  $wsS = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
-  New-Item -ItemType Directory -Force -Path $wsS | Out-Null
+  $wsS = New-Ws
   $rs = Run-Start $wsS 'run/1 x'
-  $sf = Start-File $wsS 'run-1-x'
+  $sf = Usage-File $wsS 'run-1-x' 'start'
   $usageDirS = Join-Path $wsS '.milestone-config/.runtime/usage'
   if ($rs.rc -eq 0 -and $rs.err -eq '' -and $rs.out -ceq ".milestone-config/.runtime/usage/run-1-x.start`n" -and
       (Test-Path -LiteralPath $sf) -and
@@ -287,7 +284,6 @@ try {
     if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.out -eq '' -and $made -eq 0) { Ok } else {
       No "$label`: rc=$($r.rc) errlines=$(Err-Lines $r.err) out=[$($r.out)] startfiles=$made" }
   }
-  function New-Ws { $w = Join-Path $root ([System.Guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $w | Out-Null; return $w }
   Start-FailOpen 'start-missing-runid-arg' @('--start') (New-Ws)
   Start-FailOpen 'start-empty-runid-arg' @('--start', '') (New-Ws)
 
@@ -301,7 +297,7 @@ try {
   New-Item -ItemType Directory -Force -Path $roDir | Out-Null
   try { & chmod 555 $roDir 2>$null } catch {}
   $rRo = Run-Start $wsRo 'run-s'
-  if (Test-Path -LiteralPath (Start-File $wsRo 'run-s')) {
+  if (Test-Path -LiteralPath (Usage-File $wsRo 'run-s' 'start')) {
     Ok  # read-only not enforced on this FS (Windows) - write fail-open path unreachable; skip
   } elseif ($rRo.rc -eq 0 -and (Err-Lines $rRo.err) -eq 1 -and $rRo.out -eq '') { Ok } else {
     No "start-readonly-usage: rc=$($rRo.rc) errlines=$(Err-Lines $rRo.err) out=[$($rRo.out)]" }
@@ -401,7 +397,7 @@ try {
     Run-Append $w $runId '{"agent":"implementer","tier":"opus","totalTokens":400000,"durationMs":10000}' | Out-Null
     Run-Append $w $runId '{"agent":"code-review","tier":"opus","totalTokens":100000,"durationMs":5000}' | Out-Null
     if ($null -ne $startLine) {
-      Set-Content -LiteralPath (Join-Path $w ".milestone-config/.runtime/usage/$runId.start") -Value $startLine -NoNewline
+      Set-Content -LiteralPath (Usage-File $w $runId 'start') -Value $startLine -NoNewline
     }
     return $w
   }

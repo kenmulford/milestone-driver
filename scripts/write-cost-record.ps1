@@ -81,6 +81,8 @@ function Sanitize-Filename([string]$s) {
   return $sb.ToString()
 }
 
+$usageDir = '.milestone-config/.runtime/usage'
+
 # Modes (issue: lean-loop D5 - the run-end record must survive context
 # compaction, which erases the orchestrator's in-context <usage> sums). See
 # the .sh twin's header comment for the full contract; behavior-identical here.
@@ -113,11 +115,10 @@ if ($mode -eq '--append') {
   } catch {
     Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended'
   }
-  $reldir = '.milestone-config/.runtime/usage'
-  $rel = "$reldir/$(Sanitize-Filename $runidArg).jsonl"
+  $rel = "$usageDir/$(Sanitize-Filename $runidArg).jsonl"
   $base = (Get-Location).Path
-  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $reldir) -ErrorAction Stop | Out-Null } catch {
-    Fail "cannot create $reldir - no line appended"
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $usageDir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $usageDir - no line appended"
   }
   try {
     $lineJson = $lineJson -replace "`r`n", "`n"
@@ -135,11 +136,10 @@ if ($mode -eq '--append') {
 if ($mode -eq '--start') {
   $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
   if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --start <runId> - no start time written' }
-  $reldir = '.milestone-config/.runtime/usage'
-  $rel = "$reldir/$(Sanitize-Filename $runidArg).start"
+  $rel = "$usageDir/$(Sanitize-Filename $runidArg).start"
   $base = (Get-Location).Path
-  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $reldir) -ErrorAction Stop | Out-Null } catch {
-    Fail "cannot create $reldir - no start time written"
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $usageDir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $usageDir - no start time written"
   }
   if (-not (Test-Path -LiteralPath (Join-Path $base $rel))) {
     $writtenAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -156,46 +156,66 @@ if ($mode -eq '--start') {
 # ---- --finalize <runId>: build $o from the usage file, then fall through ---
 # into the SAME costing block below the default mode already runs - one rate
 # table, one cost-record shape, never a second copy of either.
+# Parse-UtcEpoch: a whole-second `yyyy-MM-ddTHH:mm:ssZ` string -> unix seconds, or
+# throws. The one form jq's fromdate accepts, so both twins reject the same strings.
+function Parse-UtcEpoch([string]$s) {
+  return [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
+    [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
+}
+
+# Per-turn token fields: the record's own tier key -> the transcript's `message.usage` field.
+$usageFields = [ordered]@{
+  inputTokens      = 'input_tokens'
+  outputTokens     = 'output_tokens'
+  cacheReadTokens  = 'cache_read_input_tokens'
+  cacheWriteTokens = 'cache_creation_input_tokens'
+}
+
 # Read-AgentTurns: one agent-*.jsonl -> its deduped assistant turns, or $null when
-# the file is unreadable or its first string `.timestamp` is unusable or before
+# the file is unreadable (at open or mid-read) or its first string `.timestamp` is unusable or before
 # the start (whole seconds). Dedup by `message.id` is per file; an id-less turn
 # keys as `null`, so all of them in one file share one key (parity with the .sh
 # `$e.message.id | tojson`). A usage field that is missing, null or not a number
-# adds 0.
+# adds 0. ReadLines is lazy, so the early `return` on a pre-start file stops reading.
+# The enumerator is disposed by hand: a PowerShell `foreach` leaves it (and the file
+# handle) open until GC when the loop exits early.
 function Read-AgentTurns([string]$path, [long]$startEpoch) {
-  try { $lines = [System.IO.File]::ReadAllLines($path) } catch { return $null }
+  try { $reader = [System.IO.File]::ReadLines($path).GetEnumerator() } catch { return $null }
   $started = $false
   $seen = [System.Collections.Generic.HashSet[string]]::new()
   $turns = [System.Collections.Generic.List[object]]::new()
-  foreach ($line in $lines) {
-    try { $e = ([System.Text.Json.JsonDocument]::Parse($line)).RootElement } catch { continue }
-    if ($e.ValueKind -ne 'Object') { continue }
-    $p = [System.Text.Json.JsonElement]::new()
-    if (-not $started -and $e.TryGetProperty('timestamp', [ref]$p) -and $p.ValueKind -eq 'String') {
-      $started = $true
-      $s = [regex]::new('\.[0-9]+').Replace($p.GetString(), '', 1)
+  try {
+    while ($reader.MoveNext()) {
+      try { $doc = [System.Text.Json.JsonDocument]::Parse($reader.Current) } catch { continue }
       try {
-        $t0 = [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
-          [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
-      } catch { return $null }
-      if ($t0 -lt $startEpoch) { return $null }
+        $e = $doc.RootElement
+        if ($e.ValueKind -ne 'Object') { continue }
+        $p = [System.Text.Json.JsonElement]::new()
+        if (-not $started -and $e.TryGetProperty('timestamp', [ref]$p) -and $p.ValueKind -eq 'String') {
+          $started = $true
+          # mirrors scripts/measure-dispatch.ps1 (ParseExact takes only the one form), which truncates fractional seconds
+          $s = [regex]::new('\.[0-9]+').Replace($p.GetString(), '', 1)
+          try { $t0 = Parse-UtcEpoch $s } catch { return $null }
+          if ($t0 -lt $startEpoch) { return $null }
+        }
+        if (-not ($e.TryGetProperty('type', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString() -ceq 'assistant')) { continue }
+        $m = [System.Text.Json.JsonElement]::new()
+        if (-not ($e.TryGetProperty('message', [ref]$m) -and $m.ValueKind -eq 'Object')) { continue }
+        $u = [System.Text.Json.JsonElement]::new()
+        if (-not ($m.TryGetProperty('usage', [ref]$u) -and $u.ValueKind -eq 'Object')) { continue }
+        $key = if ($m.TryGetProperty('id', [ref]$p)) { $p.GetRawText() } else { 'null' }
+        if (-not $seen.Add($key)) { continue }
+        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String') { $p.GetString().ToLowerInvariant() } else { '?' }
+        if ($model -ceq '<synthetic>') { continue }
+        $tier = if ($model.Contains('opus')) { 'opus' } elseif ($model.Contains('sonnet')) { 'sonnet' } else { $model }
+        $n = [ordered]@{ tier = $tier }
+        foreach ($k in $usageFields.Keys) {
+          $n[$k] = if ($u.TryGetProperty($usageFields[$k], [ref]$p) -and $p.ValueKind -eq 'Number') { $p.GetDouble() } else { 0.0 }
+        }
+        $turns.Add([pscustomobject]$n)
+      } finally { $doc.Dispose() }
     }
-    if (-not ($e.TryGetProperty('type', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString() -ceq 'assistant')) { continue }
-    $m = [System.Text.Json.JsonElement]::new()
-    if (-not ($e.TryGetProperty('message', [ref]$m) -and $m.ValueKind -eq 'Object')) { continue }
-    $u = [System.Text.Json.JsonElement]::new()
-    if (-not ($m.TryGetProperty('usage', [ref]$u) -and $u.ValueKind -eq 'Object')) { continue }
-    $key = if ($m.TryGetProperty('id', [ref]$p)) { $p.GetRawText() } else { 'null' }
-    if (-not $seen.Add($key)) { continue }
-    $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String') { $p.GetString().ToLowerInvariant() } else { '?' }
-    if ($model -ceq '<synthetic>') { continue }
-    $tier = if ($model.Contains('opus')) { 'opus' } elseif ($model.Contains('sonnet')) { 'sonnet' } else { $model }
-    $n = [ordered]@{ tier = $tier }
-    foreach ($k in @(@('i', 'input_tokens'), @('o', 'output_tokens'), @('cr', 'cache_read_input_tokens'), @('cw', 'cache_creation_input_tokens'))) {
-      $n[$k[0]] = if ($u.TryGetProperty($k[1], [ref]$p) -and $p.ValueKind -eq 'Number') { $p.GetDouble() } else { 0.0 }
-    }
-    $turns.Add([pscustomobject]$n)
-  }
+  } catch { return $null } finally { $reader.Dispose() }
   if (-not $started) { return $null }
   return ,$turns
 }
@@ -205,7 +225,7 @@ $finalizeNote = $null
 if ($mode -eq '--finalize') {
   $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
   if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --finalize <runId> - no record written' }
-  $usageRel = ".milestone-config/.runtime/usage/$(Sanitize-Filename $runidArg).jsonl"
+  $usageRel = "$usageDir/$(Sanitize-Filename $runidArg).jsonl"
   $usageAbs = Join-Path (Get-Location).Path $usageRel
   $usageRaw = if (Test-Path -LiteralPath $usageAbs -PathType Leaf) { Get-Content -LiteralPath $usageAbs -Raw -ErrorAction SilentlyContinue } else { $null }
   if ([string]::IsNullOrWhiteSpace($usageRaw)) { Fail "no usage data at $usageRel - no record written" }
@@ -250,7 +270,7 @@ if ($mode -eq '--finalize') {
   # $finalizeNote, printed after the record write so a failed write stays one
   # stderr line (parity with the .sh twin).
   $tdir = if ($cliArgs.Count -ge 3) { $cliArgs[2] } else { $null }
-  $startRel = ".milestone-config/.runtime/usage/$(Sanitize-Filename $runidArg).start"
+  $startRel = "$usageDir/$(Sanitize-Filename $runidArg).start"
   $startAbs = Join-Path (Get-Location).Path $startRel
   if ([string]::IsNullOrEmpty($tdir)) {
     $finalizeNote = 'no transcript directory argument'
@@ -264,39 +284,31 @@ if ($mode -eq '--finalize') {
     $startLine = $startLine.TrimEnd("`r")
     $startEpoch = $null
     try {
-      $startEpoch = [datetimeoffset]::ParseExact($startLine, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
-        [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
+      $startEpoch = Parse-UtcEpoch $startLine
     } catch {}
     if ($null -eq $startEpoch) {
       $finalizeNote = "start file $startRel is not %Y-%m-%dT%H:%M:%SZ"
     } else {
       try {
         # Ordinal sort = the .sh twin's C-locale glob order; -clike keeps its case-sensitive match.
-        $names = @(Get-ChildItem -LiteralPath $tdir -File -Filter 'agent-*.jsonl' | Where-Object { $_.Name -clike 'agent-*.jsonl' } |
-          ForEach-Object { $_.Name })
-        [Array]::Sort($names, [System.StringComparer]::Ordinal)
+        $files = @(Get-ChildItem -LiteralPath $tdir -File -Filter 'agent-*.jsonl' | Where-Object { $_.Name -clike 'agent-*.jsonl' })
+        $names = [string[]]@($files | ForEach-Object { $_.Name })
+        [Array]::Sort($names, [object[]]$files, [System.StringComparer]::Ordinal)
         $matched = 0
         $sums = [ordered]@{}
-        foreach ($nm in $names) {
-          $turns = Read-AgentTurns (Join-Path (Resolve-Path -LiteralPath $tdir).Path $nm) $startEpoch
+        foreach ($f in $files) {
+          $turns = Read-AgentTurns $f.FullName $startEpoch
           if ($null -eq $turns) { continue }
           $matched++
           foreach ($t in $turns) {
-            if (-not $sums.Contains($t.tier)) { $sums[$t.tier] = @{ i = 0.0; o = 0.0; cr = 0.0; cw = 0.0 } }
-            $sums[$t.tier].i += $t.i; $sums[$t.tier].o += $t.o; $sums[$t.tier].cr += $t.cr; $sums[$t.tier].cw += $t.cw
+            if (-not $sums.Contains($t.tier)) { $sums[$t.tier] = [pscustomobject][ordered]@{ inputTokens = 0.0; outputTokens = 0.0; cacheReadTokens = 0.0; cacheWriteTokens = 0.0 } }
+            foreach ($k in $usageFields.Keys) { $sums[$t.tier].$k += $t.$k }
           }
         }
         if ($matched -eq 0) {
           $finalizeNote = "no agent transcript at or after $startLine in $tdir"
         } else {
-          $tiersInput = [ordered]@{}
-          foreach ($k in $sums.Keys) {
-            $tiersInput[$k] = [pscustomobject][ordered]@{
-              inputTokens = (Fmt-Num $sums[$k].i); outputTokens = (Fmt-Num $sums[$k].o)
-              cacheReadTokens = (Fmt-Num $sums[$k].cr); cacheWriteTokens = (Fmt-Num $sums[$k].cw)
-            }
-          }
-          $o.tiers = [pscustomobject]$tiersInput
+          $o.tiers = [pscustomobject]$sums
           $o.provenanceNote = 'per-turn-transcript-sum'
         }
       } catch {
