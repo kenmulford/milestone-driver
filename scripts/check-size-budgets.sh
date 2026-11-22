@@ -322,6 +322,12 @@
 #     bytes; the file's own WORD 4761/4800 still holds and does not move, but
 #     its CLOSURE sum grew 9934 -> 10045 words, rounded UP to the next 100.
 #     Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, issue #773 (decision 2026-11-21): agents/implementer.md
+#     BYTE 17000 -> 17500, WORD 2500 -> 2700, for the issue-record packet
+#     bullet. Measured growth 137 -> 138 lines (LINE 140 still holds), 16688
+#     -> 17339 bytes, 2499 -> 2618 words, after trimming rule 6, rounded UP
+#     to the next 500 bytes and 100 words. Spent on this one row: the next
+#     edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -487,7 +493,7 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               140    17000     2500
+agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
