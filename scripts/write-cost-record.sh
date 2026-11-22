@@ -48,6 +48,12 @@
 #                           mode: malformed input, missing runId arg, or an
 #                           uncreatable dir -> one stderr line, no line written,
 #                           exit 0.
+#   --start <runId>        no stdin, no jq: writes the UTC time plus LF to
+#                           .milestone-config/.runtime/usage/<sanitized-runId>.start
+#                           only when that file is absent, so a rerun keeps the
+#                           first start time. Prints the relative path. Fail-open
+#                           like --append: missing runId arg, an uncreatable dir,
+#                           or an unwritable file -> one stderr line, exit 0.
 #   --finalize <runId>     reads that whole .jsonl (no stdin), sums totalTokens
 #                           per tier into the default contract's `tiers.<t>.
 #                           inputTokens` (same "unsplit-total-as-input" lower-
@@ -114,6 +120,27 @@ if [ "$mode" = "--append" ]; then
   exit 0
 fi
 
+# now_iso -> current time as ISO-8601 UTC (Zulu) - mirrors scripts/render-daemon.sh (now_iso() {).
+now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# ---- --start <runId>: record the run's start time once, its own short path --
+# Exits before the stdin contracts below; nothing past this block applies to
+# this mode. mkdir runs before the existence check so an occupied `usage` path
+# reports "cannot create"; an existing start file is never rewritten.
+if [ "$mode" = "--start" ]; then
+  runid_arg="${2:-}"
+  [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --start <runId> - no start time written"
+  dir=".milestone-config/.runtime/usage"
+  rel="$dir/$(sanitize_for_filename "$runid_arg").start"
+  mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no start time written"
+  if [ ! -e "$rel" ]; then
+    ts="$(now_iso)"
+    { printf '%s\n' "$ts" > "$rel"; } 2>/dev/null || fail "cannot write $rel - no start time written"
+  fi
+  printf '%s\n' "$rel"
+  exit 0
+fi
+
 # ---- --finalize <runId>: rebuild `input` from the usage file, then fall ----
 # through into the SAME costing pipeline the default mode already runs below -
 # one rate table, one cost-record shape, never a second copy of either.
@@ -153,8 +180,6 @@ else
   command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
 fi
 
-# now_iso -> current time as ISO-8601 UTC (Zulu) - mirrors scripts/render-daemon.sh (now_iso() {).
-now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 WRITTEN_AT="$(now_iso)"
 
 # Build the record + the unpriced-tier name list in ONE jq pass. jq ERRORS

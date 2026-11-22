@@ -249,6 +249,65 @@ try {
     No "append-missing-runid-arg: rc=$($rNoId.rc) errlines=$(Err-Lines $rNoId.err)" }
 
   # =====================================================================
+  # --start <runId>: record the run's start time once, never overwrite it
+  # =====================================================================
+  function Start-File([string]$ws, [string]$sanitizedRunId) {
+    Join-Path $ws (".milestone-config/.runtime/usage/$sanitizedRunId.start")
+  }
+  function Run-Start([string]$ws, [string]$runId) {
+    return Invoke-Leg -Script $script -Args @('--start', $runId) -Stdin '' -Cwd $ws
+  }
+  function Start-Bytes([string]$f) {
+    [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($f))
+  }
+
+  # ---- start first write: path on stdout, empty stderr, exact bytes, no .jsonl
+  $wsS = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $wsS | Out-Null
+  $rs = Run-Start $wsS 'run/1 x'
+  $sf = Start-File $wsS 'run-1-x'
+  $usageDirS = Join-Path $wsS '.milestone-config/.runtime/usage'
+  if ($rs.rc -eq 0 -and $rs.err -eq '' -and $rs.out -ceq ".milestone-config/.runtime/usage/run-1-x.start`n" -and
+      (Test-Path -LiteralPath $sf) -and
+      (Start-Bytes $sf) -cmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\n\z' -and
+      @(Get-ChildItem -LiteralPath $usageDirS -Filter '*.jsonl' -ErrorAction SilentlyContinue).Count -eq 0) { Ok } else {
+    No "start-first-write: rc=$($rs.rc) err=[$($rs.err)] out=[$($rs.out)] exists=$(Test-Path -LiteralPath $sf)" }
+
+  # ---- start second call: existing file kept byte-for-byte -------------------
+  [System.IO.File]::WriteAllText($sf, "2000-01-01T00:00:00Z`n", [System.Text.UTF8Encoding]::new($false))
+  $rs2 = Run-Start $wsS 'run/1 x'
+  if ($rs2.rc -eq 0 -and $rs2.err -eq '' -and $rs2.out -ceq ".milestone-config/.runtime/usage/run-1-x.start`n" -and
+      (Start-Bytes $sf) -ceq "2000-01-01T00:00:00Z`n") { Ok } else {
+    No "start-second-call: rc=$($rs2.rc) err=[$($rs2.err)] bytes=[$(Start-Bytes $sf)]" }
+
+  # ---- start fail-open cases: one stderr line, empty stdout, no .start file --
+  function Start-FailOpen([string]$label, [string[]]$startArgs, [string]$ws) {
+    $r = Invoke-Leg -Script $script -Args $startArgs -Stdin '' -Cwd $ws
+    $made = @(Get-ChildItem -LiteralPath $ws -Recurse -File -Filter '*.start' -ErrorAction SilentlyContinue).Count
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.out -eq '' -and $made -eq 0) { Ok } else {
+      No "$label`: rc=$($r.rc) errlines=$(Err-Lines $r.err) out=[$($r.out)] startfiles=$made" }
+  }
+  function New-Ws { $w = Join-Path $root ([System.Guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $w | Out-Null; return $w }
+  Start-FailOpen 'start-missing-runid-arg' @('--start') (New-Ws)
+  Start-FailOpen 'start-empty-runid-arg' @('--start', '') (New-Ws)
+
+  $wsOcc = New-Ws
+  New-Item -ItemType Directory -Force -Path (Join-Path $wsOcc '.milestone-config/.runtime') | Out-Null
+  Set-Content -LiteralPath (Join-Path $wsOcc '.milestone-config/.runtime/usage') -Value 'x' -NoNewline
+  Start-FailOpen 'start-usage-occupied-by-file' @('--start', 'run-s') $wsOcc
+
+  $wsRo = New-Ws
+  $roDir = Join-Path $wsRo '.milestone-config/.runtime/usage'
+  New-Item -ItemType Directory -Force -Path $roDir | Out-Null
+  try { & chmod 555 $roDir 2>$null } catch {}
+  $rRo = Run-Start $wsRo 'run-s'
+  if (Test-Path -LiteralPath (Start-File $wsRo 'run-s')) {
+    Ok  # read-only not enforced on this FS (Windows) - write fail-open path unreachable; skip
+  } elseif ($rRo.rc -eq 0 -and (Err-Lines $rRo.err) -eq 1 -and $rRo.out -eq '') { Ok } else {
+    No "start-readonly-usage: rc=$($rRo.rc) errlines=$(Err-Lines $rRo.err) out=[$($rRo.out)]" }
+  try { & chmod 755 $roDir 2>$null } catch {}
+
+  # =====================================================================
   # --finalize <runId>: rebuild the run-end record from the usage file alone
   # =====================================================================
   function Run-Finalize([string]$ws, [string]$runId) {

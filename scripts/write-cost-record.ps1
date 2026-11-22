@@ -129,6 +129,30 @@ if ($mode -eq '--append') {
   exit 0
 }
 
+# ---- --start <runId>: record the run's start time once, its own short path --
+# mkdir runs before the existence check so an occupied `usage` path reports
+# "cannot create"; an existing start file is never rewritten.
+if ($mode -eq '--start') {
+  $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
+  if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --start <runId> - no start time written' }
+  $reldir = '.milestone-config/.runtime/usage'
+  $rel = "$reldir/$(Sanitize-Filename $runidArg).start"
+  $base = (Get-Location).Path
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $reldir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $reldir - no start time written"
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $base $rel))) {
+    $writtenAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    try {
+      [System.IO.File]::WriteAllText((Join-Path $base $rel), $writtenAt + "`n", [System.Text.UTF8Encoding]::new($false))
+    } catch {
+      Fail "cannot write $rel - no start time written"
+    }
+  }
+  [Console]::Out.Write($rel + "`n")
+  exit 0
+}
+
 # ---- --finalize <runId>: build $o from the usage file, then fall through ---
 # into the SAME costing block below the default mode already runs - one rate
 # table, one cost-record shape, never a second copy of either.
