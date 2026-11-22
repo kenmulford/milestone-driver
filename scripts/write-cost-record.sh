@@ -48,12 +48,16 @@
 #                           mode: malformed input, missing runId arg, or an
 #                           uncreatable dir -> one stderr line, no line written,
 #                           exit 0.
-#   --start <runId>        no stdin, no jq: writes the UTC time plus LF to
+#   --start <runId>        no stdin, no jq: writes the UTC time, LF, the current
+#                           CLAUDE_CODE_SESSION_ID (empty when unset) and LF to
 #                           .milestone-config/.runtime/usage/<sanitized-runId>.start
-#                           only when that file is absent, so a rerun keeps the
-#                           first start time. Prints the relative path. Fail-open
+#                           only when that file is absent, so a rerun inside one
+#                           window keeps the first start time (a one-line legacy
+#                           file stays readable). Prints the relative path. Fail-open
 #                           like --append: missing runId arg, an uncreatable dir,
 #                           or an unwritable file -> one stderr line, exit 0.
+#                           One invocation is one window: --finalize deletes the
+#                           .start and .jsonl, so the next --start opens a new one.
 #   --finalize <runId> [<transcriptDir>]
 #                           reads that whole .jsonl (no stdin) for `wallClockSeconds`
 #                           (durationMs summed, over 1000) and `agents` (the raw
@@ -68,11 +72,12 @@
 #                           .milestone-config/.runtime/usage/<sanitized-runId>.start
 #                           (%Y-%m-%dT%H:%M:%SZ, whole seconds) has its assistant turns'
 #                           four `message.usage` counts summed per tier, each
-#                           `message.id` once per file; a missing, null or non-numeric
-#                           count is 0, `<synthetic>` is skipped, a model naming opus
-#                           or sonnet is that tier, a missing model is `?`, any other
-#                           id is its own tier and lands in unpricedTiers.
-#                           provenanceNote `per-turn-transcript-sum`.
+#                           `message.id` once per file; a missing, null, non-numeric
+#                           or non-finite count is 0, `<synthetic>` is skipped, a model
+#                           id starting `claude-opus-5-5` is opus and one starting
+#                           `claude-sonnet-5-5` is sonnet, a missing or empty model is
+#                           `?`, any other id is its own lowercased tier and lands in
+#                           unpricedTiers. provenanceNote `per-turn-transcript-sum`.
 #                           Unsplit fallback: the usage lines' totalTokens summed per
 #                           tier into `tiers.<t>.inputTokens` (a lower bound).
 #                           provenanceNote `unsplit-total-as-input`, plus exactly one
@@ -80,10 +85,15 @@
 #                           totals`, <reason> being one of: no transcript directory
 #                           argument; transcript directory <dir> not found; no start
 #                           file at <rel>; start file <rel> is not
-#                           %Y-%m-%dT%H:%M:%SZ; no agent transcript at or after
+#                           %Y-%m-%dT%H:%M:%SZ; run started in another session (line 2
+#                           of the start file is non-empty and not the current
+#                           CLAUDE_CODE_SESSION_ID); no agent transcript at or after
 #                           <start> in <dir>. A transcript pass that cannot complete
 #                           takes the same path with reason `cannot sum the
 #                           transcripts in <dir>`.
+#                           Once the record is written it deletes the .jsonl and .start,
+#                           since `agents` carries every raw entry. A failed write
+#                           deletes nothing.
 #                           Fail-open: missing runId arg, missing/empty/malformed usage
 #                           file -> one stderr line, no record, exit 0.
 #
@@ -143,14 +153,15 @@ now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # ---- --start <runId>: record the run's start time once, its own short path --
 # Exits before the stdin contracts below; nothing past this block applies to
 # this mode. mkdir runs before the existence check so an occupied `usage` path
-# reports "cannot create"; an existing start file is never rewritten.
+# reports "cannot create"; an existing start file is never rewritten (--finalize
+# is what deletes it).
 if [ "$mode" = "--start" ]; then
   runid_arg="${2:-}"
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --start <runId> - no start time written"
   rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
   mkdir -p "$usage_dir" 2>/dev/null || fail "cannot create $usage_dir - no start time written"
   if [ ! -e "$rel" ]; then
-    { printf '%s\n' "$(now_iso)" > "$rel"; } 2>/dev/null || fail "cannot write $rel - no start time written"
+    { printf '%s\n%s\n' "$(now_iso)" "${CLAUDE_CODE_SESSION_ID:-}" > "$rel"; } 2>/dev/null || fail "cannot write $rel - no start time written"
   fi
   printf '%s\n' "$rel"
   exit 0
@@ -207,6 +218,7 @@ if [ "$mode" = "--finalize" ]; then
     finalize_note="no start file at $start_rel"
   else
     start_line="$(head -n 1 "$start_rel" 2>/dev/null | tr -d '\r')"
+    start_sid="$(sed -n '2p' "$start_rel" 2>/dev/null | tr -d '\r')"
     # mirrors scripts/measure-dispatch.sh (def secs), which truncates fractional seconds
     # because jq's fromdate rejects them. ts($frac) is the one timestamp shape: whole
     # seconds for the start file, an optional fraction for a transcript, as in the .ps1 twin.
@@ -218,12 +230,14 @@ if [ "$mode" = "--finalize" ]; then
     start_epoch="$(printf '%s\n' "$start_line" | jq -Rr "$TS_DEFS"'ts(false) | values' 2>/dev/null | tr -d '\r')"
     if [ -z "$start_epoch" ]; then
       finalize_note="start file $start_rel is not %Y-%m-%dT%H:%M:%SZ"
+    elif [ -n "$start_sid" ] && [ "$start_sid" != "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+      finalize_note="run started in another session"
     else
       # The first object line with a string `.timestamp` gates the file: an unusable or
       # pre-start one breaks out before the rest is read. Turns are collected in the same
       # pass, so nothing is held but the dedup keys and the turns themselves.
       TURN_PROG="$TS_DEFS"'
-        def num(v): if (v|type) == "number" then v else 0 end;
+        def num(v): if (v|type) == "number" and (v|isinfinite|not) and (v|isnan|not) then v else 0 end;
         label $skip
         | reduce (inputs | fromjson? | objects) as $e (
             {started: false, seen: {}, turns: []};
@@ -236,10 +250,10 @@ if [ "$mode" = "--finalize" ]; then
                 ($e.message.id | tojson) as $k
                 | if .seen[$k] then .
                   else .seen[$k] = true
-                    | ($e.message.model | if type == "string" then ascii_downcase else "?" end) as $m
+                    | ($e.message.model | if type == "string" and length > 0 then ascii_downcase else "?" end) as $m
                     | if $m == "<synthetic>" then .
                       else .turns += [{
-                        tier: (if ($m|contains("opus")) then "opus" elif ($m|contains("sonnet")) then "sonnet" else $m end),
+                        tier: (if ($m|startswith("claude-opus-5-5")) then "opus" elif ($m|startswith("claude-sonnet-5-5")) then "sonnet" else $m end),
                         inputTokens: num($e.message.usage.input_tokens), outputTokens: num($e.message.usage.output_tokens),
                         cacheReadTokens: num($e.message.usage.cache_read_input_tokens),
                         cacheWriteTokens: num($e.message.usage.cache_creation_input_tokens)}]
@@ -364,6 +378,11 @@ mkdir -p "$dir" 2>/dev/null || fail "cannot create $dir - no record written"
 if ! { printf '%s' "$wrapper" | jq '.record' | tr -d '\r' > "$rel"; } 2>/dev/null; then
   fail "cannot write record to $rel - no record written"
 fi
+
+# --finalize only: the record carries every raw entry in `agents`, so the window is
+# spent. Deleting it lets the next invocation of this runId (a resume or a rerun) open
+# a fresh one instead of billing this session's agents again.
+if [ "$mode" = "--finalize" ]; then rm -f -- "$usage_file" "$start_rel" 2>/dev/null; fi
 
 # Record is written - NOW emit one stderr note per unpriced tier. Emitting AFTER the
 # write (not before) guarantees a write fail-open above stays a SINGLE stderr line,

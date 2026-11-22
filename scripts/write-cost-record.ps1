@@ -86,6 +86,8 @@ $usageDir = '.milestone-config/.runtime/usage'
 # Modes (issue: lean-loop D5 - the run-end record must survive context
 # compaction, which erases the orchestrator's in-context <usage> sums). See
 # the .sh twin's header comment for the full contract; behavior-identical here.
+# One invocation is one window: --start writes the time and CLAUDE_CODE_SESSION_ID,
+# --finalize deletes the .start and .jsonl once the record is written.
 $cliArgs = $args
 $mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
 
@@ -132,7 +134,8 @@ if ($mode -eq '--append') {
 
 # ---- --start <runId>: record the run's start time once, its own short path --
 # mkdir runs before the existence check so an occupied `usage` path reports
-# "cannot create"; an existing start file is never rewritten.
+# "cannot create"; an existing start file is never rewritten (--finalize is what
+# deletes it). Line 2 is the current CLAUDE_CODE_SESSION_ID, empty when unset.
 if ($mode -eq '--start') {
   $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
   if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --start <runId> - no start time written' }
@@ -144,7 +147,7 @@ if ($mode -eq '--start') {
   if (-not (Test-Path -LiteralPath (Join-Path $base $rel))) {
     $writtenAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     try {
-      [System.IO.File]::WriteAllText((Join-Path $base $rel), $writtenAt + "`n", [System.Text.UTF8Encoding]::new($false))
+      [System.IO.File]::WriteAllText((Join-Path $base $rel), $writtenAt + "`n" + [string]$env:CLAUDE_CODE_SESSION_ID + "`n", [System.Text.UTF8Encoding]::new($false))
     } catch {
       Fail "cannot write $rel - no start time written"
     }
@@ -176,9 +179,12 @@ $usageFields = [ordered]@{
 # the start (whole seconds). Dedup by `message.id` is per file; an id-less turn
 # keys as `null`, so all of them in one file share one key (parity with the .sh
 # `$e.message.id | tojson`). A usage field that is missing, null or not a number
-# adds 0. ReadLines is lazy, so the early `return` on a pre-start file stops reading.
+# or a count that is not finite adds 0. ReadLines is lazy, so the early `return` on a pre-start file stops reading.
 # The enumerator is disposed by hand: a PowerShell `foreach` leaves it (and the file
 # handle) open until GC when the loop exits early.
+# MaxDepth 10000 matches jq's parse limit: the .NET default of 64 would drop a deeply nested line jq counts.
+$jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
+$jsonOpts.MaxDepth = 10000
 function Read-AgentTurns([string]$path, [long]$startEpoch) {
   try { $reader = [System.IO.File]::ReadLines($path).GetEnumerator() } catch { return $null }
   $started = $false
@@ -186,7 +192,7 @@ function Read-AgentTurns([string]$path, [long]$startEpoch) {
   $turns = [System.Collections.Generic.List[object]]::new()
   try {
     while ($reader.MoveNext()) {
-      try { $doc = [System.Text.Json.JsonDocument]::Parse($reader.Current) } catch { continue }
+      try { $doc = [System.Text.Json.JsonDocument]::Parse($reader.Current, $jsonOpts) } catch { continue }
       try {
         $e = $doc.RootElement
         if ($e.ValueKind -ne 'Object') { continue }
@@ -194,7 +200,9 @@ function Read-AgentTurns([string]$path, [long]$startEpoch) {
         if (-not $started -and $e.TryGetProperty('timestamp', [ref]$p) -and $p.ValueKind -eq 'String') {
           $started = $true
           # mirrors scripts/measure-dispatch.ps1 (ParseExact takes only the one form), which truncates fractional seconds
-          $s = [regex]::new('\.[0-9]+').Replace($p.GetString(), '', 1)
+          $ts = $p.GetString()
+          if ($ts -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z\z') { return $null }
+          $s = [regex]::new('\.[0-9]+').Replace($ts, '', 1)
           try { $t0 = Parse-UtcEpoch $s } catch { return $null }
           if ($t0 -lt $startEpoch) { return $null }
         }
@@ -205,12 +213,13 @@ function Read-AgentTurns([string]$path, [long]$startEpoch) {
         if (-not ($m.TryGetProperty('usage', [ref]$u) -and $u.ValueKind -eq 'Object')) { continue }
         $key = if ($m.TryGetProperty('id', [ref]$p)) { $p.GetRawText() } else { 'null' }
         if (-not $seen.Add($key)) { continue }
-        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String') { $p.GetString().ToLowerInvariant() } else { '?' }
+        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0) { $p.GetString().ToLowerInvariant() } else { '?' }
         if ($model -ceq '<synthetic>') { continue }
-        $tier = if ($model.Contains('opus')) { 'opus' } elseif ($model.Contains('sonnet')) { 'sonnet' } else { $model }
+        $tier = if ($model.StartsWith('claude-opus-5-5', [StringComparison]::Ordinal)) { 'opus' } elseif ($model.StartsWith('claude-sonnet-5-5', [StringComparison]::Ordinal)) { 'sonnet' } else { $model }
         $n = [ordered]@{ tier = $tier }
         foreach ($k in $usageFields.Keys) {
-          $n[$k] = if ($u.TryGetProperty($usageFields[$k], [ref]$p) -and $p.ValueKind -eq 'Number') { $p.GetDouble() } else { 0.0 }
+          $d = 0.0
+          $n[$k] = if ($u.TryGetProperty($usageFields[$k], [ref]$p) -and $p.ValueKind -eq 'Number' -and $p.TryGetDouble([ref]$d) -and [double]::IsFinite($d)) { $d } else { 0.0 }
         }
         $turns.Add([pscustomobject]$n)
       } finally { $doc.Dispose() }
@@ -279,15 +288,18 @@ if ($mode -eq '--finalize') {
   } elseif (-not (Test-Path -LiteralPath $startAbs -PathType Leaf)) {
     $finalizeNote = "no start file at $startRel"
   } else {
-    $startLine = ''
-    try { $startLine = [string](@(Get-Content -LiteralPath $startAbs -TotalCount 1 -ErrorAction Stop)[0]) } catch {}
-    $startLine = $startLine.TrimEnd("`r")
+    $startLines = @()
+    try { $startLines = @(Get-Content -LiteralPath $startAbs -TotalCount 2 -ErrorAction Stop) } catch {}
+    $startLine = if ($startLines.Count -ge 1) { ([string]$startLines[0]).TrimEnd("`r") } else { '' }
+    $startSid = if ($startLines.Count -ge 2) { ([string]$startLines[1]).TrimEnd("`r") } else { '' }
     $startEpoch = $null
     try {
       $startEpoch = Parse-UtcEpoch $startLine
     } catch {}
     if ($null -eq $startEpoch) {
       $finalizeNote = "start file $startRel is not %Y-%m-%dT%H:%M:%SZ"
+    } elseif ($startSid -ne '' -and $startSid -cne [string]$env:CLAUDE_CODE_SESSION_ID) {
+      $finalizeNote = 'run started in another session'
     } else {
       try {
         # Ordinal sort = the .sh twin's C-locale glob order; -clike keeps its case-sensitive match.
@@ -453,6 +465,11 @@ try {
 } catch {
   Fail "cannot write record to $rel - no record written"
 }
+
+# --finalize only: the record carries every raw entry in `agents`, so the window is
+# spent. Deleting it lets the next invocation of this runId (a resume or a rerun) open
+# a fresh one instead of billing this session's agents again.
+if ($mode -eq '--finalize') { Remove-Item -LiteralPath $usageAbs, $startAbs -Force -ErrorAction SilentlyContinue }
 
 # Record is written - NOW emit one stderr note per unpriced tier. Emitting AFTER the
 # write (not before) guarantees a write fail-open above stays a SINGLE stderr line,
