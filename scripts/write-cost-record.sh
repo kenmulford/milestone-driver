@@ -70,7 +70,7 @@
 #                           (byte-sorted) whose first string `.timestamp` is at or after
 #                           the first line of
 #                           .milestone-config/.runtime/usage/<sanitized-runId>.start
-#                           (%Y-%m-%dT%H:%M:%SZ, whole seconds) has its assistant turns'
+#                           (%Y-%m-%dT%H:%M:%SZ, whole seconds, 1970 or later) has its assistant turns'
 #                           four `message.usage` counts summed per tier, each
 #                           `message.id` once per file; a missing, null, non-numeric
 #                           or non-finite count is 0, `<synthetic>` is skipped, a model
@@ -95,12 +95,14 @@
 #                           Once the record is written it deletes the .jsonl and .start,
 #                           since `agents` carries every raw entry. A failed write
 #                           deletes nothing.
-#                           Fail-open: missing runId arg, missing/empty/malformed usage
-#                           file -> one stderr line, no record, exit 0. The no-usage and
-#                           malformed exits delete the .start too, and the malformed one
-#                           first renames the .jsonl to <runId>.jsonl.bad (replacing an
-#                           older one) and names it in the message, so the next run of that
-#                           runId opens a clean window.
+#                           Fail-open: missing runId arg, or a usage file that is missing,
+#                           not a readable regular file, whitespace-only or malformed -> one
+#                           stderr line, no record, exit 0. Every such exit deletes the .start
+#                           too (jq missing and an internal aggregation error included, a failed
+#                           write excepted), and the malformed one first renames the .jsonl to
+#                           <runId>.jsonl.bad (replacing an older one) and says `moved to <name>`,
+#                           or `could not move it aside` when the rename failed, so the next run
+#                           of that runId opens a clean window.
 #
 # Dependency: jq (the cross-platform nonNegotiable already permits it); no new dep.
 set -u
@@ -180,12 +182,15 @@ finalize_note=""
 if [ "$mode" = "--finalize" ]; then
   runid_arg="${2:-}"
   [ -n "$runid_arg" ] || fail "usage: write-cost-record.sh --finalize <runId> - no record written"
-  command -v jq >/dev/null 2>&1 || fail "jq is required but not on PATH - no record written"
   usage_file="$usage_dir/$(sanitize_for_filename "$runid_arg").jsonl"
   start_rel="$usage_dir/$(sanitize_for_filename "$runid_arg").start"
   # An exit that writes no record also drops the .start, or the next run of this runId
   # would open its window at this one's start time (or read this session's id).
-  [ -s "$usage_file" ] || { rm -f -- "$start_rel" 2>/dev/null; fail "no usage data at $usage_file - no record written"; }
+  fail_clean() { rm -f -- "$start_rel" 2>/dev/null; fail "$@"; }
+  command -v jq >/dev/null 2>&1 || fail_clean "jq is required but not on PATH - no record written"
+  # Not a readable regular file, or nothing but whitespace: the same no-usage exit as the .ps1.
+  { [ -f "$usage_file" ] && [ -r "$usage_file" ] && grep -q '[^[:space:]]' "$usage_file" 2>/dev/null; } \
+    || fail_clean "no usage data at $usage_file - no record written"
   AGG_PROG='
     def numify(v): if v == null then 0 elif (v|type)=="number" then v else error("nonnumeric") end;
     [ .[] | (if (.agent|type)=="string" and (.agent|length) > 0 then . else error("badagent") end)
@@ -207,13 +212,13 @@ if [ "$mode" = "--finalize" ]; then
     # Moved aside so the next run of this runId starts clean instead of failing here forever.
     bad_name="$(sanitize_for_filename "$runid_arg").jsonl.bad"
     rm -f -- "$start_rel" 2>/dev/null
-    mv -f -- "$usage_file" "$usage_dir/$bad_name" 2>/dev/null
-    fail "malformed usage data in $usage_file - no record written (moved to $bad_name)"
+    if mv -f -- "$usage_file" "$usage_dir/$bad_name" 2>/dev/null; then moved="moved to $bad_name"; else moved="could not move it aside"; fi
+    fail "malformed usage data in $usage_file - no record written ($moved)"
   }
   input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
-    || fail "internal aggregation error over $usage_file - no record written"
+    || fail_clean "internal aggregation error over $usage_file - no record written"
   finalize_agents="$(printf '%s' "$agg" | jq -c '.agents' 2>/dev/null)" \
-    || fail "internal aggregation error over $usage_file - no record written"
+    || fail_clean "internal aggregation error over $usage_file - no record written"
 
   # Per-turn path: replace the unsplit `input.tiers` with sums over the session's
   # agent transcripts. Any reason it cannot run keeps `input` as built above and is
@@ -240,7 +245,7 @@ if [ "$mode" = "--finalize" ]; then
     TS_DEFS='
       def ts($frac): if test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
                              + (if $frac then "(\\.[0-9]+)?" else "" end) + "Z$") and (test("\n") | not)
-                     then sub("\\.[0-9]+"; "") as $w | ($w | fromdate) as $e | if ($e | todate) == $w then $e else null end
+                     then sub("\\.[0-9]+"; "") as $w | ($w | fromdate) as $e | if ($e | todate) == $w and $e >= 0 then $e else null end
                      else null end;'
     start_epoch="$(printf '%s\n' "$start_line" | jq -Rr "$TS_DEFS"'ts(false) | values' 2>/dev/null | tr -d '\r')"
     if [ -z "$start_epoch" ]; then

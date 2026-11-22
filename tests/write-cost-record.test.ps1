@@ -609,6 +609,102 @@ try {
   $rNd = Run-Finalize $wsNd 'run-nofile-dir' $tfx
   if ($rNd.rc -eq 0 -and (Err-Lines $rNd.err) -eq 1 -and ($rNd.err -match 'no usage data at') -and (-not (Rec-File $wsNd))) { Ok } else {
     No "finalize-nofile-with-dir: rc=$($rNd.rc) err=[$($rNd.err)] record=$(Rec-File $wsNd)" }
+
+  # ---- every finalize exit that writes no record removes the start file ------
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  $usageLine = '{"agent":"a","tier":"opus","totalTokens":10,"durationMs":2000}' + "`n"
+  # A workspace holding a start file and, when $usageBody is not null, a usage file with that body.
+  function New-NoRecordWs([string]$runId, $usageBody) {
+    $w = New-Ws
+    $d = Join-Path $w '.milestone-config/.runtime/usage'
+    New-Item -ItemType Directory -Force -Path $d | Out-Null
+    if ($null -ne $usageBody) { [System.IO.File]::WriteAllText((Join-Path $d "$runId.jsonl"), $usageBody, $utf8) }
+    [System.IO.File]::WriteAllText((Join-Path $d "$runId.start"), "2026-11-21T10:00:00Z`nsess-1`n", $utf8)
+    return $w
+  }
+  # One no-record finalize: one stderr line matching $errPattern, no record, start file gone, usage path kept.
+  function No-Record-Case([string]$label, [string]$runId, $w, [string]$errPattern, [hashtable]$Env = @{}) {
+    $r = Run-Finalize $w $runId $tfx $Env
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w $runId 'start'))
+    $usageKept = Test-Path -LiteralPath (Usage-File $w $runId 'jsonl')
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch $errPattern -and (-not (Rec-File $w)) -and $startGone -and $usageKept) { Ok } else {
+      No "$label`: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone usageKept=$usageKept" }
+  }
+
+  # no usage file: the start file goes
+  $w = New-NoRecordWs 'run-nr-nofile' $null
+  $r = Run-Finalize $w 'run-nr-nofile' $tfx
+  if ($r.rc -eq 0 -and $r.err -cmatch 'no usage data at' -and -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nofile' 'start'))) { Ok } else {
+    No "finalize-nofile-removes-start: rc=$($r.rc) err=[$($r.err)]" }
+
+  # jq missing, and a jq that fails after the aggregation, on the sh leg: the start file still goes
+  if ((Get-Leg) -eq 'sh' -and -not $IsWindows) {
+    $nojq = Join-Path $root 'bin-nojq'; New-Item -ItemType Directory -Force -Path $nojq | Out-Null
+    foreach ($b in @('tr', 'rm')) { Add-ToolStub $b $nojq }
+    $w = New-NoRecordWs 'run-nr-nojq' $usageLine
+    $r = Run-Finalize $w 'run-nr-nojq' $tfx @{ PATH = $nojq }
+    $startGone = -not (Test-Path -LiteralPath (Usage-File $w 'run-nr-nojq' 'start'))
+    if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'jq is required but not on PATH - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
+      No "finalize-jq-missing-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+
+    $shim = Join-Path $root 'bin-jqfail'; New-Item -ItemType Directory -Force -Path $shim | Out-Null
+    $realJq = (Get-Command jq -CommandType Application | Select-Object -First 1).Source
+    $shimPath = Join-Path $shim 'jq'
+    [System.IO.File]::WriteAllText($shimPath, "#!/bin/sh`nfor a in `"`$@`"; do [ `"`$a`" = `"`$JQ_FAIL_ARG`" ] && exit 9; done`nexec '$realJq' `"`$@`"`n", $utf8)
+    & chmod 755 $shimPath
+    foreach ($arg in @('.input', '.agents')) {
+      $rid = "run-nr-internal$($arg.TrimStart('.'))"
+      $w = New-NoRecordWs $rid $usageLine
+      $r = Run-Finalize $w $rid $tfx @{ PATH = "$shim$([System.IO.Path]::PathSeparator)$env:PATH"; JQ_FAIL_ARG = $arg }
+      $startGone = -not (Test-Path -LiteralPath (Usage-File $w $rid 'start'))
+      if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -cmatch 'internal aggregation error over \.milestone-config/\.runtime/usage/.+\.jsonl - no record written' -and (-not (Rec-File $w)) -and $startGone) { Ok } else {
+        No "finalize-internal-error-$arg-removes-start: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
+    }
+  }
+
+  # a failed move-aside is reported as such, never as a move
+  $w = New-NoRecordWs 'run-nr-mv' "not json`n"
+  $mvDir = Join-Path $w '.milestone-config/.runtime/usage'
+  try { & chmod 555 $mvDir 2>$null } catch {}
+  $r = Run-Finalize $w 'run-nr-mv' $tfx
+  try { & chmod 755 $mvDir 2>$null } catch {}
+  if (-not (Test-Path -LiteralPath (Usage-File $w 'run-nr-mv' 'jsonl'))) {
+    Ok  # read-only not enforced here (root, or Windows) - so the move cannot fail: skip
+  } elseif ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
+      $r.err -cmatch 'malformed usage data in \.milestone-config/\.runtime/usage/run-nr-mv\.jsonl - no record written \(could not move it aside\)\s*$' -and
+      -not (Rec-File $w)) { Ok } else {
+    No "finalize-malformed-move-fails: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
+
+  # a usage file holding only whitespace is no usage data, like a missing one
+  $w = New-NoRecordWs 'run-nr-blank' "   `n`t`r`n  `n"
+  No-Record-Case 'finalize-whitespace-usage' 'run-nr-blank' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-blank\.jsonl - no record written\s*$'
+
+  # a directory at the usage path is no usage data
+  $w = New-NoRecordWs 'run-nr-dir' $null
+  New-Item -ItemType Directory -Force -Path (Usage-File $w 'run-nr-dir' 'jsonl') | Out-Null
+  No-Record-Case 'finalize-usage-path-is-directory' 'run-nr-dir' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-dir\.jsonl - no record written\s*$'
+
+  # an unreadable usage file is no usage data (skipped when the process can read it anyway: root, or Windows)
+  $w = New-NoRecordWs 'run-nr-unreadable' $usageLine
+  $unreadable = Usage-File $w 'run-nr-unreadable' 'jsonl'
+  try { & chmod 000 $unreadable 2>$null } catch {}
+  $canRead = try { [void][System.IO.File]::ReadAllText($unreadable); $true } catch { $false }
+  if ($canRead) {
+    try { & chmod 644 $unreadable 2>$null } catch {}
+    Ok
+  } else {
+    No-Record-Case 'finalize-unreadable-usage' 'run-nr-unreadable' $w 'no usage data at \.milestone-config/\.runtime/usage/run-nr-unreadable\.jsonl - no record written\s*$'
+    try { & chmod 644 $unreadable 2>$null } catch {}
+  }
+
+  # a start file dated before 1970 takes the invalid-start fallback, and so does a first transcript timestamp before 1970
+  Finalize-Fallback 'finalize-fallback-start-pre-1970' '1969-12-31T23:59:59Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-pre-1970\.start is not %Y-%m-%dT%H:%M:%SZ'
+  Finalize-Fallback 'finalize-fallback-start-1960' '1960-01-01T00:00:00Z' $false 'start file \.milestone-config/\.runtime/usage/run-finalize-fallback-start-1960\.start is not %Y-%m-%dT%H:%M:%SZ'
+  $e = Edge-Final 'agent-o-pre-1970.jsonl'; $j = $e.j
+  if ($j -and $j.rateSnapshot -ceq $unsplit -and (Err-Lines $e.r.err) -eq 1 -and
+      $e.r.err -match 'no agent transcript at or after 2026-11-21T10:00:00Z in .+ - using unsplit totals\s*$' -and
+      $j.tiers.opus.inputTokens -eq 500000) { Ok } else {
+    No "edge-first-timestamp-before-1970: err=[$($e.r.err)] j=[$(if($j){$j | ConvertTo-Json -Compress -Depth 5})]" }
 } finally {
   Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }

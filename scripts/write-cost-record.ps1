@@ -88,8 +88,9 @@ $usageDir = '.milestone-config/.runtime/usage'
 # the .sh twin's header comment for the full contract; behavior-identical here.
 # One invocation is one window: --start writes the time and CLAUDE_CODE_SESSION_ID,
 # --finalize deletes the .start and .jsonl once the record is written. A --finalize that
-# writes no record for missing, empty or malformed usage data deletes the .start too, and
-# the malformed one first renames the .jsonl to <runId>.jsonl.bad (replacing an older one).
+# writes no record for missing, unreadable, whitespace-only or malformed usage data deletes the
+# .start too, and the malformed one first renames the .jsonl to <runId>.jsonl.bad (replacing an
+# older one) and says `moved to <name>`, or `could not move it aside` when the rename failed.
 $cliArgs = $args
 $mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
 
@@ -162,10 +163,13 @@ if ($mode -eq '--start') {
 # into the SAME costing block below the default mode already runs - one rate
 # table, one cost-record shape, never a second copy of either.
 # Parse-UtcEpoch: a whole-second `yyyy-MM-ddTHH:mm:ssZ` string -> unix seconds, or
-# throws. The one form jq's fromdate accepts, so both twins reject the same strings.
+# throws. The one form jq's fromdate accepts, so both twins reject the same strings. An
+# epoch below 0 is invalid in both: jq's fromdate rejects 1969-12-31T23:59:59Z, and the .sh twin refuses the rest.
 function Parse-UtcEpoch([string]$s) {
-  return [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
+  $e = [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
     [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
+  if ($e -lt 0) { throw 'before1970' }
+  return $e
 }
 
 # Per-turn token fields: the record's own tier key -> the transcript's `message.usage` field.
@@ -283,8 +287,9 @@ if ($mode -eq '--finalize') {
     # Moved aside so the next run of this runId starts clean instead of failing here forever.
     $badName = "$(Sanitize-Filename $runidArg).jsonl.bad"
     Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
-    try { Move-Item -LiteralPath $usageAbs -Destination (Join-Path (Split-Path -Parent $usageAbs) $badName) -Force -ErrorAction Stop } catch {}
-    Fail "malformed usage data in $usageRel - no record written (moved to $badName)"
+    $moved = "moved to $badName"
+    try { Move-Item -LiteralPath $usageAbs -Destination (Join-Path (Split-Path -Parent $usageAbs) $badName) -Force -ErrorAction Stop } catch { $moved = 'could not move it aside' }
+    Fail "malformed usage data in $usageRel - no record written ($moved)"
   }
 
   # Per-turn path: replace the unsplit `tiers` with sums over the session's agent
