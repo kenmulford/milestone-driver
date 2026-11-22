@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-11-21T10:05:00Z.9","message":{"role":"user","content":"go"}}
+{"type":"assistant","message":{"id":"e1","model":"claude-opus-5-5","usage":{"input_tokens":5000000,"output_tokens":500000,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}

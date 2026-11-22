@@ -13,12 +13,12 @@
 #   Any OMITTED (or null) token/wallClock field defaults to 0; absent tiers -> {}.
 #   A PRESENT-but-non-numeric token/wallClock value is MALFORMED (fail-open).
 #
-# Rate snapshot (hardcoded - NOT read from disk; source: kenmulford/milestone-suite
-#   benchmarks/after/RESULTS.md ~lines 100-111, as-of 2026-07):
-#     Opus 4.8  $5 in / $25 out per MTok ; Sonnet 4.6 $3 / $15.
-#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.1 x tier input rate.
+# Rate snapshot (hardcoded - NOT read from disk; source:
+#   https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21):
+#     Opus 5.5  $4 in / $20 out per MTok ; Sonnet 5.5 $2 / $10.
+#     cache-write rate = 1.25 x tier input rate ; cache-read = 0.05 x tier input rate.
 #   Per-tier costUsd = (in*inRate + out*outRate + cWrite*inRate*1.25
-#                       + cRead*inRate*0.1) / 1000000. Total = sum of PRICED tiers
+#                       + cRead*inRate*0.05) / 1000000. Total = sum of PRICED tiers
 #   only (rate-table keys: exactly opus + sonnet). Unknown tiers -> unpricedTiers,
 #   excluded from costUsd, one stderr note each.
 #
@@ -39,10 +39,10 @@ function Fail([string]$msg) { [Console]::Error.WriteLine("write-cost-record: $ms
 
 # rateSnapshot provenance base (single-quoted so $ is literal). Byte-identical to
 # the .sh twin and both test runners (behavior-identical contract).
-$rateBase = 'Opus 4.8 $5/$25 per MTok in/out; Sonnet 4.6 $3/$15 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.1x tier input rate; source: kenmulford/milestone-suite benchmarks/after/RESULTS.md, as-of 2026-07'
+$rateBase = 'Opus 5.5 $4/$20 per MTok in/out; Sonnet 5.5 $2/$10 per MTok in/out; cache-write 1.25x tier input rate, cache-read 0.05x tier input rate; source: https://platform.claude.com/docs/en/about-claude/pricing, as-of 2026-11-21'
 
 # Rate table: exactly opus + sonnet are priced (parity with the .sh $rates).
-$rates = @{ opus = @{ inr = 5.0; outr = 25.0 }; sonnet = @{ inr = 3.0; outr = 15.0 } }
+$rates = @{ opus = @{ inr = 4.0; outr = 20.0 }; sonnet = @{ inr = 2.0; outr = 10.0 } }
 
 # numify: omitted (absent property) or null -> 0; a JSON number -> its value; any
 # other present type -> malformed (throw, caught below into the fail-open path).
@@ -81,9 +81,16 @@ function Sanitize-Filename([string]$s) {
   return $sb.ToString()
 }
 
+$usageDir = '.milestone-config/.runtime/usage'
+
 # Modes (issue: lean-loop D5 - the run-end record must survive context
 # compaction, which erases the orchestrator's in-context <usage> sums). See
 # the .sh twin's header comment for the full contract; behavior-identical here.
+# One invocation is one window: --start writes the time and CLAUDE_CODE_SESSION_ID,
+# --finalize deletes the .start and .jsonl once the record is written. A --finalize that
+# writes no record for missing, unreadable, whitespace-only or malformed usage data deletes the
+# .start too, and the malformed one first renames the .jsonl to <runId>.jsonl.bad (replacing an
+# older one) and says `moved to <name>`, or `could not move it aside` when the rename failed.
 $cliArgs = $args
 $mode = if ($cliArgs.Count -ge 1) { $cliArgs[0] } else { $null }
 
@@ -113,11 +120,10 @@ if ($mode -eq '--append') {
   } catch {
     Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended'
   }
-  $reldir = '.milestone-config/.runtime/usage'
-  $rel = "$reldir/$(Sanitize-Filename $runidArg).jsonl"
+  $rel = "$usageDir/$(Sanitize-Filename $runidArg).jsonl"
   $base = (Get-Location).Path
-  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $reldir) -ErrorAction Stop | Out-Null } catch {
-    Fail "cannot create $reldir - no line appended"
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $usageDir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $usageDir - no line appended"
   }
   try {
     $lineJson = $lineJson -replace "`r`n", "`n"
@@ -129,17 +135,122 @@ if ($mode -eq '--append') {
   exit 0
 }
 
+# ---- --start <runId>: record the run's start time once, its own short path --
+# mkdir runs before the existence check so an occupied `usage` path reports
+# "cannot create"; an existing start file is never rewritten (--finalize is what
+# deletes it). Line 2 is the current CLAUDE_CODE_SESSION_ID, empty when unset.
+if ($mode -eq '--start') {
+  $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
+  if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --start <runId> - no start time written' }
+  $rel = "$usageDir/$(Sanitize-Filename $runidArg).start"
+  $base = (Get-Location).Path
+  try { New-Item -ItemType Directory -Force -Path (Join-Path $base $usageDir) -ErrorAction Stop | Out-Null } catch {
+    Fail "cannot create $usageDir - no start time written"
+  }
+  if (-not (Test-Path -LiteralPath (Join-Path $base $rel))) {
+    $writtenAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    try {
+      [System.IO.File]::WriteAllText((Join-Path $base $rel), $writtenAt + "`n" + [string]$env:CLAUDE_CODE_SESSION_ID + "`n", [System.Text.UTF8Encoding]::new($false))
+    } catch {
+      Fail "cannot write $rel - no start time written"
+    }
+  }
+  [Console]::Out.Write($rel + "`n")
+  exit 0
+}
+
 # ---- --finalize <runId>: build $o from the usage file, then fall through ---
 # into the SAME costing block below the default mode already runs - one rate
 # table, one cost-record shape, never a second copy of either.
+# Parse-UtcEpoch: a whole-second `yyyy-MM-ddTHH:mm:ssZ` string -> unix seconds, or
+# throws. The one form jq's fromdate accepts, so both twins reject the same strings. An
+# epoch below 0 is invalid in both: jq's fromdate rejects 1969-12-31T23:59:59Z, and the .sh twin refuses the rest.
+function Parse-UtcEpoch([string]$s) {
+  $e = [datetimeoffset]::ParseExact($s, "yyyy-MM-dd'T'HH:mm:ss'Z'", [cultureinfo]::InvariantCulture,
+    [System.Globalization.DateTimeStyles]::AssumeUniversal).ToUnixTimeSeconds()
+  if ($e -lt 0) { throw 'before1970' }
+  return $e
+}
+
+# Per-turn token fields: the record's own tier key -> the transcript's `message.usage` field.
+$usageFields = [ordered]@{
+  inputTokens      = 'input_tokens'
+  outputTokens     = 'output_tokens'
+  cacheReadTokens  = 'cache_read_input_tokens'
+  cacheWriteTokens = 'cache_creation_input_tokens'
+}
+
+# Read-AgentTurns: one agent-*.jsonl -> its deduped assistant turns, or $null when
+# the file is unreadable (at open or mid-read) or its first string `.timestamp` is unusable or before
+# the start (whole seconds). Dedup by `message.id` is per file; an id-less turn
+# keys as `null`, so all of them in one file share one key (parity with the .sh
+# `$e.message.id | tojson`). A usage field that is missing, null or not a number
+# or a count that is not finite adds 0. ReadLines is lazy, so the early `return` on a pre-start file stops reading.
+# The enumerator is disposed by hand: a PowerShell `foreach` leaves it (and the file
+# handle) open until GC when the loop exits early.
+# MaxDepth 10000 matches jq's parse limit: the .NET default of 64 would drop a deeply nested line jq counts.
+$jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
+$jsonOpts.MaxDepth = 10000
+function Read-AgentTurns([string]$path, [long]$startEpoch) {
+  try { $reader = [System.IO.File]::ReadLines($path).GetEnumerator() } catch { return $null }
+  $started = $false
+  $seen = [System.Collections.Generic.HashSet[string]]::new()
+  $turns = [System.Collections.Generic.List[object]]::new()
+  try {
+    while ($reader.MoveNext()) {
+      try { $doc = [System.Text.Json.JsonDocument]::Parse($reader.Current, $jsonOpts) } catch { continue }
+      try {
+        $e = $doc.RootElement
+        if ($e.ValueKind -ne 'Object') { continue }
+        $p = [System.Text.Json.JsonElement]::new()
+        if (-not $started -and $e.TryGetProperty('timestamp', [ref]$p) -and $p.ValueKind -eq 'String') {
+          $started = $true
+          # mirrors scripts/measure-dispatch.ps1 (ParseExact takes only the one form), which truncates fractional seconds
+          $ts = $p.GetString()
+          if ($ts -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z\z') { return $null }
+          $s = [regex]::new('\.[0-9]+').Replace($ts, '', 1)
+          try { $t0 = Parse-UtcEpoch $s } catch { return $null }
+          if ($t0 -lt $startEpoch) { return $null }
+        }
+        if (-not ($e.TryGetProperty('type', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString() -ceq 'assistant')) { continue }
+        $m = [System.Text.Json.JsonElement]::new()
+        if (-not ($e.TryGetProperty('message', [ref]$m) -and $m.ValueKind -eq 'Object')) { continue }
+        $u = [System.Text.Json.JsonElement]::new()
+        if (-not ($m.TryGetProperty('usage', [ref]$u) -and $u.ValueKind -eq 'Object')) { continue }
+        $key = if ($m.TryGetProperty('id', [ref]$p)) { $p.GetRawText() } else { 'null' }
+        if (-not $seen.Add($key)) { continue }
+        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0) { $p.GetString().ToLowerInvariant() } else { '?' }
+        if ($model -ceq '<synthetic>') { continue }
+        $tier = if ([regex]::IsMatch($model, '(^|[./])claude-opus-5-5', 'CultureInvariant')) { 'opus' } elseif ([regex]::IsMatch($model, '(^|[./])claude-sonnet-5-5', 'CultureInvariant')) { 'sonnet' } else { $model }
+        $n = [ordered]@{ tier = $tier }
+        foreach ($k in $usageFields.Keys) {
+          $d = 0.0
+          $n[$k] = if ($u.TryGetProperty($usageFields[$k], [ref]$p) -and $p.ValueKind -eq 'Number' -and $p.TryGetDouble([ref]$d) -and [double]::IsFinite($d)) { $d } else { 0.0 }
+        }
+        $turns.Add([pscustomobject]$n)
+      } finally { $doc.Dispose() }
+    }
+  } catch { return $null } finally { $reader.Dispose() }
+  if (-not $started) { return $null }
+  return ,$turns
+}
+
 $finalizeAgents = $null
+$finalizeNote = $null
 if ($mode -eq '--finalize') {
   $runidArg = if ($cliArgs.Count -ge 2) { $cliArgs[1] } else { $null }
   if ([string]::IsNullOrEmpty($runidArg)) { Fail 'usage: write-cost-record.ps1 --finalize <runId> - no record written' }
-  $usageRel = ".milestone-config/.runtime/usage/$(Sanitize-Filename $runidArg).jsonl"
+  $usageRel = "$usageDir/$(Sanitize-Filename $runidArg).jsonl"
   $usageAbs = Join-Path (Get-Location).Path $usageRel
+  $startRel = "$usageDir/$(Sanitize-Filename $runidArg).start"
+  $startAbs = Join-Path (Get-Location).Path $startRel
   $usageRaw = if (Test-Path -LiteralPath $usageAbs -PathType Leaf) { Get-Content -LiteralPath $usageAbs -Raw -ErrorAction SilentlyContinue } else { $null }
-  if ([string]::IsNullOrWhiteSpace($usageRaw)) { Fail "no usage data at $usageRel - no record written" }
+  if ([string]::IsNullOrWhiteSpace($usageRaw)) {
+    # An exit that writes no record also drops the .start, or the next run of this runId
+    # would open its window at this one's start time (or read this session's id).
+    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
+    Fail "no usage data at $usageRel - no record written"
+  }
   try {
     $lines = @($usageRaw -split "`n" | Where-Object { $_.Trim() -ne '' })
     if ($lines.Count -eq 0) { throw 'empty' }
@@ -173,7 +284,65 @@ if ($mode -eq '--finalize') {
     }
     $finalizeAgents = $agentsList
   } catch {
-    Fail "malformed usage data in $usageRel - no record written"
+    # Moved aside so the next run of this runId starts clean instead of failing here forever.
+    $badName = "$(Sanitize-Filename $runidArg).jsonl.bad"
+    Remove-Item -LiteralPath $startAbs -Force -ErrorAction SilentlyContinue
+    $moved = "moved to $badName"
+    try { Move-Item -LiteralPath $usageAbs -Destination (Join-Path (Split-Path -Parent $usageAbs) $badName) -Force -ErrorAction Stop } catch { $moved = 'could not move it aside' }
+    Fail "malformed usage data in $usageRel - no record written ($moved)"
+  }
+
+  # Per-turn path: replace the unsplit `tiers` with sums over the session's agent
+  # transcripts. Any reason it cannot run keeps $o as built above and is held in
+  # $finalizeNote, printed after the record write so a failed write stays one
+  # stderr line (parity with the .sh twin).
+  $tdir = if ($cliArgs.Count -ge 3) { $cliArgs[2] } else { $null }
+  if ([string]::IsNullOrEmpty($tdir)) {
+    $finalizeNote = 'no transcript directory argument'
+  } elseif (-not (Test-Path -LiteralPath $tdir -PathType Container)) {
+    $finalizeNote = "transcript directory $tdir not found"
+  } elseif (-not (Test-Path -LiteralPath $startAbs -PathType Leaf)) {
+    $finalizeNote = "no start file at $startRel"
+  } else {
+    $startLines = @()
+    try { $startLines = @(Get-Content -LiteralPath $startAbs -TotalCount 2 -ErrorAction Stop) } catch {}
+    $startLine = if ($startLines.Count -ge 1) { ([string]$startLines[0]).TrimEnd("`r") } else { '' }
+    $startSid = if ($startLines.Count -ge 2) { ([string]$startLines[1]).TrimEnd("`r") } else { '' }
+    $startEpoch = $null
+    try {
+      $startEpoch = Parse-UtcEpoch $startLine
+    } catch {}
+    if ($null -eq $startEpoch) {
+      $finalizeNote = "start file $startRel is not %Y-%m-%dT%H:%M:%SZ"
+    } elseif ($startSid -ne '' -and $startSid -cne [string]$env:CLAUDE_CODE_SESSION_ID) {
+      $finalizeNote = 'run started in another session'
+    } else {
+      try {
+        # Ordinal sort = the .sh twin's C-locale glob order; -clike keeps its case-sensitive match.
+        $files = @(Get-ChildItem -LiteralPath $tdir -File -Filter 'agent-*.jsonl' | Where-Object { $_.Name -clike 'agent-*.jsonl' })
+        $names = [string[]]@($files | ForEach-Object { $_.Name })
+        [Array]::Sort($names, [object[]]$files, [System.StringComparer]::Ordinal)
+        $matched = 0
+        $sums = [ordered]@{}
+        foreach ($f in $files) {
+          $turns = Read-AgentTurns $f.FullName $startEpoch
+          if ($null -eq $turns) { continue }
+          $matched++
+          foreach ($t in $turns) {
+            if (-not $sums.Contains($t.tier)) { $sums[$t.tier] = [pscustomobject][ordered]@{ inputTokens = 0.0; outputTokens = 0.0; cacheReadTokens = 0.0; cacheWriteTokens = 0.0 } }
+            foreach ($k in $usageFields.Keys) { $sums[$t.tier].$k += $t.$k }
+          }
+        }
+        if ($matched -eq 0) {
+          $finalizeNote = "no agent transcript at or after $startLine in $tdir"
+        } else {
+          $o.tiers = [pscustomobject]$sums
+          $o.provenanceNote = 'per-turn-transcript-sum'
+        }
+      } catch {
+        $finalizeNote = "cannot sum the transcripts in $tdir"
+      }
+    }
   }
 } else {
   $raw = [Console]::In.ReadToEnd()
@@ -212,7 +381,7 @@ try {
     return ( (Numify $t 'inputTokens') * $r.inr +
              (Numify $t 'outputTokens') * $r.outr +
              (Numify $t 'cacheWriteTokens') * ($r.inr * 1.25) +
-             (Numify $t 'cacheReadTokens') * ($r.inr * 0.1) ) / 1000000
+             (Numify $t 'cacheReadTokens') * ($r.inr * 0.05) ) / 1000000
   }
   # toks: the four raw token counts, normalized to numbers (order matches the .sh toks).
   function Get-Toks($t) {
@@ -313,9 +482,15 @@ try {
   Fail "cannot write record to $rel - no record written"
 }
 
+# --finalize only: the record carries every raw entry in `agents`, so the window is
+# spent. Deleting it lets the next invocation of this runId (a resume or a rerun) open
+# a fresh one instead of billing this session's agents again.
+if ($mode -eq '--finalize') { Remove-Item -LiteralPath $usageAbs, $startAbs -Force -ErrorAction SilentlyContinue }
+
 # Record is written - NOW emit one stderr note per unpriced tier. Emitting AFTER the
 # write (not before) guarantees a write fail-open above stays a SINGLE stderr line,
 # never note(s) + the fail line (parity with the .sh twin's ordering).
+if ($finalizeNote) { [Console]::Error.WriteLine("write-cost-record: $finalizeNote - using unsplit totals") }
 foreach ($t in $unpriced) {
   [Console]::Error.WriteLine("write-cost-record: tier '$t' has no rate table entry - recorded under unpricedTiers, excluded from costUsd")
 }

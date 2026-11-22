@@ -74,7 +74,7 @@ skills/solve-issue/resume-paths.md                   20     3000      500
 skills/solve-issue/version-bump.md                   20     4000      600
 skills/solve-issue/visual-capture.md                 15     4000      600
 skills/solve-issue/wave-clauses.md                   25     3000      500
-skills/solve-milestone/SKILL.md                     330    35000     4800
+skills/solve-milestone/SKILL.md                     330    35500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
 skills/solve-milestone/milestone-granularity.md     195    31000     4400
@@ -99,7 +99,7 @@ skills/remediate-handoff.md                          90     5000      800
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
-agents/implementer.md                               140    17000     2500
+agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
 agents/triage-reviewer.md                           120    16500     2600
 '@
