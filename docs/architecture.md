@@ -15,6 +15,7 @@ A generic engine ships in the plugin, and each repo supplies a thin profile.
 | Triage-reviewer agent | `agents/triage-reviewer.md` | Architect-lens reviewer: design consistency / buildability / completeness plus dependency edges (read-only; profile-overridable) |
 | Design-reviewer agent | `agents/design-reviewer.md` | Front-end-lens reviewer: UX gaps on UI-touching issues (read-only; profile-overridable) |
 | Blocker-resolver agent | `agents/blocker-resolver.md` | Triage Step 3.5: returns `RESOLVED` or `NEEDS_HUMAN` per Blocker gap, so only a Blocker needing a human parks (read-only; profile-overridable) |
+| Process-auditor agent | `agents/process-auditor.md` | Run-start process check: returns `FINDINGS: none` or one entry per instruction-file line that restates or replaces a driver step, each with its replacement text (read-only) |
 | Hooks | `hooks/` | The eight shipped hooks (see `hooks/hooks.json`) are the seven `PreToolUse` gates - `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`, `code-review-gate`, `dispatch-cap` - plus `session-resume`, the one `SessionStart` hook (matcher `compact`) - all invoked via `hooks/run-hook.cmd` (bash-first, pwsh-fallback, fail-open). `session-resume` never gates: it re-injects the milestone run's wave-state checkpoint after an auto-compaction. The triage / declaration layers are procedural (skill-level), not hooks. See [The layered gating model](#the-layered-gating-model). |
 | Manifest plus registration | `.claude-plugin/plugin.json`, `hooks/hooks.json` | Plugin metadata and Claude-side hook registration |
 | Codex manifest plus registration | `.codex-plugin/plugin.json`, `hooks/codex-hooks.json`, `skills/runtime-codex.md` | Codex metadata, Codex hook wiring, and the Codex tool-name and dispatch mapping (see [Gates on Codex](#gates-on-codex)) |
@@ -113,6 +114,22 @@ With the sibling `milestone-feeder` plugin installed alongside the driver, a par
 > **No profile key is required.** Presence of the `milestone-feeder` plugin in the session is the only switch, and the answer to the run-start question lives in run state, never in the profile. See [`profile-schema.md`](profile-schema.md#design-principle).
 
 For the full procedure (the feeder-installed gate, the question's verbatim text, the loop's ordered steps, the attempt cap, and the two park-for-good branches) see [remediate-handoff.md](../skills/remediate-handoff.md), the single copy both skills read at run time.
+
+## Process check
+
+At run start the driver checks the project's instruction files for text that restates or replaces a step the driver owns, and never edits a file without the user's yes in the same session. The check is **read-only until that answer, and best-effort**: a failed dispatch logs one line and the run goes on.
+
+**Run start.** `solve-issue` step 1.1.1a and `solve-milestone` step 2.1a run `scripts/process-check.{sh,ps1} --status <repo-root>`, which prints `due` or `current`. `current` does nothing. `due` dispatches the read-only `milestone-driver:process-auditor` agent over `CLAUDE.md`, `AGENTS.md` and `.claude/CLAUDE.md` at the repo root, every `.project/*.md`, and every `projectDocs` and `standingDocs` path. A `solve-issue` run handed the result by its caller skips the check, so a milestone run checks once. A repo choice the profile already exposes as a key is never a finding. When the auditor returns `FINDINGS: none`, the driver runs `--record clean` and nothing is printed.
+
+**The question.** With findings, an interactive run asks "This project's docs replace part of milestone-driver's current process, which can make builds much slower. Can I update them?" and lists each change above three options: `Update all (Recommended)`, `Choose which` and `Not now`. `Not now` records `declined`, so the question returns only when a scanned file or the contract changes. Under `MILESTONE_DRIVER_NONINTERACTIVE=1` the findings print as one notice block, nothing is edited, and nothing is recorded, so the next interactive run asks.
+
+**Landing the edits.** The path follows the run. Under `integrationGranularity: milestone`, the edits land as one `chore:` commit on the milestone branch, nothing pushed. Every other run, a standalone `solve-issue` included, opens a `chore/driver-process` PR into `integrationBranch`, squash-merged on green CI before the first issue branch is cut; red CI applies `needs review`, holds the PR open, and records nothing. A finding in a file that matches `sourceGlobs` is skipped, because the `force-subagent` hook denies a main-thread edit there. After either path lands, the driver runs `--record updated`.
+
+**Re-check.** `scripts/process-check.{sh,ps1} --record <clean|updated|declined> <repo-root>` writes the marker `.milestone-config/.runtime/process-check.json`. Its hash covers the process contract and each present scanned file, so a change to either makes the next `--status` print `due`. Deleting the marker forces a re-check.
+
+> **No profile key is required.** The check runs for every repo with nothing to set, and its outcome lives in the marker under `.milestone-config/.runtime/`, never in the profile. See [`profile-schema.md`](profile-schema.md#design-principle).
+
+For the full procedure (the scanned files, the question's verbatim text, the contract table of driver steps, and the two apply paths) see [process-check.md](../skills/process-check.md), the single copy both skills read at run time.
 
 ## The skills
 
