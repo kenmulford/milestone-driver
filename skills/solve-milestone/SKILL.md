@@ -8,7 +8,7 @@ If `${CLAUDE_PLUGIN_ROOT}` appears unexpanded, it is the parent of the `skills/`
 
 # solve-milestone - autonomous driver
 
-Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline. **Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity. Under wave granularity in parallel mode it also runs at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
+Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline. **Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity, and in parallel wave mode again at the Phase-2 merge-tail re-verify point. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
 
 **Blast radius.** Merge only to `integrationBranch`, never `protectedBranch`. Release, closing the milestone object, and deploy are human-only. This skill closes the milestone's issues and authors the CHANGELOG; never the milestone.
 
@@ -49,7 +49,8 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    2.0.6. **Assemble common.md** once; hold its path all run: `mkdir -p <repo-root>/.milestone-config/.runtime/plans`, then `${CLAUDE_PLUGIN_ROOT}/scripts/assemble-common.{sh,ps1} <repo-root> <repo-root>/.milestone-config/.runtime/plans/common.md [<anchor> ...]`, one `<anchor>` per `standingDocs` entry, prefixed with the resolved `projectDocs`. A nonzero exit logs its stderr and re-runs with no anchors (fail-open); a second one holds no path. The main thread never reads `common.md`.
 
-   2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics exactly as stated there.
+   2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics.
+   2.1a. **Process check.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check.md` and run its `## Run-start procedure`; `current` → nothing; a nonzero exit → one log line, `skipped`. Hold it as `processCheck:` all run, restated per `solve-issue`.
 3. **Resolve the milestone argument.** Strip flags from `$ARGUMENTS`: a flag is a token starting with `--`. Remove each `--<token>`, plus the following token when it does not start with `--` and the flag is value-bearing (`--parallel` and `--driven` are boolean - strip the flag alone; any other `--<token>` followed by a non-flag token counts as value-bearing, strip both). Then:
    - **Purely numeric** (digits only): `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'`. Found → record the canonical `{number, title}`, state `"Resolved milestone #<milestone-number> → '<title>'"`. Not found → print the available-milestones table and stop.
    - **Otherwise (title):** `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'`. Found → record it, state `"Resolved milestone '<title>'"`. Not found → stop the same way.
@@ -80,13 +81,11 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    **The permission pre-flight gate runs here, once** (`### Permission pre-flight gate`): a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (`sequential-loop.md` step 2, `parallel-waves.md` Phase 1 step 3) read this decision; the gate never re-fires mid-loop.
 
-   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the prompt, the Yes/No branches writing `parallel: true`/`false` to `.milestone-config/driver.json`, the persistence rule, and the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which skips the prompt, falls to sequential with a loud note, and persists nothing.
-
+   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which skips the prompt, falls to sequential with a loud note, and persists nothing.
       **Nothing to decide:** `parallel` absent and `unitTestCmd` absent → row 5 → parallel, quiet; no interview, no persisted value.
-
    **Surface the resolved mode** and its reason; it drives Template 1's mode line.
 
-   **5.1 Remediate handoff - the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → no question, one log line, silent degrade; file never read. Resolvable → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run `## The run-start question` verbatim - asked once, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` doesn't gate this). Never copy its procedure here.
+   **5.1 Remediate handoff - the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → no question, one log line, silent degrade; file never read. Resolvable → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run `## The run-start question` verbatim - asked once, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` doesn't gate this).
 
 ## The procedure
 
@@ -124,7 +123,7 @@ Invoke triage across the milestone before the build loop:
    gh issue edit <n> --remove-label "<name>"     # clearLabel == true
    ```
 
-   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 - same gated read-direct, on this main line, cap 1 per issue per run; a `NEEDS_HUMAN` return or a still-dirty re-triage parks for good (`skills/remediate-handoff.md (Park for good)`).
+   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 - same gated read-direct, on this main line; its cap and `## Park for good` branches apply (`skills/remediate-handoff.md (Park for good)`).
 
 2.5. `integrations.trello` configured → run trello-sync.md `## Phase 0 hooks` (best-effort).
 

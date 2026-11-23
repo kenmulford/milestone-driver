@@ -42,7 +42,8 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
       worktrees/
       ```
 
-   1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue`, applying that section's `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics. Never evaluate a section scoped only to `solve-milestone`.
+   1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics.
+   1.1.1a. **Process check.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check.md` and run its `## Run-start procedure`; `current` → nothing; a nonzero exit → one log line. A caller-supplied `processCheck:` value skips this sub-step entirely.
    1.1.2. **Remediate handoff (feeder only).** Probe once: is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → skip this sub-step: no question, no read, no error. Resolvable, and the caller supplied no answer → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The feeder-installed gate` and `## The run-start question`; hold the answer for the whole run. A caller-supplied answer (a `solve-milestone` run's own run-start question) is reused, never re-asked.
 2. **Require a clean working tree** (cold-start precondition) and a current local `integrationBranch` (`git fetch`, fast-forward). One exception, never stashed or discarded: step 3's probe finding an existing `issue/<n>-*` branch (committed or uncommitted prior work) skips this enforcement. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** `git fetch` first, then classify prior progress from git + gh before cutting anything; first match wins:
@@ -52,7 +53,6 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    - **(d) Otherwise (no branch, no PR, clean tree):** cut a fresh feature branch from `integrationBranch` (e.g. `issue/<n>-<slug>`) - cold start: run ### 2. Evaluate the codebase for root cause, then ### 3. Dispatch the implementer with its `PACKET:`.
 
    **(d) runs inline; (a), (b) and (c) are resumes** - read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/resume-paths.md` and follow its `### Resume paths`.
-
    This derives resume-state entirely from git + gh; there is no checkpoint file. **Never skip `/code-review`** on a resumed path; a fix it triggers runs step 6's normal re-review and push cycle.
 
    **3.5. Profile migration (run once, on the feature branch).** `.milestone-config/driver.json` exists → use it. Else a legacy root `milestone-driver.json` exists → `mkdir -p .milestone-config`; `git mv` it to `.milestone-config/driver.json` (plain `mv` when untracked). Else: new project - setup creates the canonical file; hooks fail-open. Idempotent; both present → `.milestone-config/driver.json` wins, no move, no deletion. The move rides the issue's PR, not a separate commit.
@@ -65,14 +65,13 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 ### 0. Triage
 
 **Two branches - always run one:**
-
 **Branch A - Explicit supply (reuse).** Fires iff the caller supplied this issue's triage result at invocation time as named fields with actual values (e.g. `issueStates["N"] = { blockers: false, label: null, advisories: [...], risk: "light" }`, `edges["N"] = [...]`). Absent, label-only, or partial → Branch B. Use it directly - do not re-invoke `milestone-driver:triage <n>` - and proceed to the Blocker check.
 
 **Branch B - Standalone / fallback (the safe default, never an error).** No explicit supply - including a result merely recalled from earlier context → invoke `milestone-driver:triage <n>` (single-issue mode) and use its return for the Blocker check.
 
 **Blocker check (both branches).** A Blocker for this issue → park: triage has already posted the `🔴 Triage` comment; VERIFY it exists (`gh issue view <n> --comments`) and post it if missing (idempotent); apply the recommended label from `issueStates["<n>"].label` - `needs design` for a design gap, `needs decision` for a non-design decision; do not proceed to step 1. All-clear or Advisory-only → proceed to step 1.
 
-**Held remediate answer is Auto** (sub-step 1.1.2) → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The Auto loop` instead of parking now: invoke `/milestone-feeder:remediate <n>`, re-run triage on the corrected body, and clear the park label when the re-triage comes back clean, then proceed to step 1. Attempt cap: 1 per issue per run. Its `## Park for good` branches - `remediate` returns `NEEDS_HUMAN`, the re-triage is still dirty, the cap is spent, or the issue has no `🔴 Triage` comment - run the park action above unchanged: comment opening `🔴 Parked - `, label intact. No held answer, an answer of Leave-them-for-me, or the feeder absent → park immediately, as above.
+**Held remediate answer is Auto** (sub-step 1.1.2) → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The Auto loop` instead of parking now, then proceed to step 1. Its `## Park for good` branches, a spent cap and a missing `🔴 Triage` comment included, run the park action above unchanged, label intact. No held answer, Leave-them-for-me, or the feeder absent → park immediately, as above.
 
 ### 1. Read the issue
 Run `gh issue view <n>` with comments, redirected to the issue record `<main-repo-root>/.milestone-config/.runtime/triage/issue-<n>.md` by the `skills/triage/SKILL.md (redirect its full record)` command, which refreshes step 0's copy with comments posted since. Restate the acceptance criteria plainly before continuing.
