@@ -38,10 +38,12 @@ function Expect([string]$name, $r, [string]$wantOut, [int]$wantRc = 0, [string]$
 function Check([string]$name, [bool]$cond, [string]$detail = '') {
   if ($cond) { $script:pass++ } else { $script:fail++; Write-Host "FAIL $name $detail" }
 }
-# The marker text a digest over the contract and these workspace-relative paths (already in byte order) must produce.
+# The marker text a digest over the contract, the resolved profile (when present) and these workspace-relative paths (already in byte order) must produce.
 function Expected-Marker([string]$ws, [string[]]$relsInOrder, [string]$outcome = 'clean') {
   $blob = { param($p) (& git hash-object --no-filters -- $p).Trim() }
   $manifest = "contract $(& $blob (Join-Path $plugin 'skills/process-check.md'))`n"
+  $prof = @('.milestone-config/driver.json', 'milestone-driver.json') | Where-Object { Test-Path -LiteralPath (Join-Path $ws $_) } | Select-Object -First 1
+  if ($prof) { $manifest += "profile $(& $blob (Join-Path $ws $prof))`n" }
   foreach ($f in $relsInOrder) { $manifest += "$(& $blob (Join-Path $ws $f)) $f`n" }
   $h = (Invoke-Child -Exe 'git' -Argv @('hash-object', '--stdin') -Stdin $manifest -Cwd '' -Env @{}).out.Trim()
   return "{`"hash`":`"$h`",`"outcome`":`"$outcome`"}`n"
@@ -181,6 +183,19 @@ try {
   # an unusable legacy profile names itself
   $ws = New-Ws; Put $ws 'milestone-driver.json' '{ not json'
   Expect 'legacy-profile-unparseable' (Status $ws) '' 1 'process-check: cannot read milestone-driver.json'
+
+  # ---- the resolved profile's bytes join the digest: the auditor judges keyed rows against its keys ----
+  $ws = New-Ws
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"milestone"}'
+  Put $ws 'CLAUDE.md' "a`n"
+  Record $ws 'clean' | Out-Null
+  Check 'profile-in-digest' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
+  Expect 'profile-recorded-current' (Status $ws) "current`n"
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"wave"}'
+  Expect 'profile-key-changed' (Status $ws) "due`n"
+  Record $ws 'clean' | Out-Null
+  Check 'profile-changed-digest' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
+  Expect 'profile-rerecorded-current' (Status $ws) "current`n"
 
   # ---- an empty standingDocs entry names no file ------------------------------
   $ws = New-Ws

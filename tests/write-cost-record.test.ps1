@@ -216,6 +216,10 @@ try {
   Append-Exact 'append-case-only-duplicate-keys' '{"agent":"implementer","Agent":5,"tier":"opus","TIER":1,"totalTokens":7,"TotalTokens":"x","durationMs":9}' `
     '{"agent":"implementer","tier":"opus","totalTokens":7,"durationMs":9}'
 
+  # tier names lowercase over A-Z only, as jq's ascii_downcase does: the .ps1 twin used to fold the O-umlaut too
+  Append-Exact 'append-tier-ascii-downcase' ('{"agent":"a","tier":"' + [char]0xD6 + 'PUS","totalTokens":1,"durationMs":2}') `
+    ('{"agent":"a","tier":"' + [char]0xD6 + 'pus","totalTokens":1,"durationMs":2}')
+
   # ---- append omitted totalTokens/durationMs -> zeros ----------------------
   $ws3 = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws3 | Out-Null
@@ -245,6 +249,10 @@ try {
   Append-FailOpen 'append-nonnumeric-steps'      'run-x' '{"agent":"a","tier":"opus","steps":"many"}'
   Append-FailOpen 'append-nonnumeric-stepsfirst' 'run-x' '{"agent":"a","tier":"opus","stepsBeforeFirstEdit":true}'
   Append-FailOpen 'append-nonnumeric-minsfirst'  'run-x' '{"agent":"a","tier":"opus","minutesToFirstEdit":"3"}'
+  # stdin holds one JSON value: two concatenated or newline-separated objects, or only whitespace, append no line on either twin
+  Append-FailOpen 'append-two-objects'         'run-x' '{"agent":"a","tier":"opus"}{"agent":"b","tier":"opus"}'
+  Append-FailOpen 'append-two-objects-newline' 'run-x' ('{"agent":"a","tier":"opus"}' + "`n" + '{"agent":"b","tier":"opus"}')
+  Append-FailOpen 'append-whitespace-only'     'run-x' '   '
   # members are read by exact name, as jq does: a capitalized Agent or Tier is no agent or tier
   Append-FailOpen 'append-capitalized-members' 'run-x' '{"Agent":"x","Tier":"opus","totalTokens":1}'
 
@@ -368,6 +376,19 @@ try {
       (@($jfc.unpricedTiers.PSObject.Properties).Count -eq 0) -and
       $jfc.tiers.opus.inputTokens -eq 1000700 -and $jfc.agents[1].tier -ceq 'opus') { Ok } else {
     No "tier-lowercase: rc=$($rfc.rc) line=[$caseLine] err=[$($rfc.err)] j=[$(if($jfc){$jfc | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- a number past the double range is a number, never the string "Infinity" ----
+  # jq 1.7 keeps the literal through a pass-through sum, so only the .ps1 twin's total is checked for the clamp, to the largest double as jq's arithmetic does.
+  $wsBig = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $wsBig | Out-Null
+  $rBig = Run-Append $wsBig 'run-big' '{"agent":"a","tier":"opus","totalTokens":1e400,"durationMs":-1e400}'
+  $bigLine = @(Get-Content -LiteralPath (Join-Path $wsBig '.milestone-config/.runtime/usage/run-big.jsonl'))[0]
+  $rfBig = Run-Finalize $wsBig 'run-big'
+  $bigRaw = if (Rec-File $wsBig) { Get-Content -LiteralPath (Rec-File $wsBig) -Raw } else { '' }
+  $jBig = Rec-Json $wsBig
+  if ($rBig.rc -eq 0 -and $rBig.err -eq '' -and $bigLine -cnotmatch 'Infinity' -and $rfBig.rc -eq 0 -and $bigRaw -and $bigRaw -cnotmatch 'Infinity' -and
+      ($Leg -eq 'sh' -or ($jBig.tiers.opus.inputTokens -eq [double]::MaxValue -and $jBig.agents[0].durationMs -eq -[double]::MaxValue))) { Ok } else {
+    No "append-out-of-range-number: rc=$($rBig.rc) err=[$($rBig.err)] line=[$bigLine] finalize=[$($rfBig.err)] raw=[$bigRaw]" }
 
   # ---- finalize over a line carrying dispatch metrics: output shape unchanged
   $wsFm = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))

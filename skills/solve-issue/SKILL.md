@@ -22,7 +22,7 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    |---|---|
    | Resolution order (transitional) | Read `<repo>/.milestone-config/driver.json` first; if absent, fall back to the legacy root `<repo>/milestone-driver.json`. |
    | Both files exist | `.milestone-config/driver.json` wins for the read. |
-   | Migration (`git mv`) | Deferred to step 3.5, so it rides the feature branch and does not trip the clean-tree precondition (step 2). Do **not** move here. |
+   | Migration (`git mv`) | Deferred to step 3.5, so it rides the feature branch and does not trip the clean-tree precondition (step 2). |
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup`, then continue - do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer`. |
    | Optional keys - `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `preflightCmd`, `domainSkills`, `nonNegotiables`, `projectDocs` | `projectDocs` defaults to `.project/`; every other step is skipped cleanly when absent. `domainSkills` is expanded first (`${CLAUDE_PLUGIN_ROOT}/scripts/expand-domain-skills.<sh|ps1> ~/.claude/plugins/cache <entry>…`): its **stdout** is what the ### 2 and ### 3 briefs carry, never the raw profile value, and each `unresolved: <entry>` on stderr is named there as `domainSkills unresolved: <entry>`. Empty stdout is an absent key: the brief omits `domainSkills` and still names those entries. |
@@ -43,9 +43,8 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
       ```
 
    1.1.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order, evaluate each section whose `Skills` field includes `solve-issue`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics.
-   1.1.1a. **Process check.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check-procedure.md` and run its `## Run-start procedure`; `current` → nothing; a nonzero exit → one log line. A caller-supplied `processCheck:` value skips this sub-step.
    1.1.2. **Remediate handoff (feeder only).** Probe once: is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → skip this sub-step: no question, no read, no error. Resolvable, and the caller supplied no answer → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The feeder-installed gate` and `## The run-start question`; hold the answer for the whole run. A caller-supplied answer is reused, never re-asked.
-2. **Require a clean working tree** (cold-start precondition) and a current local `integrationBranch` (`git fetch`, fast-forward). One exception, never stashed or discarded: step 3's probe finding an existing `issue/<n>-*` branch (committed or uncommitted prior work) skips this enforcement. Any other dirty state is a cold-start violation. Once it passes, apply what 1.1.1a held by the PR path of `skills/process-check-procedure.md § Apply path`.
+2. **Require a clean working tree** (cold-start precondition) and a current local `integrationBranch` (`git fetch`, fast-forward). One exception, never stashed or discarded: step 3's probe finding an existing `issue/<n>-*` branch (committed or uncommitted prior work) skips this enforcement. Any other dirty state is a cold-start violation.
 3. **Branch-state probe (resume an interrupted run).** `git fetch` first, then classify prior progress from git + gh before cutting anything; first match wins:
    - **(a) A PR exists for `issue/<n>-*`**, merged or open (client-side filter: `gh pr list --state all --limit 200 --json number,headRefName,state,url --jq '.[] | select(.headRefName | startswith("issue/<n>-"))'`).
    - **(b) No PR; branch `issue/<n>-*` exists (local or remote) with commits ahead of `integrationBranch`.**
@@ -55,7 +54,9 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
    **(d) runs inline; (a), (b) and (c) are resumes** - read `${CLAUDE_PLUGIN_ROOT}/skills/solve-issue/resume-paths.md` and follow its `### Resume paths`.
    This derives resume-state entirely from git + gh; there is no checkpoint file. **Never skip `/code-review`** on a resumed path; a fix it triggers runs step 6's normal re-review and push cycle.
 
-   **3.5. Profile migration (run once, on the feature branch).** `.milestone-config/driver.json` exists → use it. Else a legacy root `milestone-driver.json` exists → `mkdir -p .milestone-config`; `git mv` it to `.milestone-config/driver.json` (plain `mv` when untracked). Else: new project - setup creates the canonical file; hooks fail-open. Idempotent; both present → `.milestone-config/driver.json` wins, no move, no deletion. The move rides the issue's PR, not a separate commit.
+   **3.4. Process check.** A caller-supplied `processCheck:` skips it. Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check-procedure.md` and run its `## Run-start procedure`, the feature branch as `<runId>`; `current` → hold `current`; nonzero exit → one log line, hold `skipped`.
+
+   **3.5. Profile migration (run once, on the feature branch).** `.milestone-config/driver.json` exists → use it. Else a legacy root `milestone-driver.json` exists → `mkdir -p .milestone-config`; `git mv` it to `.milestone-config/driver.json` (plain `mv` when untracked). Else: new project - setup creates the canonical file; hooks fail-open. Both present → `.milestone-config/driver.json` wins, no move, no deletion. The move rides the issue's PR, not a separate commit. So do pending process-check edits (`.milestone-config/.runtime/process-check-pending.json`, `"issue": null`): read `${CLAUDE_PLUGIN_ROOT}/skills/process-check-procedure.md` and run its `## Apply path`.
 4. Create one TodoWrite item per numbered step below (on Codex, this and every Agent, Skill-tool and SendMessage use: `skills/runtime-codex.md`). Work them in order - do not skip or reorder.
 
 ## The procedure
@@ -67,14 +68,14 @@ Every `${CLAUDE_PLUGIN_ROOT}/scripts/*.{sh,ps1}` invocation in this skill select
 **Two branches - always run one:**
 **Branch A - Explicit supply (reuse).** Fires iff the caller supplied this issue's triage result at invocation time as named fields with actual values (e.g. `issueStates["N"] = { blockers: false, label: null, advisories: [...], risk: "light" }`, `edges["N"] = [...]`). Absent, label-only, or partial → Branch B. Use it directly - do not re-invoke `milestone-driver:triage <n>` - and proceed to the Blocker check.
 
-**Branch B - Standalone / fallback (the safe default, never an error).** No explicit supply - including a result merely recalled from earlier context → invoke `milestone-driver:triage <n>` (single-issue mode) and use its return for the Blocker check.
+**Branch B - Standalone / fallback (the safe default).** No explicit supply - including a result merely recalled from earlier context → invoke `milestone-driver:triage <n>` (single-issue mode) and use its return for the Blocker check.
 
 **Blocker check (both branches).** A Blocker for this issue → park: triage has already posted the `🔴 Triage` comment; VERIFY it exists (`gh issue view <n> --comments`) and post it if missing (idempotent); apply the recommended label from `issueStates["<n>"].label` - `needs design` for a design gap, `needs decision` for a non-design decision; do not proceed to step 1. All-clear or Advisory-only → proceed to step 1.
 
 **Held remediate answer is Auto** (sub-step 1.1.2) → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and follow its `## The Auto loop` instead of parking now, then proceed to step 1. Its `## Park for good` branches, a spent cap and a missing `🔴 Triage` comment included, run the park action above unchanged, label intact. No held answer, Leave-them-for-me, or the feeder absent → park immediately, as above.
 
 ### 1. Read the issue
-Run `gh issue view <n>` with comments, redirected to the issue record `<main-repo-root>/.milestone-config/.runtime/triage/issue-<n>.md` by the `skills/triage/SKILL.md (redirect its full record)` command, which refreshes step 0's copy with comments posted since. Restate the acceptance criteria plainly before continuing.
+Run `gh issue view <n>` with comments, redirected to the issue record `<main-repo-root>/.milestone-config/.runtime/triage/issue-<n>.md` by the `skills/triage/SKILL.md (redirect its full record)` command, which refreshes step 0's copy with comments posted since. Restate the acceptance criteria before continuing.
 
 **common.md.** A caller-supplied `common.md` path (a `solve-milestone` run) is reused, never re-assembled. None held → run the assembly call and its fail-open rule from `skills/solve-milestone/SKILL.md (Assemble common.md)` here, and hold its path.
 
@@ -228,7 +229,7 @@ Unit, E2E, and preflight share one shape - **act → verify → retry → park**
 1. **Start, once, before step 0's first dispatch.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --start <runId>` (`<runId>` the issue branch / run id, held constant for the whole run): it writes `.milestone-config/.runtime/usage/<runId>.start` only when that file is absent.
 2. **Append, per dispatch, as it returns.** When an Agent-dispatch report lands - planner (tier `opus`), implementer (tier `sonnet`, `opus` on a fix re-dispatch), `/code-review`, coherence-reviewer, direct triage; a background completion notice carries the same `<usage>` block - pipe `{"agent":"<dispatch label>","tier":"<opus|sonnet>","totalTokens":<subagent_tokens>,"durationMs":<duration_ms>}` to `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --append <runId>`. It appends a line to `.milestone-config/.runtime/usage/<runId>.jsonl`; a dispatch never skips this even mid-run. The lines carry duration and steps: on the `per-turn-transcript-sum` path `--finalize` does not sum their `totalTokens`. An implementer or planner return carrying an `output_file:` path first merges the object `${CLAUDE_PLUGIN_ROOT}/scripts/measure-dispatch.{sh,ps1} <output_file>` prints into the piped one (`jq -c -s '.[0] + .[1]'` (Bash), or both objects through `ConvertFrom-Json -AsHashtable`, merged with `+`, then `ConvertTo-Json -Compress` (PowerShell)); no `output_file:`, or a nonzero exit, pipes the four-field object unchanged and never gates.
 3. **Finalize, last action before returning to the caller** at every terminal exit - every park (steps 0, 2, 3, 4, 6.1) and the step-6.9 close. Run `${CLAUDE_PLUGIN_ROOT}/scripts/write-cost-record.{sh,ps1} --finalize <runId> <transcriptDir>`. Transcript directory, resolved once at finalize: in Bash via `bash -c` (never bare zsh), `set -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$CLAUDE_CODE_SESSION_ID"/subagents` and print `"$1"` as `<transcriptDir>` only when `[ -n "$CLAUDE_CODE_SESSION_ID" ] && [ "$#" -eq 1 ] && [ -d "$1" ]` (an empty id collapses the glob to `projects/*/subagents`); in PowerShell, `$cfg` is `$env:CLAUDE_CONFIG_DIR` else `Join-Path $HOME '.claude'`, collect `@(Get-Item -Path (Join-Path $cfg 'projects' '*' $env:CLAUDE_CODE_SESSION_ID 'subagents') -ErrorAction SilentlyContinue)` and pass `.FullName` only when the id is non-empty and `.Count -eq 1`. Zero or several matches, or an unset or empty `CLAUDE_CODE_SESSION_ID`, run `--finalize <runId>` alone. Per-turn, it sums input, output, cache-read and cache-write tokens per model over every turn of every agent, each message id once, `provenanceNote: "per-turn-transcript-sum"`; a missing argument or `.start` file, or a `.start` from another session, sums the usage lines' `totalTokens` per tier into `inputTokens` instead, `provenanceNote: "unsplit-total-as-input"`. It sums `durationMs` into `wallClockSeconds` and writes the record to `.milestone-config/.runtime/cost-records/` carrying one more field, `agents`: the raw per-dispatch entries, then deletes its `.jsonl` and `.start`: one record per invocation.
-4. **Skip cleanly.** No usage file for this `runId` (e.g. a triage-blocker park before any dispatch) → `--finalize` fails open on its own, one log line, no zero-value record. Writer script absent or a failed `--start` → silent no-op, one log line.
+4. **Skip cleanly.** No usage file for this `runId` → `--finalize` fails open on its own, one log line, no zero-value record. Writer script absent or a failed `--start` → silent no-op, one log line.
 
 ## Autonomy model (Balanced)
 
@@ -277,7 +278,7 @@ Resolved at the same step-1 profile read, not from an invocation token. `integra
 
 ### Template 1 - Run start / plan board
 
-Show after the ### 0. Triage step completes.
+Show after step 0 completes.
 
 ```text
 🚀 Issue #201 - [title] · [risk: light | heavy] · [UI | non-UI]
@@ -293,7 +294,7 @@ Show after the ### 0. Triage step completes.
 
 <!-- Structural mirror of solve-milestone Template 2; keep column schema (Issue/Result/Gates/PR/Note) in sync. -->
 
-One row per issue; emit only the row matching the actual outcome and suppress the others.
+Emit only the row matching the actual outcome.
 
 ```text
 🏁 Issue #[n] · [T] min

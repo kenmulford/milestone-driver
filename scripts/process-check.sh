@@ -6,10 +6,11 @@
 # <repo-root>/.milestone-config/.runtime/process-check.json, one line
 # {"hash":"<digest>","outcome":"<outcome>"} plus LF; --status compares only hash.
 # The digest is `git hash-object --stdin` over LF-terminated manifest lines:
-# `contract <blob>` first, then `<blob> <repo-relative path>` per present scanned
-# file in byte order. Each <blob> is `git hash-object --no-filters`, so line-ending
-# filters never change it; one call hashes the contract and every file, and prints
-# the blobs in argument order. The contract is skills/process-check.md in this
+# `contract <blob>` first, then `profile <blob>` when a profile exists, then
+# `<blob> <repo-relative path>` per present scanned file in byte order. The profile
+# joins because the auditor judges keyed rows against its keys. Each <blob> is `git hash-object --no-filters`, so line-ending
+# filters never change it; one call hashes the contract, the profile and every file,
+# and prints the blobs in argument order. The contract is skills/process-check.md in this
 # script's own plugin install, since the invocation carries no plugin-root argument.
 # Scanned files: CLAUDE.md, AGENTS.md and .claude/CLAUDE.md at the repo root, the
 # *.md directly inside .project/ and inside the profile's projectDocs directory
@@ -75,11 +76,14 @@ while IFS= read -r rel; do
   [ -n "$rel" ] && [ -f "$root/$rel" ] && [ -r "$root/$rel" ] || continue
   rels+=("$rel"); files+=("$root/$rel")
 done <<< "$(printf '%s' "$list" | LC_ALL=C sort -u)"
-blobs="$(git hash-object --no-filters -- "$contract" ${files[@]+"${files[@]}"} 2>/dev/null)" || die 'cannot hash the contract or a scanned file'
+pargs=(); [ -e "$profile" ] && pargs=("$profile")
+blobs="$(git hash-object --no-filters -- "$contract" ${pargs[@]+"${pargs[@]}"} ${files[@]+"${files[@]}"} 2>/dev/null)" || die 'cannot hash the contract or a scanned file'
 
 manifest=""; i=-1
 while IFS= read -r h; do
-  if [ "$i" -lt 0 ]; then manifest="contract $h"$'\n'; else manifest="$manifest$h ${rels[$i]}"$'\n'; fi
+  if [ "$i" -lt 0 ]; then manifest="contract $h"$'\n'
+  elif [ "${#pargs[@]}" -gt 0 ] && [ "$i" -eq 0 ]; then manifest="${manifest}profile $h"$'\n'
+  else manifest="$manifest$h ${rels[$((i - ${#pargs[@]}))]}"$'\n'; fi
   i=$((i + 1))
 done <<< "$blobs"
 digest="$(printf '%s' "$manifest" | git hash-object --stdin 2>/dev/null)"

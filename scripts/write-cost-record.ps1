@@ -60,10 +60,15 @@ function Numify($obj, [string]$name) {
 # (jq prints a whole-valued number without a trailing ".0", so the .sh twin emits
 # `5` / `400000`, not `5.0`). Keeps the two twins' on-disk JSON byte-identical for
 # whole numbers; fractional values (e.g. wallClockSeconds 12.5) stay doubles in both.
+# jq prints an infinite result as +-1.7976931348623157e+308, so an overflowed sum clamps the same way.
 function Fmt-Num([double]$d) {
+  if ([double]::IsInfinity($d)) { return [Math]::Sign($d) * [double]::MaxValue }
   if ([double]::IsFinite($d) -and [Math]::Floor($d) -eq $d -and [Math]::Abs($d) -lt 9.2e18) { return [long]$d }
   return $d
 }
+
+# Lower-Ascii: lowercase A-Z only, as jq's ascii_downcase does; ToLowerInvariant would also fold O-umlaut and other letters.
+function Lower-Ascii([string]$s) { return [regex]::Replace($s, '[A-Z]', { param($m) [string][char]([int][char]$m.Value + 32) }) }
 
 # MaxDepth 10000 matches jq's parse limit: the .NET default of 64 would drop a deeply nested line jq counts.
 $jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
@@ -75,7 +80,7 @@ $jsonOpts.MaxDepth = 10000
 # RFC 8259 whitespace and throws on trailing content, as `jq fromjson` does in the .sh twin.
 # agent and tier are non-empty strings, totalTokens and durationMs default to 0, and with $withOptional
 # steps, stepsBeforeFirstEdit and minutesToFirstEdit are kept only when present and non-null. A present
-# non-number is 'nonnumeric'.
+# non-number is 'nonnumeric'. A number past the double range (1e400) clamps to +-[double]::MaxValue, as jq's arithmetic does.
 function Read-UsageEntry([string]$json, [bool]$withOptional) {
   $doc = [System.Text.Json.JsonDocument]::Parse($json, $jsonOpts)
   try {
@@ -92,11 +97,12 @@ function Read-UsageEntry([string]$json, [bool]$withOptional) {
       if (-not $e.TryGetProperty($name, [ref]$p) -or $p.ValueKind -eq 'Null') { return $null }
       $d = 0.0
       if ($p.ValueKind -ne 'Number' -or -not $p.TryGetDouble([ref]$d)) { throw 'nonnumeric' }
+      if ([double]::IsInfinity($d)) { $d = [Math]::Sign($d) * [double]::MaxValue }
       return $d
     }
     $out = [ordered]@{}
     $out.agent = & $str 'agent' 'badagent'
-    $out.tier = (& $str 'tier' 'badtier').ToLowerInvariant()
+    $out.tier = Lower-Ascii (& $str 'tier' 'badtier')
     $out.totalTokens = [double](& $num 'totalTokens')
     $out.durationMs = [double](& $num 'durationMs')
     if ($withOptional) {
@@ -252,7 +258,7 @@ function Read-AgentTurns([string]$path, [long]$startEpoch) {
         if (-not ($m.TryGetProperty('usage', [ref]$u) -and $u.ValueKind -eq 'Object')) { continue }
         $key = if ($m.TryGetProperty('id', [ref]$p)) { $p.GetRawText() } else { 'null' }
         if (-not $seen.Add($key)) { continue }
-        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0) { $p.GetString().ToLowerInvariant() } else { '?' }
+        $model = if ($m.TryGetProperty('model', [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0) { Lower-Ascii $p.GetString() } else { '?' }
         if ($model -ceq '<synthetic>') { continue }
         $tier = if ([regex]::IsMatch($model, '(^|[./])claude-opus-5-5', 'CultureInvariant')) { 'opus' } elseif ([regex]::IsMatch($model, '(^|[./])claude-sonnet-5-5', 'CultureInvariant')) { 'sonnet' } else { $model }
         $n = [ordered]@{ tier = $tier }
@@ -308,7 +314,7 @@ if ($mode -eq '--finalize') {
   # The same bytes decoded as Get-Content -Raw would, a leading UTF-8 BOM dropped.
   $usageRaw = [System.Text.Encoding]::UTF8.GetString($usageBytes) -replace '\A\uFEFF', ''
   try {
-    # Only JSON whitespace makes a line blank, as to jq -s; a line of only \v, \f or U+00A0 reaches
+    # Only JSON whitespace makes a line blank, as in the .sh twin's [inputs | select(...) | fromjson]; a line of only \v, \f or U+00A0 reaches
     # ConvertFrom-Json, which would skip it, so it fails as a non-object instead.
     $lines = @($usageRaw -split "`n" | Where-Object { $_ -cnotmatch '\A[ \t\r]*\z' })
     if ($lines.Count -eq 0) { throw 'empty' }

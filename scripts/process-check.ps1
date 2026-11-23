@@ -18,7 +18,8 @@
 # The manifest is written as raw bytes to a temp file and hashed by path, since
 # piping a string would re-encode it and append a newline; `git hash-object
 # --no-filters -- <file>` gives `--stdin`'s id. One call hashes the contract and
-# every scanned file.
+# every scanned file, and the resolved profile when one exists: the auditor judges
+# keyed rows against its keys.
 # Exit codes: 0 ok · 1 unreadable profile or contract / write failure · 2 bad usage.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -122,12 +123,15 @@ $keys = [string[]]@($byKey.Keys)
 [Array]::Sort($keys, [StringComparer]::Ordinal)
 
 $rels = @($keys | ForEach-Object { $byKey[$_] } | Where-Object { Test-Readable "$root/$_" })
-$blobs = Get-Blobs (@($contract) + @($rels | ForEach-Object { "$root/$_" }))
-if (-not $blobs -or $blobs.Count -ne $rels.Count + 1) { Die 1 'cannot hash the contract or a scanned file' }
+$hasProfile = Test-Path -LiteralPath $profilePath
+$np = if ($hasProfile) { 1 } else { 0 }
+$blobs = Get-Blobs (@($contract) + @(if ($hasProfile) { $profilePath }) + @($rels | ForEach-Object { "$root/$_" }))
+if (-not $blobs -or $blobs.Count -ne $rels.Count + 1 + $np) { Die 1 'cannot hash the contract or a scanned file' }
 
 $manifest = [System.Text.StringBuilder]::new()
 [void]$manifest.Append("contract $($blobs[0])`n")
-for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1]) $($rels[$i])`n") }
+if ($hasProfile) { [void]$manifest.Append("profile $($blobs[1])`n") }
+for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1 + $np]) $($rels[$i])`n") }
 
 $digest = $null
 $mf = $null
