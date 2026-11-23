@@ -69,11 +69,14 @@ skills/notices.md
 skills/output-style.md
 skills/citation-format.md
 skills/remediate-handoff.md
+skills/process-check.md
+skills/process-check-procedure.md
 skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
 agents/planner.md
+agents/process-auditor.md
 agents/triage-reviewer.md
 '@
 

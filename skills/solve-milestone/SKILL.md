@@ -8,11 +8,11 @@ If `${CLAUDE_PLUGIN_ROOT}` appears unexpanded, it is the parent of the `skills/`
 
 # solve-milestone - autonomous driver
 
-Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline. **Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity. Under wave granularity in parallel mode it also runs at the Phase-2 merge-tail re-verify point (`skills/solve-milestone/parallel-waves.md § Parallel mode - Phase 2: serial verified merge tail`), against the integrated wave. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
+Order a milestone's issues, run `/milestone-driver:solve-issue` on each, integrate per the resolved `integrationGranularity`. Owns **ordering, the loop, branch re-sync, parking, the final summary**; `solve-issue` owns the per-issue pipeline. **Coherence pass** (`coherenceReviewAgent`, read-only, never gates). Runs per-issue in `solve-issue` section 6, before that issue's `/code-review`, under issue and wave granularity, and in parallel wave mode again at the Phase-2 merge-tail re-verify point. Under milestone granularity it runs once, never per issue, at `skills/solve-milestone/milestone-end-gates.md § The ordered sequence` step 3, against the whole branch. Absent → skip silently.
 
 **Blast radius.** Merge only to `integrationBranch`, never `protectedBranch`. Release, closing the milestone object, and deploy are human-only. This skill closes the milestone's issues and authors the CHANGELOG; never the milestone.
 
-**Execution mode: parallel by default.** No flag, no opt-in. Resolved once at run start by the barrier cascade in the last Before-starting step (Resolve execution mode), then held all run. A typed `--parallel` in `$ARGUMENTS` is stripped and ignored by step 3's `--<token>` strip.
+**Execution mode: parallel by default.** Resolved once at run start by the barrier cascade in the last Before-starting step (Resolve execution mode), then held all run. A typed `--parallel` in `$ARGUMENTS` is stripped and ignored by step 3's `--<token>` strip.
 
 ## Contents
 
@@ -25,14 +25,14 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    | Decision point | Behavior |
    |---|---|
-   | Resolution order (READ only; no migration here) | `<repo>/.milestone-config/driver.json`, else legacy root `<repo>/milestone-driver.json`. Both present → `.milestone-config/driver.json` wins; no move, no overwrite, no deletion of the leftover. |
+   | Resolution order (READ only; no migration here) | `<repo>/.milestone-config/driver.json`, else legacy root `<repo>/milestone-driver.json`. Both present → `.milestone-config/driver.json` wins; no move, overwrite or deletion. |
    | Migration (`git mv`) of a legacy layout | Never on this orchestrator's own working tree. The **first dispatched `solve-issue`** performs it on its feature branch at step 3.5. An all-parked milestone defers it to the next building run; the transitional READ covers the gap. |
    | Neither file exists, or `integrationBranch` / `protectedBranch` / `sourceGlobs` missing | Invoke `milestone-driver:setup`, then continue. Do **not** fail. |
    | `implementerAgent` | Defaults to `milestone-driver:implementer`. |
    | Optional keys - `unitTestCmd`, `e2eTestCmd`, `e2eEnv`, `domainSkills`, `nonNegotiables` | Their steps skip cleanly when absent. |
-   | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"milestone"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"milestone"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "milestone"`. A valid value logs nothing; every later read uses it. |
+   | `integrationGranularity` (resolve here, once, hold all run) | Absent → `"milestone"`. **Fail-open, never a hard error:** an out-of-enum value degrades to `"milestone"`, logging `integrationGranularity "<value>" is not one of "issue", "wave", "milestone", degraded to "milestone"`. |
 
-   2.0.5. **Self-heal the scratch-ignore**, always, before any `.milestone-config/` scratch write. That directory also holds tracked config (`driver.json`, `feeder.json`): never add a bare `*` or `/` rule, which swallows both. The suffix-scoped `*-notice` does not. Ensure a committed `.milestone-config/.gitignore` carrying the block below: absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
+   2.0.5. **Self-heal the scratch-ignore**, always, before any `.milestone-config/` scratch write. That directory also holds tracked config (`driver.json`, `feeder.json`): never add a bare `*` or `/` rule, which swallows both. Ensure a committed `.milestone-config/.gitignore` carrying the block below: absent → `mkdir -p .milestone-config` and write it; present → do nothing. The first dispatched `solve-issue` commits it alongside the migration.
 
       <!-- KEEP THIS BLOCK IN SYNC with the committed .milestone-config/.gitignore in this repo and with solve-issue / scripts/triage-cache.{sh,ps1} / hooks/tests-green.{sh,ps1}, feeder setup / plan. -->
       ```gitignore
@@ -49,25 +49,26 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    2.0.6. **Assemble common.md** once; hold its path all run: `mkdir -p <repo-root>/.milestone-config/.runtime/plans`, then `${CLAUDE_PLUGIN_ROOT}/scripts/assemble-common.{sh,ps1} <repo-root> <repo-root>/.milestone-config/.runtime/plans/common.md [<anchor> ...]`, one `<anchor>` per `standingDocs` entry, prefixed with the resolved `projectDocs`. A nonzero exit logs its stderr and re-runs with no anchors (fail-open); a second one holds no path. The main thread never reads `common.md`.
 
-   2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics exactly as stated there.
+   2.1. **One-time notices.** Immediately after the profile read: read `${CLAUDE_PLUGIN_ROOT}/skills/notices.md` and, in file order (= print order), evaluate each section whose `Skills` field includes `solve-milestone`, applying its `Trigger` → `Text` → `Marker` → `Legacy fallback` mechanics.
 3. **Resolve the milestone argument.** Strip flags from `$ARGUMENTS`: a flag is a token starting with `--`. Remove each `--<token>`, plus the following token when it does not start with `--` and the flag is value-bearing (`--parallel` and `--driven` are boolean - strip the flag alone; any other `--<token>` followed by a non-flag token counts as value-bearing, strip both). Then:
    - **Purely numeric** (digits only): `gh api repos/{owner}/{repo}/milestones/<milestone-number> --jq '{number, title}'`. Found → record the canonical `{number, title}`, state `"Resolved milestone #<milestone-number> → '<title>'"`. Not found → print the available-milestones table and stop.
    - **Otherwise (title):** `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | select(.title=="<name>") | {number, title}'`. Found → record it, state `"Resolved milestone '<title>'"`. Not found → stop the same way.
-   - **Numeric-title halt.** Resolved title purely numeric → halt and prompt the human; do not proceed to Phase 0. Triage reads a bare number as single-issue mode, so a purely-numeric milestone *title* must be renamed to a non-numeric one before this skill can drive it unattended.
+   - **Numeric-title halt.** Resolved title purely numeric → halt and prompt the human. Triage reads a bare number as single-issue mode; rename a purely-numeric milestone title first.
    - **Available-milestones table** (error path): `gh api "repos/{owner}/{repo}/milestones?state=all&per_page=100" --paginate --jq '.[] | [.number, .title] | @tsv'` as a Markdown table with columns `#` and `Title`.
 
    All downstream steps use the resolved `{number, title}`; do not re-read `$ARGUMENTS`.
    **3.5** `integrations.trello` present → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/trello-sync.md` and run its run-start card resolution (best-effort; a Trello failure never blocks the run).
-   **3.6 Cherry-pick check for a milestone under a parent group.** Fires only when `--driven` (step 5) is absent; when present, none of it runs - not the first-issue query, not the parent lookup. When absent:
+   **3.6 Cherry-pick check for a milestone under a parent group.** Fires only when `--driven` (step 5) is absent:
 
       a. **Find the milestone's first issue** - lowest issue number, `--state all` so a fully-built milestone stays inspectable: `gh issue list --milestone "<resolved-title>" --state all --json number --jq 'sort_by(.number) | .[0].number'`. Nothing returned → fall through to step 4.
-      b. **Read that issue's parent, checking `md-epic` in the same call:** `gh api repos/{owner}/{repo}/issues/<first-issue>/parent`. 404 → no parent. Any other successful response already includes `.labels` - check those for an exact `md-epic` match, no second call. A non-404 failure (auth, 5xx, network) is systemic, not "no parent" - surface it and halt per `## Autonomy`.
+      b. **Read that issue's parent, checking `md-epic` in the same call:** `gh api repos/{owner}/{repo}/issues/<first-issue>/parent`. 404 → no parent. Any other successful response carries `.labels`: check them for an exact `md-epic` match, no second call. A non-404 failure (auth, 5xx, network) is systemic, not "no parent" - surface it and halt per `## Autonomy`.
       c. **No parent, or a parent without `md-epic`** → fall through to step 4, no prompt.
-      d. **A parent carrying `md-epic`** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/md-epic-parent-check.md` and run it: the three-option prompt (build just this milestone · hand off to `/milestone-driver:solve-issue <parent-number>` · pause), each option's branch, and the reactive-only out-of-order note. Reached on no other path.
+      d. **A parent carrying `md-epic`** → read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/md-epic-parent-check.md` and run it: the three-option prompt (build just this milestone · hand off to `/milestone-driver:solve-issue <parent-number>` · pause) and its branches.
 4. Confirm the working tree is clean and the local `integrationBranch` is current (`git fetch`, fast-forward). Record its tip (`git rev-parse <integrationBranch>`) as `milestoneBaseCommit`, held all run for `### Simplify pass`.
+   4.1. **Process check.** A `git rev-parse HEAD` that differs from `git rev-parse <integrationBranch>`, or a non-empty `git status --porcelain`, skips it: log it, hold `skipped`. Run `gh issue list --label process-check --state open --json number --jq '.[0].number // empty'`: a number → log it, hold `skipped`, and end the step; `gh` fails → log, go on. Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check-procedure.md` and run its `## Run-start procedure`, the milestone id as `<runId>`; `current` → hold `current`; nonzero exit or an unreadable procedure file → log, hold `skipped`. Hold it as `processCheck:`.
 5. **Resolve execution mode (the last Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
 
-   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
+   **The `--driven` token.** An interpreted token, not a parsed CLI flag, recognized by string presence in the invocation text. Only an internal caller supplies it. It gates only row 4 (the DB-hazard interview) and step 4.1's question: a driven run takes row 4′ and the notice-only row instead of prompting. Step 3's numeric-title halt still prompts on a driven run.
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|
@@ -80,13 +81,11 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
    **The permission pre-flight gate runs here, once** (`### Permission pre-flight gate`): a gap → synchronous dispatch + sequential mode (row 2); no gap → background dispatch is available and the cascade continues. The in-loop references (`sequential-loop.md` step 2, `parallel-waves.md` Phase 1 step 3) read this decision; the gate never re-fires mid-loop.
 
-   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the prompt, the Yes/No branches writing `parallel: true`/`false` to `.milestone-config/driver.json`, the persistence rule, and the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`), which skips the prompt, falls to sequential with a loud note, and persists nothing.
-
+   **DB-hazard interview (row 4).** Trigger: `unitTestCmd` set and `parallel` absent - the only trigger. Fire once, before Phase 0: read `${CLAUDE_PLUGIN_ROOT}/skills/solve-milestone/db-hazard-interview.md` and run it - the prompt and its Yes/No persistence, or the row-4′ path (`MILESTONE_DRIVER_NONINTERACTIVE=1` OR `--driven`: no prompt, sequential with a loud note, nothing persisted).
       **Nothing to decide:** `parallel` absent and `unitTestCmd` absent → row 5 → parallel, quiet; no interview, no persisted value.
-
    **Surface the resolved mode** and its reason; it drives Template 1's mode line.
 
-   **5.1 Remediate handoff - the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → no question, one log line, silent degrade; file never read. Resolvable → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run `## The run-start question` verbatim - asked once, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` doesn't gate this). Never copy its procedure here.
+   **5.1 Remediate handoff - the run-start question.** Is `/milestone-feeder:remediate` resolvable in this session? Not resolvable → no question, one log line, silent degrade; file never read. Resolvable → read `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` and run `## The run-start question` verbatim - asked once, held all run, never re-asked per issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` → do not ask: take that file's non-interactive default with a loud `⚠` note (`--driven` doesn't gate this).
 
 ## The procedure
 
@@ -96,7 +95,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
 
 ### 2. Determine the order
 
-The **milestone description is the ordering source of truth**. Read it (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`, else `gh api "repos/{owner}/{repo}/milestones?state=all" --jq '.[] | select(.title=="<resolved-title>") | .description'`) and follow the Wave / dependency sequence it records. No explicit order → fall back to ascending issue number and state that in the run output.
+The **milestone description is the ordering source of truth**. Read it (`gh api "repos/{owner}/{repo}/milestones/<resolved-number>" --jq '.description'`, else `gh api "repos/{owner}/{repo}/milestones?state=all" --jq '.[] | select(.title=="<resolved-title>") | .description'`) and follow the Wave / dependency sequence it records. No explicit order → fall back to ascending issue number and state that in the run output. Step 4.1's issue has no dependencies, built last.
 
 ### 3. Determine the target version
 
@@ -124,7 +123,7 @@ Invoke triage across the milestone before the build loop:
    gh issue edit <n> --remove-label "<name>"     # clearLabel == true
    ```
 
-   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 - same gated read-direct, on this main line, cap 1 per issue per run; a `NEEDS_HUMAN` return or a still-dirty re-triage parks for good (`skills/remediate-handoff.md (Park for good)`).
+   Under a held **Auto** answer, every issue parked here enters the `## The Auto loop` in `${CLAUDE_PLUGIN_ROOT}/skills/remediate-handoff.md` before step 3 - same gated read-direct, on this main line; its cap and `## Park for good` branches apply (`skills/remediate-handoff.md (Park for good)`).
 
 2.5. `integrations.trello` configured → run trello-sync.md `## Phase 0 hooks` (best-effort).
 
@@ -191,7 +190,7 @@ The run ends when no buildable issues remain.
 ## Autonomy
 
 - **Unattended between systemic failures.** Operate autonomously within an explicit `/milestone-driver:solve-milestone` run. A `solve-issue` STOP or PAUSE parks that issue (label + open branch + comment) and the loop continues.
-- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and any reference file this skill read-directs being missing or unreadable once its condition has fired - `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`, `milestone-end-gates.md`. Best-effort integrations (`trello-sync.md`, `simplify-pass.md`, `coherenceReviewAgent`) degrade silently instead. These are conditions where no further issue can make progress: surface the failure, leave the tree clean, all in-flight issues parked, present the summary, and stop - `## Run-complete notification` emits `🚨 Run halted - <reason>`.
+- **Systemic failures that halt the run** (examples): `gh auth` failure, a broken or inaccessible `integrationBranch`, missing required tooling (`gh`, `git`), and any reference file this skill read-directs being missing or unreadable once its condition has fired - `parallel-waves.md`, `milestone-granularity.md`, `blocked-label-clear.md`, `sequential-loop.md`, `not-buildable.md`, `md-epic-parent-check.md`, `version-target.md`, `db-hazard-interview.md`, `changelog-authoring.md`, `milestone-end-gates.md`. Best-effort integrations (`trello-sync.md`, `simplify-pass.md`, `coherenceReviewAgent`) degrade silently; `process-check-procedure.md` logs one line and holds `skipped`. These are conditions where no further issue can make progress: surface the failure, leave the tree clean, all in-flight issues parked, present the summary, and stop - `## Run-complete notification` emits `🚨 Run halted - <reason>`.
 - **Architecture is locked** per issue at its plan-approval time. A plan proven wrong is a park (STOP → park + continue), not a silent redesign.
 - **Never escalate scope to `protectedBranch`.** No PR, push, or merge targets `protectedBranch`.
 

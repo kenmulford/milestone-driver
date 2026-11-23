@@ -212,6 +212,14 @@ try {
   Append-Exact 'append-metrics-null-absent' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":null,"stepsBeforeFirstEdit":0,"minutesToFirstEdit":null}' `
     '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"stepsBeforeFirstEdit":0}'
 
+  # keys that differ only by case: jq accepts them and reads the lowercase members
+  Append-Exact 'append-case-only-duplicate-keys' '{"agent":"implementer","Agent":5,"tier":"opus","TIER":1,"totalTokens":7,"TotalTokens":"x","durationMs":9}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":7,"durationMs":9}'
+
+  # tier names lowercase over A-Z only, as jq's ascii_downcase does: the .ps1 twin used to fold the O-umlaut too
+  Append-Exact 'append-tier-ascii-downcase' ('{"agent":"a","tier":"' + [char]0xD6 + 'PUS","totalTokens":1,"durationMs":2}') `
+    ('{"agent":"a","tier":"' + [char]0xD6 + 'pus","totalTokens":1,"durationMs":2}')
+
   # ---- append omitted totalTokens/durationMs -> zeros ----------------------
   $ws3 = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws3 | Out-Null
@@ -241,6 +249,12 @@ try {
   Append-FailOpen 'append-nonnumeric-steps'      'run-x' '{"agent":"a","tier":"opus","steps":"many"}'
   Append-FailOpen 'append-nonnumeric-stepsfirst' 'run-x' '{"agent":"a","tier":"opus","stepsBeforeFirstEdit":true}'
   Append-FailOpen 'append-nonnumeric-minsfirst'  'run-x' '{"agent":"a","tier":"opus","minutesToFirstEdit":"3"}'
+  # stdin holds one JSON value: two concatenated or newline-separated objects, or only whitespace, append no line on either twin
+  Append-FailOpen 'append-two-objects'         'run-x' '{"agent":"a","tier":"opus"}{"agent":"b","tier":"opus"}'
+  Append-FailOpen 'append-two-objects-newline' 'run-x' ('{"agent":"a","tier":"opus"}' + "`n" + '{"agent":"b","tier":"opus"}')
+  Append-FailOpen 'append-whitespace-only'     'run-x' '   '
+  # members are read by exact name, as jq does: a capitalized Agent or Tier is no agent or tier
+  Append-FailOpen 'append-capitalized-members' 'run-x' '{"Agent":"x","Tier":"opus","totalTokens":1}'
 
   # ---- append missing runId arg -> fail-open, no crash ----------------------
   $wNoId = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
@@ -362,6 +376,19 @@ try {
       (@($jfc.unpricedTiers.PSObject.Properties).Count -eq 0) -and
       $jfc.tiers.opus.inputTokens -eq 1000700 -and $jfc.agents[1].tier -ceq 'opus') { Ok } else {
     No "tier-lowercase: rc=$($rfc.rc) line=[$caseLine] err=[$($rfc.err)] j=[$(if($jfc){$jfc | ConvertTo-Json -Compress -Depth 5})]" }
+
+  # ---- a number past the double range is a number, never the string "Infinity" ----
+  # jq 1.7 keeps the literal through a pass-through sum, so only the .ps1 twin's total is checked for the clamp, to the largest double as jq's arithmetic does.
+  $wsBig = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $wsBig | Out-Null
+  $rBig = Run-Append $wsBig 'run-big' '{"agent":"a","tier":"opus","totalTokens":1e400,"durationMs":-1e400}'
+  $bigLine = @(Get-Content -LiteralPath (Join-Path $wsBig '.milestone-config/.runtime/usage/run-big.jsonl'))[0]
+  $rfBig = Run-Finalize $wsBig 'run-big'
+  $bigRaw = if (Rec-File $wsBig) { Get-Content -LiteralPath (Rec-File $wsBig) -Raw } else { '' }
+  $jBig = Rec-Json $wsBig
+  if ($rBig.rc -eq 0 -and $rBig.err -eq '' -and $bigLine -cnotmatch 'Infinity' -and $rfBig.rc -eq 0 -and $bigRaw -and $bigRaw -cnotmatch 'Infinity' -and
+      ($Leg -eq 'sh' -or ($jBig.tiers.opus.inputTokens -eq [double]::MaxValue -and $jBig.agents[0].durationMs -eq -[double]::MaxValue))) { Ok } else {
+    No "append-out-of-range-number: rc=$($rBig.rc) err=[$($rBig.err)] line=[$bigLine] finalize=[$($rfBig.err)] raw=[$bigRaw]" }
 
   # ---- finalize over a line carrying dispatch metrics: output shape unchanged
   $wsFm = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
@@ -735,10 +762,21 @@ try {
 
   # a usage file holding only a BOM and spaces, or only a no-break space, is data jq cannot read: moved aside, not "no usage data";
   # so is a valid line followed by a line of only a vertical tab, a form feed or a no-break space, which are not JSON whitespace
+  # A usage line holds exactly one JSON object between JSON whitespace: a leading no-break space, a trailing vertical tab or
+  # form feed, a one-element array, two objects, or a lone CR between objects is not that, and neither is a bad line between good ones.
   $lineBytes = $utf8.GetBytes($usageLine)
+  $obj = $usageLine.TrimEnd("`n")
+  $objBytes = $utf8.GetBytes($obj)
   foreach ($case in @(@('bom-spaces', [byte[]](0xEF, 0xBB, 0xBF, 0x20, 0x20, 0x0A)), @('nbsp', [byte[]](0xC2, 0xA0, 0x0A)),
       @('line-vt', [byte[]]($lineBytes + [byte[]](0x0B, 0x0A))), @('line-ff', [byte[]]($lineBytes + [byte[]](0x0C, 0x0A))),
-      @('line-nbsp', [byte[]]($lineBytes + [byte[]](0xC2, 0xA0, 0x0A))))) {
+      @('line-nbsp', [byte[]]($lineBytes + [byte[]](0xC2, 0xA0, 0x0A))),
+      @('line-lead-nbsp', [byte[]]([byte[]](0xC2, 0xA0) + $lineBytes)),
+      @('line-trail-vt', [byte[]]($objBytes + [byte[]](0x0B, 0x0A))), @('line-trail-ff', [byte[]]($objBytes + [byte[]](0x0C, 0x0A))),
+      @('line-array', [byte[]]($utf8.GetBytes("[$obj]`n"))),
+      @('line-two-objects', [byte[]]($utf8.GetBytes("$obj$obj`n"))),
+      @('line-two-objects-cr', [byte[]]($utf8.GetBytes("$obj`r$obj`n"))),
+      @('line-capitalized-members', [byte[]]($utf8.GetBytes('{"Agent":"a","Tier":"opus","totalTokens":10}' + "`n"))),
+      @('valid-bad-valid', [byte[]]($lineBytes + $utf8.GetBytes("not json`n") + $lineBytes)))) {
     $rid = "run-nr-usage-$($case[0])"
     $w = New-NoRecordWs $rid $case[1]
     $r = Run-Finalize $w $rid $tfx
@@ -748,6 +786,24 @@ try {
         (-not (Rec-File $w)) -and $startGone -and (Aside-Ok $w $rid $case[1])) { Ok } else {
       No "finalize-usage-$($case[0]): rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
   }
+
+  # a blank interior line, with or without JSON whitespace on it, is skipped by both twins, so the two lines make one record
+  $rid = 'run-nr-interior-blank'
+  $w = New-NoRecordWs $rid ($usageLine + " `t`r`n`n" + $usageLine)
+  $r = Run-Finalize $w $rid
+  $j = Rec-Json $w
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -match 'no transcript directory argument - using unsplit totals' -and $j -and
+      @($j.agents).Count -eq 2 -and $j.tiers.opus.inputTokens -eq 20 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
+    No "finalize-usage-interior-blank: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
+
+  # a usage line whose keys differ only by case is one record: jq reads the lowercase members
+  $rid = 'run-nr-case-keys'
+  $w = New-NoRecordWs $rid ('{"agent":"a","Agent":5,"tier":"opus","Tier":1,"totalTokens":10,"TotalTokens":"x","durationMs":2000}' + "`n")
+  $r = Run-Finalize $w $rid
+  $j = Rec-Json $w
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -match 'no transcript directory argument - using unsplit totals' -and $j -and
+      @($j.agents).Count -eq 1 -and $j.tiers.opus.inputTokens -eq 10 -and $j.agents[0].agent -ceq 'a') { Ok } else {
+    No "finalize-usage-case-only-duplicate-keys: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
 
   # a file at the cost-records path is `cannot create` in both twins, and keeps the usage and start files, moving nothing aside
   $rid = 'run-nr-cannot-create'
@@ -768,8 +824,7 @@ try {
     $crPath = Join-Path $w '.milestone-config/.runtime/cost-records'
     New-Item -ItemType Directory -Force -Path $crPath | Out-Null
     & chmod 555 $crPath
-    $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
-    & chmod 755 $crPath
+    try { $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' } } finally { & chmod 755 $crPath }
     if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
         $r.err -cmatch "^write-cost-record: cannot write record to \.milestone-config/\.runtime/cost-records/$rid-[0-9]+-[0-9]+-[0-9]+-[0-9]+\.json - no record written\s*$" -and
         (Run-Files $w $rid) -eq 2 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
