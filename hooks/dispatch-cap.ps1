@@ -31,12 +31,13 @@ try { $cfg = Get-Content -LiteralPath $profilePath -Raw -ErrorAction Stop | Conv
 $implementer = [string]$cfg.implementerAgent
 if (-not $implementer) { $implementer = 'milestone-driver:implementer' }
 
+$mainAgent = $false
 if ($tool -ceq 'Skill') {
     $who = [string]$hook.tool_input.skill
     $who = $who.Substring($who.LastIndexOf(':') + 1)
     $field = 'args'
 } elseif ($tool -ceq 'Agent' -or $tool -ceq 'Task') {
-    $tool = 'Agent'; $field = 'prompt'
+    $tool = 'Agent'; $field = 'prompt'; $mainAgent = $true   # the raw name: Codex spawn_agent also rewrites tool to Agent
     $who = [string]$hook.tool_input.subagent_type
 } elseif ($tool -clike '*spawn_agent') {
     # Codex encrypts the spawn message, so runtime-codex.md names the child
@@ -46,6 +47,18 @@ if ($tool -ceq 'Skill') {
     $who = if ($who -ceq $implementer.Substring($implementer.LastIndexOf(':') + 1)) { $implementer } else { "milestone-driver:$who" }
 } else {
     exit 0
+}
+
+# Dispatch contract: runs before the table, so a denied dispatch never reads or writes a counter.
+# A failing branch read or a detached HEAD (`HEAD`) allows.
+if ($mainAgent -and (-not $who -or $who -ceq 'general-purpose')) {
+    $gateBranch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) { exit 0 }
+    $gateBranch = [string]$gateBranch
+    if ($gateBranch -clike 'issue/*' -or $gateBranch -clike 'wave/*' -or $gateBranch -clike 'milestone-*') {
+        $subject = if ($who) { 'subagent_type general-purpose' } else { 'no subagent_type' }
+        Invoke-HookDeny $hook "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $gateBranch. Dispatch a named agent: $implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
+    }
 }
 
 $table = @(

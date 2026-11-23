@@ -5,7 +5,9 @@
 # and 3 implementer dispatches (Agent/Task whose subagent_type is the profile's
 # implementerAgent), the caps skills/review-depth.md states, plus 2 planner
 # dispatches (subagent_type `milestone-driver:planner`, fixed, not profile-read).
-# Main thread only; the parallel-mode reviewer leaf (general-purpose) is not counted.
+# Main thread only. On `issue/*`, `wave/*` or `milestone-*`, a main-thread Agent/Task
+# dispatch with subagent_type general-purpose or none is denied (it runs on the parent's
+# model and no cap counts it); every other named agent is not counted. Codex spawn_agent is never denied.
 # Key: `milestone-<n>` for an implementer or planner brief that opens with
 # `Milestone-End-Fix: <n>` on branch `milestone-<n>-*` (3 implementer + 1 planner
 # per milestone end), else branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the
@@ -46,12 +48,13 @@ implementer="$(jq -r '.implementerAgent // empty' "$profile" 2>/dev/null | tr -d
 
 # A Skill is matched on the name after its last `:`, so the `code-review` row
 # also covers `*:code-review`; Task is the legacy name of Agent.
+main_agent=''
 case "$tool" in
   Skill)
     who="$(printf '%s' "$input" | jq -r '.tool_input.skill // empty' 2>/dev/null)"
     who="${who##*:}"; field='args' ;;
   Agent|Task)
-    tool='Agent'; field='prompt'
+    tool='Agent'; field='prompt'; main_agent=1   # the raw name: Codex spawn_agent also rewrites tool to Agent
     who="$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)" ;;
   *spawn_agent)
     # Codex encrypts the spawn message, so runtime-codex.md names the child
@@ -62,6 +65,17 @@ case "$tool" in
     if [ "$who" = "${implementer##*:}" ]; then who="$implementer"; else who="milestone-driver:$who"; fi ;;
   *) exit 0 ;;
 esac
+
+# Dispatch contract: runs before the table, so a denied dispatch never reads or writes a counter.
+# A failing branch read or a detached HEAD (`HEAD`) allows; the glob is a `case`, not an inline =~ (bash 3.2).
+if [ -n "$main_agent" ] && { [ -z "$who" ] || [ "$who" = general-purpose ]; }; then
+  gate_branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
+  case "$gate_branch" in
+    issue/*|wave/*|milestone-*)
+      subject='subagent_type general-purpose'; [ -z "$who" ] && subject='no subagent_type'
+      hook_deny "$input" "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $gate_branch. Dispatch a named agent: $implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1." ;;
+  esac
+fi
 
 # Rows of <tool> <match> <kind> <cap>, first match wins. An indexed array, not a
 # heredoc: a heredoc needs a writable TMPDIR on bash 3.2.

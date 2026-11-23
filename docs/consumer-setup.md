@@ -388,6 +388,7 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |
 | A 4th `/code-review` run, or a 4th implementer dispatch, for one issue, or a 4th implementer dispatch under the `milestone-<n>` key (3 per milestone end) | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 | A 3rd planner dispatch, for one issue, or a 2nd planner dispatch under the `milestone-<n>` key (1 per milestone end) | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A main-thread general-purpose or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch | **blocked** (dispatch-cap) - dispatch a named agent (the deny names them); `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 

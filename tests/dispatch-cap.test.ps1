@@ -43,8 +43,9 @@ function New-Workspace([string]$branch = 'issue/7-x', [string]$profileJson = '{"
   return $w
 }
 
-function Invoke-Hook([string]$root, [string]$tool, [string]$who, [string]$text, [string]$agentId = '', [bool]$envOff = $false) {
+function Invoke-Hook([string]$root, [string]$tool, [string]$who, [string]$text, [string]$agentId = '', [bool]$envOff = $false, [bool]$noType = $false) {
   if ($tool -eq 'Skill') { $ti = @{ skill = $who; args = $text } }
+  elseif ($noType) { $ti = @{ prompt = $text } }
   else { $ti = @{ subagent_type = $who; prompt = $text } }
   $obj = @{ tool_name = $tool; tool_input = $ti; cwd = $root }
   if ($agentId) { $obj['agent_id'] = $agentId }
@@ -91,9 +92,65 @@ Expect 'review-deny-4th' (Invoke-Hook $W 'Skill' 'code-review' '') 2
 Expect 'review-deny-namespaced' (Invoke-Hook $W 'Skill' 'code-review:code-review' '') 2
 
 # ---- never counted: other agents and other skills, even on a capped key ---
-Expect 'allow-other-agent' (Invoke-Hook $W 'Agent' 'general-purpose' 'Review #7') 0
+Expect 'deny-other-agent' (Invoke-Hook $W 'Agent' 'general-purpose' 'Review #7') 2
 Expect 'allow-other-skill' (Invoke-Hook $W 'Skill' 'superpowers:brainstorming' '') 0
 Expect 'allow-other-tool' (Invoke-Hook $W 'Bash' '' '') 0
+
+# ---- dispatch contract: a main-thread general-purpose or untyped Agent dispatch is denied on issue/*, wave/*, milestone-*
+$GP = 'general-purpose'
+$Named = @('milestone-driver:planner', 'milestone-driver:reviewer', 'milestone-driver:triage-reviewer', 'milestone-driver:design-reviewer',
+  'milestone-driver:blocker-resolver', 'milestone-driver:process-auditor', 'milestone-coherence-reviewer:coherence-reviewer')
+function Get-DenyReason([string]$subject, [string]$branch, [string]$impl = $Impl) {
+  return "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $branch. Dispatch a named agent: $impl, $($Named -join ', '). Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
+}
+function Expect-Reason([string]$label, $r, [string]$want) {
+  $got = ([string]$r.err).TrimEnd("`r", "`n")
+  if ($got -ceq $want) { Ok } else { No "${label}: reason=[$(Show-Escaped $got)] (want [$(Show-Escaped $want)])" }
+}
+function Test-CapDirEmpty([string]$ws) {
+  $d = Join-Path $ws '.git' 'milestone-driver' 'dispatch-cap'
+  return (-not (Test-Path -LiteralPath $d)) -or (@(Get-ChildItem -LiteralPath $d -Force).Count -eq 0)
+}
+foreach ($b in 'issue/7-x', 'wave/5-w2', 'milestone-5-x') {
+  $wg = New-Workspace $b
+  $r = Invoke-Hook $wg 'Agent' $GP 'Review #7'
+  Expect "deny-gp-$b" $r 2
+  Expect-Reason "deny-gp-reason-$b" $r (Get-DenyReason 'subagent_type general-purpose' $b)
+  if (Test-CapDirEmpty $wg) { Ok } else { No "deny-gp-writes-no-counter-${b}" }
+}
+$WG = New-Workspace 'milestone-5-x'
+$r = Invoke-Hook $WG 'Task' $GP 'Review #7'
+Expect 'deny-gp-task' $r 2
+Expect-Reason 'deny-gp-task-reason' $r (Get-DenyReason 'subagent_type general-purpose' 'milestone-5-x')
+$r = Invoke-Hook $WG 'Agent' '' 'Review #7' '' $false $true
+Expect 'deny-no-subagent-type-key' $r 2
+Expect-Reason 'deny-no-subagent-type-key-reason' $r (Get-DenyReason 'no subagent_type' 'milestone-5-x')
+$r = Invoke-Hook $WG 'Agent' '' 'Review #7'
+Expect 'deny-empty-subagent-type' $r 2
+Expect-Reason 'deny-empty-subagent-type-reason' $r (Get-DenyReason 'no subagent_type' 'milestone-5-x')
+$r = Invoke-Hook $WG 'Agent' 'General-Purpose' 'Review #7'
+Expect 'allow-gp-case-sensitive' $r 0
+$WB = New-Workspace 'issue/7-x' '{"implementerAgent":"acme:builder"}'
+$r = Invoke-Hook $WB 'Agent' $GP 'Review #7'
+Expect 'deny-gp-custom-implementer' $r 2
+Expect-Reason 'deny-gp-custom-implementer-reason' $r (Get-DenyReason 'subagent_type general-purpose' 'issue/7-x' 'acme:builder')
+if (Test-CapDirEmpty $WB) { Ok } else { No 'deny-gp-custom-implementer-writes-no-counter' }
+
+# ---- dispatch contract: every other named agent is allowed on those branches
+foreach ($a in (@($Impl) + $Named + @('Explore'))) {
+  Expect "allow-named-$a" (Invoke-Hook $WG 'Agent' $a 'Review #7') 0
+}
+Expect 'allow-reviewer-simplify-angle' (Invoke-Hook $WG 'Agent' 'milestone-driver:reviewer' 'Simplify review: reuse') 0
+Expect 'deny-gp-simplify-angle' (Invoke-Hook $WG 'Agent' $GP 'Simplify review: reuse') 2
+Expect 'allow-gp-subagent-context-ms' (Invoke-Hook $WG 'Agent' $GP 'Review #7' 'agent-1') 0
+Expect 'allow-gp-escape-hatch' (Invoke-Hook $WG 'Agent' $GP 'Review #7' '' $true) 0
+Expect 'allow-gp-develop' (Invoke-Hook (New-Workspace 'develop') 'Agent' $GP 'Review #7') 0
+Expect 'allow-gp-no-profile' (Invoke-Hook (New-Workspace 'issue/7-x' '-') 'Agent' $GP 'Review #7') 0
+$NoGit = Join-Path $Tmp ([System.Guid]::NewGuid().ToString())
+New-Item -ItemType Directory -Path (Join-Path $NoGit '.milestone-config') | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $NoGit '.milestone-config' 'driver.json'), "{}`n", $utf8)
+Expect 'allow-gp-not-a-git-repo' (Invoke-Hook $NoGit 'Agent' $GP 'Review #7') 0
+Expect 'allow-code-review-skill-ms' (Invoke-Hook $WG 'Skill' 'code-review' '') 0
 
 # ---- allow: subagent context on the capped key ----------------------------
 Expect 'allow-subagent-context' (Invoke-Hook $W 'Agent' $Impl 'Build issue #7' 'agent-1') 0
