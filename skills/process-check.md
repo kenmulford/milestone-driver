@@ -9,7 +9,7 @@ due, so it joins no skill's unconditional load closure
 
 ## Contents
 
-Scanned files · What is never a finding · The contract · Run-start procedure
+Scanned files · What is never a finding · The contract · Run-start procedure · Apply path
 
 ## Scanned files
 
@@ -61,3 +61,30 @@ Runs when `--status` prints `due`. Nothing here edits a file.
 ```text
 This project's docs replace part of milestone-driver's current process, which can make builds much slower. Can I update them?
 ```
+
+## Apply path
+
+Runs when step 4 hands over findings. The run holds each taken finding as `file`, `quote`, `replacement` and edits no file before this session's answer, so a halted run records nothing and the next interactive run asks again. `MILESTONE_DRIVER_NONINTERACTIVE=1` never enters it.
+
+| Answer | Taken |
+|---|---|
+| `Update all` | Every finding. |
+| `Choose which` | One multi-select AskUserQuestion per batch, option label `file`, description the `change` line. n findings split into ceil(n/4) batches whose sizes differ by at most one (5 is 3+2, never 4+1), because a question takes 2 to 4 options. Only n=1 makes a one-finding batch, and that question adds a second option, `Skip it`. Zero selected: `--record declined`, and nothing is edited, committed or opened. |
+
+The path follows the run: `solve-milestone` under `integrationGranularity: "milestone"` takes the milestone path, every other run, a standalone `solve-issue` included, takes the PR path.
+
+Per taken finding, one log line and a skip when `file` matches `sourceGlobs` (the hook denies the edit, `hooks/force-subagent.sh (main-thread edits to source)`), or when `grep -nxF -- '<quote>' <file>` does not match exactly one line (the auditor's own test, `agents/process-auditor.md (grep -nxF)`). Otherwise the Edit tool replaces the quoted line with `replacement`, or removes it with its newline on `DELETE`. No other line is edited. When none lands, nothing is committed, opened or recorded.
+
+**Milestone path.** Runs once `skills/solve-milestone/milestone-granularity.md § Creating the milestone branch: resume-safe pre-clean guard` leaves the milestone branch checked out. Stage the edited paths in one Bash call, commit in the next with subject `chore: update project docs to milestone-driver's current process`, the co-author trailer and no `Issue:` line, push nothing (`skills/solve-milestone/milestone-granularity.md (Push count)`), then `--record updated`.
+
+**PR path.** Runs right after `skills/solve-issue/SKILL.md (Require a clean working tree)` or `skills/solve-milestone/SKILL.md (Confirm the working tree is clean)` passes, before the first issue branch is cut.
+
+1. Require an empty `git status --porcelain` and, after `git fetch`, `git rev-parse <integrationBranch>` equal to `git rev-parse origin/<integrationBranch>`; otherwise one log line, nothing recorded.
+2. `git show-ref --verify --quiet refs/heads/chore/driver-process` hit: `git checkout chore/driver-process`; else `git checkout -b chore/driver-process <integrationBranch>`. Make the edits.
+3. Stage the edited paths in one Bash call, then `git diff --cached --quiet || git commit -m "chore: update project docs to milestone-driver's current process" -m "<co-author trailer>"` in the next.
+4. Zero landed and no open PR: `git checkout <integrationBranch>`, stop before the push, nothing recorded.
+5. `git push -u origin chore/driver-process`, then `gh pr list --head "chore/driver-process" --json number --jq '.[0].number // empty'`: a hit reuses that PR, else `gh pr create --base <integrationBranch>` with the same title and body `## Code Review` plus `/code-review run: n/a - no sourceGlobs change`.
+6. Wait for CI as `skills/solve-milestone/changelog-authoring.md § 6.8 Handle CI result` does. Green: `body="Code Review: PR #<pr-number>" && title="$(gh pr view <pr-number> --json title --jq .title)" && [ -n "$title" ] && gh pr merge <pr-number> --squash --delete-branch --subject "$title (#<pr-number>)" --body "$body"` in one call (`skills/solve-milestone/simplify-pass.md § Land the findings`), then `git checkout <integrationBranch>`, `git fetch`, `git merge --ff-only origin/<integrationBranch>`, `git branch -d chore/driver-process`, then `--record updated`.
+7. Red: apply `needs review` through `skills/setup/SKILL.md (canonical apply-time label helper)`, hold the PR open, keep the local branch, `git checkout <integrationBranch>`, record nothing, and the run continues.
+
+A nonzero `--record` exit logs one line and the run continues.

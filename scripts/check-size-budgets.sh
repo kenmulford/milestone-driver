@@ -429,6 +429,7 @@ ROOT="${ROOT%/}"
 #   floor (actual + 5, next 5) governing the LINE number since 5% of 36
 #   derives under it.
 # #793 raised skills/process-check.md from actuals 63 / 5105 / 754.
+# #794 raised skills/process-check.md from actuals 90 / 9120 / 1311.
 # #742 seeded skills/solve-milestone/milestone-end-gates.md from actuals
 #   47 / 4024 / 595, the line floor (actual + 5, next 5) governing the LINE
 #   number since 5% of 47 derives under it.
@@ -504,7 +505,7 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
-skills/process-check.md                              70     5500      800
+skills/process-check.md                              95    10000     1400
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
