@@ -46,7 +46,7 @@ function Key-Lines([string]$profilePath) {
     $out = ''
     foreach ($k in $CONTRACT_KEYS) {
       $v = [System.Text.Json.JsonElement]::new()
-      if ($doc.RootElement.TryGetProperty($k, [ref]$v) -and $v.ValueKind -eq 'String') { $out += "key $k $($v.GetString())`n" }
+      if ($doc.RootElement.TryGetProperty($k, [ref]$v) -and $v.ValueKind -eq 'String' -and $v.GetString().IndexOf([char]0) -lt 0) { $out += "key $k $($v.GetString())`n" }
     }
     return $out
   } finally { $doc.Dispose() }
@@ -219,6 +219,11 @@ try {
   Put $ws '.milestone-config/driver.json' ('{"preflightCmd":"p ' + [char]0xE9 + ' \"q\" \\ \nz","coherenceReviewAgent":"c\n"}')
   Record $ws 'clean' | Out-Null
   Check 'profile-raw-value-bytes' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
+
+  # a value holding U+0000 is omitted like a non-string, so bash command substitution (which drops NUL) and the .ps1 twin hash alike, with nothing on stderr
+  Put $ws '.milestone-config/driver.json' '{"unitTestCmd":"a\u0000b","preflightCmd":"p"}'
+  Expect 'profile-nul-value-record' (Record $ws) ''
+  Check 'profile-nul-value-omitted' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
 
   # ---- an empty standingDocs entry names no file ------------------------------
   $ws = New-Ws

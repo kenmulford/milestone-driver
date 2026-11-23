@@ -9,7 +9,8 @@
 # `contract <blob>` first, then `key <name> <raw string value>` per present
 # string-valued profile key among integrationGranularity, implementerAgent,
 # unitTestCmd, e2eTestCmd, preflightCmd, coherenceReviewAgent (that order; absent and
-# non-string keys omitted; exact-case lookup), then `<blob> <repo-relative path>` per
+# non-string keys and values holding U+0000 omitted, since command substitution drops
+# NUL; exact-case lookup), then `<blob> <repo-relative path>` per
 # present scanned file in byte order. Only those keys join because the auditor judges
 # keyed rows against them; hashing the whole profile would re-ask a run whose own
 # interview wrote another key (`parallel`). Each <blob> is `git hash-object --no-filters`, so
@@ -58,7 +59,7 @@ if [ -e "$profile" ]; then
   parsed="${parsed//$'\r'/}"
   pd="${parsed%%$'\n'*}"
   case "$parsed" in *$'\n'*) docs="${parsed#*$'\n'}" ;; esac
-  keys="$(jq -js '.[0] as $p | ["integrationGranularity","implementerAgent","unitTestCmd","e2eTestCmd","preflightCmd","coherenceReviewAgent"][] | . as $k | ($p[$k] | strings) | "key \($k) \(.)\n"' "$profile" 2>/dev/null; printf x)"
+  keys="$(jq -js '.[0] as $p | ["integrationGranularity","implementerAgent","unitTestCmd","e2eTestCmd","preflightCmd","coherenceReviewAgent"][] | . as $k | ($p[$k] | strings | select(contains("\u0000") | not)) | "key \($k) \(.)\n"' "$profile" 2>/dev/null; printf x)"
   keys="${keys%x}"
 fi
 while [ "${pd#./}" != "$pd" ]; do pd="${pd#./}"; done

@@ -436,6 +436,8 @@ ROOT="${ROOT%/}"
 # milestone-end fix (milestone 53) moved the apply onto the feature branch: skills/process-check-procedure.md lowered by the shrink rule
 #   from actuals 55 / 5876 / 896 (lines 55 * 1.05 = 57.75 under the floor 55 + 5, next 5 = 60; bytes 6169.8 up to 6500; words 940.8 up to 1000),
 #   agents/process-auditor.md lines lowered from actuals 90 / 7200 / 1132 (90 + 5, next 5 = 95; bytes 7560 would round up past the 7500 ceiling, which stays).
+# milestone-end fix 3 (milestone 53) kept the pending-file declined list and re-audits on a closed carrying issue: skills/process-check-procedure.md BYTE raised
+#   from actuals 56 / 6493 / 966 (bytes 6493 * 1.05 = 6818.65 up to 7000; lines 56 and words 966 stay under their 60 and 1000, which stay).
 # #742 seeded skills/solve-milestone/milestone-end-gates.md from actuals
 #   47 / 4024 / 595, the line floor (actual + 5, next 5) governing the LINE
 #   number since 5% of 47 derives under it.
@@ -512,7 +514,7 @@ skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/process-check.md                              45     4000      600
-skills/process-check-procedure.md                    60     6500     1000
+skills/process-check-procedure.md                    60     7000     1000
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400

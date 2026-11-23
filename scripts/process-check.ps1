@@ -129,7 +129,7 @@ if (-not $blobs -or $blobs.Count -ne $rels.Count + 1) { Die 1 'cannot hash the c
 
 $manifest = [System.Text.StringBuilder]::new()
 [void]$manifest.Append("contract $($blobs[0])`n")
-foreach ($k in $contractKeys) { if ($prof[$k] -is [string]) { [void]$manifest.Append("key $k $($prof[$k])`n") } }
+foreach ($k in $contractKeys) { if ($prof[$k] -is [string] -and $prof[$k].IndexOf([char]0) -lt 0) { [void]$manifest.Append("key $k $($prof[$k])`n") } }
 for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1]) $($rels[$i])`n") }
 
 $digest = $null

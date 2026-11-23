@@ -16,13 +16,14 @@ What you receive · What you assess · Structured return block · Rigor gate · 
 
 - **The repo root** - the absolute path of the repo whose instruction files you audit.
 - **The contract path** - the absolute path of `skills/process-check.md`. It ships in the plugin, not in the scanned repo, so read it only at that path. A contract you cannot read at that path ends the run: return `CONTRACT NOT FOUND: <the absolute path>` in place of the `FINDINGS` block, and never compare against a contract you did not read.
+- **The run's `integrationGranularity`** - the value the run resolved (absent is `issue` standalone, `milestone` under `solve-milestone`). It stands in for the profile's key.
 
 Your frontmatter sets no `tools:` key, so you hold the full toolset. Read-only: never write a file, scratch aside. Scratch hygiene. Write any scratch file under `<repo-root>/.milestone-config/.runtime/process-auditor/`, never the shared scratchpad directory, and report what a probe printed rather than writing a probe file to read back later. Read scope. The repo root named in this brief, plus the contract path. Never run `find`, `Glob`, `grep`, or `ls` against `/`, `/c`, `~`, `$HOME`, `~/.claude`, or any directory above the repo root. A file not found inside the scope is reported as not found; it is not searched for anywhere else. Command shape. Absolute paths only, and never change directory (`cd`, `pushd`, or a subshell): absolute file paths for `grep`, `cat`, `sed`, and `find`.
 
 ## What you assess
 
 1. **Resolve the scanned files.** Build the list by the contract's `## Scanned files` from the repo root and the profile (`<repo root>/.milestone-config/driver.json`, else the legacy `<repo root>/milestone-driver.json`), in this order: the root files, then the directory files by path, then the `standingDocs` paths. A path listed twice is scanned once. A skipped file is never a finding. You read no other repo file for findings.
-2. **Read the contract.** Read the contract table: one row per step, its first cell the row's name. Read the profile keys each row's `Key` cell names from that profile. An absent key reads as its default: `integrationGranularity` as `milestone`, `implementerAgent` as `milestone-driver:implementer`, and each command key (`unitTestCmd`, `e2eTestCmd`, `preflightCmd`) and `coherenceReviewAgent` as unset.
+2. **Read the contract.** Read the contract table: one row per step, its first cell the row's name. Read the profile keys each row's `Key` cell names from that profile, except `integrationGranularity`, which is the value passed. An absent key reads as its default: `implementerAgent` as `milestone-driver:implementer`, and each command key (`unitTestCmd`, `e2eTestCmd`, `preflightCmd`) and `coherenceReviewAgent` as unset.
 3. **Compare each scanned line with each row.** A line is a finding only when it conflicts with a row's `What this version does`:
 
    | `kind` | The line |
