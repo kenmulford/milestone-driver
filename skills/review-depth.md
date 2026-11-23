@@ -45,10 +45,11 @@ override (`.project/design-philosophy.md#Error & failure philosophy`).
 | `standard` | `medium` | 1 cycle, a 2nd **only** when the most recent review returned a Critical or Important finding |
 | `shallow` | `low` | 1 cycle, a 2nd impossible |
 
-`medium` is the ceiling, and the column is a first run's effort only: every
-later `/code-review` on the issue - the re-review a `code-changed` fix owes, a
-2nd cycle's - runs at `low`, whatever the verdict says (`simplify-pass.md`'s
-step 9 run is its own pass's first). **A resumed issue starts fresh**:
+`medium` is the ceiling. Every `/code-review` run passes `--max-findings all`;
+a run rejecting it is never retried without it: the site's own failure
+handling applies. A re-review - a `code-changed` fix's, a 2nd cycle's, a
+milestone end's step 4 re-run - runs at the first run's effort
+(`simplify-pass.md`'s step 9 run is its own pass's first). **A resumed issue starts fresh**:
 holding no record of the earlier run, its next review takes the verdict's
 effort again. A cycle is one `/code-review` run plus its fix,
 so a review returning no in-scope finding spends none, and on a `code-changed`
@@ -61,7 +62,7 @@ delta the fresh review is the last action before commit. `shallow` is no
 **Before a 2nd cycle, re-run the classifier against the post-fix diff.**
 It decides whether that cycle happens: `shallow`
 ends the loop; `deep` runs the already-granted 2nd cycle but
-grants no 3rd. The cap stays the first verdict's.
+grants no 3rd. The cap and the effort stay the first verdict's.
 
 ## The second-cycle park
 

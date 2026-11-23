@@ -16,7 +16,7 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 |---|---|---|
 | 2 | Empty diff | No commits over `integrationBranch`: log one line, end the sequence here, mirroring `skills/solve-milestone/simplify-pass.md (Zero findings, or a failure)` and `skills/solve-milestone/milestone-granularity.md (Nothing merged.)`. `## Milestone end: one push, one PR, one CI run` step 1 proceeds unchanged |
 | 3 | Coherence review | Only when `coherenceReviewAgent` is present and configured (`skills/solve-issue/SKILL.md (is both present (dispatchable in this session) and configured)`); absent/unconfigured → skip silently. When it runs: dispatch the coherence agent read-only against `<range>`, `skills/solve-issue/coherence-review.md (### The pass)`. `skills/solve-issue/coherence-review.md (Never-gating.)` holds here too: findings never enter the fix-dispatch cap |
-| 4 | `/code-review` | Read `skills/review-depth.md` and follow it: run `scripts/classify-review-depth.sh <repo-root> <integrationBranch>` (`scripts/classify-review-depth.sh (Usage:)`), rooted at the milestone branch's checkout, and dispatch one reviewer leaf at the verdict's first-run effort |
+| 4 | `/code-review` | Read `skills/review-depth.md` and follow it: run `scripts/classify-review-depth.sh <repo-root> <integrationBranch>` (`scripts/classify-review-depth.sh (Usage:)`), rooted at the milestone branch's checkout, then run `/code-review` on the main line, never a dispatched reviewer leaf, at the verdict's first-run effort with the ladder's flag; a step 8 re-run keeps that effort |
 | 5 | Unit gate | `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh\|ps1> <repo-root>` (pwsh on Windows, bash elsewhere), never `unitTestCmd` directly |
 | 6 | E2E | Only when an issue on the branch carries the `ui` label and `e2eTestCmd` is defined: run `e2eTestCmd` against `e2eEnv` |
 | 7 | Preflight | The Preflight row of `skills/solve-issue/SKILL.md § 4. Verification gates`. `skills/solve-issue/SKILL.md (the Preflight row above does not apply)` under the `"github-ci"` sentinel: this step defers to the milestone PR's CI |
@@ -24,7 +24,7 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 
 ## The fix-dispatch loop
 
-Collect every `/code-review` finding from step 4 and every red gate from steps 5-7; step 3's coherence findings never enter it.
+Collect every `/code-review` finding from step 4 and every red gate from steps 5-7.
 
 - One or more collected: dispatch the `implementerAgent` once, briefed with `<range>`, every finding and failure, and the expanded `domainSkills`.
 - Commit: subject line, the fix's summary, step 4's `/code-review` result in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md (Wave granularity keeps the block.)`, then a final paragraph of exactly `Milestone-End-Fix: <milestone-number>` (the milestone path's shape at `skills/solve-milestone/simplify-pass.md (## Land the findings)`). No `Issue:` line.
@@ -54,4 +54,4 @@ Stop the sequence: run `## Milestone end: one push, one PR, one CI run` steps 1-
 
 ## The milestone review sub-entry
 
-`skills/solve-milestone/milestone-granularity.md § Milestone end: one push, one PR, one CI run` step 3's "The milestone review gets a sub-entry too" bullet renders this sequence's step 4 `/code-review` result; nothing here restates it.
+`skills/solve-milestone/milestone-granularity.md § Milestone end: one push, one PR, one CI run` step 3's "The milestone review gets a sub-entry too" bullet renders this sequence's step 4 `/code-review` result.

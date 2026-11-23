@@ -79,7 +79,7 @@ Simplify-Pass: <milestone-number>
 
 **Review the pass like any other source change, on both paths.** A `/simplify` diff changes source, so step 9 runs `/code-review` over the working tree and records that run truthfully.
 
-**Resolve the effort from the diff, never hardcode it.** Immediately before the dispatch, read `${CLAUDE_PLUGIN_ROOT}/skills/review-depth.md` and follow it against the post-fix tree, passing `<repo-root>` as the classifier's root. A simplify diff touching no `sourceGlobs` path classifies `shallow`.
+**Resolve the effort from the diff, never hardcode it.** Immediately before the dispatch, read `${CLAUDE_PLUGIN_ROOT}/skills/review-depth.md` and follow it against the post-fix tree, passing `<repo-root>` as the classifier's root; step 9's run takes its first-run effort and the ladder's flag.
 
 Render the two blocks from their existing definitions; this section adds only the deltas.
 

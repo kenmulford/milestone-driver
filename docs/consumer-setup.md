@@ -78,7 +78,7 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies - never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
 
-  **Review depth is not the risk profile.** The review→fix cycle cap, and the first review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling and it is the first review's only: every later `/code-review` on the issue runs at `low`, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
+  **Review depth is not the risk profile.** The review→fix cycle cap, and the first review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling. Every `/code-review` passes `--max-findings all`, so it reports every finding (Claude Code v2.1.288 or later), and a re-review runs at the first review's effort, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
 
   | Verdict | Fires when the diff | First review, then cap |
   |---|---|---|
