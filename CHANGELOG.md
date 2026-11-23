@@ -3,6 +3,41 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.33.0 - the driver spots a project process that replaces its own
+
+**Theme:** At run start the driver checks the project's instruction files for any line that restates or replaces a step it owns. It lists the stale lines in plain English, and on the user's yes it files one issue that the driver builds like any other.
+
+### ✨ Process check
+
+| Issue | PR | What |
+|---|---|---|
+| #790 Add the process-check contract beside the one-time notices | - | `skills/process-check.md` holds the contract the check judges against: the scanned files, what never counts as a finding, and a 7-row table (Planning, Packet content, Implementer verify, Integration and build cadence, Test gates, Review cadence, Park labels). |
+| #791 Add the process-check status and record script twins | - | `scripts/process-check.{sh,ps1} --status <repo-root>` prints `current` or `due` by hashing the contract, six raw profile keys (`integrationGranularity`, `implementerAgent`, `unitTestCmd`, `e2eTestCmd`, `preflightCmd`, `coherenceReviewAgent`; an absent key is omitted) and the scanned files. `--record <clean\|declined>` writes `.milestone-config/.runtime/process-check.json` under the main repo root, so a linked worktree and the main checkout share one marker, and a submodule or `--separate-git-dir` repo keeps its own. The hash also covers `process-check-declined.json` when present. Deleting the marker or the declined file forces a re-check. |
+| #792 Add the read-only process-auditor agent and its fixture repo | - | `milestone-driver:process-auditor` (sonnet) returns one finding per scanned line that contradicts a contract row, each with `file`, a verbatim `quote` and its `replacement`. It drops any quote that does not match exactly one line. |
+| #793 Run the process check at run start in solve-issue and solve-milestone | - | `solve-issue` step 3.4 and `solve-milestone` step 4.1 run the check when it is `due` and `HEAD` is the tip of `integrationBranch`. They ask once: `Update all` · `Choose which` · `Not now`. A milestone run checks once and passes `processCheck:` to each issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` or `--driven` prints the findings and files nothing. While an open issue carries the `process-check` label the check skips, and once it closes the next `due` run re-audits. |
+| #794 Apply accepted process-check edits and land them like an issue | - | An accepted answer (`Update all`, or `Choose which` with at least one selected) files one GitHub issue, `Update the project's process docs to match milestone-driver <version>`, labeled `process-check`, whose `Edit points:` list the selected findings and whose `Tests:` check each quote is gone. The driver builds it like any other issue, with no planner. Under `solve-milestone` it joins the run's milestone, filed at step 4.1 and built last when the milestone description does not order it; a standalone `solve-issue` files it into the current issue's milestone, if any is open, and does not build it. The check edits no file, and filing records nothing, so the marker stays `due`. Findings left unselected under `Choose which` go to `.milestone-config/.runtime/process-check-declined.json` and are not asked again. A finding in a file matching `sourceGlobs` is dropped before the question. |
+| #795 Document the process check in the architecture doc and README | - | `docs/architecture.md § Process check` and the README run-start paragraph describe the question, the declined file and the marker. |
+
+### 🐛 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #789 Let the planner skip read Edit points and Tests lines from any section of the issue | - | `solve-issue` step 2 skips the planner when the issue record's `## Body` holds both an `Edit points:` and a `Tests:` list item anywhere outside a fenced code block, not only under a Design heading. |
+| #786 Make the write-cost-record twins parse usage lines by the same rule | - | Both twins parse each usage line strictly as one JSON object. A whitespace-only line is skipped. A line with two objects, a trailing `\v`, NBSP padding or a non-object root fails on both. The `.ps1` also matches jq on parse depth, exact-case member names, out-of-range numbers and ASCII-only tier lowercasing, and `--append` rejects multi-value stdin on both. |
+
+### Consumer notes (upgrading from v1.32.1)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- The first interactive run after upgrading dispatches `process-auditor` once and may ask the process-check question. Accepting files a GitHub issue, and the driver creates its `process-check` label.
+- New gitignored artifacts under `.milestone-config/.runtime/`: `process-check.json`, `process-check-declined.json` and scratch in `process-check/` and `process-auditor/`. Delete `process-check-declined.json` to make declined findings eligible again.
+- The check reads the resolved profile (`.milestone-config/driver.json`, else root `milestone-driver.json`). Changing one of the six contract keys makes the check `due` again, and so does adding or removing `integrationGranularity`. Other keys, such as `parallel`, do not.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- `skills/solve-issue/SKILL.md` and `skills/solve-milestone/SKILL.md` each have under 450 bytes of byte headroom.
+
 ## v1.32.1 - write-cost-record finalize exits leave a clean window
 
 **Theme:** Every `--finalize` exit that writes no record after it finds usage data removes `<runId>.start` and moves `<runId>.jsonl` aside, and the two twins take the same exit for the same bytes.

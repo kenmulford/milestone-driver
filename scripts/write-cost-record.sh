@@ -148,7 +148,8 @@ if [ "$mode" = "--append" ]; then
     | { agent: .agent, tier: (.tier|ascii_downcase), totalTokens: numify(.totalTokens), durationMs: numify(.durationMs) }
       + (reduce ("steps", "stepsBeforeFirstEdit", "minutesToFirstEdit") as $k ({};
            if $in[$k] == null then . else . + { ($k): numify($in[$k]) } end))'
-  line="$(printf '%s' "$input" | jq -c "$APPEND_PROG" 2>/dev/null)" \
+  # `-s` collects every value on stdin: exactly one passes, as the .ps1 twin's single JsonDocument.Parse requires.
+  line="$(printf '%s' "$input" | jq -c -s "if length == 1 then .[0] | ($APPEND_PROG) else error(\"not one value\") end" 2>/dev/null)" \
     || fail "malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended"
   rel="$usage_dir/$(sanitize_for_filename "$runid_arg").jsonl"
   mkdir -p "$usage_dir" 2>/dev/null || fail "cannot create $usage_dir - no line appended"
@@ -228,7 +229,8 @@ if [ "$mode" = "--finalize" ]; then
         },
         agents: $entries
       }'
-  agg="$(jq -s --arg runId "$runid_arg" "$AGG_PROG" "$usage_file" 2>/dev/null)" \
+  # `fromjson` per line, not `jq -s`: two values on a line or a trailing \v must fail, as in the .ps1 twin.
+  agg="$(jq -nR --arg runId "$runid_arg" "[inputs | select(test(\"\\\\A[ \\\\t\\\\r]*\\\\z\") | not) | fromjson] | $AGG_PROG" "$usage_file" 2>/dev/null)" \
     || fail_aside "malformed usage data in $usage_file - no record written"
   input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
     || fail_aside "internal aggregation error over $usage_file - no record written"

@@ -424,6 +424,31 @@ ROOT="${ROOT%/}"
 # decision recorded in the PR body.
 # #695 seeded skills/solve-issue/build-packet.md from actuals 49 / 2916 / 454.
 # #698 seeded agents/planner.md from actuals 76 / 4719 / 729.
+# #792 seeded agents/process-auditor.md from actuals 91 / 7150 / 1137.
+# #790 seeded skills/process-check.md from actuals 36 / 3214 / 496, the line
+#   floor (actual + 5, next 5) governing the LINE number since 5% of 36
+#   derives under it.
+# #793 raised skills/process-check.md from actuals 63 / 5105 / 754.
+# simplify pass (milestone 53) split the procedure out of the hashed contract: skills/process-check.md
+#   lowered to actuals 39 / 3649 / 556, skills/process-check-procedure.md seeded from 58 / 6827 / 1018
+#   (lines 58 * 1.05 = 60.9 under the floor 58 + 5, next 5 = 65; bytes 7168.35 up to 7500; words 1068.9 up to 1100),
+#   agents/process-auditor.md lowered by the shrink rule from actuals 91 / 7016 / 1122 (bytes 8000 to 7500).
+# milestone-end fix (milestone 53) moved the apply onto the feature branch: skills/process-check-procedure.md lowered by the shrink rule
+#   from actuals 55 / 5876 / 896 (lines 55 * 1.05 = 57.75 under the floor 55 + 5, next 5 = 60; bytes 6169.8 up to 6500; words 940.8 up to 1000),
+#   agents/process-auditor.md lines lowered from actuals 90 / 7200 / 1132 (90 + 5, next 5 = 95; bytes 7560 would round up past the 7500 ceiling, which stays).
+# milestone-end fix 3 (milestone 53) kept the pending-file declined list and re-audits on a closed carrying issue: skills/process-check-procedure.md BYTE raised
+#   from actuals 56 / 6493 / 966 (bytes 6493 * 1.05 = 6818.65 up to 7000; lines 56 and words 966 stay under their 60 and 1000, which stay).
+# lifecycle table (milestone 53 fix 4) raised skills/process-check-procedure.md from actuals 76 / 8146 / 1314
+#   (lines 76 * 1.05 = 79.8 under the floor 76 + 5, next 5 = 85; bytes 8553.3 up to 9000; words 1379.7 up to 1400) after trimming from 76 / 8572 / 1383.
+# pending file removed (milestone 53 fix 5) lowered skills/process-check-procedure.md lines from actuals 70 / 8104 / 1304
+#   (70 + 5, next 5 = 75; bytes 8509.2 and words 1369.2 round up to their 9000 and 1400, which stay).
+# commit-time apply (milestone 53 fix 6) raised skills/process-check-procedure.md WORD from actuals 71 / 8895 / 1444
+#   (words 1444 * 1.05 = 1516.2 up to 1600; lines 71 and bytes 8895 stay under their 75 and 9000, which stay).
+# milestone-end fix 13 (milestone 53) raised skills/process-check-procedure.md BYTE and WORD from actuals 75 / 10410 / 1705 after trimming from 10756 / 1759
+#   (bytes 10410 * 1.05 = 10930.5 up to 11000; words 1705 * 1.05 = 1790.3 up to 1800; lines 75 stay under their 75, which stays).
+# issue filing replaced the commit-time apply (milestone 53 fix 7) lowered skills/process-check-procedure.md BYTE and WORD from actuals 74 / 9265 / 1471
+#   (bytes 9265 * 1.05 = 9728.25 up to 10000; words 1471 * 1.05 = 1544.55 up to 1600; lines 74 stay under their 75, which stays),
+#   and skills/solve-milestone/milestone-granularity.md BYTE from actuals 187 / 28962 / 4136 (bytes 28962 * 1.05 = 30410.1 up to 30500; lines and words hold).
 # #742 seeded skills/solve-milestone/milestone-end-gates.md from actuals
 #   47 / 4024 / 595, the line floor (actual + 5, next 5) governing the LINE
 #   number since 5% of 47 derives under it.
@@ -480,7 +505,7 @@ skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     330    35500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
-skills/solve-milestone/milestone-granularity.md     195    31000     4400
+skills/solve-milestone/milestone-granularity.md     195    30500     4400
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    15500     2400
@@ -499,11 +524,14 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
+skills/process-check.md                              45     4000      600
+skills/process-check-procedure.md                    75    10000     1600
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
+agents/process-auditor.md                            95     7500     1200
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
