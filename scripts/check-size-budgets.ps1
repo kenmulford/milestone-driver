@@ -96,13 +96,14 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
-skills/process-check.md                              95    10000     1400
+skills/process-check.md                              45     4000      600
+skills/process-check-procedure.md                    65     7500     1100
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
-agents/process-auditor.md                           100     8000     1200
+agents/process-auditor.md                           100     7500     1200
 agents/triage-reviewer.md                           120    16500     2600
 '@
 

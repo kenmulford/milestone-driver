@@ -8,16 +8,19 @@
 # The digest is `git hash-object --stdin` over LF-terminated manifest lines:
 # `contract <blob>` first, then `<blob> <repo-relative path>` per present scanned
 # file in byte order. Each <blob> is `git hash-object --no-filters`, so line-ending
-# filters never change it. The contract is skills/process-check.md in this
+# filters never change it; one call hashes the contract and every file, and prints
+# the blobs in argument order. The contract is skills/process-check.md in this
 # script's own plugin install, since the invocation carries no plugin-root argument.
 # Scanned files: CLAUDE.md, AGENTS.md and .claude/CLAUDE.md at the repo root, the
 # *.md directly inside .project/ and inside the profile's projectDocs directory
 # (default .project/), and each standingDocs entry's <doc> part under projectDocs.
-# An absent scanned file is skipped; an absent driver.json resolves to the defaults.
+# An absent scanned file is skipped. The profile is .milestone-config/driver.json, else
+# the legacy root milestone-driver.json, as solve-issue and hooks/tests-green.sh resolve it;
+# with neither, the defaults apply.
 # The marker is built in a temp file beside it and moved into place, so a failed
 # write leaves the old marker. A marker that is not one JSON object with a string
 # hash reads as `due`. Check order: usage, jq, driver.json, contract.
-# The .ps1 twin parses with ConvertFrom-Json, so its jq line never occurs.
+# The .ps1 twin parses with JsonDocument, so its jq line never occurs.
 # Exit codes: 0 ok · 1 jq absent / unreadable profile or contract / write failure · 2 bad usage.
 set -u
 
@@ -40,12 +43,13 @@ command -v jq >/dev/null 2>&1 || die 'jq is required but not on PATH'
 
 here="$(cd "$(dirname "$0")" && pwd)"
 plugin="$(dirname "$here")"
-profile="$root/.milestone-config/driver.json"
+profile="$root/.milestone-config/driver.json"; pname='.milestone-config/driver.json'
+if [ ! -e "$profile" ] && [ -e "$root/milestone-driver.json" ]; then profile="$root/milestone-driver.json"; pname='milestone-driver.json'; fi
 
 pd=""; docs=""
 if [ -e "$profile" ]; then
-  parsed="$([ -f "$profile" ] && jq -rs 'if length == 1 and (.[0] | type) == "object" then .[0] | ((.projectDocs | strings) // ""), (.standingDocs | arrays | .[] | strings | split("#")[0]) else error("not one object") end' "$profile" 2>/dev/null)" \
-    || die 'cannot read .milestone-config/driver.json'
+  parsed="$([ -f "$profile" ] && jq -rs 'if length == 1 and (.[0] | type) == "object" then .[0] | ((.projectDocs | strings) // ""), (.standingDocs | arrays | .[] | strings | (split("#")[0] // "")) else error("not one object") end' "$profile" 2>/dev/null)" \
+    || die "cannot read $pname"
   parsed="${parsed//$'\r'/}"
   pd="${parsed%%$'\n'*}"
   case "$parsed" in *$'\n'*) docs="${parsed#*$'\n'}" ;; esac
@@ -55,36 +59,38 @@ while [ "${pd%/}" != "$pd" ]; do pd="${pd%/}"; done
 [ -n "$pd" ] || pd='.project'
 
 contract="$plugin/skills/process-check.md"
-c=""
-if [ -f "$contract" ] && [ -r "$contract" ]; then c="$(git hash-object --no-filters -- "$contract" 2>/dev/null)"; fi
-[ -n "$c" ] || die 'cannot read skills/process-check.md'
+{ [ -f "$contract" ] && [ -r "$contract" ]; } || die 'cannot read skills/process-check.md'
 
 list=$'CLAUDE.md\nAGENTS.md\n.claude/CLAUDE.md\n'
-for d in .project "$pd"; do
-  for f in "$root/$d"/*.md; do
-    [ -f "$f" ] && list="$list$d/${f##*/}"$'\n'
-  done
-done
+scan() { for f in "$root/$1"/*.md; do [ -f "$f" ] && list="$list$1/${f##*/}"$'\n'; done; }
+scan .project
+[ "$pd" = '.project' ] || scan "$pd"
 while IFS= read -r doc; do
   while [ "${doc#./}" != "$doc" ]; do doc="${doc#./}"; done
   [ -n "$doc" ] && list="$list$pd/$doc"$'\n'
 done <<< "$docs"
 
-manifest="contract $c"$'\n'
+rels=(); files=()
 while IFS= read -r rel; do
-  [ -n "$rel" ] && [ -f "$root/$rel" ] || continue
-  h="$(git hash-object --no-filters -- "$root/$rel" 2>/dev/null)" || continue
-  manifest="$manifest$h $rel"$'\n'
+  [ -n "$rel" ] && [ -f "$root/$rel" ] && [ -r "$root/$rel" ] || continue
+  rels+=("$rel"); files+=("$root/$rel")
 done <<< "$(printf '%s' "$list" | LC_ALL=C sort -u)"
+blobs="$(git hash-object --no-filters -- "$contract" ${files[@]+"${files[@]}"} 2>/dev/null)" || die 'cannot hash the contract or a scanned file'
+
+manifest=""; i=-1
+while IFS= read -r h; do
+  if [ "$i" -lt 0 ]; then manifest="contract $h"$'\n'; else manifest="$manifest$h ${rels[$i]}"$'\n'; fi
+  i=$((i + 1))
+done <<< "$blobs"
 digest="$(printf '%s' "$manifest" | git hash-object --stdin 2>/dev/null)"
-[ -n "$digest" ] || die 'cannot read skills/process-check.md'
+[ -n "$digest" ] || die 'cannot hash the contract or a scanned file'
 
 rt="$root/.milestone-config/.runtime"
 marker="$rt/process-check.json"
 
 if [ "$mode" = "--status" ]; then
   res=""
-  [ -f "$marker" ] && res="$(jq -rs --arg d "$digest" 'if length == 1 and (.[0] | type) == "object" and (.[0].hash | type) == "string" and .[0].hash == $d then "current" else "due" end' "$marker" 2>/dev/null)"
+  [ -f "$marker" ] && res="$(jq -rs --arg d "$digest" 'if length == 1 and .[0].hash == $d then "current" else "due" end' "$marker" 2>/dev/null)"
   res="${res//$'\r'/}"
   if [ "$res" = "current" ]; then printf 'current\n'; else printf 'due\n'; fi
   exit 0

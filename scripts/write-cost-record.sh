@@ -228,14 +228,8 @@ if [ "$mode" = "--finalize" ]; then
         },
         agents: $entries
       }'
-  # One value per line, as `--append` writes it: a line holding two values, none, or anything past
-  # JSON whitespace fails `fromjson`, where `jq -s` over the file would accept it. Blank lines are
-  # dropped first, as in the .ps1 twin. jq 1.7 exits 0 after a per-line error, so halt_error(1)
-  # makes it fail, and pipefail is scoped to this pipeline so the second jq cannot aggregate the
-  # lines before the bad one.
-  agg="$(set -o pipefail
-    jq -R 'select(test("\\A[ \\t\\r]*\\z") | not) | try fromjson catch halt_error(1)' "$usage_file" 2>/dev/null |
-      jq -s --arg runId "$runid_arg" "$AGG_PROG" 2>/dev/null)" \
+  # `fromjson` per line, not `jq -s`: two values on a line or a trailing \v must fail, as in the .ps1 twin.
+  agg="$(jq -nR --arg runId "$runid_arg" "[inputs | select(test(\"\\\\A[ \\\\t\\\\r]*\\\\z\") | not) | fromjson] | $AGG_PROG" "$usage_file" 2>/dev/null)" \
     || fail_aside "malformed usage data in $usage_file - no record written"
   input="$(printf '%s' "$agg" | jq -c '.input' 2>/dev/null)" \
     || fail_aside "internal aggregation error over $usage_file - no record written"

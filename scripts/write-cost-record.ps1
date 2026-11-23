@@ -65,6 +65,50 @@ function Fmt-Num([double]$d) {
   return $d
 }
 
+# MaxDepth 10000 matches jq's parse limit: the .NET default of 64 would drop a deeply nested line jq counts.
+$jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
+$jsonOpts.MaxDepth = 10000
+
+# Read-UsageEntry: one --append / usage-file line -> its entry as an ordered table, or throws. Members are
+# read by exact name from the JsonDocument, as jq does: ConvertFrom-Json and PSObject.Properties ignore
+# case, and ConvertFrom-Json throws on keys that differ only by case, which jq accepts. System.Text.Json takes only
+# RFC 8259 whitespace and throws on trailing content, as `jq fromjson` does in the .sh twin.
+# agent and tier are non-empty strings, totalTokens and durationMs default to 0, and with $withOptional
+# steps, stepsBeforeFirstEdit and minutesToFirstEdit are kept only when present and non-null. A present
+# non-number is 'nonnumeric'.
+function Read-UsageEntry([string]$json, [bool]$withOptional) {
+  $doc = [System.Text.Json.JsonDocument]::Parse($json, $jsonOpts)
+  try {
+    $e = $doc.RootElement
+    if ($e.ValueKind -ne 'Object') { throw 'badline' }
+    $p = [System.Text.Json.JsonElement]::new()
+    $str = {
+      param($name, $err)
+      if (-not ($e.TryGetProperty($name, [ref]$p) -and $p.ValueKind -eq 'String' -and $p.GetString().Length -gt 0)) { throw $err }
+      return $p.GetString()
+    }
+    $num = {
+      param($name)
+      if (-not $e.TryGetProperty($name, [ref]$p) -or $p.ValueKind -eq 'Null') { return $null }
+      $d = 0.0
+      if ($p.ValueKind -ne 'Number' -or -not $p.TryGetDouble([ref]$d)) { throw 'nonnumeric' }
+      return $d
+    }
+    $out = [ordered]@{}
+    $out.agent = & $str 'agent' 'badagent'
+    $out.tier = (& $str 'tier' 'badtier').ToLowerInvariant()
+    $out.totalTokens = [double](& $num 'totalTokens')
+    $out.durationMs = [double](& $num 'durationMs')
+    if ($withOptional) {
+      foreach ($k in 'steps', 'stepsBeforeFirstEdit', 'minutesToFirstEdit') {
+        $v = & $num $k
+        if ($null -ne $v) { $out[$k] = $v }
+      }
+    }
+    return $out
+  } finally { $doc.Dispose() }
+}
+
 # Sanitize-Filename: byte-wise over UTF-8, mapping every byte outside
 # [A-Za-z0-9._-] to '-' (parity with the .sh twin's `tr -c 'A-Za-z0-9._-' '-'`
 # under LC_ALL=C). One definition shared by the default mode's runId sanitize
@@ -105,21 +149,9 @@ if ($mode -eq '--append') {
   $raw = [Console]::In.ReadToEnd()
   if ([string]::IsNullOrEmpty($raw)) { Fail 'empty stdin - no line appended' }
   try {
-    $eo = $raw | ConvertFrom-Json -ErrorAction Stop
-    if (-not $eo.PSObject.Properties['agent']) { throw 'badagent' }
-    $ea = $eo.agent
-    if ($null -eq $ea -or $ea -isnot [string] -or $ea.Length -eq 0) { throw 'badagent' }
-    if (-not $eo.PSObject.Properties['tier']) { throw 'badtier' }
-    $et = $eo.tier
-    if ($null -eq $et -or $et -isnot [string] -or $et.Length -eq 0) { throw 'badtier' }
-    $lineObj = [ordered]@{
-      agent = $ea; tier = $et.ToLowerInvariant()
-      totalTokens = (Fmt-Num (Numify $eo 'totalTokens'))
-      durationMs  = (Fmt-Num (Numify $eo 'durationMs'))
-    }
-    foreach ($k in 'steps', 'stepsBeforeFirstEdit', 'minutesToFirstEdit') {
-      if ($eo.PSObject.Properties[$k] -and $null -ne $eo.$k) { $lineObj[$k] = (Fmt-Num (Numify $eo $k)) }
-    }
+    $en = Read-UsageEntry $raw $true
+    $lineObj = [ordered]@{}
+    foreach ($k in $en.Keys) { $lineObj[$k] = if ($k -in 'agent', 'tier') { $en[$k] } else { Fmt-Num $en[$k] } }
     $lineJson = ($lineObj | ConvertTo-Json -Compress -ErrorAction Stop)
   } catch {
     Fail 'malformed input (unparseable JSON, missing/empty agent or tier, or non-numeric totalTokens/durationMs/steps/stepsBeforeFirstEdit/minutesToFirstEdit) - no line appended'
@@ -192,9 +224,6 @@ $usageFields = [ordered]@{
 # or a count that is not finite adds 0. ReadLines is lazy, so the early `return` on a pre-start file stops reading.
 # The enumerator is disposed by hand: a PowerShell `foreach` leaves it (and the file
 # handle) open until GC when the loop exits early.
-# MaxDepth 10000 matches jq's parse limit: the .NET default of 64 would drop a deeply nested line jq counts.
-$jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
-$jsonOpts.MaxDepth = 10000
 function Read-AgentTurns([string]$path, [long]$startEpoch) {
   try { $reader = [System.IO.File]::ReadLines($path).GetEnumerator() } catch { return $null }
   $started = $false
@@ -287,22 +316,8 @@ if ($mode -eq '--finalize') {
     $totalMs = 0.0
     $agentsList = @()
     foreach ($ln in $lines) {
-      # System.Text.Json takes only RFC 8259 whitespace and throws on trailing content, as `jq fromjson` does in the
-      # .sh twin; ConvertFrom-Json alone skips U+00A0, \v and \f and enumerates a one-element array.
-      $doc = [System.Text.Json.JsonDocument]::Parse($ln)
-      try { $isObject = $doc.RootElement.ValueKind -eq 'Object' } finally { $doc.Dispose() }
-      if (-not $isObject) { throw 'badline' }
-      $eo = $ln | ConvertFrom-Json -NoEnumerate -ErrorAction Stop
-      if ($eo -isnot [System.Management.Automation.PSCustomObject]) { throw 'badline' }
-      if (-not $eo.PSObject.Properties['agent']) { throw 'badagent' }
-      $ea = $eo.agent
-      if ($null -eq $ea -or $ea -isnot [string] -or $ea.Length -eq 0) { throw 'badagent' }
-      if (-not $eo.PSObject.Properties['tier']) { throw 'badtier' }
-      $et = $eo.tier
-      if ($null -eq $et -or $et -isnot [string] -or $et.Length -eq 0) { throw 'badtier' }
-      $et = $et.ToLowerInvariant()
-      $ett = Numify $eo 'totalTokens'
-      $edm = Numify $eo 'durationMs'
+      $en = Read-UsageEntry $ln $false
+      $ea = $en.agent; $et = $en.tier; $ett = $en.totalTokens; $edm = $en.durationMs
       if (-not $tierSums.Contains($et)) { $tierSums[$et] = 0.0 }
       $tierSums[$et] = $tierSums[$et] + $ett
       $totalMs += $edm

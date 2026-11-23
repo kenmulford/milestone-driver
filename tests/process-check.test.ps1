@@ -29,7 +29,6 @@ function Run([string[]]$cliArgs, [string]$script_ = $script, [hashtable]$envOver
 }
 function Status([string]$ws) { return Run @('--status', $ws) }
 function Record([string]$ws, [string]$outcome = 'clean') { return Run @('--record', $outcome, $ws) }
-function Err-Lines($err) { @($err -split "`r?`n" | Where-Object { $_ -ne '' }).Count }
 
 function Expect([string]$name, $r, [string]$wantOut, [int]$wantRc = 0, [string]$wantErr = '') {
   $wantErrText = if ($wantErr) { $wantErr + "`n" } else { '' }
@@ -38,6 +37,14 @@ function Expect([string]$name, $r, [string]$wantOut, [int]$wantRc = 0, [string]$
 }
 function Check([string]$name, [bool]$cond, [string]$detail = '') {
   if ($cond) { $script:pass++ } else { $script:fail++; Write-Host "FAIL $name $detail" }
+}
+# The marker text a digest over the contract and these workspace-relative paths (already in byte order) must produce.
+function Expected-Marker([string]$ws, [string[]]$relsInOrder, [string]$outcome = 'clean') {
+  $blob = { param($p) (& git hash-object --no-filters -- $p).Trim() }
+  $manifest = "contract $(& $blob (Join-Path $plugin 'skills/process-check.md'))`n"
+  foreach ($f in $relsInOrder) { $manifest += "$(& $blob (Join-Path $ws $f)) $f`n" }
+  $h = (Invoke-Child -Exe 'git' -Argv @('hash-object', '--stdin') -Stdin $manifest -Cwd '' -Env @{}).out.Trim()
+  return "{`"hash`":`"$h`",`"outcome`":`"$outcome`"}`n"
 }
 
 # The citation gate reads a quoted path-hash-word as a heading citation; these are profile fixtures.
@@ -135,13 +142,52 @@ try {
   foreach ($f in @('.claude/CLAUDE.md', '.project/B.md', '.project/a.md', ".project/$([char]0xE9).md", 'AGENTS.md', 'CLAUDE.md')) {
     $manifest += "$(& $blob (Join-Path $ws $f)) $f`n"
   }
-  $psi = [System.Diagnostics.ProcessStartInfo]::new('git')
-  [void]$psi.ArgumentList.Add('hash-object'); [void]$psi.ArgumentList.Add('--stdin')
-  $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.UseShellExecute = $false
-  $p = [System.Diagnostics.Process]::Start($psi)
-  $bytes = $utf8.GetBytes($manifest); $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length); $p.StandardInput.Close()
-  $want = $p.StandardOutput.ReadToEnd().Trim(); $p.WaitForExit()
+  $want = (Invoke-Child -Exe 'git' -Argv @('hash-object', '--stdin') -Stdin $manifest -Cwd '' -Env @{}).out.Trim()
   Check 'digest-manifest' ((Marker-Text $ws) -ceq "{`"hash`":`"$want`",`"outcome`":`"clean`"}`n") "marker=[$(Marker-Text $ws)] want=$want"
+
+  # ---- paths that differ only by case stay two manifest lines, as `sort -u` keeps them ----
+  # On a case-insensitive filesystem .project/A.md is the file .project/a.md; the digest still lists both names.
+  $ws = New-Ws
+  Put $ws '.project/a.md' "lower`n"
+  if (-not (Test-Path -LiteralPath (Join-Path $ws '.project/A.md'))) { Put $ws '.project/A.md' "upper`n" }
+  Put $ws '.milestone-config/driver.json' '{"standingDocs":["A.md"]}'
+  Record $ws 'clean' | Out-Null
+  Check 'case-only-paths-both-listed' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('.project/A.md', '.project/a.md'))) "marker=[$(Marker-Text $ws)]"
+  Expect 'case-only-paths-current' (Status $ws) "current`n"
+
+  # ---- JSON keys differing only by case: jq accepts them, so both legs must ----
+  $ws = New-Ws
+  Put $ws '.milestone-config/driver.json' '{"projectDocs":"docs","ProjectDocs":"y"}'
+  Put $ws 'docs/x.md' "x`n"
+  Expect 'profile-case-keys-status' (Status $ws) "due`n"
+  Expect 'profile-case-keys-record' (Record $ws 'clean') ''
+  Check 'profile-case-keys-uses-exact-key' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('docs/x.md'))) "marker=[$(Marker-Text $ws)]"
+  $hash = if ((Marker-Text $ws) -cmatch '"hash":"([0-9a-f]{40})"') { $Matches[1] } else { '' }
+  [System.IO.File]::WriteAllText((Marker-Path $ws), "{`"hash`":`"$hash`",`"Hash`":`"zzz`"}`n", $utf8)
+  Expect 'marker-case-keys-exact' (Status $ws) "current`n"
+
+  # ---- a legacy root milestone-driver.json is the profile when .milestone-config/driver.json is absent ----
+  $ws = New-Ws
+  Put $ws 'milestone-driver.json' '{"projectDocs":"docs/pd"}'
+  Put $ws 'docs/pd/x.md' "x`n"
+  Record $ws 'clean' | Out-Null
+  Check 'legacy-profile-hashes-projectDocs' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('docs/pd/x.md'))) "marker=[$(Marker-Text $ws)]"
+  Expect 'legacy-profile-current' (Status $ws) "current`n"
+  # both present: .milestone-config/driver.json wins
+  Put $ws '.milestone-config/driver.json' '{"projectDocs":"docs/other"}'
+  Put $ws 'docs/other/y.md' "y`n"
+  Record $ws 'clean' | Out-Null
+  Check 'legacy-profile-loses-to-canonical' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('docs/other/y.md'))) "marker=[$(Marker-Text $ws)]"
+  # an unusable legacy profile names itself
+  $ws = New-Ws; Put $ws 'milestone-driver.json' '{ not json'
+  Expect 'legacy-profile-unparseable' (Status $ws) '' 1 'process-check: cannot read milestone-driver.json'
+
+  # ---- an empty standingDocs entry names no file ------------------------------
+  $ws = New-Ws
+  Put $ws '.milestone-config/driver.json' '{"standingDocs":[""]}'
+  Put $ws '.project/null' "a file literally named null`n"
+  Record $ws 'clean' | Out-Null
+  Check 'standingDocs-empty-entry-skipped' ((Marker-Text $ws) -ceq (Expected-Marker $ws @())) "marker=[$(Marker-Text $ws)]"
 
   # ---- unusable markers read as due ----------------------------------------
   $ws = New-Ws; Put $ws 'CLAUDE.md' "a`n"
@@ -150,6 +196,13 @@ try {
     [System.IO.File]::WriteAllText((Marker-Path $ws), $bad, $utf8)
     Expect "bad-marker [$bad]" (Status $ws) "due`n"
   }
+  # JSON whitespace only: a leading no-break space makes the marker unusable even with the right hash, as jq reads it
+  Record $ws 'clean' | Out-Null
+  $mt = Marker-Text $ws
+  [System.IO.File]::WriteAllText((Marker-Path $ws), "$([char]0xA0)$mt", $utf8)
+  Expect 'marker-leading-nbsp' (Status $ws) "due`n"
+  [System.IO.File]::WriteAllText((Marker-Path $ws), " $mt", $utf8)
+  Expect 'marker-leading-space-ok' (Status $ws) "current`n"
   Remove-Item -LiteralPath (Marker-Path $ws)
   New-Item -ItemType Directory -Path (Marker-Path $ws) | Out-Null
   Expect 'marker-is-directory' (Status $ws) "due`n"
@@ -174,6 +227,8 @@ try {
   Expect 'profile-unparseable-record' (Record $ws) '' 1 'process-check: cannot read .milestone-config/driver.json'
   Put $ws '.milestone-config/driver.json' '[]'
   Expect 'profile-not-object' (Status $ws) '' 1 'process-check: cannot read .milestone-config/driver.json'
+  Put $ws '.milestone-config/driver.json' "$([char]0xA0){}"
+  Expect 'profile-leading-nbsp' (Status $ws) '' 1 'process-check: cannot read .milestone-config/driver.json'
   Remove-Item -Force -LiteralPath (Join-Path $ws '.milestone-config/driver.json')
   New-Item -ItemType Directory -Path (Join-Path $ws '.milestone-config/driver.json') | Out-Null
   Expect 'profile-is-directory' (Status $ws) '' 1 'process-check: cannot read .milestone-config/driver.json'

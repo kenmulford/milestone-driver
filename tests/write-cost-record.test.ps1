@@ -212,6 +212,10 @@ try {
   Append-Exact 'append-metrics-null-absent' '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"steps":null,"stepsBeforeFirstEdit":0,"minutesToFirstEdit":null}' `
     '{"agent":"implementer","tier":"opus","totalTokens":1234,"durationMs":5678,"stepsBeforeFirstEdit":0}'
 
+  # keys that differ only by case: jq accepts them and reads the lowercase members
+  Append-Exact 'append-case-only-duplicate-keys' '{"agent":"implementer","Agent":5,"tier":"opus","TIER":1,"totalTokens":7,"TotalTokens":"x","durationMs":9}' `
+    '{"agent":"implementer","tier":"opus","totalTokens":7,"durationMs":9}'
+
   # ---- append omitted totalTokens/durationMs -> zeros ----------------------
   $ws3 = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $ws3 | Out-Null
@@ -241,6 +245,8 @@ try {
   Append-FailOpen 'append-nonnumeric-steps'      'run-x' '{"agent":"a","tier":"opus","steps":"many"}'
   Append-FailOpen 'append-nonnumeric-stepsfirst' 'run-x' '{"agent":"a","tier":"opus","stepsBeforeFirstEdit":true}'
   Append-FailOpen 'append-nonnumeric-minsfirst'  'run-x' '{"agent":"a","tier":"opus","minutesToFirstEdit":"3"}'
+  # members are read by exact name, as jq does: a capitalized Agent or Tier is no agent or tier
+  Append-FailOpen 'append-capitalized-members' 'run-x' '{"Agent":"x","Tier":"opus","totalTokens":1}'
 
   # ---- append missing runId arg -> fail-open, no crash ----------------------
   $wNoId = Join-Path $root ([System.Guid]::NewGuid().ToString('N'))
@@ -748,6 +754,7 @@ try {
       @('line-array', [byte[]]($utf8.GetBytes("[$obj]`n"))),
       @('line-two-objects', [byte[]]($utf8.GetBytes("$obj$obj`n"))),
       @('line-two-objects-cr', [byte[]]($utf8.GetBytes("$obj`r$obj`n"))),
+      @('line-capitalized-members', [byte[]]($utf8.GetBytes('{"Agent":"a","Tier":"opus","totalTokens":10}' + "`n"))),
       @('valid-bad-valid', [byte[]]($lineBytes + $utf8.GetBytes("not json`n") + $lineBytes)))) {
     $rid = "run-nr-usage-$($case[0])"
     $w = New-NoRecordWs $rid $case[1]
@@ -767,6 +774,15 @@ try {
   if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -match 'no transcript directory argument - using unsplit totals' -and $j -and
       @($j.agents).Count -eq 2 -and $j.tiers.opus.inputTokens -eq 20 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
     No "finalize-usage-interior-blank: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
+
+  # a usage line whose keys differ only by case is one record: jq reads the lowercase members
+  $rid = 'run-nr-case-keys'
+  $w = New-NoRecordWs $rid ('{"agent":"a","Agent":5,"tier":"opus","Tier":1,"totalTokens":10,"TotalTokens":"x","durationMs":2000}' + "`n")
+  $r = Run-Finalize $w $rid
+  $j = Rec-Json $w
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -match 'no transcript directory argument - using unsplit totals' -and $j -and
+      @($j.agents).Count -eq 1 -and $j.tiers.opus.inputTokens -eq 10 -and $j.agents[0].agent -ceq 'a') { Ok } else {
+    No "finalize-usage-case-only-duplicate-keys: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
 
   # a file at the cost-records path is `cannot create` in both twins, and keeps the usage and start files, moving nothing aside
   $rid = 'run-nr-cannot-create'

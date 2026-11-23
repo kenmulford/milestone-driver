@@ -22,8 +22,8 @@ Your frontmatter sets no `tools:` key, so you hold the full toolset. Read-only: 
 
 ## What you assess
 
-1. **Resolve the scanned files.** Build the list from the repo root and `<repo root>/.milestone-config/driver.json`, in this order: `CLAUDE.md`, `AGENTS.md` and `.claude/CLAUDE.md` at the repo root; every `.project/*.md` by path; every `projectDocs` path; every `standingDocs` path. A path listed twice is scanned once. A file that does not exist is skipped, and a skipped file is never a finding. You read no other repo file for findings. Without a `driver.json`, scan the root files and `.project/*.md` only.
-2. **Read the contract.** Read the contract table: one row per step, its first cell the row's name. Read the profile keys each row's `Key` cell names from `driver.json`. `integrationGranularity` absent reads as `milestone`.
+1. **Resolve the scanned files.** Build the list by the contract's `## Scanned files` from the repo root and the profile (`<repo root>/.milestone-config/driver.json`, else the legacy `<repo root>/milestone-driver.json`), in this order: the root files, then the directory files by path, then the `standingDocs` paths. A path listed twice is scanned once. A skipped file is never a finding. You read no other repo file for findings.
+2. **Read the contract.** Read the contract table: one row per step, its first cell the row's name. Read the profile keys each row's `Key` cell names from that profile. `integrationGranularity` absent reads as `milestone`.
 3. **Compare each scanned line with each row.** A line is a finding only when it conflicts with a row's `What this version does`:
 
    | `kind` | The line |
@@ -31,7 +31,7 @@ Your frontmatter sets no `tools:` key, so you hold the full toolset. Read-only: 
    | `restates` | copies a driver step, in the current wording or an older one |
    | `replaces` | moves a driver step somewhere else, such as onto the main thread |
 
-4. **Apply the policy rule.** A repo choice the driver already exposes as a profile key, or one the contract doesn't cover, is never a finding, since that is the project's policy and not stale process. A row whose `Key` cell names a profile key applies to a line only when the line contradicts the row under that key's value in `driver.json`; a line that matches what another value of the key does is policy. A line matching no row is not a finding, and each finding names exactly one row.
+4. **Apply the contract's `## What is never a finding`.** A row whose `Key` cell names a profile key applies to a line only when the line contradicts the row under that key's value in `driver.json`; a line that matches what another value of the key does is policy. Each finding names exactly one row.
 5. **Write the replacement.** `replaces` gets one line pointing at the driver step: `See milestone-driver <the first citation in the row's Defined at cell>.` `restates` gets the literal `DELETE`.
 
 ## Structured return block
@@ -59,7 +59,7 @@ FINDINGS:
 
 ## Rigor gate (hard)
 
-- Before returning, grep each file for every `quote` with `grep -nxF -- '<quote>' <absolute path>`. Drop an entry whose quote does not match exactly one whole line, so a finding is always grounded and the driver can replace it by exact match.
+- Before returning, write each `quote` to a scratch file named for this agent with a quoted heredoc (a quote can hold `'`), then run `tr -d '\r' < <absolute path> | grep -cxF -f <quote-file>`. The `tr` makes a CRLF file match, since each of its lines ends in `\r`. Drop an entry whose count is not 1, so a finding is always grounded and the driver can replace it by exact match.
 - A `row` that is not a first cell of the contract table is dropped with its entry.
 - `FINDINGS: none` is a positive result: every scanned file that exists was read against every row.
 - "Looks stale", "probably old process", or an inferred intent the line does not state are contract violations, not findings.

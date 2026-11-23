@@ -6,14 +6,19 @@
 # them. Stdout, stderr, exit codes and marker bytes match it: UTF-8 without BOM,
 # LF line endings, written through [Console]::Out / [Console]::Error and
 # [IO.File], never the pipeline.
-# ConvertFrom-Json -NoEnumerate keeps a top-level array an array, so a marker or
-# profile that is not one JSON object is rejected as jq's length == 1 check does.
-# JSON keys are matched case-sensitively, as jq does.
+# A marker or profile is parsed by JsonDocument first (MaxDepth 10000, jq's limit):
+# RFC 8259 whitespace only, one value, an object root. A leading U+00A0, trailing
+# content or a top-level array is rejected as jq's length == 1 check does, where
+# ConvertFrom-Json alone would skip the U+00A0.
+# JSON keys are matched case-sensitively, as jq does, so the members are read
+# from JsonDocument by exact name; paths differing only by case stay distinct.
 # Sorting uses the byte-order idiom of scripts/check-citations.ps1 (function
 # ToByteChars): Latin1 over UTF-8 bytes compared with StringComparer.Ordinal
 # equals the bash leg's LC_ALL=C order.
-# The manifest goes to `git hash-object --stdin` as raw bytes, since piping a
-# string would re-encode it and append a newline.
+# The manifest is written as raw bytes to a temp file and hashed by path, since
+# piping a string would re-encode it and append a newline; `git hash-object
+# --no-filters -- <file>` gives `--stdin`'s id. One call hashes the contract and
+# every scanned file.
 # Exit codes: 0 ok · 1 unreadable profile or contract / write failure · 2 bad usage.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -41,49 +46,64 @@ if ([string]::IsNullOrEmpty($root) -or -not (Test-Path -LiteralPath $root -PathT
 $root = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($root)
 
 $plugin = Split-Path -Parent $PSScriptRoot
-$profilePath = "$root/.milestone-config/driver.json"
-
-function Get-Prop($obj, [string]$name) {
-  foreach ($p in $obj.PSObject.Properties) { if ($p.Name -ceq $name) { return $p } }
-  return $null
+$profilePath = "$root/.milestone-config/driver.json"; $profileName = '.milestone-config/driver.json'
+if (-not (Test-Path -LiteralPath $profilePath) -and (Test-Path -LiteralPath "$root/milestone-driver.json")) {
+  $profilePath = "$root/milestone-driver.json"; $profileName = 'milestone-driver.json'
 }
-function Read-JsonObject([string]$path) {
-  $o = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($path, $U8)) -NoEnumerate -ErrorAction Stop
-  if ($o -isnot [System.Management.Automation.PSCustomObject]) { throw 'not one JSON object' }
-  return $o
+
+$jsonOpts = [System.Text.Json.JsonDocumentOptions]::new()
+$jsonOpts.MaxDepth = 10000
+# Returns the named root members, looked up by exact case (ConvertFrom-Json throws on keys that differ only
+# by case, which jq accepts): a string as [string], an array as the object[] of its string elements.
+function Read-JsonObject([string]$path, [string[]]$names) {
+  $text = [System.IO.File]::ReadAllText($path, $U8)
+  $doc = [System.Text.Json.JsonDocument]::Parse($text, $jsonOpts)
+  try {
+    if ($doc.RootElement.ValueKind -ne 'Object') { throw 'not one JSON object' }
+    $out = @{}
+    foreach ($n in $names) {
+      $v = [System.Text.Json.JsonElement]::new()
+      if (-not $doc.RootElement.TryGetProperty($n, [ref]$v)) { continue }
+      if ($v.ValueKind -eq 'String') { $out[$n] = $v.GetString() }
+      elseif ($v.ValueKind -eq 'Array') {
+        $items = [System.Collections.Generic.List[object]]::new()
+        foreach ($e in $v.EnumerateArray()) { if ($e.ValueKind -eq 'String') { $items.Add($e.GetString()) } }
+        $out[$n] = $items.ToArray()
+      }
+    }
+    return $out
+  } finally { $doc.Dispose() }
 }
 
 $pd = ''; $docs = @()
 if (Test-Path -LiteralPath $profilePath) {
   try {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) { throw 'not a file' }
-    $prof = Read-JsonObject $profilePath
-  } catch { Die 1 'cannot read .milestone-config/driver.json' }
-  $p = Get-Prop $prof 'projectDocs'
-  if ($p -and $p.Value -is [string]) { $pd = $p.Value }
-  $p = Get-Prop $prof 'standingDocs'
-  if ($p -and $p.Value -is [object[]]) {
-    foreach ($e in $p.Value) { if ($e -is [string]) { $docs += $e.Split('#')[0] } }
-  }
+    $prof = Read-JsonObject $profilePath @('projectDocs', 'standingDocs')
+  } catch { Die 1 "cannot read $profileName" }
+  if ($prof['projectDocs'] -is [string]) { $pd = $prof['projectDocs'] }
+  if ($prof['standingDocs'] -is [object[]]) { foreach ($e in $prof['standingDocs']) { $docs += $e.Split('#')[0] } }
 }
 while ($pd.StartsWith('./', [StringComparison]::Ordinal)) { $pd = $pd.Substring(2) }
 while ($pd.EndsWith('/', [StringComparison]::Ordinal)) { $pd = $pd.Substring(0, $pd.Length - 1) }
 if ($pd -eq '') { $pd = '.project' }
 
-function Get-Blob([string]$path) {
-  try { $o = & git hash-object --no-filters -- $path 2>$null } catch { return $null }
+function Get-Blobs([string[]]$paths) {
+  try { $o = & git hash-object --no-filters -- @paths 2>$null } catch { return $null }
   if ($LASTEXITCODE -ne 0 -or -not $o) { return $null }
-  return ([string]$o).Trim()
+  return , @($o | ForEach-Object { ([string]$_).Trim() })
+}
+function Test-Readable([string]$path) {
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+  try { [System.IO.File]::OpenRead($path).Dispose(); return $true } catch { return $false }
 }
 
 $contract = "$plugin/skills/process-check.md"
-$c = $null
-if (Test-Path -LiteralPath $contract -PathType Leaf) { $c = Get-Blob $contract }
-if (-not $c) { Die 1 'cannot read skills/process-check.md' }
+if (-not (Test-Readable $contract)) { Die 1 'cannot read skills/process-check.md' }
 
 $cands = [System.Collections.Generic.List[string]]::new()
 foreach ($r in @('CLAUDE.md', 'AGENTS.md', '.claude/CLAUDE.md')) { $cands.Add($r) }
-foreach ($d in @('.project', $pd)) {
+foreach ($d in $(if ($pd -ceq '.project') { @('.project') } else { @('.project', $pd) })) {
   if (-not (Test-Path -LiteralPath "$root/$d" -PathType Container)) { continue }
   try { $files = [System.IO.Directory]::GetFiles("$root/$d") } catch { continue }
   foreach ($f in $files) {
@@ -96,36 +116,29 @@ foreach ($doc in $docs) {
   if ($doc -ne '') { $cands.Add("$pd/$doc") }
 }
 
-$byKey = @{}
+$byKey = [hashtable]::new([StringComparer]::Ordinal)
 foreach ($rel in $cands) { $byKey[(ToByteChars $rel)] = $rel }
 $keys = [string[]]@($byKey.Keys)
 [Array]::Sort($keys, [StringComparer]::Ordinal)
 
+$rels = @($keys | ForEach-Object { $byKey[$_] } | Where-Object { Test-Readable "$root/$_" })
+$blobs = Get-Blobs (@($contract) + @($rels | ForEach-Object { "$root/$_" }))
+if (-not $blobs -or $blobs.Count -ne $rels.Count + 1) { Die 1 'cannot hash the contract or a scanned file' }
+
 $manifest = [System.Text.StringBuilder]::new()
-[void]$manifest.Append("contract $c`n")
-foreach ($k in $keys) {
-  $rel = $byKey[$k]
-  if (-not (Test-Path -LiteralPath "$root/$rel" -PathType Leaf)) { continue }
-  $h = Get-Blob "$root/$rel"
-  if ($h) { [void]$manifest.Append("$h $rel`n") }
-}
+[void]$manifest.Append("contract $($blobs[0])`n")
+for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1]) $($rels[$i])`n") }
 
 $digest = $null
+$mf = $null
 try {
-  $psi = [System.Diagnostics.ProcessStartInfo]::new('git')
-  [void]$psi.ArgumentList.Add('hash-object'); [void]$psi.ArgumentList.Add('--stdin')
-  $psi.UseShellExecute = $false
-  $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
-  $proc = [System.Diagnostics.Process]::Start($psi)
-  $errTask = $proc.StandardError.ReadToEndAsync()
-  $bytes = $U8.GetBytes($manifest.ToString())
-  $proc.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
-  $proc.StandardInput.Close()
-  $digest = $proc.StandardOutput.ReadToEnd().Trim()
-  $proc.WaitForExit()
-  if ($proc.ExitCode -ne 0) { $digest = $null }
+  $mf = [System.IO.Path]::GetTempFileName()
+  [System.IO.File]::WriteAllBytes($mf, $U8.GetBytes($manifest.ToString()))
+  $d = Get-Blobs @($mf)
+  if ($d) { $digest = $d[0] }
 } catch { $digest = $null }
-if (-not $digest) { Die 1 'cannot read skills/process-check.md' }
+finally { if ($mf) { Remove-Item -LiteralPath $mf -Force -ErrorAction SilentlyContinue } }
+if (-not $digest) { Die 1 'cannot hash the contract or a scanned file' }
 
 $rt = "$root/.milestone-config/.runtime"
 $marker = "$rt/process-check.json"
@@ -134,8 +147,8 @@ if ($mode -ceq '--status') {
   $current = $false
   if (Test-Path -LiteralPath $marker -PathType Leaf) {
     try {
-      $hp = Get-Prop (Read-JsonObject $marker) 'hash'
-      if ($hp -and $hp.Value -is [string] -and $hp.Value -ceq $digest) { $current = $true }
+      $mh = (Read-JsonObject $marker @('hash'))['hash']
+      if ($mh -is [string] -and $mh -ceq $digest) { $current = $true }
     } catch { $current = $false }
   }
   [Console]::Out.Write($(if ($current) { "current`n" } else { "due`n" }))
