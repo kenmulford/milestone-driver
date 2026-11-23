@@ -6,11 +6,15 @@
 # <repo-root>/.milestone-config/.runtime/process-check.json, one line
 # {"hash":"<digest>","outcome":"<outcome>"} plus LF; --status compares only hash.
 # The digest is `git hash-object --stdin` over LF-terminated manifest lines:
-# `contract <blob>` first, then `profile <blob>` when a profile exists, then
-# `<blob> <repo-relative path>` per present scanned file in byte order. The profile
-# joins because the auditor judges keyed rows against its keys. Each <blob> is `git hash-object --no-filters`, so line-ending
-# filters never change it; one call hashes the contract, the profile and every file,
-# and prints the blobs in argument order. The contract is skills/process-check.md in this
+# `contract <blob>` first, then `key <name> <raw string value>` per present
+# string-valued profile key among integrationGranularity, implementerAgent,
+# unitTestCmd, e2eTestCmd, preflightCmd, coherenceReviewAgent (that order; absent and
+# non-string keys omitted; exact-case lookup), then `<blob> <repo-relative path>` per
+# present scanned file in byte order. Only those keys join because the auditor judges
+# keyed rows against them; hashing the whole profile would re-ask a run whose own
+# interview wrote another key (`parallel`). Each <blob> is `git hash-object --no-filters`, so
+# line-ending filters never change it; one call hashes the contract and every file, and
+# prints the blobs in argument order. The contract is skills/process-check.md in this
 # script's own plugin install, since the invocation carries no plugin-root argument.
 # Scanned files: CLAUDE.md, AGENTS.md and .claude/CLAUDE.md at the repo root, the
 # *.md directly inside .project/ and inside the profile's projectDocs directory
@@ -47,13 +51,15 @@ plugin="$(dirname "$here")"
 profile="$root/.milestone-config/driver.json"; pname='.milestone-config/driver.json'
 if [ ! -e "$profile" ] && [ -e "$root/milestone-driver.json" ]; then profile="$root/milestone-driver.json"; pname='milestone-driver.json'; fi
 
-pd=""; docs=""
+pd=""; docs=""; keys=""
 if [ -e "$profile" ]; then
   parsed="$([ -f "$profile" ] && jq -rs 'if length == 1 and (.[0] | type) == "object" then .[0] | ((.projectDocs | strings) // ""), (.standingDocs | arrays | .[] | strings | (split("#")[0] // "")) else error("not one object") end' "$profile" 2>/dev/null)" \
     || die "cannot read $pname"
   parsed="${parsed//$'\r'/}"
   pd="${parsed%%$'\n'*}"
   case "$parsed" in *$'\n'*) docs="${parsed#*$'\n'}" ;; esac
+  keys="$(jq -js '.[0] as $p | ["integrationGranularity","implementerAgent","unitTestCmd","e2eTestCmd","preflightCmd","coherenceReviewAgent"][] | . as $k | ($p[$k] | strings) | "key \($k) \(.)\n"' "$profile" 2>/dev/null; printf x)"
+  keys="${keys%x}"
 fi
 while [ "${pd#./}" != "$pd" ]; do pd="${pd#./}"; done
 while [ "${pd%/}" != "$pd" ]; do pd="${pd%/}"; done
@@ -76,14 +82,12 @@ while IFS= read -r rel; do
   [ -n "$rel" ] && [ -f "$root/$rel" ] && [ -r "$root/$rel" ] || continue
   rels+=("$rel"); files+=("$root/$rel")
 done <<< "$(printf '%s' "$list" | LC_ALL=C sort -u)"
-pargs=(); [ -e "$profile" ] && pargs=("$profile")
-blobs="$(git hash-object --no-filters -- "$contract" ${pargs[@]+"${pargs[@]}"} ${files[@]+"${files[@]}"} 2>/dev/null)" || die 'cannot hash the contract or a scanned file'
+blobs="$(git hash-object --no-filters -- "$contract" ${files[@]+"${files[@]}"} 2>/dev/null)" || die 'cannot hash the contract or a scanned file'
 
 manifest=""; i=-1
 while IFS= read -r h; do
-  if [ "$i" -lt 0 ]; then manifest="contract $h"$'\n'
-  elif [ "${#pargs[@]}" -gt 0 ] && [ "$i" -eq 0 ]; then manifest="${manifest}profile $h"$'\n'
-  else manifest="$manifest$h ${rels[$((i - ${#pargs[@]}))]}"$'\n'; fi
+  if [ "$i" -lt 0 ]; then manifest="contract $h"$'\n'"$keys"
+  else manifest="$manifest$h ${rels[$i]}"$'\n'; fi
   i=$((i + 1))
 done <<< "$blobs"
 digest="$(printf '%s' "$manifest" | git hash-object --stdin 2>/dev/null)"

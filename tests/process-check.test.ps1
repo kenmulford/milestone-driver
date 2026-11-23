@@ -38,12 +38,25 @@ function Expect([string]$name, $r, [string]$wantOut, [int]$wantRc = 0, [string]$
 function Check([string]$name, [bool]$cond, [string]$detail = '') {
   if ($cond) { $script:pass++ } else { $script:fail++; Write-Host "FAIL $name $detail" }
 }
-# The marker text a digest over the contract, the resolved profile (when present) and these workspace-relative paths (already in byte order) must produce.
+# The contract keys the digest reads from the profile, in manifest order: one `key <name> <raw string value>` line per present string-valued key.
+$CONTRACT_KEYS = @('integrationGranularity', 'implementerAgent', 'unitTestCmd', 'e2eTestCmd', 'preflightCmd', 'coherenceReviewAgent')
+function Key-Lines([string]$profilePath) {
+  $doc = [System.Text.Json.JsonDocument]::Parse([System.IO.File]::ReadAllText($profilePath, $utf8))
+  try {
+    $out = ''
+    foreach ($k in $CONTRACT_KEYS) {
+      $v = [System.Text.Json.JsonElement]::new()
+      if ($doc.RootElement.TryGetProperty($k, [ref]$v) -and $v.ValueKind -eq 'String') { $out += "key $k $($v.GetString())`n" }
+    }
+    return $out
+  } finally { $doc.Dispose() }
+}
+# The marker text a digest over the contract, the resolved profile's contract keys (when a profile exists) and these workspace-relative paths (already in byte order) must produce.
 function Expected-Marker([string]$ws, [string[]]$relsInOrder, [string]$outcome = 'clean') {
   $blob = { param($p) (& git hash-object --no-filters -- $p).Trim() }
   $manifest = "contract $(& $blob (Join-Path $plugin 'skills/process-check.md'))`n"
   $prof = @('.milestone-config/driver.json', 'milestone-driver.json') | Where-Object { Test-Path -LiteralPath (Join-Path $ws $_) } | Select-Object -First 1
-  if ($prof) { $manifest += "profile $(& $blob (Join-Path $ws $prof))`n" }
+  if ($prof) { $manifest += Key-Lines (Join-Path $ws $prof) }
   foreach ($f in $relsInOrder) { $manifest += "$(& $blob (Join-Path $ws $f)) $f`n" }
   $h = (Invoke-Child -Exe 'git' -Argv @('hash-object', '--stdin') -Stdin $manifest -Cwd '' -Env @{}).out.Trim()
   return "{`"hash`":`"$h`",`"outcome`":`"$outcome`"}`n"
@@ -184,18 +197,28 @@ try {
   $ws = New-Ws; Put $ws 'milestone-driver.json' '{ not json'
   Expect 'legacy-profile-unparseable' (Status $ws) '' 1 'process-check: cannot read milestone-driver.json'
 
-  # ---- the resolved profile's bytes join the digest: the auditor judges keyed rows against its keys ----
+  # ---- the profile's contract keys join the digest, and nothing else in it does: the auditor judges keyed rows against those keys ----
   $ws = New-Ws
-  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"milestone"}'
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"milestone","unitTestCmd":"t","e2eTestCmd":5,"preflightCmd":null,"implementerAgent":["x"]}'
   Put $ws 'CLAUDE.md' "a`n"
   Record $ws 'clean' | Out-Null
-  Check 'profile-in-digest' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
+  Check 'profile-keys-in-digest' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
   Expect 'profile-recorded-current' (Status $ws) "current`n"
-  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"wave"}'
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"milestone","unitTestCmd":"t","e2eTestCmd":5,"preflightCmd":null,"implementerAgent":["x"],"parallel":false}'
+  Expect 'profile-parallel-added-current' (Status $ws) "current`n"
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"milestone","unitTestCmd":"t","e2eTestCmd":9,"preflightCmd":false,"implementerAgent":{"a":1}}'
+  Expect 'profile-nonstring-keys-current' (Status $ws) "current`n"
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"wave","unitTestCmd":"t"}'
   Expect 'profile-key-changed' (Status $ws) "due`n"
   Record $ws 'clean' | Out-Null
   Check 'profile-changed-digest' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
   Expect 'profile-rerecorded-current' (Status $ws) "current`n"
+  Put $ws '.milestone-config/driver.json' '{"integrationGranularity":"wave","unitTestCmd":"t","IntegrationGranularity":"x"}'
+  Expect 'profile-key-case-exact-current' (Status $ws) "current`n"
+  # raw value bytes (non-ASCII, quote, backslash, embedded newline, trailing newline) hash the same on both legs
+  Put $ws '.milestone-config/driver.json' ('{"preflightCmd":"p ' + [char]0xE9 + ' \"q\" \\ \nz","coherenceReviewAgent":"c\n"}')
+  Record $ws 'clean' | Out-Null
+  Check 'profile-raw-value-bytes' ((Marker-Text $ws) -ceq (Expected-Marker $ws @('CLAUDE.md'))) "marker=[$(Marker-Text $ws)]"
 
   # ---- an empty standingDocs entry names no file ------------------------------
   $ws = New-Ws

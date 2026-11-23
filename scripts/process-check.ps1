@@ -18,8 +18,8 @@
 # The manifest is written as raw bytes to a temp file and hashed by path, since
 # piping a string would re-encode it and append a newline; `git hash-object
 # --no-filters -- <file>` gives `--stdin`'s id. One call hashes the contract and
-# every scanned file, and the resolved profile when one exists: the auditor judges
-# keyed rows against its keys.
+# every scanned file. The profile joins only as `key <name> <raw string value>` lines
+# for its contract keys, which the .sh twin lists: the auditor judges keyed rows against them.
 # Exit codes: 0 ok · 1 unreadable profile or contract / write failure · 2 bad usage.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -76,11 +76,12 @@ function Read-JsonObject([string]$path, [string[]]$names) {
   } finally { $doc.Dispose() }
 }
 
-$pd = ''; $docs = @()
+$pd = ''; $docs = @(); $prof = @{}
+$contractKeys = @('integrationGranularity', 'implementerAgent', 'unitTestCmd', 'e2eTestCmd', 'preflightCmd', 'coherenceReviewAgent')
 if (Test-Path -LiteralPath $profilePath) {
   try {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) { throw 'not a file' }
-    $prof = Read-JsonObject $profilePath @('projectDocs', 'standingDocs')
+    $prof = Read-JsonObject $profilePath (@('projectDocs', 'standingDocs') + $contractKeys)
   } catch { Die 1 "cannot read $profileName" }
   if ($prof['projectDocs'] -is [string]) { $pd = $prof['projectDocs'] }
   if ($prof['standingDocs'] -is [object[]]) { foreach ($e in $prof['standingDocs']) { $docs += $e.Split('#')[0] } }
@@ -123,15 +124,13 @@ $keys = [string[]]@($byKey.Keys)
 [Array]::Sort($keys, [StringComparer]::Ordinal)
 
 $rels = @($keys | ForEach-Object { $byKey[$_] } | Where-Object { Test-Readable "$root/$_" })
-$hasProfile = Test-Path -LiteralPath $profilePath
-$np = if ($hasProfile) { 1 } else { 0 }
-$blobs = Get-Blobs (@($contract) + @(if ($hasProfile) { $profilePath }) + @($rels | ForEach-Object { "$root/$_" }))
-if (-not $blobs -or $blobs.Count -ne $rels.Count + 1 + $np) { Die 1 'cannot hash the contract or a scanned file' }
+$blobs = Get-Blobs (@($contract) + @($rels | ForEach-Object { "$root/$_" }))
+if (-not $blobs -or $blobs.Count -ne $rels.Count + 1) { Die 1 'cannot hash the contract or a scanned file' }
 
 $manifest = [System.Text.StringBuilder]::new()
 [void]$manifest.Append("contract $($blobs[0])`n")
-if ($hasProfile) { [void]$manifest.Append("profile $($blobs[1])`n") }
-for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1 + $np]) $($rels[$i])`n") }
+foreach ($k in $contractKeys) { if ($prof[$k] -is [string]) { [void]$manifest.Append("key $k $($prof[$k])`n") } }
+for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1]) $($rels[$i])`n") }
 
 $digest = $null
 $mf = $null

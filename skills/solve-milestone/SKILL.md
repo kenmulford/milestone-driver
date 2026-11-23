@@ -68,7 +68,7 @@ Before starting · The procedure - 1. List the milestone's open issues · 2. Det
    4.1. **Process check.** Run `${CLAUDE_PLUGIN_ROOT}/scripts/process-check.{sh,ps1} --status <repo-root>`: `due` → read `${CLAUDE_PLUGIN_ROOT}/skills/process-check-procedure.md` and run its `## Run-start procedure`, the milestone id as `<runId>`; `current` → hold `current`; nonzero exit → one log line, hold `skipped`. Hold the value as `processCheck:` all run, restated per `solve-issue`. The first `solve-issue` step 3.5 applies any edits taken.
 5. **Resolve execution mode (the last Before-starting step).** Resolve once, here; hold all run. Evaluate the cascade top-down; first match wins:
 
-   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview): a driven run takes row 4′ instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
+   **The `--driven` token.** An interpreted token, not a parsed CLI flag - recognized by string presence in the invocation text, never argument parsing. Only an internal caller dispatching this skill supplies it. It gates only row 4 (the DB-hazard interview) and step 4.1's question: a driven run takes row 4′ and the notice-only row instead of prompting. Every other Before-starting prompt is unaffected - step 3's numeric-title halt still halts and prompts on a driven run.
 
    | # | Condition | Resolved mode | Dispatch | Surfacing |
    |---|---|---|---|---|

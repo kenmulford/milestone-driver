@@ -122,7 +122,7 @@ milestone-driver runs three stages in order. Every stage is gated, so no single 
 2. Build loop. It works the issues in dependency order. For each one it locks an approach, dispatches a subagent to write it test-first, runs your unit and E2E suites, reviews the diff, and opens a PR.
 3. Merge. Built issues auto-merge to your integration branch when CI is green, with no UI/logic distinction. Risky issues park instead of guessing.
 
-Once a run's feature branch or milestone is known, the driver checks your project's instruction files for text that replaces a driver step, and asks before editing anything. Accepted edits ride the run's own feature branch, in its first issue's PR. The check's marker is `.milestone-config/.runtime/process-check.json`; delete it to force a re-check. Until that issue closes, `.milestone-config/.runtime/process-check-pending.json` pauses the check; delete it to re-check.
+Once a run's feature branch or milestone is known, the driver checks your project's instruction files for text that replaces a driver step, and asks before editing anything. Accepted edits ride the run's own feature branch: they land with the run's first issue, in the milestone PR under milestone granularity. The check's marker is `.milestone-config/.runtime/process-check.json`; delete it to force a re-check. Until that issue closes, `.milestone-config/.runtime/process-check-pending.json` pauses the check; delete it to re-check. Once it closes as completed, the next check records `updated` and asks nothing.
 
 Discipline is enforced by local hooks, not by trust. Commits are blocked on red tests, pushes to your protected branch are blocked, and source edits are forced through subagents so the main thread only orchestrates.
 
