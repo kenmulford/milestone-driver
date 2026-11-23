@@ -106,6 +106,54 @@ Expect 'allow-escape-hatch' (Invoke-Hook $W 'Agent' $Impl 'x' '' $true) 0
 & git -C $W commit -q -am step 2>$null | Out-Null
 Expect 'reset-on-new-head' (Invoke-Hook $W 'Agent' $Impl 'Build issue #7') 0
 
+# ---- milestone end: the marker keys `milestone-<n>`, 3 implementer + 1 planner, HEAD-proof
+$WS = New-Workspace 'milestone-53-x'
+$CapDir = Join-Path $WS '.git' 'milestone-driver' 'dispatch-cap'
+$Mark = "Milestone-End-Fix: 53`nFix the finding."
+Expect 'ms-implementer-allow-1' (Invoke-Hook $WS 'Agent' $Impl $Mark) 0
+$fm = Join-Path $CapDir 'implementer-milestone-53'
+if ((Test-Path -LiteralPath $fm) -and (Get-Content -LiteralPath $fm -Raw) -ceq "milestone-53-x 1`n") { Ok }
+else { No "ms-counter-first: [$fm]" }
+foreach ($i in 2..3) { Expect "ms-implementer-allow-$i" (Invoke-Hook $WS 'Agent' $Impl $Mark) 0 }
+$r = Invoke-Hook $WS 'Agent' $Impl $Mark
+Expect 'ms-implementer-deny-4th' $r 2
+if ($r.err -match 'implementer dispatch 4 of at most 3 for branch milestone-53 ') { Ok }
+else { No "ms-implementer-deny-message: err=[$(Show-Escaped $r.err)]" }
+Expect 'ms-planner-allow-1' (Invoke-Hook $WS 'Agent' $Plan $Mark) 0
+if (Test-Path -LiteralPath (Join-Path $CapDir 'planner-milestone-53')) { Ok } else { No 'ms-planner-counter-created' }
+$r = Invoke-Hook $WS 'Agent' $Plan $Mark
+Expect 'ms-planner-deny-2nd' $r 2
+if ($r.err -match 'planner dispatch 2 of at most 1 for branch milestone-53 ') { Ok }
+else { No "ms-planner-deny-message: err=[$(Show-Escaped $r.err)]" }
+[System.IO.File]::AppendAllText((Join-Path $WS 'README.md'), "fix`n", $utf8)
+& git -C $WS commit -q -am fix 2>$null | Out-Null
+Expect 'ms-deny-after-head-move' (Invoke-Hook $WS 'Agent' $Impl $Mark) 2
+Expect 'ms-subagent-context-allowed' (Invoke-Hook $WS 'Agent' $Impl $Mark 'agent-1') 0
+Expect 'ms-escape-hatch-allowed' (Invoke-Hook $WS 'Agent' $Impl $Mark '' $true) 0
+if ((Get-Content -LiteralPath $fm -Raw) -ceq "milestone-53-x 3`n") { Ok } else { No "ms-counter-unchanged: [$((Get-Content -LiteralPath $fm -Raw))]" }
+
+# ---- milestone branch, no matching marker: today's issue key, milestone counter untouched
+Expect 'ms-no-marker-issue-key' (Invoke-Hook $WS 'Agent' $Impl 'Build issue #7') 0
+Expect 'ms-mid-prompt-marker-issue-key' (Invoke-Hook $WS 'Agent' $Impl "Build issue #8`nMilestone-End-Fix: 53") 0
+Expect 'ms-mismatched-marker-issue-key' (Invoke-Hook $WS 'Agent' $Impl "Milestone-End-Fix: 54`nIssue #9") 0
+Expect 'ms-longer-number-marker-issue-key' (Invoke-Hook $WS 'Agent' $Impl "Milestone-End-Fix: 530`nIssue #10") 0
+foreach ($k in 7, 8, 9, 10) {
+  if (Test-Path -LiteralPath (Join-Path $CapDir "implementer-$k")) { Ok } else { No "ms-issue-key-$k-counter" }
+}
+if (-not (Test-Path -LiteralPath (Join-Path $CapDir 'implementer-milestone-54'))) { Ok } else { No 'ms-54-counter-absent' }
+if ((Get-Content -LiteralPath $fm -Raw) -ceq "milestone-53-x 3`n") { Ok } else { No 'ms-counter-untouched-by-unmarked' }
+
+# ---- the marker on a non-milestone branch keeps the issue key; review is never milestone-keyed
+$WI = New-Workspace 'issue/7-x'
+Expect 'marker-on-issue-branch' (Invoke-Hook $WI 'Agent' $Impl $Mark) 0
+if ((Test-Path -LiteralPath (Join-Path $WI '.git' 'milestone-driver' 'dispatch-cap' 'implementer-7')) -and
+    -not (Test-Path -LiteralPath (Join-Path $WI '.git' 'milestone-driver' 'dispatch-cap' 'implementer-milestone-53'))) { Ok }
+else { No 'marker-on-issue-branch-key' }
+Expect 'ms-review-skill-branch-key' (Invoke-Hook $WS 'Skill' 'code-review' $Mark) 0
+if ((Test-Path -LiteralPath (Join-Path $CapDir 'review-milestone-53-x')) -and
+    -not (Test-Path -LiteralPath (Join-Path $CapDir 'review-milestone-53'))) { Ok }
+else { No 'ms-review-skill-key' }
+
 # ---- allow: no profile means not a milestone-driver repo -------------------
 $WN = New-Workspace 'issue/7-x' '-'
 $r = $null

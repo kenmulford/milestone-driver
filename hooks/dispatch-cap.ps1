@@ -65,8 +65,17 @@ $branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
 if ($LASTEXITCODE -ne 0) { exit 0 }
 $branch = [string]$branch
 $key = ''
+$msKey = ''
+$mb = [regex]::Match($branch, '^milestone-(\d+)-')
+if ($kind -cne 'review' -and $mb.Success) {
+    $mk = [regex]::Match($text, '^Milestone-End-Fix:\s*(\d+)')
+    if ($mk.Success -and $mk.Groups[1].Value -ceq $mb.Groups[1].Value) {
+        $msKey = "milestone-$($mb.Groups[1].Value)"; $key = $msKey
+        if ($kind -ceq 'planner') { $Cap = 1 }
+    }
+}
 $m = [regex]::Match($branch, '^issue/(\d+)')
-if ($m.Success) { $key = $m.Groups[1].Value }
+if (-not $key -and $m.Success) { $key = $m.Groups[1].Value }
 if (-not $key) { $m = [regex]::Match($text, '[Ii]ssue[\s#:/_-]*(\d+)'); if ($m.Success) { $key = $m.Groups[1].Value } }
 if (-not $key) { $m = [regex]::Match($text, '#(\d+)'); if ($m.Success) { $key = $m.Groups[1].Value } }
 if (-not $key) { $key = $branch -replace '[^A-Za-z0-9._-]', '_' }
@@ -84,11 +93,12 @@ $dir = Join-Path $common 'milestone-driver' 'dispatch-cap'
 try { New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop | Out-Null } catch { exit 0 }
 $file = Join-Path $dir "$kind-$key"
 
+$token = if ($msKey) { $branch } else { $head }
 $count = 0
 if (Test-Path -LiteralPath $file) {
     try {
         $parts = ((Get-Content -LiteralPath $file -Raw -ErrorAction Stop).Trim()) -split ' '
-        if ($parts.Count -ge 2 -and $parts[0] -ceq $head -and $parts[1] -match '^\d+$') { $count = [int]$parts[1] }
+        if ($parts.Count -ge 2 -and $parts[0] -ceq $token -and $parts[1] -match '^\d+$') { $count = [int]$parts[1] }
     } catch { $count = 0 }
 }
 
@@ -98,5 +108,5 @@ if ($count -ge $Cap) {
     Invoke-HookDeny $hook ("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (${root}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
 }
 
-try { [System.IO.File]::WriteAllText($file, "$head $($count + 1)`n", [System.Text.UTF8Encoding]::new($false)) } catch { }
+try { [System.IO.File]::WriteAllText($file, "$token $($count + 1)`n", [System.Text.UTF8Encoding]::new($false)) } catch { }
 exit 0

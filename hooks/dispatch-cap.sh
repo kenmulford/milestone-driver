@@ -6,10 +6,13 @@
 # implementerAgent), the caps skills/review-depth.md states, plus 2 planner
 # dispatches (subagent_type `milestone-driver:planner`, fixed, not profile-read).
 # Main thread only; the parallel-mode reviewer leaf (general-purpose) is not counted.
-# Key: branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the brief, else the
-# branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
+# Key: `milestone-<n>` for an implementer or planner brief that opens with
+# `Milestone-End-Fix: <n>` on branch `milestone-<n>-*` (3 implementer + 1 planner
+# per milestone end), else branch `issue/<n>-*`, else `issue <n>` / `#<n>` in the
+# brief, else the branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
 # holds `<HEAD> <count>`; a moved HEAD or a park (`scripts/reset-dispatch-cap`)
-# resets it.
+# resets it. The `milestone-<n>` counter holds `<branch> <count>` instead: a fix
+# commit moves HEAD, so only the branch delete (`scripts/reset-dispatch-cap`) resets it.
 # Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.
 # Fail-open on missing jq/git, no repo, or unparsed stdin. bash-3.2-safe (the
 # =~ patterns sit in variables: 3.2 mis-parses a quoted inline regex).
@@ -81,10 +84,22 @@ text="$(printf '%s' "$input" | jq -r ".tool_input.$field // empty" 2>/dev/null)"
 
 branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
 key=''
+ms_key=''
 re_branch='^issue/([0-9]+)'
+re_ms_branch='^milestone-([0-9]+)-'
+re_marker='^Milestone-End-Fix:[[:space:]]*([0-9]+)'
 re_issue='[Ii]ssue[[:space:]#:/_-]*([0-9]+)'
 re_hash='#([0-9]+)'
-if [[ $branch =~ $re_branch ]]; then
+if [ "$kind" != review ] && [[ $branch =~ $re_ms_branch ]]; then
+  ms_n="${BASH_REMATCH[1]}"
+  if [[ $text =~ $re_marker ]] && [ "${BASH_REMATCH[1]}" = "$ms_n" ]; then
+    ms_key="milestone-$ms_n"; key="$ms_key"
+    [ "$kind" = planner ] && cap=1
+  fi
+fi
+if [ -n "$key" ]; then
+  :
+elif [[ $branch =~ $re_branch ]]; then
   key="${BASH_REMATCH[1]}"
 elif [[ $text =~ $re_issue ]]; then
   key="${BASH_REMATCH[1]}"
@@ -107,10 +122,11 @@ dir="$common/milestone-driver/dispatch-cap"
 mkdir -p "$dir" 2>/dev/null || exit 0
 file="$dir/$kind-$key"
 
+token="$head"; [ -n "$ms_key" ] && token="$branch"
 count=0
 if [ -f "$file" ]; then
-  read -r stored_head stored_count < "$file"
-  [ "$stored_head" = "$head" ] && count="${stored_count:-0}"
+  read -r stored_token stored_count < "$file"
+  [ "$stored_token" = "$token" ] && count="${stored_count:-0}"
 fi
 case "$count" in ''|*[!0-9]*) count=0 ;; esac
 
@@ -119,5 +135,5 @@ if [ "$count" -ge "$cap" ]; then
   hook_deny "$input" "milestone-driver: dispatch cap - this would be $kind dispatch $((count + 1)) of at most $cap for $what (${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
 fi
 
-printf '%s %s\n' "$head" "$((count + 1))" > "$file" 2>/dev/null
+printf '%s %s\n' "$token" "$((count + 1))" > "$file" 2>/dev/null
 exit 0
