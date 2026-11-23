@@ -287,7 +287,12 @@ if ($mode -eq '--finalize') {
     $totalMs = 0.0
     $agentsList = @()
     foreach ($ln in $lines) {
-      $eo = $ln | ConvertFrom-Json -ErrorAction Stop
+      # System.Text.Json takes only RFC 8259 whitespace and throws on trailing content, as `jq fromjson` does in the
+      # .sh twin; ConvertFrom-Json alone skips U+00A0, \v and \f and enumerates a one-element array.
+      $doc = [System.Text.Json.JsonDocument]::Parse($ln)
+      try { $isObject = $doc.RootElement.ValueKind -eq 'Object' } finally { $doc.Dispose() }
+      if (-not $isObject) { throw 'badline' }
+      $eo = $ln | ConvertFrom-Json -NoEnumerate -ErrorAction Stop
       if ($eo -isnot [System.Management.Automation.PSCustomObject]) { throw 'badline' }
       if (-not $eo.PSObject.Properties['agent']) { throw 'badagent' }
       $ea = $eo.agent

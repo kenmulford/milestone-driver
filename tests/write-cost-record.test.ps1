@@ -735,10 +735,20 @@ try {
 
   # a usage file holding only a BOM and spaces, or only a no-break space, is data jq cannot read: moved aside, not "no usage data";
   # so is a valid line followed by a line of only a vertical tab, a form feed or a no-break space, which are not JSON whitespace
+  # A usage line holds exactly one JSON object between JSON whitespace: a leading no-break space, a trailing vertical tab or
+  # form feed, a one-element array, two objects, or a lone CR between objects is not that, and neither is a bad line between good ones.
   $lineBytes = $utf8.GetBytes($usageLine)
+  $obj = $usageLine.TrimEnd("`n")
+  $objBytes = $utf8.GetBytes($obj)
   foreach ($case in @(@('bom-spaces', [byte[]](0xEF, 0xBB, 0xBF, 0x20, 0x20, 0x0A)), @('nbsp', [byte[]](0xC2, 0xA0, 0x0A)),
       @('line-vt', [byte[]]($lineBytes + [byte[]](0x0B, 0x0A))), @('line-ff', [byte[]]($lineBytes + [byte[]](0x0C, 0x0A))),
-      @('line-nbsp', [byte[]]($lineBytes + [byte[]](0xC2, 0xA0, 0x0A))))) {
+      @('line-nbsp', [byte[]]($lineBytes + [byte[]](0xC2, 0xA0, 0x0A))),
+      @('line-lead-nbsp', [byte[]]([byte[]](0xC2, 0xA0) + $lineBytes)),
+      @('line-trail-vt', [byte[]]($objBytes + [byte[]](0x0B, 0x0A))), @('line-trail-ff', [byte[]]($objBytes + [byte[]](0x0C, 0x0A))),
+      @('line-array', [byte[]]($utf8.GetBytes("[$obj]`n"))),
+      @('line-two-objects', [byte[]]($utf8.GetBytes("$obj$obj`n"))),
+      @('line-two-objects-cr', [byte[]]($utf8.GetBytes("$obj`r$obj`n"))),
+      @('valid-bad-valid', [byte[]]($lineBytes + $utf8.GetBytes("not json`n") + $lineBytes)))) {
     $rid = "run-nr-usage-$($case[0])"
     $w = New-NoRecordWs $rid $case[1]
     $r = Run-Finalize $w $rid $tfx
@@ -748,6 +758,15 @@ try {
         (-not (Rec-File $w)) -and $startGone -and (Aside-Ok $w $rid $case[1])) { Ok } else {
       No "finalize-usage-$($case[0]): rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w) startGone=$startGone" }
   }
+
+  # a blank interior line, with or without JSON whitespace on it, is skipped by both twins, so the two lines make one record
+  $rid = 'run-nr-interior-blank'
+  $w = New-NoRecordWs $rid ($usageLine + " `t`r`n`n" + $usageLine)
+  $r = Run-Finalize $w $rid
+  $j = Rec-Json $w
+  if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and $r.err -match 'no transcript directory argument - using unsplit totals' -and $j -and
+      @($j.agents).Count -eq 2 -and $j.tiers.opus.inputTokens -eq 20 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
+    No "finalize-usage-interior-blank: rc=$($r.rc) err=[$($r.err)] record=$(Rec-File $w)" }
 
   # a file at the cost-records path is `cannot create` in both twins, and keeps the usage and start files, moving nothing aside
   $rid = 'run-nr-cannot-create'
@@ -768,8 +787,7 @@ try {
     $crPath = Join-Path $w '.milestone-config/.runtime/cost-records'
     New-Item -ItemType Directory -Force -Path $crPath | Out-Null
     & chmod 555 $crPath
-    $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' }
-    & chmod 755 $crPath
+    try { $r = Run-Finalize $w $rid $tfx @{ CLAUDE_CODE_SESSION_ID = 'sess-same' } } finally { & chmod 755 $crPath }
     if ($r.rc -eq 0 -and (Err-Lines $r.err) -eq 1 -and
         $r.err -cmatch "^write-cost-record: cannot write record to \.milestone-config/\.runtime/cost-records/$rid-[0-9]+-[0-9]+-[0-9]+-[0-9]+\.json - no record written\s*$" -and
         (Run-Files $w $rid) -eq 2 -and -not (Test-Path -LiteralPath (Usage-File $w $rid 'jsonl.bad'))) { Ok } else {
