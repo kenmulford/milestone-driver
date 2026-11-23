@@ -3,6 +3,41 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.33.0 - the driver spots a project process that replaces its own
+
+**Theme:** At run start the driver checks the project's instruction files for any line that restates or replaces a step it owns. It lists the stale lines in plain English, and on the user's yes those edits land with the run's first issue.
+
+### ✨ Process check
+
+| Issue | PR | What |
+|---|---|---|
+| #790 Add the process-check contract beside the one-time notices | - | `skills/process-check.md` holds the contract the check judges against: the scanned files, what never counts as a finding, and a 7-row table (Planning, Packet content, Implementer verify, Integration and build cadence, Test gates, Review cadence, Park labels). |
+| #791 Add the process-check status and record script twins | - | `scripts/process-check.{sh,ps1} --status <repo-root>` prints `current` or `due` by hashing the contract, six contract keys from the resolved profile (`integrationGranularity`, `implementerAgent`, `unitTestCmd`, `e2eTestCmd`, `preflightCmd`, `coherenceReviewAgent`) and the scanned files. `--record <clean\|updated\|declined>` writes `.milestone-config/.runtime/process-check.json`. Deleting that file forces a re-check. |
+| #792 Add the read-only process-auditor agent and its fixture repo | - | `milestone-driver:process-auditor` (sonnet) returns one finding per scanned line that contradicts a contract row, each with `file`, a verbatim `quote` and its `replacement`. It drops any quote that does not match exactly one line. |
+| #793 Run the process check at run start in solve-issue and solve-milestone | - | `solve-issue` step 3.4 and `solve-milestone` step 4.1 run the check when it is `due`. They ask once: `Update all` · `Choose which` · `Not now`. A milestone run checks once and passes `processCheck:` to each issue. `MILESTONE_DRIVER_NONINTERACTIVE=1` prints the findings and edits nothing. |
+| #794 Apply accepted process-check edits and land them like an issue | - | Taken findings go to `.milestone-config/.runtime/process-check-pending.json`. `solve-issue` step 3.5 applies them on the feature branch, and they land in that issue's commit. While that issue is open, later checks skip with one log line. Once it closes, the next check re-audits, and findings declined under `Choose which` are not asked again. A finding in a file matching `sourceGlobs`, or whose quote is not exactly one line, is skipped. |
+| #795 Document the process check in the architecture doc and README | - | `docs/architecture.md § Process check` and the README run-start paragraph describe the question, the pending file and the marker. |
+
+### 🐛 Fixes
+
+| Issue | PR | What |
+|---|---|---|
+| #789 Let the planner skip read Edit points and Tests lines from any section of the issue | - | `solve-issue` step 2 skips the planner when the issue record's `## Body` holds both an `Edit points:` and a `Tests:` list item anywhere outside a fenced code block, not only under a Design heading. |
+| #786 Make the write-cost-record twins parse usage lines by the same rule | - | Both twins parse each usage line strictly as one JSON object. A whitespace-only line is skipped. A line with two objects, a trailing `\v`, NBSP padding or a non-object root fails on both. The `.ps1` also matches jq on parse depth, exact-case member names, out-of-range numbers and ASCII-only tier lowercasing, and `--append` rejects multi-value stdin on both. |
+
+### Consumer notes (upgrading from v1.32.1)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- The first interactive run after upgrading dispatches `process-auditor` once and may ask the process-check question.
+- New gitignored artifacts under `.milestone-config/.runtime/`: `process-check.json`, `process-check-pending.json`, and scratch in `process-check/` and `process-auditor/`.
+- The check reads the resolved profile (`.milestone-config/driver.json`, else root `milestone-driver.json`). Changing one of the six contract keys makes the check `due` again. Other keys, such as `parallel`, do not.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- `skills/solve-issue/SKILL.md` and `skills/solve-milestone/SKILL.md` each have under 450 bytes of byte headroom.
+
 ## v1.32.1 - write-cost-record finalize exits leave a clean window
 
 **Theme:** Every `--finalize` exit that writes no record after it finds usage data removes `<runId>.start` and moves `<runId>.jsonl` aside, and the two twins take the same exit for the same bytes.
