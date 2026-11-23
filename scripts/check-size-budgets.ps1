@@ -77,7 +77,7 @@ skills/solve-issue/wave-clauses.md                   25     3000      500
 skills/solve-milestone/SKILL.md                     330    35500     4800
 skills/solve-milestone/parallel-waves.md            205    41500     6200
 skills/solve-milestone/trello-sync.md               400    19000     3000
-skills/solve-milestone/milestone-granularity.md     195    31000     4400
+skills/solve-milestone/milestone-granularity.md     195    30500     4400
 skills/solve-milestone/abandoned-recovery.md         45     5500      900
 skills/solve-milestone/blocked-label-clear.md        25     2500      400
 skills/solve-milestone/changelog-authoring.md       205    15500     2400
@@ -97,7 +97,7 @@ skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/process-check.md                              45     4000      600
-skills/process-check-procedure.md                    60     7000     1000
+skills/process-check-procedure.md                    75    10000     1600
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400

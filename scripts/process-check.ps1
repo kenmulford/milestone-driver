@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # milestone-driver - process-check status and record (issue #791).
 # Usage: process-check.ps1 --status <repo-root>
-#        process-check.ps1 --record <clean|updated|declined> <repo-root>
+#        process-check.ps1 --record <clean|declined> <repo-root>
 # Every rule, the digest, and the marker format mirror the .sh twin, which states
 # them. Stdout, stderr, exit codes and marker bytes match it: UTF-8 without BOM,
 # LF line endings, written through [Console]::Out / [Console]::Error and
@@ -19,7 +19,12 @@
 # piping a string would re-encode it and append a newline; `git hash-object
 # --no-filters -- <file>` gives `--stdin`'s id. One call hashes the contract and
 # every scanned file. The profile joins only as `key <name> <raw string value>` lines
-# for its contract keys, which the .sh twin lists: the auditor judges keyed rows against them.
+# for its contract keys, which the .sh twin lists: the auditor judges keyed rows against them,
+# then `declined <blob>` when process-check-declined.json under <main-repo-root> is a readable file.
+# The marker sits under <main-repo-root>: `git -C <repo-root> rev-parse --show-toplevel` when
+# `--git-dir` and `--git-common-dir` agree, else the first `worktree ` entry of `git -C
+# <repo-root> worktree list --porcelain`, as the .sh twin states; a failing rev-parse,
+# rev-parse output of other than two lines, or no entry uses <repo-root>. Scanned files and the profile are read from <repo-root>.
 # Exit codes: 0 ok · 1 unreadable profile or contract / write failure · 2 bad usage.
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -29,7 +34,7 @@ $U8 = [System.Text.UTF8Encoding]::new($false)
 function ToByteChars([string]$s) { return $L1.GetString($U8.GetBytes($s)) }
 
 function Die([int]$rc, [string]$msg) { [Console]::Error.Write("process-check: $msg`n"); exit $rc }
-function Usage { Die 2 'usage: process-check (--status | --record <clean|updated|declined>) <repo-root>' }
+function Usage { Die 2 'usage: process-check (--status | --record <clean|declined>) <repo-root>' }
 
 $outcome = ''
 $mode = if ($args.Count -gt 0) { [string]$args[0] } else { '' }
@@ -39,7 +44,7 @@ if ($mode -ceq '--status') {
 } elseif ($mode -ceq '--record') {
   if ($args.Count -ne 3) { Usage }
   $outcome = [string]$args[1]; $root = [string]$args[2]
-  if ($outcome -cnotin @('clean', 'updated', 'declined')) { Usage }
+  if ($outcome -cnotin @('clean', 'declined')) { Usage }
 } else { Usage }
 if ([string]::IsNullOrEmpty($root) -or -not (Test-Path -LiteralPath $root -PathType Container)) { Usage }
 # .NET and git resolve a relative path against the process cwd, which
@@ -76,6 +81,8 @@ function Read-JsonObject([string]$path, [string[]]$names) {
   } finally { $doc.Dispose() }
 }
 
+# A value holding any code point below U+0020 is omitted, as the .sh twin's jq `explode | any(. < 32)` does.
+$ctl = '[\x00-\x1f]'
 $pd = ''; $docs = @(); $prof = @{}
 $contractKeys = @('integrationGranularity', 'implementerAgent', 'unitTestCmd', 'e2eTestCmd', 'preflightCmd', 'coherenceReviewAgent')
 if (Test-Path -LiteralPath $profilePath) {
@@ -83,8 +90,8 @@ if (Test-Path -LiteralPath $profilePath) {
     if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) { throw 'not a file' }
     $prof = Read-JsonObject $profilePath (@('projectDocs', 'standingDocs') + $contractKeys)
   } catch { Die 1 "cannot read $profileName" }
-  if ($prof['projectDocs'] -is [string]) { $pd = $prof['projectDocs'] }
-  if ($prof['standingDocs'] -is [object[]]) { foreach ($e in $prof['standingDocs']) { $docs += $e.Split('#')[0] } }
+  if ($prof['projectDocs'] -is [string] -and $prof['projectDocs'] -cnotmatch $ctl) { $pd = $prof['projectDocs'] }
+  if ($prof['standingDocs'] -is [object[]]) { foreach ($e in $prof['standingDocs']) { if ($e -cnotmatch $ctl) { $docs += $e.Split('#')[0] } } }
 }
 while ($pd.StartsWith('./', [StringComparison]::Ordinal)) { $pd = $pd.Substring(2) }
 while ($pd.EndsWith('/', [StringComparison]::Ordinal)) { $pd = $pd.Substring(0, $pd.Length - 1) }
@@ -110,6 +117,7 @@ foreach ($d in $(if ($pd -ceq '.project') { @('.project') } else { @('.project',
   try { $files = [System.IO.Directory]::GetFiles("$root/$d") } catch { continue }
   foreach ($f in $files) {
     $n = [System.IO.Path]::GetFileName($f)
+    if ($n -cmatch $ctl) { continue }
     if ($n.EndsWith('.md', [StringComparison]::Ordinal) -and -not $n.StartsWith('.', [StringComparison]::Ordinal)) { $cands.Add("$d/$n") }
   }
 }
@@ -127,9 +135,38 @@ $rels = @($keys | ForEach-Object { $byKey[$_] } | Where-Object { Test-Readable "
 $blobs = Get-Blobs (@($contract) + @($rels | ForEach-Object { "$root/$_" }))
 if (-not $blobs -or $blobs.Count -ne $rels.Count + 1) { Die 1 'cannot hash the contract or a scanned file' }
 
+$main = $root
+try { $gits = @(& git -C $root rev-parse --path-format=absolute --git-dir --git-common-dir 2>$null) } catch { $gits = @() }
+if ($LASTEXITCODE -eq 0 -and $gits.Count -eq 2) {
+  $gd = (([string]$gits[0]) -replace '\\', '/').TrimEnd("`r", "`n"); $cd = (([string]$gits[1]) -replace '\\', '/').TrimEnd("`r", "`n")
+  if ($gd -ceq $cd) {
+    try { $top = & git -C $root rev-parse --show-toplevel 2>$null } catch { $top = $null }
+    if ($LASTEXITCODE -eq 0 -and $top) { $main = (([string]$top) -replace '\\', '/').TrimEnd("`r", "`n") }
+  } else {
+    try { $wtl = @(& git -C $root worktree list --porcelain 2>$null) } catch { $wtl = @() }
+    $first = if ($LASTEXITCODE -eq 0) { $wtl | Where-Object { ([string]$_).StartsWith('worktree ', [StringComparison]::Ordinal) } | Select-Object -First 1 } else { $null }
+    if ($first) {
+      $wt = (([string]$first).Substring(9) -replace '\\', '/').TrimEnd("`r", "`n")
+      if ($wt.Length -gt 0) { $main = $wt }
+    }
+  }
+}
+if (-not $main) { $main = $root }
+$rt = "$main/.milestone-config/.runtime"
+$marker = "$rt/process-check.json"
+
+$declinedPath = "$rt/process-check-declined.json"
+$declinedBlob = $null
+if (Test-Readable $declinedPath) {
+  $db = Get-Blobs @($declinedPath)
+  if (-not $db) { Die 1 'cannot hash the contract or a scanned file' }
+  $declinedBlob = $db[0]
+}
+
 $manifest = [System.Text.StringBuilder]::new()
 [void]$manifest.Append("contract $($blobs[0])`n")
-foreach ($k in $contractKeys) { if ($prof[$k] -is [string] -and $prof[$k].IndexOf([char]0) -lt 0) { [void]$manifest.Append("key $k $($prof[$k])`n") } }
+foreach ($k in $contractKeys) { if ($prof[$k] -is [string] -and $prof[$k] -cnotmatch $ctl) { [void]$manifest.Append("key $k $($prof[$k])`n") } }
+if ($declinedBlob) { [void]$manifest.Append("declined $declinedBlob`n") }
 for ($i = 0; $i -lt $rels.Count; $i++) { [void]$manifest.Append("$($blobs[$i + 1]) $($rels[$i])`n") }
 
 $digest = $null
@@ -142,9 +179,6 @@ try {
 } catch { $digest = $null }
 finally { if ($mf) { Remove-Item -LiteralPath $mf -Force -ErrorAction SilentlyContinue } }
 if (-not $digest) { Die 1 'cannot hash the contract or a scanned file' }
-
-$rt = "$root/.milestone-config/.runtime"
-$marker = "$rt/process-check.json"
 
 if ($mode -ceq '--status') {
   $current = $false
