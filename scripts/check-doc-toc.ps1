@@ -77,6 +77,7 @@ agents/design-reviewer.md
 agents/implementer.md
 agents/planner.md
 agents/process-auditor.md
+agents/reviewer.md
 agents/triage-reviewer.md
 '@
 

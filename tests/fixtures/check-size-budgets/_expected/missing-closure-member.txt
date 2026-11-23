@@ -42,9 +42,10 @@ OK	agents/design-reviewer.md	1/120	7/16000	1/2400
 OK	agents/implementer.md	1/140	7/17500	1/2700
 OK	agents/planner.md	1/100	7/6500	1/900
 OK	agents/process-auditor.md	1/95	7/7500	1/1200
+OK	agents/reviewer.md	1/65	7/4500	1/700
 OK	agents/triage-reviewer.md	1/120	7/16500	1/2600
 CLOSURE	skills/setup/SKILL.md	3/7600
 CLOSURE	skills/solve-issue/SKILL.md	MISSING/13500
 CLOSURE	skills/solve-milestone/SKILL.md	MISSING/10100
 CLOSURE	skills/triage/SKILL.md	3/8600
-SUMMARY	ok=44	failed=1
+SUMMARY	ok=45	failed=1

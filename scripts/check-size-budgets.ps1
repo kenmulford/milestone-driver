@@ -104,6 +104,7 @@ agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
 agents/process-auditor.md                            95     7500     1200
+agents/reviewer.md                                  65     4500      700
 agents/triage-reviewer.md                           120    16500     2600
 '@
 

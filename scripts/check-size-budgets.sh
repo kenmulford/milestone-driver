@@ -475,6 +475,8 @@ ROOT="${ROOT%/}"
 #   the line floor (63 + 5, next 5 = 70) agreeing; 5530 * 1.05 = 5806.5,
 #   rounded UP to the next 500 = 6000; 826 * 1.05 = 867.3, rounded UP to the
 #   next 100 = 900.
+# #801 seeded agents/reviewer.md from actuals 60 / 3986 / 634 (bytes 3986 * 1.05 = 4185.3 up to 4500;
+#   words 634 up to 700; lines 60 * 1.05 = 63 under the floor 60 + 5, next 5 = 65).
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -543,6 +545,7 @@ agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
 agents/process-auditor.md                            95     7500     1200
+agents/reviewer.md                                  65     4500      700
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
