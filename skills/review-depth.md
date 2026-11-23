@@ -90,6 +90,11 @@ The **build profile** decides, never the verdict:
   Accepting changes no code: no re-review, no further cycle.
 - **Heavy** (the default) fixes every in-scope finding.
 
+A Critical or Important finding takes only `re-dispatched and resolved`. A
+pre-existing Critical or Important finding (lines outside
+`git diff <integrationBranch>...<branch>`) is in scope and fixed in the same
+fix dispatch; a pre-existing Minor finding follows the profile rule above.
+
 Severities are the reviewer template's
 (`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a
 finding carrying none counts as Important. **Non-convergence parks only a finding the profile fixes** -

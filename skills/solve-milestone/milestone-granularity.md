@@ -59,8 +59,8 @@ Issue: #<n>
 Code-Review:
   - /code-review run: yes (omission is a park trigger - a submitted PR always carries a real review; a parked run opens no PR)
   - Findings, one line per run: <count> in-scope finding(s) at <effort> effort
-    - <finding> - <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | accepted (rationale: <…>) | triggered park
-    - … (one line per finding, or "none" when count is 0)
+    - [Critical|Important|Minor] <finding> - <the ref it named, per skills/citation-format.md> → re-dispatched and resolved | Minor under Light only: accepted (rationale: <…>)
+    - … (one line per finding, or "none", unprefixed, when count is 0)
   - No park-triggering findings. | Park-triggering findings: <list>
 ```
 

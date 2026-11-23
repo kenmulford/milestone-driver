@@ -337,6 +337,17 @@
 #     file, rounded UP to the next 500 bytes. skills/solve-issue/SKILL.md
 #     holds every ceiling and does not move. Spent on this one row: the next
 #     edit re-derives normally.
+#     RECORDED RAISE, issue #799 (decision 2026-11-23):
+#     skills/review-depth.md BYTE 5500 -> 6000 and
+#     skills/solve-issue/SKILL.md CLOSURE 13400 -> 13500, for the
+#     severity-only disposition and pre-existing-finding sentences in
+#     `## Which findings get fixed` and the severity prefix in the two Code
+#     Review templates. Measured growth: review-depth.md 106 -> 111 lines,
+#     5483 -> 5769 bytes, 810 -> 850 words; solve-issue CLOSURE 13381 ->
+#     13426 words. review-depth.md LINE 115 and WORD 900, and SKILL.md LINE
+#     320, BYTE 48500 and WORD 6800, still hold and do not move. Each raise is
+#     rounded UP to the next 500 bytes and 100 words. Spent on these two rows:
+#     the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -526,7 +537,7 @@ skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/process-check.md                              45     4000      600
 skills/process-check-procedure.md                    75    10000     1600
-skills/review-depth.md                              115     5500      900
+skills/review-depth.md                              115     6000      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
@@ -684,7 +695,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13500   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md   10100   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE

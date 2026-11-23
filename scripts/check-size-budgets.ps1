@@ -98,7 +98,7 @@ skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/process-check.md                              45     4000      600
 skills/process-check-procedure.md                    75    10000     1600
-skills/review-depth.md                              115     5500      900
+skills/review-depth.md                              115     6000      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
@@ -174,7 +174,7 @@ if ($files.Count -ne $ceilings.Count -or $files.Count -ne $byteCeilings.Count -o
 # An EMPTY table is legal and simply prints no CLOSURE records.
 $closureTable = @'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13500   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md   10100   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 '@
