@@ -102,6 +102,7 @@ agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
+agents/process-auditor.md                           100     8000     1200
 agents/triage-reviewer.md                           120    16500     2600
 '@
 

@@ -138,6 +138,7 @@ agents/blocker-resolver.md
 agents/design-reviewer.md
 agents/implementer.md
 agents/planner.md
+agents/process-auditor.md
 agents/triage-reviewer.md
 GOVERNED_PATHS
 

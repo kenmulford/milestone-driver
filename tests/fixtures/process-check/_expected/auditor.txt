@@ -1,0 +1,13 @@
+FINDINGS:
+  - file: CLAUDE.md
+    quote: The orchestrator writes each issue's plan on the main thread, with the code excerpts and test code the implementer builds from.
+    row: Planning
+    kind: replaces
+    change: The orchestrator no longer writes the plan on the main thread; a planner leaf is dispatched, or the issue record is the packet.
+    replacement: See milestone-driver `skills/solve-issue/SKILL.md (Under every build profile, when the step 1 issue record)`.
+  - file: .project/build-process.md
+    quote: Under milestone granularity, rebuild after every fold, before the next issue starts.
+    row: Integration and build cadence
+    kind: replaces
+    change: A milestone run folds with no re-verify and builds once at milestone end, so a rebuild after every fold repeats work.
+    replacement: See milestone-driver `skills/solve-milestone/milestone-granularity.md (There is no step 2.)`.
