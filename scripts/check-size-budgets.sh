@@ -348,6 +348,14 @@
 #     320, BYTE 48500 and WORD 6800, still hold and do not move. Each raise is
 #     rounded UP to the next 500 bytes and 100 words. Spent on these two rows:
 #     the next edit re-derives normally.
+#     RECORDED RAISE, issue #802 (decision 2026-11-23):
+#     skills/solve-milestone/milestone-end-gates.md BYTE 6000 -> 6500 and WORD
+#     900 -> 1000, for the verify-review routing, the planner redesign and the
+#     halt before the PR in `## The fix-dispatch loop` and `## Cap spent, still
+#     red`. Measured growth after trimming: 57 -> 60 lines, 5970 -> 6440 bytes,
+#     850 -> 909 words. LINE 70 still holds and does not move. Each raise is
+#     one unit, 500 bytes and 100 words. Spent on this one row: the next edit
+#     re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -526,7 +534,7 @@ skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
-skills/solve-milestone/milestone-end-gates.md        70     6000      900
+skills/solve-milestone/milestone-end-gates.md        70     6500     1000
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600
