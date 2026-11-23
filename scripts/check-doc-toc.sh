@@ -132,6 +132,7 @@ skills/notices.md
 skills/output-style.md
 skills/citation-format.md
 skills/remediate-handoff.md
+skills/process-check.md
 skills/review-depth.md
 agents/blocker-resolver.md
 agents/design-reviewer.md

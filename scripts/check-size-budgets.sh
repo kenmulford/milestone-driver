@@ -424,6 +424,9 @@ ROOT="${ROOT%/}"
 # decision recorded in the PR body.
 # #695 seeded skills/solve-issue/build-packet.md from actuals 49 / 2916 / 454.
 # #698 seeded agents/planner.md from actuals 76 / 4719 / 729.
+# #790 seeded skills/process-check.md from actuals 36 / 3214 / 496, the line
+#   floor (actual + 5, next 5) governing the LINE number since 5% of 36
+#   derives under it.
 # #742 seeded skills/solve-milestone/milestone-end-gates.md from actuals
 #   47 / 4024 / 595, the line floor (actual + 5, next 5) governing the LINE
 #   number since 5% of 47 derives under it.
@@ -499,6 +502,7 @@ skills/notices.md                                   300    14000     2000
 skills/output-style.md                               85    11500     1800
 skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
+skills/process-check.md                              45     3500      600
 skills/review-depth.md                              115     5500      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
