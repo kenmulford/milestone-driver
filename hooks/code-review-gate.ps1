@@ -16,22 +16,21 @@
 # neither. Both flags set the MERGE COMMIT message, never the PR body - so the
 # merge path fetches the PR's current body via `gh pr view`.
 #
-# Heading match is ANCHORED, not a bare substring: `## Code Review` must be
-# followed by a non-alphanumeric character or end-of-string, so "## Code
-# Reviewer says LGTM" does NOT satisfy the gate.
+# Heading match is ANCHORED, not a bare substring: `## Code Review` must open
+# a section and be followed by a non-alphanumeric character or end-of-string,
+# so "## Code Reviewer says LGTM" does NOT satisfy the gate.
 #
 # Verdict parse (issue #604): the gate also reads the `/code-review run:`
 # value. Accepted: `yes` and `n/a - <reason>`; `deferred` was retired by the
 # v1.24.0 simplify pass, for the reason the .sh sibling's header records. `no`,
-# an unrecognized value, an empty value, and a missing slot all DENY. The verdict
-# search is SCOPED to a heading span so an incidental `/code-review run:` in
-# prose ABOVE the section never false-denies: the anchored heading matches are
-# walked LAST TO FIRST and the first whose text CONTAINS the slot wins. EVERY
-# slot in that span is read, so a `no` under a wave PR's second `### #<n>`
-# block denies even when the first reads `yes`. The heading search itself
-# stays unscoped. See code-review-gate.sh for the full note, including why
-# begins-a-line was rejected and why the token is unwrapped of one quote per
-# side.
+# an unrecognized value, an empty value, and a missing slot all DENY. EVERY
+# slot in EVERY section is read (milestone #54), so a `no` under any
+# section or `### #<n>` block denies. See code-review-gate.sh for the section
+# rule and why the token is unwrapped of one quote per side.
+#
+# Finding scan (issue #804): after the verdict slots pass, every unfenced line
+# of the checked text is scanned, sections ignored, so no body shape can hide a
+# finding. See code-review-gate.sh for the full rule.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
@@ -42,6 +41,16 @@
 
 if ($env:CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE -eq '1') { exit 0 }
 
+# UTF-8 without a BOM both ways: the payload and the deny quote a finding line
+# carrying the arrow, and the Windows console default (OEM) would corrupt it.
+# Set only when not already UTF-8: each setter replaces the console reader or
+# writer, which drops the redirected stdin and stderr of tests/_lib.ps1's
+# in-process runner.
+try {
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  if ([Console]::InputEncoding.CodePage -ne 65001) { [Console]::InputEncoding = $utf8 }
+  if ([Console]::OutputEncoding.CodePage -ne 65001) { [Console]::OutputEncoding = $utf8 }
+} catch { }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
@@ -71,42 +80,50 @@ if (Test-Path $profilePath) {
 $heading = '## Code Review'
 $runSlot = '/code-review run:'
 $suffix = " or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
+# Ordinal on every string search: the culture-sensitive overload treats CRLF as
+# one text element under ICU, so a CRLF body could hide its newline.
+$ord = [System.StringComparison]::Ordinal
 
 function Deny([string]$msg) {
   Invoke-HookDeny $hook ("milestone-driver: $msg$suffix")
 }
 
-# HeadingMatch <text> - true iff <text> contains an ANCHORED `## Code Review`
-# (not immediately followed by a letter/digit; end-of-string also satisfies
-# the anchor). [regex]::Escape guards against $heading ever containing a
-# regex metacharacter.
-function HeadingMatch([string]$text) {
-  if (-not $text) { return $false }
-  return [regex]::IsMatch($text, [regex]::Escape($heading) + '($|[^A-Za-z0-9])')
+# Sections <text> <inline>: every section's unfenced lines from the heading
+# on, each ending in a newline, '' when <text> holds none; the rule is
+# code-review-gate.sh's is_fence, open_at and sections_of.
+# [ \t\n\v\f\r] stands for the .sh twin's [[:space:]], which \s would widen.
+$reHeadAt = [regex]::Escape($heading) + '(?![A-Za-z0-9])'
+$rePre = '^[ \t\n\v\f\r]*$|(^|[ \t\n\v\f\r])(--body[ =]|-b |[A-Za-z_][A-Za-z0-9_]*=)("|''|\$'')$'
+$reOk = '^re-dispatched and resolved(\.| \([^()]*\))?[ \t\n\v\f\r]*["'']?$'
+$sp = [char[]]" `t`n`v`f`r"
+function IsFence([string]$lead, [bool]$inline) {
+  return $lead.StartsWith('```', $ord) -or ($inline -and $lead.StartsWith('\`\`\`', $ord))
+}
+function Sections([string]$text, [bool]$inline) {
+  $sb = [System.Text.StringBuilder]::new()
+  $on = $false; $fence = $false
+  foreach ($line in $text.Split("`n")) {
+    $lead = $line.TrimStart($sp)
+    if (IsFence $lead $inline) { $fence = -not $fence; continue }
+    if ($fence) { continue }
+    $at = -1
+    foreach ($m in [regex]::Matches($line, $reHeadAt)) {
+      if ([regex]::IsMatch($line.Substring(0, $m.Index), $rePre)) { $at = $m.Index; break }
+    }
+    if ($at -ge 0) { $line = $line.Substring($at); $on = $true }
+    elseif ($lead.StartsWith('## ', $ord)) { $on = $false }
+    if ($on) { [void]$sb.Append($line).Append("`n") }
+  }
+  return $sb.ToString()
 }
 
-# VerdictSpan <text>: walking the ANCHORED heading matches LAST TO FIRST, the
-# first span that holds a `/code-review run:` slot; $null when none does.
-function VerdictSpan([string]$text) {
-  if (-not $text) { return $null }
-  $spans = [System.Collections.Generic.List[string]]::new()
-  $i = 0
-  while (($i = $text.IndexOf($heading, $i)) -ge 0) {
-    $after = $text.Substring($i + $heading.Length)
-    if (-not [regex]::IsMatch($after, '^[A-Za-z0-9]')) { $spans.Add($after) }
-    $i += $heading.Length
-  }
-  for ($j = $spans.Count - 1; $j -ge 0; $j--) {
-    if ($spans[$j].IndexOf($runSlot) -ge 0) { return $spans[$j] }
-  }
-  return $null
-}
+function HeadingMatch([string]$text, [bool]$inline) { return [bool](Sections $text $inline) }
 
 # VerdictToken <after>: first whitespace-delimited token on <after>'s FIRST
 # line, unwrapped of one surrounding quote character per side.
 function VerdictToken([string]$after) {
   $line = $after
-  $nl = $line.IndexOf("`n")
+  $nl = $line.IndexOf("`n", $ord)
   if ($nl -ge 0) { $line = $line.Substring(0, $nl) }
   $line = $line.TrimEnd("`r")
   $m = [regex]::Match($line, '^[ \t\v\f\r]*([^ \t\v\f\r]+)')
@@ -117,15 +134,43 @@ function VerdictToken([string]$after) {
   return $v
 }
 
-# CheckVerdict <surface> <action>: reads EVERY slot in the span and denies on
-# the first one not accepted; never returns on deny.
-function CheckVerdict([string]$surface, [string]$action) {
-  $span = VerdictSpan $surface
-  if ($null -eq $span) {
+# CheckFindings <text> <action> <inline>: the finding scan code-review-gate.sh's
+# header describes, over every unfenced line of <text>; never returns on deny.
+# Ordinal throughout, so it trims, cuts and matches exactly as that file does.
+function CheckFindings([string]$text, [string]$action, [bool]$inline) {
+  $arrow = [string][char]0x2192
+  $want = 're-dispatched and resolved'
+  $fence = $false
+  foreach ($raw in $text.Split("`n")) {
+    $line = $raw.Trim($sp)
+    if (IsFence $line $inline) { $fence = -not $fence; continue }
+    if ($fence) { continue }
+    $t = $line; $mk = $false
+    $num = [regex]::Match($t, '^[0-9]+\. ')
+    if ($t.StartsWith('- ', $ord) -or $t.StartsWith('* ', $ord)) { $mk = $true; $t = $t.Substring(2) }
+    elseif ($num.Success) { $mk = $true; $t = $t.Substring($num.Length) }
+    if ($t.StartsWith('**', $ord)) { $t = $t.Substring(2) }
+    if ($t.StartsWith('[Minor]', $ord)) { continue }
+    $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $t.Contains($arrow))
+    if (-not $fnd) { continue }
+    $disp = ''
+    $k = $line.LastIndexOf($arrow, $ord)
+    if ($k -ge 0) { $disp = $line.Substring($k + 1).TrimStart($sp) }
+    if (-not [regex]::IsMatch($disp, $reOk)) {
+      Deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': ${line}. Record it as $want before $action,"
+    }
+  }
+}
+
+# CheckVerdict <surface> <action> <inline>: reads EVERY slot in every section
+# and denies on the first one not accepted; never returns on deny.
+function CheckVerdict([string]$surface, [string]$action, [bool]$inline) {
+  $span = Sections $surface $inline
+  if ($span.IndexOf($runSlot, $ord) -lt 0) {
     Deny "the PR body's '$heading' section has no '$runSlot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $action,"
   }
   $pos = 0
-  while (($pos = $span.IndexOf($runSlot, $pos)) -ge 0) {
+  while (($pos = $span.IndexOf($runSlot, $pos, $ord)) -ge 0) {
     $pos += $runSlot.Length
     $tok = VerdictToken ($span.Substring($pos))
     if (-not $tok) {
@@ -175,11 +220,14 @@ if ($isCreate) {
 
   # Wide-surface check: the whole command string for inline --body/-b (never
   # a narrowly extracted substring - see header note), the whole file content
-  # for --body-file/-F. Either surface matching is enough to allow.
-  if ($hasBody -and (HeadingMatch $cmd)) { CheckVerdict $cmd 'opening the PR'; exit 0 }
-  if ($fileContent -and (HeadingMatch $fileContent)) { CheckVerdict $fileContent 'opening the PR'; exit 0 }
-
-  Deny "the PR body is missing the required '$heading' section. Add one before opening the PR,"
+  # for --body-file/-F. Either surface's section is enough; both are scanned
+  # for findings.
+  if ($hasBody -and (HeadingMatch $cmd $true)) { CheckVerdict $cmd 'opening the PR' $true }
+  elseif ($fileContent -and (HeadingMatch $fileContent $false)) { CheckVerdict $fileContent 'opening the PR' $false }
+  else { Deny "the PR body is missing the required '$heading' section. Add one before opening the PR," }
+  CheckFindings $cmd 'opening the PR' $true
+  CheckFindings $fileContent 'opening the PR' $false
+  exit 0
 }
 
 if ($isMerge) {
@@ -201,7 +249,8 @@ if ($isMerge) {
   if ([string]::IsNullOrWhiteSpace($viewJson)) { exit 0 }
 
   try { $view = $viewJson | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
-  $prBody = $view.body
+  $prBody = [string]$view.body
+  if ($prBody.StartsWith([string][char]0xFEFF, $ord)) { $prBody = $prBody.Substring(1) }
   $prBase = $view.baseRefName
 
   if ($protected -and $prBase -eq $protected) { exit 0 }
@@ -210,8 +259,9 @@ if ($isMerge) {
     Deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
   }
 
-  if (HeadingMatch $prBody) { CheckVerdict $prBody 'merging the PR'; exit 0 }
-  Deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
+  if (-not (HeadingMatch $prBody $false)) { Deny "the PR body is missing the required '$heading' section. Add one before merging the PR," }
+  CheckVerdict $prBody 'merging the PR' $false
+  CheckFindings $prBody 'merging the PR' $false
 }
 
 exit 0

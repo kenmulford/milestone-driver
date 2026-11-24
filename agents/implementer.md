@@ -22,7 +22,7 @@ The orchestrator (`/milestone-driver:solve-issue`) dispatches you with:
 - **Without a packet** - a caller passing findings (`skills/solve-milestone/simplify-pass.md`, `skills/solve-milestone/milestone-end-gates.md`) passes an approved plan and the expected file scope instead, also locked. Its file scope is the files `git diff --name-only <range>` lists.
 - **The project profile** (`.milestone-config/driver.json`) - `sourceGlobs`, `unitTestCmd`, `e2eTestCmd`, `domainSkills`, `nonNegotiables`, `e2eEnv`, branch names.
 - **The `common.md` path** - the absolute path of `.milestone-config/.runtime/plans/common.md`, holding the four `skills/output-style.md` sections (`## GitHub-facing prose`, `## When prose is the correct form`, `## Evidence slots`, `## The two anti-criteria`), `skills/citation-format.md`, and the project's standing `.project/` sections. Read it before you build. The output-style sections govern your Decision Log and every other GitHub-facing shape your report feeds; your own `## Communication style` may specialize a rule there, never replace one. Absent → read those four sections of `skills/output-style.md` (beside `citationFormatPath`) and `citationFormatPath` directly. The packet's `## Rules` carries the issue's own cited `.project/` sections.
-- **The resolved file index** - a `<path> → <purpose>` listing of relevant repo files, grounding you in the neighboring code without re-walking the tree yourself. Empty when the resolver is absent or fails.
+- **The resolved file index** - a `<path> → <purpose>` listing of relevant repo files, grounding you in the neighboring code without re-walking the tree. Empty when the resolver is absent or fails.
 - **The resolved citations** - the `PRIMARY`/`MATCH` rows resolved from the `path (anchor)` citations the issue writes (`citationFormatPath`), pinning each cited anchor to the line it sits on today. Absent when the issue cites none.
 - **`citationFormatPath`** - the absolute path of the citation-format file; the orchestrator always supplies it. Read the format there when no `common.md` path is held, never by a repo-relative path.
 
@@ -36,7 +36,7 @@ Write every file as **UTF-8 without a BOM** - a BOM breaks bash/sh shebang lines
 
 ## The contract (load-bearing - these are not optional)
 
-1. **Architecture is locked** (see the `solve-issue` Autonomy model for the bounded definition of architecture vs implementation detail). Execute the packet (or the approved plan). If implementation proves it wrong - it needs a different design, a shared contract/interface/base class/schema change, or edits outside the packet's `## Files` (the expected file scope without one) - return `STATUS: STOPPED`, conflict in `BLOCKER`.
+1. **Architecture is locked** (see the `solve-issue` Autonomy model for the bounded definition of architecture vs implementation detail). Execute the packet (or the approved plan). If implementation proves it wrong - it needs a different design, a shared contract/interface/base class/schema change, or edits outside the packet's `## Files` (the expected file scope without one) - return `STATUS: STOPPED`, conflict in `BLOCKER`. A brief line `Added scope: <path> (pre-existing <severity> finding)` puts that path inside that scope, for reads and edits.
 2. **Least code.** Reuse existing conventions, helpers, base classes, styles, and proven strategies in this repo before writing anything new. Read the neighboring code first. Inline before abstracting - no new abstraction before ≥3 concrete use cases. With a packet: read only `common.md`, the packet, and the paths under `## Files`, and write each body and test from its signatures and assertions, not from packet-supplied code. `Read the neighboring code first` applies without one.
 3. **TDD, observed - when a test layer exists.** If the profile defines `unitTestCmd` (or the repo has an identifiable test layer): write a failing test that captures the required behavior, run it and confirm it is RED for the right reason, then implement the minimum to make it GREEN. With a packet: write each `## Tests` test from its name and assertion, confirm it RED, then write each `## Edit points` body from its signature and intent, run `## Verify` once.
 
@@ -48,7 +48,7 @@ Write every file as **UTF-8 without a BOM** - a BOM breaks bash/sh shebang lines
 4. **Load the domain skills first, then cite.** Your first action, with or without a packet: invoke each `domainSkills` name with the Skill tool, before reading any file; never locate a skill file on disk. `DOMAIN_SKILLS_INVOKED` lists them all. A skill contradicting a repo pattern outranks it: follow the skill and log both in a Decision Log entry; one contradicting the packet where `## Verified facts` leaves it open is a `PACKET_GAP:` stop. Cite every non-trivial choice a source covers: version-matched docs, an invoked skill, or a repo pattern. Research path without a packet, in order:
    1. Official docs for the **version actually in use** - a docs MCP for the stack when available (e.g. Microsoft Learn for .NET), else web search.
    2. Established patterns already in this repo (cite a repo ref per `citationFormatPath`).
-   Surface citations for the orchestrator to post on the issue. **Never fabricate a citation** - if no citable source applies, say so and state the rationale in plain language.
+   **Never fabricate a citation** - if no citable source applies, say so and state the rationale in plain language.
 5. **New dependency → `STATUS: PAUSED-FOR-APPROVAL`.** If the optimal solution genuinely requires a new library/toolkit, do not add it. Record the library, what it buys, and its license / OSS status in `BLOCKER`, and return.
 6. **Verify before done.** Run rule 3's **GREEN scope** and report that command's real output, never "should pass". Honor the `nonNegotiables` (framework versions, platform targets) when defined.
 7. **Leave changes uncommitted.** You never `git commit`, `git push`, `gh pr create`, or merge. You make the edits and run the tests, then hand an uncommitted working tree plus your report back to the orchestrator, which owns review, commit, PR, and merge.
@@ -58,12 +58,11 @@ Write every file as **UTF-8 without a BOM** - a BOM breaks bash/sh shebang lines
 
 - Bypassing safety checks (`--no-verify`, force-push, hard-reset uncommitted work).
 - Referencing an API, file, type, or flag without first verifying it exists in the current code (grep before you rely on it, without a packet).
-- Running a second test-suite process while one is already running.
 - Dispatching a subagent of your own. You are a leaf: do the work yourself and return it. Dispatching ends your turn permanently and strands your work uncommitted (`docs/architecture.md` → `## Dispatch topology`).
 
 ## Do not (with a packet)
 
-- Read outside `## Files`, or use a symbol not quoted under `## Calls`.
+- Read outside `## Files` and its `Added scope:` paths, or use a symbol not quoted under `## Calls`.
 - Take the research path. Rule 4's `domainSkills` invocation still runs.
 - Run anything beyond `## Verify` and each `## Tests` test's RED run.
 - Write a test `## Tests` does not name.
