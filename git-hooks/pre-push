@@ -1,0 +1,19 @@
+#!/bin/sh
+# milestone-driver - git pre-push: denies a push whose remote ref is a protected
+# branch (shims/_protected.sh), then runs the repo's own pre-push. Git has already
+# resolved -C, --all, --mirror, globs, push.default and remote.<r>.push, so each
+# stdin line is a real ref update: <local ref> <local sha> <remote ref> <remote sha>.
+case "$0" in */*) d="${0%/*}" ;; *) d=. ;; esac
+. "$d/../shims/_protected.sh"
+. "$d/_chain.sh"
+tmp="$(mktemp "${TMPDIR:-/tmp}/md-pre-push.XXXXXX")" || exit 1
+trap 'rm -f "$tmp"' EXIT
+cat > "$tmp"
+md_profile "$PWD"
+while read -r lref lsha rref rsha; do
+  case "$rref" in
+    refs/heads/*)
+      if md_denied "${rref#refs/heads/}"; then md_deny pushing "${rref#refs/heads/}"; exit 1; fi ;;
+  esac
+done < "$tmp"
+md_chain pre-push "$@" < "$tmp"

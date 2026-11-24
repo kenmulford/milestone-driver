@@ -17,6 +17,7 @@ if (-not (Test-Path $profilePath)) { $profilePath = Join-Path $projectDir 'miles
 if (-not (Test-Path $profilePath)) { exit 0 }
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $protected = $cfg.protectedBranch
+$integ = [string]$cfg.integrationBranch
 if (-not $protected) { exit 0 }
 $blocked = $false
 $p = [regex]::Escape($protected)
@@ -24,6 +25,11 @@ if ($cmd -match "(^|[\s:/])$p(\s|`$)") { $blocked = $true }
 $cur = (git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null); $cur = "$cur".Trim()
 if ($cur -eq $protected) { $blocked = $true }
 if ($blocked) {
-    Invoke-HookDeny $hook ("milestone-driver: pushing to protected branch '$protected' is blocked. Push the integration branch and open a PR, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override. (GitHub branch protection is the server-side backstop.)")
+    if (-not $integ) {
+        $integ = 'develop'
+        git -C $projectDir rev-parse --verify --quiet refs/remotes/origin/develop *> $null
+        if ($LASTEXITCODE -ne 0) { $integ = 'dev' }
+    }
+    Invoke-HookDeny $hook ("milestone-driver: pushing into '$protected' is blocked. Agents stop at the integration branch '$integ'; anything past it is a human step.")
 }
 exit 0

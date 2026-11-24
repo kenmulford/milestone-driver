@@ -16,7 +16,7 @@ Files, types, functions, tests, branches.
 
 ## File & folder layout
 Where things go, and the shape of a feature.
-> `skills/` (one folder per skill), `agents/` (reviewer + implementer subagents), `hooks/` (the mechanical gates, registered in `hooks/hooks.json`, dispatched by the `hooks/run-hook.cmd` polyglot launcher), `scripts/` (deterministic, unit-tested helpers), `tests/` (one runner per script, plus `fixtures/`), `docs/` (architecture, profile-schema, consumer-setup, plus `docs/superpowers/` plans + specs), `.claude-plugin/` (`plugin.json` = version source of truth, `marketplace.json`). A new mechanical behavior = a `hooks/<gate>.{sh,ps1}` twin + a `hooks.json` entry; a new deterministic helper = a `scripts/<name>.{sh,ps1}` twin + a `tests/<name>.test.ps1` runner (both legs via `-Leg ps1|sh`).
+> `skills/` (one folder per skill), `agents/` (reviewer + implementer subagents), `hooks/` (the mechanical gates, registered in `hooks/hooks.json`, dispatched by the `hooks/run-hook.cmd` polyglot launcher), `scripts/` (deterministic, unit-tested helpers), `tests/` (one runner per script, plus `fixtures/`), `docs/` (architecture, profile-schema, consumer-setup, plus `docs/superpowers/` plans + specs), `.claude-plugin/` (`plugin.json` = version source of truth, `marketplace.json`). A new mechanical behavior = a `hooks/<gate>.{sh,ps1}` twin + a `hooks.json` entry; `shims/` (PATH shims) and `git-hooks/` (the `core.hooksPath` hooks) are the sh-only exception to the twin rule, because git and the Bash tool run them as POSIX sh on every platform; a new deterministic helper = a `scripts/<name>.{sh,ps1}` twin + a `tests/<name>.test.ps1` runner (both legs via `-Leg ps1|sh`).
 
 ## Test patterns
 Where tests live, how they're named, fixtures/factories, and what a good test looks like.
@@ -27,7 +27,7 @@ The reference implementations to copy when building something similar. Point at 
 
 | For… | Mirror | Notes |
 |---|---|---|
-| A new mechanical gate (PreToolUse hook) | `hooks/force-subagent.sh` + `hooks/force-subagent.ps1`, registered in `hooks/hooks.json`, launched via `hooks/run-hook.cmd` | Cross-platform twin; fail-open with a `CLAUDE_HOOK_DISABLE_*` escape hatch. |
+| A new mechanical gate (PreToolUse hook) | `hooks/force-subagent.sh` + `hooks/force-subagent.ps1`, registered in `hooks/hooks.json`, launched via `hooks/run-hook.cmd` | Cross-platform twin; fail-open with a `CLAUDE_HOOK_DISABLE_*` escape hatch. An execution-time gate mirrors `shims/gh` or `git-hooks/pre-push` instead: POSIX sh only, denies what it cannot resolve, no escape hatch. |
 | A new deterministic helper script | `scripts/extract-version.sh` + `scripts/extract-version.ps1` | Twin pair; pure/unit-testable; no model judgment. |
 | Its test | `tests/extract-version.test.ps1` (both legs) driving `tests/extract-version.cases.tsv` | Golden-matrix runner asserting stdout + stderr. |
 | A new skill | `skills/solve-issue/SKILL.md` (gated per-issue procedure) | Frontmatter `name`/`description`; numbered, gated procedure; tabular output with 🔴 markers. |

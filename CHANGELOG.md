@@ -3,6 +3,26 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.35.0 - agents stop at the integration branch
+
+**Theme:** No agent opens or merges a PR into, pushes to, or writes through the API to a branch past `integrationBranch`. The gate checks the real arguments at execution time instead of parsing shell text.
+
+### 🛡️ Execution-time gate
+
+| Issue | PR | What |
+|---|---|---|
+| #813 Gate every route to the protected branch: global options, merges, gh api and the GitHub MCP tools | #815 | `hooks/agent-env.{sh,ps1}` (SessionStart) puts `shims/` first on `PATH` and sets `core.hooksPath` to `git-hooks/` through `GIT_CONFIG_*` in `$CLAUDE_ENV_FILE`. `git-hooks/pre-push` denies any push whose resolved `refs/heads/<b>` is on the denylist (`protectedBranch`, `main`, `master`, `production`, `prod`, `staging`, `stage`, `testing`, `test`, `qa`, `uat`, `release/*`, `hotfix/*`, the profile's `protectedBranches`), then runs the repo's own hook. `shims/gh` allowlists PR bases to `integrationBranch` (`pr create/edit/merge`, `repo sync`, REST pulls, aliases) and denylists branch writes through `gh api` and GraphQL. `shims/git` denies the routes that skip `pre-push` (`--no-verify`, `send-pack`, `-c core.hooksPath`, aliases carrying them). The GitHub MCP tools are gated on structured input in `hooks/no-pr-to-protected.{sh,ps1}`. |
+| #814 Push gates miss glob refspecs, --git-dir, configured push targets and PATCH --input | #815 | Closed by `git-hooks/pre-push`, which reads the refs git has already resolved, and the `shims/gh` `--input` deny. |
+
+### Consumer notes (upgrading from v1.34.0)
+
+- **No schema changes** to `.milestone-config/driver.json`. The optional `protectedBranches` array extends the denylist.
+- The gate starts in sessions opened after the upgrade. The deny text reads: "milestone-driver: <action> into '<branch>' is blocked. Agents stop at the integration branch '<integrationBranch>'; anything past it is a human step." Open and merge the release PR from your own terminal.
+- `shims/` and `git-hooks/` carry no `CLAUDE_HOOK_DISABLE_*` override.
+- A repo's own `reference-transaction`, `post-index-change` and `push-to-checkout` hooks do not run in an agent session: their pass-throughs are omitted for cost and for `updateInstead` behavior.
+- A test suite that pushes a denylisted name to a fixture remote inside an agent session clears `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_*` and `GIT_CONFIG_VALUE_*` and drops `shims/` from `PATH` in its child environment.
+- Coverage limit (`docs/architecture.md`): the real `gh` or `git` by absolute path, a cleared environment, the PowerShell tool, a two-level git alias under `-C`, a `!` alias carrying `push --no-verify`, `gh pr new` and `gh-merge-base` are outside the gate. The complete stop is server-side: an agent-only GitHub credential denied by a ruleset on `main` and the release branches.
+
 ## v1.34.0 - the milestone end converges in one review
 
 **Theme:** One `/code-review` at the milestone end reports every finding at the first run's effort, and every Critical or Important finding, pre-existing ones included, is fixed before the milestone PR opens. The hooks count milestone-end dispatches and deny untyped or `general-purpose` agents on driver branches.

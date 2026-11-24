@@ -1,0 +1,4 @@
+#!/bin/sh
+case "$0" in */*) d="${0%/*}" ;; *) d=. ;; esac
+. "$d/_chain.sh"
+md_chain p4-post-changelist "$@"

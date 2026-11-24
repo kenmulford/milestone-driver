@@ -86,7 +86,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 | **Enrichment** | `domainSkills`, `nonNegotiables`, `projectDocs`, `standingDocs` | Optional |
 | **External integrations** | `integrations.trello` | Optional |
 
-**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is not a statement of optionality - without these keys the safety guarantees do not hold. `implementerAgent`, `triageAgent`, `designReviewAgent`, and `blockerResolverAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`, `milestone-driver:blocker-resolver`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common. `coherenceReviewAgent` is also default-filled (`milestone-coherence-reviewer:coherence-reviewer`), but unlike the four above it points at a separate companion plugin: its post-build coherence pass runs only when the milestone-coherence-reviewer companion is installed, and is silently skipped otherwise (absent-means-skip).
+**Note on safety keys:** `integrationBranch`, `protectedBranch`, and `sourceGlobs` are required for safe operation. The hooks fail-open when they are absent (a robustness measure so a hook bug never bricks a repo), but that fail-open is not a statement of optionality - without these keys the safety guarantees do not hold. The exception is `shims/gh`, `shims/git`, `git-hooks/pre-push` and the GitHub MCP path of `no-pr-to-protected`, which with no profile still deny the default protected names and treat `integrationBranch` as `develop`, or `dev` when `origin/develop` does not exist. `implementerAgent`, `triageAgent`, `designReviewAgent`, and `blockerResolverAgent` have bundled defaults (`milestone-driver:implementer`, `milestone-driver:triage-reviewer`, `milestone-driver:design-reviewer`, `milestone-driver:blocker-resolver`) and are auto-filled by the bootstrap; omitting them from the profile is valid and common. `coherenceReviewAgent` is also default-filled (`milestone-coherence-reviewer:coherence-reviewer`), but unlike the four above it points at a separate companion plugin: its post-build coherence pass runs only when the milestone-coherence-reviewer companion is installed, and is silently skipped otherwise (absent-means-skip).
 
 ## Keys
 
@@ -94,6 +94,7 @@ Keep it minimal and consumer-driven. **Three keys are required** (`integrationBr
 |---|---|---|---|:---:|
 | `integrationBranch` | string | Core | Which branch should PRs be opened into and work merged onto? (e.g. `develop`) | ✅ |
 | `protectedBranch` | string | Core | Which branch must never be pushed or PR'd to? (Your release / default branch, e.g. `main`) | ✅ |
+| `protectedBranches` | string[] | Core | Which extra branch names or `*` globs must agents never push to, on top of `protectedBranch` and the default names `main`, `master`, `production`, `prod`, `staging`, `stage`, `testing`, `test`, `qa`, `uat`, `release/*` and `hotfix/*`? (e.g. `["live", "rel-*"]`) Default empty. `integrationBranch` is never denied by this list. | - |
 | `sourceGlobs` | string[] | Core | Which path patterns are "source" that only the implementer subagent may edit? (e.g. `["src/**","tests/**"]`) | ✅ |
 | `implementerAgent` | string | Core | Which agent authors the code? Default: `milestone-driver:implementer` (auto-filled; rarely overridden) | default-filled |
 | `triageAgent` | string | Core | Which agent reviews issues for design gaps + dependency ordering (architect lens)? Default: `milestone-driver:triage-reviewer` (auto-filled; rarely overridden) | default-filled |
@@ -280,10 +281,11 @@ These three keys satisfy the consumer-driven rule above with a real consumer, no
 |---|---|
 | `force-subagent` (PreToolUse `Write`/`Edit`/`MultiEdit`/`NotebookEdit`/`apply_patch`) | `sourceGlobs` |
 | `no-bom` (PreToolUse `Write`/`Edit`/`MultiEdit`/`apply_patch`) | none (content byte-check; reads no profile keys) |
-| `tests-green` (PreToolUse `Bash(git commit *)`) | `unitTestCmd` (no-op if absent), `integrationGranularity` (resolved `"milestone"` skips commits on `issue/*` and `milestone-*` branches; absent resolves to `"milestone"` only when a local `milestone-*` branch exists, else `"issue"`), `sourceGlobs`; see stamp-skip note below |
-| `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch` |
-| `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`) | `protectedBranch` |
-| `code-review-gate` (PreToolUse `Bash(gh pr create *)` / `Bash(gh pr merge *)`) | `protectedBranch` (exempts a command targeting it) |
+| `tests-green` (PreToolUse `Bash(git *)`, self-scoped to `git commit`) | `unitTestCmd` (no-op if absent), `integrationGranularity` (resolved `"milestone"` skips commits on `issue/*` and `milestone-*` branches; absent resolves to `"milestone"` only when a local `milestone-*` branch exists, else `"issue"`), `sourceGlobs`; see stamp-skip note below |
+| `no-push` (PreToolUse `Bash(git push *)`) | `protectedBranch`, `integrationBranch` (named in the deny text; absent → `develop`) |
+| `no-pr-to-protected` (PreToolUse `Bash(gh pr create *)`, and the GitHub MCP PR, push and file tools) | `protectedBranch` (the text check of `gh pr create --base`; named in its deny text with `integrationBranch`, absent → `develop`), `integrationBranch` (the only MCP PR base allowed; absent → `develop`, or `dev` when `origin/develop` does not exist), `protectedBranches` (MCP push and file targets denied) |
+| `shims/gh`, `shims/git` and `git-hooks/pre-push` (put on `PATH` and in `core.hooksPath` by the `agent-env` SessionStart hook) | `integrationBranch` (the only PR base `shims/gh` allows; absent → `develop`, or `dev` when `origin/develop` does not exist), `protectedBranch`, `protectedBranches` (push targets denied; `integrationBranch` never is) |
+| `code-review-gate` (PreToolUse `Bash(gh *)`, self-scoped to `gh pr create` / `gh pr merge`) | `protectedBranch` (exempts a command targeting it) |
 | `dispatch-cap` (PreToolUse `Agent`/`Task`/`Skill`) | `implementerAgent` (default-filled; names the counted agent) |
 
 Each gate also honors a `CLAUDE_HOOK_DISABLE_*` environment escape hatch for the

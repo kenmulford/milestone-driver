@@ -56,8 +56,8 @@ function New-Workspace([string]$globsJson = '["src/**"]', [string]$stagedPath = 
   return $w
 }
 
-function Invoke-Hook([string]$root) {
-  $payload = @{ tool_input = @{ command = 'git commit -m x' }; cwd = $root } | ConvertTo-Json -Compress
+function Invoke-Hook([string]$root, [string]$command = 'git commit -m x') {
+  $payload = @{ tool_input = @{ command = $command }; cwd = $root } | ConvertTo-Json -Compress
   return Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp
 }
 
@@ -137,6 +137,39 @@ $W = New-Workspace -granularity 'milestone' -branchName 'develop'
 $r = Invoke-Hook $W
 if ($r.rc -eq 0 -and (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
 else { No "milestone-granularity-other-branch-runs: rc=$($r.rc) (want 0) and the hook must reach its post-green write, err=[$(Show-Escaped $r.err)]" }
+
+# ---- global options before `commit` do not skip the gate (issue #813) -------
+foreach ($cmd in @('git -C __W__ commit -m x', 'git -c user.name=x commit -m x', 'git --no-pager -C __W__ commit -m x')) {
+  $W = New-Workspace -branchName 'develop'
+  $r = Invoke-Hook $W $cmd.Replace('__W__', $W)
+  if ($r.rc -eq 0 -and (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
+  else { No "global-option-commit-gated [$cmd]: rc=$($r.rc) (want 0) and the hook must reach its post-green write, err=[$(Show-Escaped $r.err)]" }
+}
+# ---- `git -C <dir> commit` reads the staged tree and runs the suite in <dir> -
+# The cwd repo stages nothing; <dir> stages src/a.txt, so `git diff --cached
+# --quiet` (the suite) is red only when it runs in <dir>. Out of process: in
+# process, the hook's script-scope $LASTEXITCODE reset shadows the native code.
+$Cwd = New-Workspace -branchName 'develop'
+git -C $Cwd rm -q --cached src/a.txt
+[System.IO.File]::WriteAllText((Join-Path $Cwd '.milestone-config' 'driver.json'), '{"unitTestCmd":"git diff --cached --quiet","sourceGlobs":["src/**"]}' + "`n", $utf8)
+$Other = New-Workspace -branchName 'develop'
+$payload = @{ tool_input = @{ command = "git -C $Other commit -m x" }; cwd = $Cwd } | ConvertTo-Json -Compress
+$r = Invoke-Spawn -Script $Hook -Stdin $payload -Cwd $Tmp
+if ($r.rc -eq 2) { Ok }
+else { No "C-dir-commit-red-suite-denies: rc=$($r.rc) (want 2), err=[$(Show-Escaped $r.err)]" }
+
+# ---- a green `git -C <dir> commit` writes nothing into a <dir> with no profile
+$Cwd = New-Workspace -branchName 'develop'
+$Other = New-Workspace -branchName 'develop'
+Remove-Item -Recurse -Force (Join-Path $Other '.milestone-config')
+$r = Invoke-Hook $Cwd "git -C $Other commit -m x"
+if ($r.rc -eq 0 -and $r.err -like '*running unit suite*' -and -not (Test-Path -LiteralPath (Join-Path $Other '.milestone-config'))) { Ok }
+else { No "C-dir-no-profile-no-writes: rc=$($r.rc) (want 0), the suite must run and $Other/.milestone-config must stay absent, err=[$(Show-Escaped $r.err)]" }
+
+$W = New-Workspace -branchName 'develop'
+$r = Invoke-Hook $W 'git -C x status'
+if ($r.rc -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $W '.milestone-config' '.gitignore'))) { Ok }
+else { No "global-option-non-commit-passes: rc=$($r.rc) (want 0) and the hook must not reach its post-green write, err=[$(Show-Escaped $r.err)]" }
 
 if (-not $IsWindows) { chmod -R u+w $Tmp 2>$null }
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue

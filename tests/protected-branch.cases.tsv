@@ -1,0 +1,86 @@
+# name	gate	tool	workspace	gh	want	input
+# workspace: P (profile main/develop), EXTRA (+protectedBranches live, rel-*), STAGING (integrationBranch staging), NOPROFILE (no driver.json, origin/develop present), NODEV (no driver.json, no develop), NOINTEG (profile with protectedBranch main only, no develop). Empty = P.
+# gh: empty = no stub; FAIL = every stubbed call exits 1; else <pr>=<base>[,<pr>=<base>] with * for any PR and DEFAULT=<branch> for the repo's default branch, prefixed R! to answer a pr view only with `-R o/r` and a repo view only with `o/r`.
+# want: allow | deny|<action>|<branch>
+# input: the Bash command, or the tool_input JSON when tool is set. __MAIN__ and __DEV__ name repos checked out on main and develop; __FEAT__ is on issue/9-x with a local main; __CFG__ is on develop with remote.origin.push = refs/heads/develop:refs/heads/main. A literal \n is a newline.
+push_C_develop_allow	no-push		P		allow	git -C __DEV__ push origin develop
+push_C_dir_named_main_allow	no-push		P		allow	git -C /x/main push origin develop
+push_C_checked_out_dev_allow	no-push		P		allow	git -C __DEV__ push origin
+push_bare_feature_allow	no-push		P		allow	git push origin
+push_no_pager_C_allow	no-push		P		allow	git --no-pager -C __DEV__ push origin develop
+push_git_dir_space_main	no-push		P		deny|pushing|main	git --git-dir /x/.git push origin main
+push_delete_main	no-push		P		deny|pushing|main	git push origin :main
+push_feature_allow	no-push		P		allow	git push origin issue/9-x
+push_name_prefix_allow	no-push		P		allow	git push origin test-fix
+push_chained_deny	no-push		P		deny|pushing|main	git push origin develop && git push origin main
+push_integration_staging_allow	no-push		STAGING		allow	git push origin staging
+push_noprofile_develop_allow	no-push		NOPROFILE		allow	git push origin develop
+push_status_passthrough	no-push		P		allow	git -C __MAIN__ status
+push_repo_flag_main	no-push		P		deny|pushing|main	git push --repo origin main
+push_repo_equals_main	no-push		P		deny|pushing|main	git push --repo=origin main
+push_all_dev_repo_allow	no-push		P		allow	git -C __DEV__ push --all origin
+push_feat_repo_head_allow	no-push		P		allow	git -C __FEAT__ push origin
+push_dollar_src_allow	no-push		P		allow	git push origin $SRC:develop
+subtree_push_P_feature_allow	no-push		P		allow	git subtree push -P dist origin gh-pages
+push_cfg_repo_refspec_allow	no-push		P		allow	git -C __CFG__ push origin develop
+push_main_no_integ_dev	no-push		NOINTEG		deny|pushing|main	git push origin main
+create_main_no_integ_dev	no-pr-to-protected		NOINTEG		deny|opening a PR|main	gh pr create --base main --title x
+create_develop_allow	no-pr-to-protected		P		allow	gh pr create --base develop --title x
+create_R_develop_allow	no-pr-to-protected		P		allow	gh -R o/r pr create --base develop --title x
+create_body_short_b_allow	no-pr-to-protected		P		allow	gh pr create --base develop -b "text"
+create_no_base_default_develop_allow	no-pr-to-protected		P	DEFAULT=develop	allow	gh pr create --title x
+create_integration_staging_allow	no-pr-to-protected		STAGING		allow	gh pr create --base staging --title x
+create_noprofile_develop_allow	no-pr-to-protected		NOPROFILE		allow	gh pr create --base develop --title x
+create_nodev_dev_allow	no-pr-to-protected		NODEV		allow	gh pr create --base dev --title x
+edit_base_develop_allow	no-pr-to-protected		P		allow	gh pr edit 5 --base develop
+edit_title_allow	no-pr-to-protected		P		allow	gh pr edit 5 --title x
+merge_develop_allow	no-pr-to-protected		P	*=develop	allow	gh pr merge 5
+merge_R_develop_allow	no-pr-to-protected		P	R!5=develop	allow	gh -R o/r pr merge 5 --squash
+merge_chained_both_develop	no-pr-to-protected		P	4=develop,5=develop	allow	gh pr merge 4 --squash && gh pr merge 5 --squash
+pr_view_passthrough	no-pr-to-protected		P		allow	gh pr view 5
+api_put_merge_develop_allow	no-pr-to-protected		P	R!5=develop	allow	gh api -X PUT repos/o/r/pulls/5/merge
+api_merges_develop_allow	no-pr-to-protected		P		allow	gh api repos/o/r/merges -f base=develop -f head=x
+api_get_pull_allow	no-pr-to-protected		P		allow	gh api repos/o/r/pulls/5
+api_graphql_read_allow	no-pr-to-protected		P		allow	gh api graphql -f query='{ viewer { login } }'
+api_ref_patch_feature_allow	no-pr-to-protected		P		allow	gh api -X PATCH repos/o/r/git/refs/heads/issue/9-x -f sha=x
+api_ref_get_main_allow	no-pr-to-protected		P		allow	gh api repos/o/r/git/refs/heads/main
+api_contents_feature_allow	no-pr-to-protected		P		allow	gh api -X PUT repos/o/r/contents/a.txt -f branch=issue/9-x -f message=m
+api_pulls_post_develop_allow	no-pr-to-protected		P		allow	gh api repos/o/r/pulls -f base=develop -f head=x -f title=t
+api_pulls_patch_title_allow	no-pr-to-protected		P		allow	gh api -X PATCH repos/o/r/pulls/5 -f title=x
+mcp_merge_main	no-pr-to-protected	mcp__plugin_github_github__merge_pull_request	P	R!5=main	deny|merging a PR|main	{"owner":"o","repo":"r","pullNumber":5,"merge_method":"squash"}
+mcp_merge_develop_allow	no-pr-to-protected	mcp__plugin_github_github__merge_pull_request	P	R!5=develop	allow	{"owner":"o","repo":"r","pullNumber":5}
+mcp_merge_unresolved	no-pr-to-protected	mcp__plugin_github_github__merge_pull_request	P	FAIL	deny|merging a PR|unknown base	{"owner":"o","repo":"r","pullNumber":5}
+mcp_create_main	no-pr-to-protected	mcp__plugin_github_github__create_pull_request	P		deny|opening a PR|main	{"owner":"o","repo":"r","title":"t","head":"x","base":"main"}
+mcp_create_develop_allow	no-pr-to-protected	mcp__plugin_github_github__create_pull_request	P		allow	{"owner":"o","repo":"r","title":"t","head":"x","base":"develop"}
+mcp_create_no_base	no-pr-to-protected	mcp__plugin_github_github__create_pull_request	P		deny|opening a PR|unknown base	{"owner":"o","repo":"r","title":"t","head":"x"}
+mcp_update_base_main	no-pr-to-protected	mcp__plugin_github_github__update_pull_request	P		deny|retargeting a PR|main	{"owner":"o","repo":"r","pullNumber":5,"base":"main"}
+mcp_update_title_allow	no-pr-to-protected	mcp__plugin_github_github__update_pull_request	P		allow	{"owner":"o","repo":"r","pullNumber":5,"title":"x"}
+mcp_push_files_main	no-pr-to-protected	mcp__plugin_github_github__push_files	P		deny|pushing|main	{"owner":"o","repo":"r","branch":"main","files":[],"message":"m"}
+mcp_push_files_feature_allow	no-pr-to-protected	mcp__plugin_github_github__push_files	P		allow	{"owner":"o","repo":"r","branch":"issue/9-x","files":[],"message":"m"}
+mcp_file_write_production	no-pr-to-protected	mcp__plugin_github_github__create_or_update_file	P		deny|pushing|production	{"owner":"o","repo":"r","path":"a","branch":"production","message":"m","content":"x"}
+mcp_file_delete_develop_allow	no-pr-to-protected	mcp__plugin_github_github__delete_file	P		allow	{"owner":"o","repo":"r","path":"a","branch":"develop","message":"m"}
+mcp_read_tool_allow	no-pr-to-protected	mcp__plugin_github_github__list_issues	P		allow	{"owner":"o","repo":"r"}
+mcp_other_server_allow	no-pr-to-protected	mcp__other__merge_pull_request	P		allow	{"owner":"o","repo":"r","pullNumber":5,"base":"main"}
+create_heredoc_body_allow	no-pr-to-protected		P	FAIL	allow	gh pr create --base develop --title x --body "$(cat <<'EOF'\n## Summary\n--base staging Non-Blocking gh pr merge 5 gh api -X PUT repos/o/r/pulls/5/merge\nEOF\n)"
+create_title_xbox_allow	no-pr-to-protected		P		allow	gh pr create --base develop --title "X-Box"
+create_body_non_blocking_allow	no-pr-to-protected		P		allow	gh pr create --base develop -b "Non-Blocking note"
+create_title_then_base_main	no-pr-to-protected		P		deny|opening a PR|main	gh pr create --title "x y" --base main
+issue_comment_body_merge_allow	no-pr-to-protected		P	FAIL	allow	gh issue comment 5 --body "run gh pr merge 5 next"
+api_contents_no_branch_default_develop_allow	no-pr-to-protected		P	DEFAULT=develop	allow	gh api -X PUT repos/o/r/contents/a.txt -f message=m -f content=eA==
+api_contents_get_allow	no-pr-to-protected		P	FAIL	allow	gh api repos/o/r/contents/a.txt
+mcp_file_write_no_branch_default_main	no-pr-to-protected	mcp__plugin_github_github__create_or_update_file	P	DEFAULT=main	deny|pushing|main	{"owner":"o","repo":"r","path":"a","message":"m","content":"x"}
+mcp_push_files_no_branch_default_develop_allow	no-pr-to-protected	mcp__plugin_github_github__push_files	P	DEFAULT=develop	allow	{"owner":"o","repo":"r","files":[],"message":"m"}
+mcp_delete_no_branch_unresolved	no-pr-to-protected	mcp__plugin_github_github__delete_file	P	FAIL	deny|pushing|unknown branch	{"owner":"o","repo":"r","path":"a","message":"m"}
+api_merge_upstream_feature_allow	no-pr-to-protected		P		allow	gh api -X POST repos/o/r/merge-upstream -f branch=issue/9-x
+api_branch_rename_feature_allow	no-pr-to-protected		P		allow	gh api -X POST repos/o/r/branches/issue/9-x/rename -f new_name=issue/10-y
+merge_gh_repo_env_develop_allow	no-pr-to-protected		P	R!5=develop	allow	GH_REPO=o/r gh pr merge 5 --squash
+create_gh_repo_env_no_base_allow	no-pr-to-protected		P	R!DEFAULT=develop	allow	GH_REPO=o/r gh pr create --title x
+create_changelog_block_continuation_allow	no-pr-to-protected		P	DEFAULT=main	allow	existing_pr=$(gh pr list --head "docs/changelog-x" --json number --jq '.[0].number // empty' 2>/dev/null)\nif [ -n "$existing_pr" ]; then\n  echo "CHANGELOG PR already open: #$existing_pr"\nelse\n  # PR title: the same versioned / version-free form as the commit message above.\n  gh pr create \\n    --base develop \\n    --title "docs: v1.2.0" \\n    --body "$(cat <<'EOF'\n## CHANGELOG preview\n\n~~~~\n<paste the authored CHANGELOG entry verbatim here>\n~~~~\n\n---\n\n_This entry doubles as the GitHub-release body for the human release step._\n\n## Code Review\n\n- /code-review run: n/a - doc-only CHANGELOG entry, no executable surface.\n- Findings: 0\n  - none\n- No park-triggering findings.\nEOF\n)"\nfi
+merge_export_gh_repo_develop_allow	no-pr-to-protected		P	R!5=develop	allow	export GH_REPO=o/r && gh pr merge 5 --squash
+merge_export_gh_repo_second_merge_allow	no-pr-to-protected		P	R!*=develop	allow	export GH_REPO=o/r\ngh pr merge 4 --squash && gh pr merge 5 --squash
+commit_heredoc_names_merge_create_allow	no-pr-to-protected		P	FAIL	allow	git commit -m "$(cat <<'EOT'\nfix: gate routes\n\nRun `gh pr merge 5` after gh pr create --base main.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOT\n)"
+commit_msg_backtick_push_feature_allow	no-push		P		allow	git commit -m "docs: name `git push -u origin issue/9-x` in the push step"
+comment_body_subst_create_main	no-pr-to-protected		P		deny|opening a PR|main	gh issue comment 1 --body "$(gh pr create --base main --title x --body y)"
+comment_single_quoted_subst_allow	no-pr-to-protected		P	FAIL	allow	gh issue comment 1 --body 'run $(gh pr merge 5) later'
+merge_gh_repo_prefix_command_develop_allow	no-pr-to-protected		P	R!5=develop	allow	GH_REPO=o/r command gh pr merge 5 --squash
+merge_export_then_statement_allow	no-pr-to-protected		P	R!5=develop	allow	export GH_REPO=x/y; GH_REPO=o/r; gh pr merge 5

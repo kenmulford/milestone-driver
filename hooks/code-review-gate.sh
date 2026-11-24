@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# milestone-driver - code-review-gate (Claude PreToolUse: Bash,
-# if: Bash(gh pr create *) / Bash(gh pr merge *)).
+# milestone-driver - code-review-gate (Claude PreToolUse: Bash, if: Bash(gh *);
+# the script self-scopes to `gh pr create` / `gh pr merge`, with any global
+# options (`-R <repo>`, `--repo <repo>`, any `-` token) allowed between `gh` and
+# `pr`).
 #
 # Deterministic backstop for solve-issue's self-policed review-before-commit
 # rule: checks for a literal, ANCHORED `## Code Review` heading before a PR
@@ -99,7 +101,16 @@
 # boolean flags and the value flags `-t`, `-b`, `-F`, `-A`, `--match-head-commit`
 # and `-R`; a newline, a shell operator, a redirection (`2>&1`, `>file`) or an
 # unclosed quote stops the walk, and with no token `gh pr view` reads the
-# current branch's PR.
+# current branch's PR. The walk also reads the repository from `-R`, `--repo`,
+# `--repo=<repo>` and `-R<repo>`, before or after `merge`, else a leading
+# `GH_REPO=<repo>` prefix (before `gh` or `command gh`), else the last
+# `export GH_REPO=<repo>` or bare `GH_REPO=<repo>` statement before it
+# (`ghr_re` and `ghs_re` below), and runs
+# `gh pr view "$pr_arg" -R <repo>`, so `gh -R o/r pr merge 5` and
+# `export GH_REPO=o/r && gh pr merge 5` check PR 5 of `o/r`. A bare statement
+# with no export before it also checks the cwd repo's PR. The binary matches in
+# any case (`GH` runs gh on a case-insensitive filesystem); `pr` and its
+# subcommand do not, as gh's own parser does not.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt - Ken's manual
@@ -123,9 +134,14 @@ command -v jq >/dev/null 2>&1 || exit 0
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$cmd" ] && exit 0
 
+q="'"
+vre="(\"[^\"]*\"|$q[^$q]*$q|[^[:space:]]+)"
+gh_pre="[Gg][Hh](([[:space:]]+(-R|--repo)[[:space:]]+$vre)|([[:space:]]+-[^[:space:]]*))*"
+create_re="${gh_pre}[[:space:]]+pr[[:space:]]+create"
+merge_re="${gh_pre}[[:space:]]+pr[[:space:]]+merge"
 is_create=0; is_merge=0
-[[ "$cmd" =~ gh[[:space:]]+pr[[:space:]]+create ]] && is_create=1
-[[ "$cmd" =~ gh[[:space:]]+pr[[:space:]]+merge ]] && is_merge=1
+[[ "$cmd" =~ $create_re ]] && is_create=1
+[[ "$cmd" =~ $merge_re ]] && is_merge=1
 [ "$is_create" = "0" ] && [ "$is_merge" = "0" ] && exit 0
 
 project_dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
@@ -377,9 +393,12 @@ if [ "$is_merge" = "1" ]; then
   # First positional token after `merge`; a stop (newline, shell operator, a
   # redirection, an unclosed quote) leaves pr_arg empty and `gh pr view` reads
   # the current branch.
-  pr_arg=""
-  if [[ "$cmd" =~ gh[[:space:]]+pr[[:space:]]+merge ]]; then
-    rest="${cmd#*"${BASH_REMATCH[0]}"}"; skip=0; prev=""
+  pr_arg=""; repo=""; flag=""; val=""; m=""
+  if [[ "$cmd" =~ $merge_re ]]; then
+    m="${BASH_REMATCH[0]}"
+    rest="${cmd#*"$m"}"; skip=0; prev=""
+    r_re="(^|[[:space:]])(--repo[[:space:]=]+|-R[[:space:]=]*)$vre"
+    [[ "$m" =~ $r_re ]] && repo="${BASH_REMATCH[3]}"
     while :; do
       ws="${rest%%[![:space:]]*}"
       rest="${rest:${#ws}}"
@@ -391,13 +410,16 @@ if [ "$is_merge" = "1" ]; then
       case "$tok" in '&'*|'|'*|';'*|')'*) break ;; '\') continue ;; esac
       [[ "$tok" =~ $re_redir ]] && break
       if [ "$skip" = 1 ]; then
-        skip=0; val="$tok"
+        skip=0; val="$tok"; [ "$flag" = repo ] && repo="$val"
       else
         case "$tok" in
-          -t|--subject|-b|--body|-F|--body-file|-A|--author-email|--match-head-commit|-R|--repo) skip=1; continue ;;
+          -R|--repo) skip=1; flag=repo; continue ;;
+          -t|--subject|-b|--body|-F|--body-file|-A|--author-email|--match-head-commit) skip=1; flag=""; continue ;;
+          --repo=*) val="${tok#*=}"; repo="$val" ;;
+          -R?*) val="${tok#-R}"; val="${val#=}"; repo="$val" ;;
           -*=*) val="${tok#*=}" ;;
           -*) continue ;;
-          *) pr_arg="$tok"; break ;;
+          *) [ -z "$pr_arg" ] && pr_arg="$tok"; continue ;;
         esac
       fi
       case "$val" in
@@ -406,29 +428,53 @@ if [ "$is_merge" = "1" ]; then
     done
   fi
 
-  if [ -n "$pr_arg" ]; then
-    view_json="$(gh pr view "$pr_arg" --json body,baseRefName 2>/dev/null)"
-  else
-    view_json="$(gh pr view --json body,baseRefName 2>/dev/null)"
+  nl=$'\n'; ghv="(\"[^\"]*\"|$q[^$q]*$q|[^[:space:];&|()]+)"
+  ghr_re="(^|[[:space:];&|(])GH_REPO=$ghv[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|()]*[[:space:]]+)*(command[[:space:]]+)?\$"
+  ghs_re="(^|[;&|($nl])[[:space:]]*(export[[:space:]]+)?GH_REPO=$ghv([[:space:]]*(\$|[;&|$nl]))?"
+  # A bare statement reaches gh only when GH_REPO is already exported, so with
+  # no export before it the cwd repo's PR is checked too (two=1).
+  two=0
+  if [ -z "$repo" ] && [ -n "$m" ]; then
+    s="${cmd%%"$m"*}"; exp=0
+    if [[ "$s" =~ $ghr_re ]]; then repo="${BASH_REMATCH[2]}"
+    else
+      while [[ "$s" =~ $ghs_re ]]; do
+        if [ -n "${BASH_REMATCH[2]}" ]; then repo="${BASH_REMATCH[3]}"; exp=1; two=0
+        elif [ -n "${BASH_REMATCH[4]}" ]; then repo="${BASH_REMATCH[3]}"; [ "$exp" = 1 ] || two=1
+        fi
+        s="${s#*"${BASH_REMATCH[0]}"}"
+      done
+    fi
   fi
-  rc=$?
-  [ "$rc" -ne 0 ] && exit 0
-  [ -z "$view_json" ] && exit 0
+  repo="${repo#[\"\']}"; repo="${repo%[\"\']}"
+  pr_arg="${pr_arg#[\"\']}"; pr_arg="${pr_arg%[\"\']}"
 
-  pr_body="$(printf '%s' "$view_json" | jq -r '.body // empty' 2>/dev/null)"
-  pr_body="${pr_body#"$bom"}"
-  pr_base="$(printf '%s' "$view_json" | jq -r '.baseRefName // empty' 2>/dev/null)"
-  pr_base="${pr_base%$'\r'}"
+  # review_merge <repo-or-empty>: checks that repo's PR; returns 0 (fail-open)
+  # when the view fails, and never returns on deny.
+  review_merge() {
+    local view_args=(pr view) view_json pr_body pr_base
+    [ -n "$pr_arg" ] && view_args+=("$pr_arg")
+    [ -n "$1" ] && view_args+=(-R "$1")
+    view_json="$(gh "${view_args[@]}" --json body,baseRefName 2>/dev/null)" || return 0
+    [ -z "$view_json" ] && return 0
 
-  [ -n "$protected" ] && [ "$pr_base" = "$protected" ] && exit 0
+    pr_body="$(printf '%s' "$view_json" | jq -r '.body // empty' 2>/dev/null)"
+    pr_body="${pr_body#"$bom"}"
+    pr_base="$(printf '%s' "$view_json" | jq -r '.baseRefName // empty' 2>/dev/null)"
+    pr_base="${pr_base%$'\r'}"
 
-  if [ -z "$pr_body" ]; then
-    deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
-  fi
+    [ -n "$protected" ] && [ "$pr_base" = "$protected" ] && return 0
 
-  heading_match "$pr_body" 0 || deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
-  check_verdict "$pr_body" "merging the PR" 0
-  check_findings "$pr_body" "merging the PR" 0
+    if [ -z "$pr_body" ]; then
+      deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
+    fi
+
+    heading_match "$pr_body" 0 || deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
+    check_verdict "$pr_body" "merging the PR" 0
+    check_findings "$pr_body" "merging the PR" 0
+  }
+  review_merge "$repo"
+  [ "$two" = 1 ] && review_merge ""
 fi
 
 exit 0

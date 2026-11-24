@@ -10,6 +10,10 @@
 # shebang and produces "bad interpreter" / "\r command not found" on
 # Linux, macOS, WSL, and git-bash.
 *.sh text eol=lf
+# The PATH shims and git hooks are extensionless sh scripts: a CRLF shebang
+# makes every gh, git and hook call fail on Windows with core.autocrlf=true.
+shims/* text eol=lf
+git-hooks/* text eol=lf
 
 # PowerShell scripts: keep LF too for clean cross-platform diffs.
 # pwsh 7+ runs LF scripts fine on Windows, Linux, and macOS.
