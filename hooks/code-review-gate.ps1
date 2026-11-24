@@ -33,6 +33,13 @@
 # begins-a-line was rejected and why the token is unwrapped of one quote per
 # side.
 #
+# Finding scan (issue #804): after the verdict slots pass, the lines after the
+# FIRST anchored heading match holding a slot are scanned; a Critical or
+# Important finding line (an unprefixed list-marker line carrying the arrow
+# counts as Important) denies unless its text after the last arrow, cut at its
+# first quote and trimmed, is `re-dispatched and resolved`. See
+# code-review-gate.sh for the full rule.
+#
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
 #
@@ -42,6 +49,16 @@
 
 if ($env:CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE -eq '1') { exit 0 }
 
+# UTF-8 without a BOM both ways: the payload and the deny quote a finding line
+# carrying the arrow, and the Windows console default (OEM) would corrupt it.
+# Set only when not already UTF-8: each setter replaces the console reader or
+# writer, which drops the redirected stdin and stderr of tests/_lib.ps1's
+# in-process runner.
+try {
+  $utf8 = [System.Text.UTF8Encoding]::new($false)
+  if ([Console]::InputEncoding.CodePage -ne 65001) { [Console]::InputEncoding = $utf8 }
+  if ([Console]::OutputEncoding.CodePage -ne 65001) { [Console]::OutputEncoding = $utf8 }
+} catch { }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
@@ -117,8 +134,55 @@ function VerdictToken([string]$after) {
   return $v
 }
 
+# FirstVerdictSpan <text>: the span of the FIRST anchored heading match whose
+# text holds a `/code-review run:` slot; $null when none does. The finding scan
+# starts here, since no finding can precede the section's own heading.
+function FirstVerdictSpan([string]$text) {
+  if (-not $text) { return $null }
+  $i = 0
+  while (($i = $text.IndexOf($heading, $i, [System.StringComparison]::Ordinal)) -ge 0) {
+    $after = $text.Substring($i + $heading.Length)
+    if (-not [regex]::IsMatch($after, '^[A-Za-z0-9]') -and $after.IndexOf($runSlot, [System.StringComparison]::Ordinal) -ge 0) { return $after }
+    $i += $heading.Length
+  }
+  return $null
+}
+
+# CheckFindings <surface> <action>: denies on the first finding line, in
+# document order, whose severity is Critical or Important (an unprefixed
+# list-marker line carrying the arrow counts as Important) and whose text
+# after its last arrow, cut at its first quote and trimmed, is not the one
+# allowed disposition. Never returns on deny. Ordinal throughout, so it
+# trims, cuts and matches exactly as code-review-gate.sh does.
+function CheckFindings([string]$surface, [string]$action) {
+  $span = FirstVerdictSpan $surface
+  if ($null -eq $span) { return }
+  $nl = $span.IndexOf("`n")
+  if ($nl -lt 0) { return }
+  $ord = [System.StringComparison]::Ordinal
+  $arrow = [string][char]0x2192
+  $want = 're-dispatched and resolved'
+  $ws = [char[]]" `t`r`v`f"
+  foreach ($raw in $span.Substring($nl + 1).Split("`n")) {
+    $line = $raw.Trim($ws)
+    $t = $line; $mk = $false
+    if ($t.StartsWith('- ', $ord) -or $t.StartsWith('* ', $ord)) { $mk = $true; $t = $t.Substring(2) }
+    if ($t.StartsWith('[Minor]', $ord)) { continue }
+    $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $t.Contains($arrow))
+    if (-not $fnd) { continue }
+    $disp = ''
+    $k = $line.LastIndexOf($arrow, $ord)
+    if ($k -ge 0) { $disp = $line.Substring($k + 1) }
+    $q = $disp.IndexOfAny([char[]]@('"', "'"))
+    if ($q -ge 0) { $disp = $disp.Substring(0, $q) }
+    if ($disp.Trim($ws) -cne $want) {
+      Deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': ${line}. Record it as $want before $action,"
+    }
+  }
+}
+
 # CheckVerdict <surface> <action>: reads EVERY slot in the span and denies on
-# the first one not accepted; never returns on deny.
+# the first one not accepted, then scans the findings; never returns on deny.
 function CheckVerdict([string]$surface, [string]$action) {
   $span = VerdictSpan $surface
   if ($null -eq $span) {
@@ -135,6 +199,7 @@ function CheckVerdict([string]$surface, [string]$action) {
       Deny "the PR body records '$runSlot $tok', which is not an accepted verdict. Set it to yes or n/a - <reason> before $action,"
     }
   }
+  CheckFindings $surface $action
 }
 
 if ($isCreate) {
