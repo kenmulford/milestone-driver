@@ -76,6 +76,19 @@ try {
   Expect-Out 'reset-in-worktree' (Invoke-Leg -Script $Script -Args @($wt, '7') -Cwd $Tmp) "reset`t7`t3`n"
   Expect-Present 'reset-in-worktree-files' $dirW $Seven $Seventy
 
+  # ---- milestone-<n> removes its own three, never an issue counter -----------
+  $Ms = @('review-milestone-53', 'implementer-milestone-53', 'planner-milestone-53')
+  $RM = New-Repo
+  $dirM = Add-Counters $RM ($Ms + @('implementer-53', 'planner-53', 'implementer-milestone-54', 'review-milestone-53-x'))
+  Expect-Out 'reset-milestone-53' (Invoke-Leg -Script $Script -Args @($RM, 'milestone-53') -Cwd $Tmp) "reset`tmilestone-53`t3`n"
+  Expect-Present 'reset-milestone-53-files' $dirM $Ms @('implementer-53', 'planner-53', 'implementer-milestone-54', 'review-milestone-53-x')
+  [void](Add-Counters $RM @('implementer-milestone-53'))
+  Expect-Out 'reset-milestone-53-partial' (Invoke-Leg -Script $Script -Args @($RM, 'milestone-53') -Cwd $Tmp) "reset`tmilestone-53`t1`n"
+  Expect-Out 'reset-milestone-53-absent' (Invoke-Leg -Script $Script -Args @($RM, 'milestone-53') -Cwd $Tmp) "reset`tmilestone-53`t0`n"
+  $plainM = Join-Path $Tmp ([System.Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Path $plainM | Out-Null
+  Expect-Out 'milestone-no-repo' (Invoke-Leg -Script $Script -Args @($plainM, 'milestone-53') -Cwd $Tmp) "reset`tmilestone-53`t0`n"
+
   # ---- fail-open: no counter directory, no repo -----------------------------
   $RE = New-Repo
   Expect-Out 'absent-dir' (Invoke-Leg -Script $Script -Args @($RE, '7') -Cwd $Tmp) "reset`t7`t0`n"
@@ -85,7 +98,9 @@ try {
 
   # ---- bad usage exits 2 with nothing on stdout -----------------------------
   foreach ($case in @(@('usage-none', @()), @('usage-one', @($R)), @('usage-nondigit', @($R, '7a')),
-      @('usage-empty-n', @($R, '')), @('usage-three', @($R, '7', 'x')))) {
+      @('usage-empty-n', @($R, '')), @('usage-three', @($R, '7', 'x')),
+      @('usage-milestone-bare', @($R, 'milestone-')), @('usage-milestone-nondigit', @($R, 'milestone-7a')),
+      @('usage-milestone-uppercase', @($R, 'Milestone-7')))) {
     $r = Invoke-Leg -Script $Script -Args $case[1] -Cwd $Tmp
     if ($r.rc -eq 2 -and [string]::IsNullOrEmpty($r.out) -and -not [string]::IsNullOrEmpty($r.err)) { Ok }
     else { No "$($case[0]): rc=$($r.rc) out=[$(Show-Escaped $r.out)] err=[$(Show-Escaped $r.err)]" }

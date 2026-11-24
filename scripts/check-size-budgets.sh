@@ -337,6 +337,40 @@
 #     file, rounded UP to the next 500 bytes. skills/solve-issue/SKILL.md
 #     holds every ceiling and does not move. Spent on this one row: the next
 #     edit re-derives normally.
+#     RECORDED RAISE, issue #799 (decision 2026-11-23):
+#     skills/review-depth.md BYTE 5500 -> 6000 and
+#     skills/solve-issue/SKILL.md CLOSURE 13400 -> 13500, for the
+#     severity-only disposition and pre-existing-finding sentences in
+#     `## Which findings get fixed` and the severity prefix in the two Code
+#     Review templates. Measured growth: review-depth.md 106 -> 111 lines,
+#     5483 -> 5769 bytes, 810 -> 850 words; solve-issue CLOSURE 13381 ->
+#     13426 words. review-depth.md LINE 115 and WORD 900, and SKILL.md LINE
+#     320, BYTE 48500 and WORD 6800, still hold and do not move. Each raise is
+#     rounded UP to the next 500 bytes and 100 words. Spent on these two rows:
+#     the next edit re-derives normally.
+#     RECORDED RAISE, issue #802 (decision 2026-11-23):
+#     skills/solve-milestone/milestone-end-gates.md BYTE 6000 -> 6500 and WORD
+#     900 -> 1000, for the verify-review routing, the planner redesign and the
+#     halt before the PR in `## The fix-dispatch loop` and `## Cap spent, still
+#     red`. Measured growth after trimming: 57 -> 60 lines, 5970 -> 6440 bytes,
+#     850 -> 909 words. LINE 70 still holds and does not move. Each raise is
+#     one unit, 500 bytes and 100 words. Spent on this one row: the next edit
+#     re-derives normally.
+#     RECORDED RAISE, milestone #54 milestone-end fix (decision 2026-11-23):
+#     skills/solve-milestone/milestone-end-gates.md BYTE 6500 -> 7000, for the
+#     step 2 cap reset, the step 4 reviewer inputs and NO VERDICT path, the Fix
+#     brief's packet inputs and the any-dispatch STOPPED halt. Measured growth
+#     after trimming: 60 -> 60 lines, 6487 -> 6920 bytes, 907 -> 950 words.
+#     LINE 70 and WORD 1000 still hold and do not move. One unit, 500 bytes.
+#     Spent on this one row: the next edit re-derives normally.
+#     RECORDED RAISE, milestone #54 second milestone-end fix (decision
+#     2026-11-23): skills/solve-milestone/milestone-end-gates.md BYTE 7000 ->
+#     7500, for the Fix brief's no-packet inputs and findings-file write, the
+#     step 4 merge-base `<base>`, the NO VERDICT halt print and the
+#     `${CLAUDE_PLUGIN_ROOT}` reset paths. Measured growth after trimming:
+#     60 -> 60 lines, 6920 -> 7241 bytes, 950 -> 995 words. LINE 70 and WORD
+#     1000 still hold and do not move. One unit, 500 bytes. Spent on this one
+#     row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -464,6 +498,8 @@ ROOT="${ROOT%/}"
 #   the line floor (63 + 5, next 5 = 70) agreeing; 5530 * 1.05 = 5806.5,
 #   rounded UP to the next 500 = 6000; 826 * 1.05 = 867.3, rounded UP to the
 #   next 100 = 900.
+# #801 seeded agents/reviewer.md from actuals 60 / 3986 / 634 (bytes 3986 * 1.05 = 4185.3 up to 4500;
+#   words 634 up to 700; lines 60 * 1.05 = 63 under the floor 60 + 5, next 5 = 65).
 FILES=()
 CEILINGS=()
 BYTE_CEILINGS=()
@@ -513,7 +549,7 @@ skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
-skills/solve-milestone/milestone-end-gates.md        70     6000      900
+skills/solve-milestone/milestone-end-gates.md        70     7500     1000
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600
@@ -526,12 +562,13 @@ skills/citation-format.md                           190    10500     1700
 skills/remediate-handoff.md                          90     5000      800
 skills/process-check.md                              45     4000      600
 skills/process-check-procedure.md                    75    10000     1600
-skills/review-depth.md                              115     5500      900
+skills/review-depth.md                              115     6000      900
 agents/blocker-resolver.md                          125    11500     1800
 agents/design-reviewer.md                           120    16000     2400
 agents/implementer.md                               140    17500     2700
 agents/planner.md                                   100     6500      900
 agents/process-auditor.md                            95     7500     1200
+agents/reviewer.md                                  65     4500      700
 agents/triage-reviewer.md                           120    16500     2600
 GOVERNED_TABLE
 
@@ -684,7 +721,7 @@ while read -r skill closure_ceiling members; do
   case "$closure_ceiling" in ''|*[!0-9]*) ;; *) CLOSURE_CEILINGS[$nclosureceilings]="$closure_ceiling"; nclosureceilings=$((nclosureceilings + 1)) ;; esac
 done <<'CLOSURE_TABLE'
 skills/setup/SKILL.md              7600   skills/output-style.md skills/citation-format.md
-skills/solve-issue/SKILL.md       13400   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
+skills/solve-issue/SKILL.md       13500   skills/notices.md skills/output-style.md skills/citation-format.md skills/solve-issue/version-bump.md skills/review-depth.md
 skills/solve-milestone/SKILL.md   10100   skills/notices.md skills/output-style.md skills/citation-format.md
 skills/triage/SKILL.md             8600   skills/output-style.md skills/citation-format.md
 CLOSURE_TABLE

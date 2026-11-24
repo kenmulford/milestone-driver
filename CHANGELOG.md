@@ -3,6 +3,36 @@
 Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 [GitHub Releases page](https://github.com/kenmulford/milestone-driver/releases).
 
+## v1.34.0 - the milestone end converges in one review
+
+**Theme:** One `/code-review` at the milestone end reports every finding at the first run's effort, and every Critical or Important finding, pre-existing ones included, is fixed before the milestone PR opens. The hooks count milestone-end dispatches and deny untyped or `general-purpose` agents on driver branches.
+
+### ✨ Milestone-end convergence
+
+| Issue | PR | What |
+|---|---|---|
+| #798 Make every review report every finding at the first run's effort | - | `skills/review-depth.md § The ladder` names the effort and the `--max-findings all` flag for every review site, so a later cycle never surfaces a finding the first run held back. |
+| #799 Prefix each Code Review finding with its severity and allow only re-dispatched and resolved for Critical and Important | - | Each Code Review finding line opens with `[Critical]`, `[Important]` or `[Minor]`. A Critical or Important finding's only disposition is `re-dispatched and resolved`. `accepted (rationale: <…>)` stays for a Minor finding under the Light profile. |
+| #800 Count milestone-end dispatches in dispatch-cap under a milestone-<n> key that survives HEAD moves | - | A dispatch on `milestone-<n>-*` whose brief opens with `Milestone-End-Fix: <n>`, or a Codex `task_name` of `<agent>_milestone_<n>_<attempt>`, counts under the key `milestone-<n>`: 3 implementer and 1 planner dispatches, kept across fix commits. The milestone-end sequence resets the counter at entry, and its deny text names the Halt, which also runs `scripts/reset-dispatch-cap.<sh\|ps1> <repo-root> milestone-<n>`. |
+| #801 Add the milestone-driver reviewer agent for the parallel-mode reviewer leaf | - | `milestone-driver:reviewer` (opus, read-only) reviews one diff and returns Strengths, Critical / Important / Minor findings each naming a ref, and an Assessment, or `NO VERDICT` naming an input it could not resolve. A brief that states its own return shape or review scope replaces the default. Parallel-mode step 7, solve-issue step 6.1, milestone-end step 4 and the `/simplify` cleanup agents dispatch it. |
+| #802 Converge the milestone end through one fix dispatch, a planner redesign, and a halt before the PR | - | `skills/solve-milestone/milestone-end-gates.md` collects every finding and red gate into one fix dispatch, re-reviews, and sends a fix that keeps producing findings to one planner redesign. When the cap is spent with a Critical or Important finding open, the run halts before the PR instead of opening it. |
+| #803 Deny main-thread general-purpose or untyped Agent dispatches on issue, wave and milestone branches | - | `hooks/dispatch-cap.{sh,ps1}` deny a main-thread Agent dispatch whose `subagent_type` is `general-purpose`, `claude` or `fork` in any case, or empty or absent, on `issue/*`, `wave/*` or `milestone-*`, naming the typed agents to use. Leaves of a forked skill such as `/code-review` carry an `agent_id` and pass. |
+| #804 Deny gh pr create and gh pr merge when a Critical or Important finding carries any other disposition | - | `hooks/code-review-gate.{sh,ps1}` fail closed: every unfenced line of the PR body is scanned, whatever section it sits in, and a `[Critical]`, `[Important]` or unprefixed `→` list line denies unless its disposition is exactly `re-dispatched and resolved` (optionally `.` or one closing parenthetical). Every `## Code Review` section that opens a line or an inline `--body` value has its verdict checked, and CRLF and BOM bodies scan the same on both legs. |
+
+### Consumer notes (upgrading from v1.33.0)
+
+- **No schema changes** to `.milestone-config/driver.json`.
+- A custom flow that dispatches a `general-purpose` or untyped agent from the main thread on an `issue/*`, `wave/*` or `milestone-*` branch is now denied. Name a typed agent such as `milestone-driver:reviewer`. `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides the deny.
+- A PR body whose Critical or Important finding reads `accepted` or `triggered park` is now denied at `gh pr create` and `gh pr merge`.
+- The arrow character is reserved for a finding's disposition (`skills/output-style.md`). Any other PR-body list line carrying it, such as a version-bump line, now denies: write `to` instead.
+- Each milestone-end entry resets its `milestone-<n>` counter, so a resumed or re-run milestone end starts with a fresh budget.
+
+### ⚖️ Post-run audit trail
+
+Judgment-call PRs: none.
+
+- `skills/solve-milestone/milestone-end-gates.md` BYTE ceiling raised 6500 -> 7000 (recorded raise). `skills/solve-issue/SKILL.md` is at 320/320 lines, and a CRLF checkout would fail its size row.
+
 ## v1.33.0 - the driver spots a project process that replaces its own
 
 **Theme:** At run start the driver checks the project's instruction files for any line that restates or replaces a step it owns. It lists the stale lines in plain English, and on the user's yes it files one issue that the driver builds like any other.

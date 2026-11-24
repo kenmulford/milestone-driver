@@ -41,5 +41,6 @@ OK	agents/design-reviewer.md
 OK	agents/implementer.md
 OK	agents/planner.md
 OK	agents/process-auditor.md
+OK	agents/reviewer.md
 OK	agents/triage-reviewer.md
-SUMMARY	ok=44	failed=0
+SUMMARY	ok=45	failed=0

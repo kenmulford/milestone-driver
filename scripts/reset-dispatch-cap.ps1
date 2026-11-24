@@ -1,20 +1,20 @@
 #!/usr/bin/env pwsh
 # milestone-driver - clear one issue's dispatch-cap counters at park time, so a
 # re-run after the park starts a fresh chain.
-# Usage: reset-dispatch-cap.ps1 <repo-root> <n>
+# Usage: reset-dispatch-cap.ps1 <repo-root> <n | milestone-n>
 # pwsh twin of reset-dispatch-cap.sh (rules, output, and exit codes documented there).
 Set-StrictMode -Version Latest
 
 function Err([string]$msg) { [Console]::Error.WriteLine($msg) }
 
 if ($args.Count -ne 2) {
-  Err 'usage: reset-dispatch-cap.ps1 <repo-root> <n>'
+  Err 'usage: reset-dispatch-cap.ps1 <repo-root> <n | milestone-n>'
   exit 2
 }
 $root = ([string]$args[0]) -replace '\\', '/'
 $n = [string]$args[1]
-if ($n -notmatch '^[0-9]+$') {
-  Err "reset-dispatch-cap: <n> must be digits: $n"
+if ($n -cnotmatch '^(milestone-)?[0-9]+$') {
+  Err "reset-dispatch-cap: <n> must be digits or milestone-<digits>: $n"
   exit 2
 }
 

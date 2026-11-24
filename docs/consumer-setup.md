@@ -78,7 +78,7 @@ Once wired, `/milestone-driver:solve-milestone <name>` (or `/milestone-driver:so
   | Implementer verification | Targeted verify in place of full TDD red→green (still verifies - never skips) | Full TDD red→green |
   | E2E gate | Skipped when the issue touches no UI surface | Per the E2E row of `solve-issue`'s `### 4. Verification gates` (UI surface + e2eTestCmd) |
 
-  **Review depth is not the risk profile.** The review→fix cycle cap, and the first review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling and it is the first review's only: every later `/code-review` on the issue runs at `low`, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
+  **Review depth is not the risk profile.** The review→fix cycle cap, and the first review's effort, come from `scripts/classify-review-depth.{sh,ps1}`, run against the built diff immediately before each review, never from `light` / `heavy`. `medium` is the effort ceiling. Every `/code-review` passes `--max-findings all`, so it reports every finding (Claude Code v2.1.288 or later), and a re-review runs at the first review's effort, whatever the verdict says then. The operative rule the driver follows is `skills/review-depth.md § The ladder`; this table restates it for you:
 
   | Verdict | Fires when the diff | First review, then cap |
   |---|---|---|
@@ -385,9 +385,11 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `git commit` with the unit suite red (staged source) - when `unitTestCmd` is defined | **blocked** (tests-green) |
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
-| `gh pr create` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent) | **blocked** (code-review-gate) - exempt when `--base` targets `protectedBranch` |
+| `gh pr create` or `gh pr merge` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent), or whose Critical or Important finding carries a disposition other than `re-dispatched and resolved` | **blocked** (code-review-gate) - exempt when the PR targets `protectedBranch` |
 | A 4th `/code-review` run, or a 4th implementer dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 | A 3rd planner dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A 4th implementer or 2nd planner dispatch under the `milestone-<n>` key (3 and 1 per milestone end) | **blocked** (dispatch-cap) - take the milestone-end Halt, which runs `scripts/reset-dispatch-cap.<sh\|ps1> <repo-root> milestone-<n>`; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A main-thread `general-purpose`, `claude`, `fork` (any case) or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch | **blocked** (dispatch-cap) - dispatch a named agent (the deny names them); `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 
