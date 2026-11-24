@@ -386,9 +386,10 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | `git push` to `protectedBranch` | **blocked** (no-push) |
 | `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
 | `gh pr create` or `gh pr merge` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent), or whose Critical or Important finding carries a disposition other than `re-dispatched and resolved` | **blocked** (code-review-gate) - exempt when the PR targets `protectedBranch` |
-| A 4th `/code-review` run, or a 4th implementer dispatch, for one issue, or a 4th implementer dispatch under the `milestone-<n>` key (3 per milestone end) | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
-| A 3rd planner dispatch, for one issue, or a 2nd planner dispatch under the `milestone-<n>` key (1 per milestone end) | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
-| A main-thread general-purpose or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch | **blocked** (dispatch-cap) - dispatch a named agent (the deny names them); `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A 4th `/code-review` run, or a 4th implementer dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A 3rd planner dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A 4th implementer or 2nd planner dispatch under the `milestone-<n>` key (3 and 1 per milestone end) | **blocked** (dispatch-cap) - take the milestone-end Halt, which runs `scripts/reset-dispatch-cap.<sh\|ps1> <repo-root> milestone-<n>`; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
+| A main-thread `general-purpose`, `claude`, `fork` (any case) or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch | **blocked** (dispatch-cap) - dispatch a named agent (the deny names them); `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
 

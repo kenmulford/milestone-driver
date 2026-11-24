@@ -356,6 +356,13 @@
 #     850 -> 909 words. LINE 70 still holds and does not move. Each raise is
 #     one unit, 500 bytes and 100 words. Spent on this one row: the next edit
 #     re-derives normally.
+#     RECORDED RAISE, milestone #54 milestone-end fix (decision 2026-11-23):
+#     skills/solve-milestone/milestone-end-gates.md BYTE 6500 -> 7000, for the
+#     step 2 cap reset, the step 4 reviewer inputs and NO VERDICT path, the Fix
+#     brief's packet inputs and the any-dispatch STOPPED halt. Measured growth
+#     after trimming: 60 -> 60 lines, 6487 -> 6920 bytes, 907 -> 950 words.
+#     LINE 70 and WORD 1000 still hold and do not move. One unit, 500 bytes.
+#     Spent on this one row: the next edit re-derives normally.
 #   - A governed file that is renamed or deleted is a FAILURE, not a silent
 #     pass - the table must be updated (moved or removed) in the SAME change,
 #     with a recorded decision if a file is dropped from governance.
@@ -534,7 +541,7 @@ skills/solve-milestone/contingencies.md              70     8500     1200
 skills/solve-milestone/db-hazard-interview.md        30     2500      400
 skills/solve-milestone/integration-granularity.md    85    15000     2300
 skills/solve-milestone/md-epic-parent-check.md       30     2500      400
-skills/solve-milestone/milestone-end-gates.md        70     6500     1000
+skills/solve-milestone/milestone-end-gates.md        70     7000     1000
 skills/solve-milestone/not-buildable.md              20     3500      500
 skills/solve-milestone/sequential-loop.md            35     7500     1100
 skills/solve-milestone/simplify-pass.md             110    11000     1600

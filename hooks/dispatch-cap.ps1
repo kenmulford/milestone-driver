@@ -44,7 +44,7 @@ if ($tool -ceq 'Skill') {
     # `<agent>_issue_<n>_<attempt>` or `<agent>_milestone_<n>_<attempt>` in task_name;
     # the bare name maps back to the row.
     $tool = 'Agent'; $field = 'task_name'
-    $who = ([string]$hook.tool_input.task_name) -replace '^.*/', '' -replace '_(issue|milestone).*$', ''
+    $who = ([string]$hook.tool_input.task_name) -creplace '^.*/', '' -creplace '_(issue|milestone).*$', ''
     $who = if ($who -ceq $implementer.Substring($implementer.LastIndexOf(':') + 1)) { $implementer } else { "milestone-driver:$who" }
 } else {
     exit 0
@@ -52,12 +52,12 @@ if ($tool -ceq 'Skill') {
 
 # Dispatch contract: runs before the table, so a denied dispatch never reads or writes a counter.
 # A failing branch read or a detached HEAD (`HEAD`) allows.
-if ($mainAgent -and (-not $who -or $who -ceq 'general-purpose')) {
+if ($mainAgent -and (-not $who -or $who -in @('general-purpose', 'claude', 'fork'))) {
     $branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
     if ($LASTEXITCODE -ne 0) { exit 0 }
     $branch = [string]$branch
     if ($branch -clike 'issue/*' -or $branch -clike 'wave/*' -or $branch -clike 'milestone-*') {
-        $subject = if ($who) { 'subagent_type general-purpose' } else { 'no subagent_type' }
+        $subject = if ($who) { "subagent_type $who" } else { 'no subagent_type' }
         $roster = "$implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer"
         Invoke-HookDeny $hook "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $branch. Dispatch a named agent: $roster. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
     }

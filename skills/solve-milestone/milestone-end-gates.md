@@ -14,9 +14,9 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 
 | # | Step | Detail |
 |---|---|---|
-| 2 | Empty diff | No commits over `integrationBranch`: log one line, end the sequence; the PR section's step 1 proceeds |
+| 2 | Empty diff | First run `scripts/reset-dispatch-cap.<sh\|ps1> <repo-root> milestone-<n>`, so a resumed entry starts a fresh cap. No commits over `integrationBranch`: log one line, end the sequence; the PR section's step 1 proceeds |
 | 3 | Coherence review | Only when `coherenceReviewAgent` is present and configured, else skip silently; dispatch it read-only against `<range>` per `skills/solve-issue/coherence-review.md (### The pass)`; its findings never enter the loop |
-| 4 | `/code-review` | Per `skills/review-depth.md`, run `scripts/classify-review-depth.sh <repo-root> <integrationBranch>`, rooted at the milestone branch's checkout, then run `/code-review` on the main line, each reviewer leaf a `milestone-driver:reviewer`, at the verdict's first-run effort with the ladder's flag; a step 8 re-run keeps that effort |
+| 4 | `/code-review` | Per `skills/review-depth.md`, run `scripts/classify-review-depth.sh <repo-root> <integrationBranch>`, rooted at the milestone branch's checkout, then run `/code-review` on the main line at the verdict's first-run effort with the ladder's flag; a step 8 re-run keeps that effort. Each reviewer leaf is a `milestone-driver:reviewer` briefed with `<repo-root>` as worktree, `<integrationBranch>...<milestone-branch>` as `<base>`, and `${CLAUDE_PLUGIN_ROOT}/scripts/classify-delta.<sh\|ps1>`; a `NO VERDICT` is re-dispatched once naming that input, then takes **Halt.** |
 | 5 | Unit gate | `${CLAUDE_PLUGIN_ROOT}/scripts/unit-gate.<sh\|ps1> <repo-root>`, never `unitTestCmd` directly |
 | 6 | E2E | Only when an issue on the branch carries the `ui` label and `e2eTestCmd` is defined: run `e2eTestCmd` against `e2eEnv` |
 | 7 | Preflight | The Preflight row of `skills/solve-issue/SKILL.md § 4. Verification gates`. Under the `"github-ci"` sentinel it defers to the milestone PR's CI |
@@ -26,7 +26,7 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 
 Collect every `/code-review` finding from step 4 and every red gate from steps 5-7. Every implementer and planner brief's first line is `Milestone-End-Fix: <milestone-number>`, before any `Issue:` header.
 
-- **Fix.** One `implementerAgent` dispatch: `<range>`, every open finding and failure, expanded `domainSkills`; re-run from step 4 as the verify review, never step 3.
+- **Fix.** One `implementerAgent` dispatch, its brief: `PACKET:` the **Redesign.** findings file (every open finding and failure), the profile, `citationFormatPath`, `<range>`, expanded `domainSkills`; re-run from step 4 as the verify review, never step 3.
 - **Commit.** Subject line, fix summary, step 4's `/code-review` result in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md (Wave granularity keeps the block.)`, final paragraph exactly `Milestone-End-Fix: <milestone-number>`; no `Issue:` line.
 - **Route.** After a verify review, a Critical or Important finding on a line a fix commit added (`git diff <fix-commit>^ <fix-commit>`) sends the next dispatch to `milestone-driver:planner` while unspent, carrying every open Critical and Important finding.
 - **Redesign.** `<main-repo-root>/.milestone-config/.runtime/` holds `triage/milestone-<n>-findings.md` (open findings as prefix and `<path>:<line>`, cited files, fix shas) and the packet `plans/milestone-<n>-redesign.md`. The brief carries an issue's inputs, worktree the milestone checkout, header `Issue: milestone-<n>`, `## Files` as `git diff --name-only <range>`. Approve with `scripts/check-packet.{sh,ps1} <packet> <repo-root>`; exit 0: one `implementerAgent` dispatch on it, Commit, re-run from step 4.
@@ -37,7 +37,7 @@ Collect every `/code-review` finding from step 4 and every red gate from steps 5
 
 **Precedence.** A Critical or Important finding open takes **Halt.**, ahead of a red gate; else a red gate from steps 5-7 takes attribution and revert; every gate green with only Minor findings open takes `## The run-scoped handler`.
 
-**Halt.** Also taken by a planner `PARK`, a check-packet failure, a planner `DOMAIN_SKILLS_INVOKED` missing an expanded name, or an implementer `STATUS: STOPPED` (`PACKET_GAP:` included) on the redesign build. Print `🔴 Milestone <milestone-number> halted before the PR (<cause>): [<Severity>] <path>:<line> <finding>; ...`, `<cause>` is `cap spent`, `planner PARK`, `check-packet FAIL`, `skill miss`, `implementer STOPPED`; run `scripts/reset-dispatch-cap.<sh|ps1> <repo-root> milestone-<n>` so a re-run starts a fresh cap; push nothing, open no PR, file no issue, post no comment; the branch stays local; the run ends (`.project/design-philosophy.md#Error & failure philosophy`).
+**Halt.** Also taken by a planner `PARK`, a check-packet failure, a planner `DOMAIN_SKILLS_INVOKED` missing an expanded name, a second `NO VERDICT`, or an implementer `STATUS: STOPPED` from any milestone-end dispatch. Print `🔴 Milestone <milestone-number> halted before the PR (<cause>): [<Severity>] <path>:<line> <finding>; ...`, `<cause>` is `cap spent`, `planner PARK`, `check-packet FAIL`, `skill miss`, `no verdict`, `implementer STOPPED`; run `scripts/reset-dispatch-cap.<sh|ps1> <repo-root> milestone-<n>`; push nothing, open no PR, file no issue, post no comment; the branch stays local; the run ends (`.project/design-philosophy.md#Error & failure philosophy`).
 
 ## Attribution and revert
 

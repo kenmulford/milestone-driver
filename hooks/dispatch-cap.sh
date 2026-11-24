@@ -6,8 +6,9 @@
 # implementerAgent), the caps skills/review-depth.md states, plus 2 planner
 # dispatches (subagent_type `milestone-driver:planner`, fixed, not profile-read).
 # Main thread only. On `issue/*`, `wave/*` or `milestone-*`, a main-thread Agent/Task
-# dispatch with subagent_type general-purpose or none is denied (it runs on the parent's
-# model and no cap counts it); every other named agent is not counted. Codex spawn_agent is never denied.
+# dispatch with subagent_type general-purpose, claude or fork (any case) or none is denied
+# (each runs on the parent's model and no cap counts it); every other named agent is not
+# counted. Codex spawn_agent is never denied.
 # Key: `milestone-<n>` for an implementer or planner brief that opens, after
 # whitespace, with `Milestone-End-Fix: <n>` (Codex: task_name `<agent>_milestone_<n>_<attempt>`)
 # on branch `milestone-<n>-*` (3 implementer + 1 planner
@@ -71,11 +72,13 @@ esac
 
 # Dispatch contract: runs before the table, so a denied dispatch never reads or writes a counter.
 # A failing branch read or a detached HEAD (`HEAD`) allows; the glob is a `case`, not an inline =~ (bash 3.2).
-if [ -n "$main_agent" ] && { [ -z "$who" ] || [ "$who" = general-purpose ]; }; then
+catch_all=''
+[ -n "$main_agent" ] && case "$(printf '%s' "$who" | tr 'A-Z' 'a-z')" in ''|general-purpose|claude|fork) catch_all=1 ;; esac
+if [ -n "$catch_all" ]; then
   branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || exit 0
   case "$branch" in
     issue/*|wave/*|milestone-*)
-      subject='subagent_type general-purpose'; [ -z "$who" ] && subject='no subagent_type'
+      subject="subagent_type $who"; [ -z "$who" ] && subject='no subagent_type'
       roster="$implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer"
       hook_deny "$input" "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $branch. Dispatch a named agent: $roster. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1." ;;
   esac

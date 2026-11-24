@@ -128,8 +128,12 @@ Expect-Reason 'deny-no-subagent-type-key-reason' $r (Get-DenyReason 'no subagent
 $r = Invoke-Hook $WG 'Agent' '' 'Review #7'
 Expect 'deny-empty-subagent-type' $r 2
 Expect-Reason 'deny-empty-subagent-type-reason' $r (Get-DenyReason 'no subagent_type' 'milestone-5-x')
-$r = Invoke-Hook $WG 'Agent' 'General-Purpose' 'Review #7'
-Expect 'allow-gp-case-sensitive' $r 0
+foreach ($t in 'General-Purpose', 'claude', 'Claude', 'fork') {
+  $r = Invoke-Hook $WG 'Agent' $t 'Review #7'
+  Expect "deny-catch-all-$t" $r 2
+  Expect-Reason "deny-catch-all-reason-$t" $r (Get-DenyReason "subagent_type $t" 'milestone-5-x')
+}
+if (Test-CapDirEmpty $WG) { Ok } else { No 'deny-catch-all-writes-no-counter' }
 $WB = New-Workspace 'issue/7-x' '{"implementerAgent":"acme:builder"}'
 $r = Invoke-Hook $WB 'Agent' $GP 'Review #7'
 Expect 'deny-gp-custom-implementer' $r 2
@@ -143,6 +147,9 @@ foreach ($a in (@($Impl) + $Named + @('Explore'))) {
 Expect 'allow-reviewer-simplify-angle' (Invoke-Hook $WG 'Agent' 'milestone-driver:reviewer' 'Simplify review: reuse') 0
 Expect 'deny-gp-simplify-angle' (Invoke-Hook $WG 'Agent' $GP 'Simplify review: reuse') 2
 Expect 'allow-gp-subagent-context-ms' (Invoke-Hook $WG 'Agent' $GP 'Review #7' 'agent-1') 0
+# A forked skill's leaf (`/code-review` runs forked) carries an agent_id, so it is not main-thread.
+Expect 'allow-gp-forked-leaf-issue' (Invoke-Hook (New-Workspace 'issue/7-x') 'Agent' $GP 'Review #7' 'agent-fork-1') 0
+Expect 'allow-gp-forked-leaf-ms' (Invoke-Hook (New-Workspace 'milestone-54-x') 'Agent' $GP 'Review #7' 'agent-fork-1') 0
 Expect 'allow-gp-escape-hatch' (Invoke-Hook $WG 'Agent' $GP 'Review #7' '' $true) 0
 Expect 'allow-gp-develop' (Invoke-Hook (New-Workspace 'develop') 'Agent' $GP 'Review #7') 0
 Expect 'allow-gp-no-profile' (Invoke-Hook (New-Workspace 'issue/7-x' '-') 'Agent' $GP 'Review #7') 0
@@ -227,6 +234,11 @@ Expect 'codex-ms-planner-deny-2nd' $r 2
 Expect-Reason 'codex-ms-planner-deny-reason' $r (Get-MsDenyReason 'planner' 2 1 '53')
 Expect 'codex-ms-mismatched-number' (Invoke-CodexSpawn $WX 'implementer_milestone_54_1') 0
 if (Test-Path -LiteralPath (Join-Path $CapX 'implementer-milestone-53-x')) { Ok } else { No 'codex-ms-mismatched-branch-key' }
+
+# ---- Codex: the task_name strip is case-sensitive on both legs, so `_ISSUE_` maps to no row
+$WU = New-Workspace 'issue/7-x'
+foreach ($i in 1..4) { Expect "codex-uppercase-suffix-uncounted-$i" (Invoke-CodexSpawn $WU "implementer_ISSUE_7_$i") 0 }
+if (Test-CapDirEmpty $WU) { Ok } else { No 'codex-uppercase-suffix-writes-no-counter' }
 
 # ---- sh leg: a CRLF-emitting jq (Windows jq.exe) still reads subagent_type and the other fields
 if ($Leg -eq 'sh') {

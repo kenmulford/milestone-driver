@@ -92,8 +92,10 @@ The **build profile** decides, never the verdict:
 
 A Critical or Important finding takes only `re-dispatched and resolved`. A
 pre-existing Critical or Important finding (lines outside
-`git diff <integrationBranch>...<branch>`) is in scope and fixed in the same
-fix dispatch; a pre-existing Minor finding follows the profile rule above.
+`git diff <integrationBranch>...<branch>`) is fixed in the same fix dispatch,
+its file in the brief's scope, outranking the out-of-scope park
+trigger and `agents/implementer.md` rule 1. A
+pre-existing Minor finding follows the profile rule above.
 
 Severities are the reviewer's
 (`agents/reviewer.md (Grade by actual effect)`); a
@@ -108,4 +110,4 @@ The `<root>` argument, and nothing else:
 |---|---|
 | `solve-issue` step 6.1, sequential | `<repo-root>` |
 | `parallel-waves.md` step 7, parallel | `<worktree-path>`. `git diff HEAD` inside that worktree is still against `<base>` |
-| `milestone-end-gates.md` step 4, milestone end | `<repo-root>` (the milestone branch's checkout); `<base_ref>` `integrationBranch` |
+| `milestone-end-gates.md` step 4, milestone end | `<repo-root>` (the milestone branch's checkout); `<base_ref>` `integrationBranch`; effort and flag only; that file's **Cap.** sets cycles |

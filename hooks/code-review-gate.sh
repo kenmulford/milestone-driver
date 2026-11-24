@@ -30,9 +30,9 @@
 # PR body, so the merge path fetches the PR's own body via `gh pr view` instead
 # of parsing the merge command.
 #
-# Heading match is ANCHORED, not a bare substring: `## Code Review` must be
-# followed by a non-alphanumeric character or end-of-string, so "## Code
-# Reviewer says LGTM" does NOT satisfy the gate.
+# Heading match is ANCHORED, not a bare substring: `## Code Review` must open
+# a section (below) and be followed by a non-alphanumeric character or
+# end-of-string, so "## Code Reviewer says LGTM" does NOT satisfy the gate.
 #
 # Verdict parse (issue #604): the heading alone never proved a review ran, so
 # the gate also reads the `/code-review run:` value. Accepted: `yes` and
@@ -44,41 +44,38 @@
 # opens no PR (`skills/solve-issue/SKILL.md (treat the omission as a park trigger)`),
 # so no legitimate PR body could ever carry it, and accepting it left a
 # one-word bypass of the gate that the verdict parse exists to close.
-# The verdict search is SCOPED to a heading span, because the wide surface
-# would otherwise read an incidental `/code-review run:` in prose ABOVE the
-# section (a PR describing this gate) as the verdict and false-deny. The span
-# is chosen by walking the anchored heading matches LAST TO FIRST and taking
-# the first whose text CONTAINS the slot. Anchoring on the last match alone
-# false-blocked two real shapes: a findings line citing this file's own
-# heading-variable anchor, which quotes the heading text verbatim, and a
-# --title carrying the heading after the body on the command line. Requiring the
-# heading to BEGIN A LINE was rejected instead: on the inline --body surface
-# the heading is preceded by the shell's opening quote on the same line, so
-# that rule blocks the repo's most common PR shape outright. The heading
-# search itself stays unscoped.
-# This is NOT the rejected quote-matched extraction: there is no section-end
-# boundary and no attempt to delimit the value -- the verdict is the first
+# Sections (milestone #54): the verdict and finding checks read EVERY anchored
+# section, so an earlier section's `no` or open finding cannot hide behind a
+# later one. A section opens on a line beginning with the heading, or where an
+# inline --body/-b value opens with it (on that surface the shell's opening
+# quote precedes the heading on its line), and runs to the next line beginning
+# `## `; `###` sub-entries stay in. A mid-line mention (prose, a finding citing
+# this file's heading variable, a --title) opens none, so an incidental
+# `/code-review run:` or arrow outside a section is never read. The heading
+# presence check is the same rule.
+# This is NOT the rejected quote-matched extraction: no attempt is made to
+# delimit the value -- the verdict is the first
 # whitespace-delimited token on the slot's own line, with ONE surrounding
 # `"`/`'` stripped per side, since the wide surface glues the command's closing
 # quote to a value that ends the body. That strip is bounded in the direction
 # that matters: no accepted value contains a quote, so it can never turn a
 # rejected token into an accepted one, and a self-quoted `'yes'` ending a body
 # still denies.
-# EVERY slot in the span is read, not just the first: a wave or milestone PR
+# EVERY slot is read, not just the first: a wave or milestone PR
 # body carries ONE heading with one `### #<n>` block per issue
 # (`skills/output-style.md (Wave PR body)`), so a `no` under the second issue
 # must deny even when the first reads `yes`.
-# Finding scan (issue #804): once every verdict slot passes, the verdict span is
-# scanned from the start of its heading's line, so a finding line that cites the
-# heading keeps its severity prefix, to the next line opening `## ` (`###`
-# sub-entries stay in), so a later section's arrow is no finding. A finding line
+# Finding scan (issue #804): once every verdict slot passes, every section line
+# is scanned. A finding line
 # starts, after whitespace, one optional `- `, `* ` or `<digits>. ` and one
 # optional `**`, with `[Critical]`,
-# `[Important]` or `[Minor]`; an unprefixed list-marker line carrying the
-# arrow counts as Important (`skills/review-depth.md`). A Critical or Important
+# `[Important]` or `[Minor]`; an unprefixed nested list item (indented) carrying
+# the arrow counts as Important (`skills/review-depth.md`), so a top-level
+# `- Version: a → b` is none. A Critical or Important
 # line denies unless the text after its LAST arrow, cut at its first quote
 # (the wide surface glues the closing quote and later flags to the last body
-# line) and trimmed, is `re-dispatched and resolved`; the reason quotes the
+# line) and trimmed, is `re-dispatched and resolved` followed by end of line,
+# `.`, a space or `(`; the reason quotes the
 # first offender in document order. A `[Minor]` line passes whatever its
 # disposition, since the gate holds no build profile.
 #
@@ -121,35 +118,41 @@ fi
 
 heading='## Code Review'
 runslot='/code-review run:'
+re_head='^## Code Review([^A-Za-z0-9]|$)'
+re_open="(^|[[:space:]])(--body|-b)[=[:space:]]+[\"']?$heading([^A-Za-z0-9]|\$)"
 
 deny() {
   hook_deny "$input" "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 }
 
-# heading_match <text> - true iff <text> contains an ANCHORED `## Code
-# Review` (not immediately followed by a letter/digit, so "## Code Reviewer"
-# does not match; end-of-string also satisfies the anchor).
-heading_match() {
-  [[ "$1" =~ "$heading"([^A-Za-z0-9]|$) ]]
+# sections_of <text>: sets secs to every anchored section's lines, joined by
+# newlines; returns 1 when <text> holds none. A section opens on a line that
+# begins with the heading (not followed by a letter/digit, so "## Code
+# Reviewer" opens none), or on the line where an inline --body/-b value opens
+# with it, from the heading on; it runs to the next line beginning `## `.
+# A global, not stdout: a command substitution would strip trailing newlines.
+sections_of() {
+  local rest="$1" line on=0 pre
+  secs=""
+  while :; do
+    line="${rest%%$'\n'*}"
+    if [[ $line =~ $re_head ]]; then
+      on=1
+    elif [[ $line =~ $re_open ]]; then
+      pre="${line%%"${BASH_REMATCH[0]}"*}"
+      line="${line:${#pre}}"; line="$heading${line#*"$heading"}"; on=1
+    else
+      case "$line" in "## "*) on=0 ;; esac
+    fi
+    [ "$on" = 1 ] && secs="$secs$line"$'\n'
+    [[ "$rest" == *$'\n'* ]] || break
+    rest="${rest#*$'\n'}"
+  done
+  [ -n "$secs" ]
 }
 
-# verdict_span <text>: sets span to the text after the LAST anchored heading
-# match whose text holds a `/code-review run:` slot, and lead to that match's
-# line up to and including the heading; returns 1 when none does. Requiring the
-# slot is what stops a LATER mention of the heading (a findings line citing it,
-# a --title after the body) stealing the span. Globals, not stdout: two values.
-verdict_span() {
-  local rest="$1" seen="" seg
-  span=""; lead=""
-  while [[ "$rest" == *"$heading"* ]]; do
-    seg="${rest%%"$heading"*}"
-    rest="${rest#*"$heading"}"
-    seen="$seen$seg$heading"
-    [[ "$rest" =~ ^[A-Za-z0-9] ]] && continue
-    case "$rest" in *"$runslot"*) span="$rest"; lead="${seen##*$'\n'}" ;; esac
-  done
-  [ -n "$span" ]
-}
+# heading_match <text>: true iff <text> opens at least one section.
+heading_match() { sections_of "$1"; }
 
 # verdict_token <after>: first whitespace-delimited token on <after>'s FIRST
 # line, unwrapped of one surrounding quote character per side.
@@ -162,17 +165,17 @@ verdict_token() {
   printf '%s' "$tok"
 }
 
-# check_findings <surface> <action>: the finding scan the header describes, over
-# the lead and span verdict_span picks in <surface>; never returns on deny. No here-string or
+# check_findings <surface> <action>: the finding scan the header describes,
+# over every section of <surface>; never returns on deny. No here-string or
 # heredoc: both need a writable TMPDIR on bash 3.2.
 check_findings() {
-  local rest line t d mk fnd disp top=1 arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
-  verdict_span "$1" || return 0
-  rest="$lead$span"
-  while :; do
+  local rest line t d mk ind fnd disp arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
+  sections_of "$1" || return 0
+  rest="$secs"
+  while [ -n "$rest" ]; do
     line="${rest%%$'\n'*}"
-    [ "$top" = 1 ] || case "$line" in "## "*) break ;; esac
-    top=0
+    rest="${rest#*$'\n'}"
+    ind=0; case "$line" in [[:space:]]*) ind=1 ;; esac
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
@@ -184,7 +187,7 @@ check_findings() {
     case "$t" in
       "[Minor]"*) ;;
       "[Critical]"*|"[Important]"*) fnd=1 ;;
-      *) [ "$mk" = 1 ] && [[ "$t" == *"$arrow"* ]] && fnd=1 ;;
+      *) [ "$mk" = 1 ] && [ "$ind" = 1 ] && [[ "$t" == *"$arrow"* ]] && fnd=1 ;;
     esac
     if [ "$fnd" = 1 ]; then
       disp=""
@@ -192,22 +195,26 @@ check_findings() {
       disp="${disp%%[\"\']*}"
       disp="${disp#"${disp%%[![:space:]]*}"}"
       disp="${disp%"${disp##*[![:space:]]}"}"
-      [ "$disp" = "$want" ] || deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2,"
+      case "$disp" in
+        "$want"|"$want."*|"$want "*|"$want("*) ;;
+        *) deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2," ;;
+      esac
     fi
-    [[ "$rest" == *$'\n'* ]] || break
-    rest="${rest#*$'\n'}"
   done
   return 0
 }
 
-# check_verdict <surface> <action>: reads EVERY slot in the span and denies on
-# the first one not accepted, then scans the findings; never returns on deny.
+# check_verdict <surface> <action>: reads EVERY slot in every section and
+# denies on the first one not accepted, then scans the findings; never returns
+# on deny.
 check_verdict() {
   local rest tok
-  if ! verdict_span "$1"; then
-    deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $2,"
-  fi
-  rest="$span"
+  sections_of "$1"
+  case "$secs" in
+    *"$runslot"*) ;;
+    *) deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $2," ;;
+  esac
+  rest="$secs"
   while [[ "$rest" == *"$runslot"* ]]; do
     rest="${rest#*"$runslot"}"
     tok="$(verdict_token "$rest")"

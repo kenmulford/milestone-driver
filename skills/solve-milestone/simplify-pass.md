@@ -1,6 +1,6 @@
 # Simplify pass: solve-milestone reference
 
-Loaded once per run from core `SKILL.md`'s `### Simplify pass`, after step 4's loop exhausts and before `### 5. Finish`. Both execution modes converge there and reach it exactly once, so the pass runs once per run: never per Wave, never per issue. A systemic-halt run never reaches it. **The pass never gates, blocks, or reverts.** Every failure below logs one line and the run proceeds (`.project/design-philosophy.md#Error & failure philosophy`), this file being missing or unreadable included.
+Loaded once per run from core `SKILL.md`'s `### Simplify pass`, after step 4's loop exhausts and before `### 5. Finish`. Both execution modes converge there: it runs once per run, never per Wave or issue. A systemic-halt run never reaches it. **The pass never gates, blocks, or reverts.** Every failure below logs one line and the run proceeds (`.project/design-philosophy.md#Error & failure philosophy`), this file being missing or unreadable included.
 
 ## Contents
 
@@ -39,7 +39,7 @@ The ordered sequence · Resolve the target, and re-sync it · Run it on this mai
 | `"wave"` | `integrationBranch` (`skills/solve-milestone/integration-granularity.md (Wave-branch disposition + re-sync)`) |
 | `"milestone"` (default) | the milestone branch `milestone-<number>-<slug>` (`skills/solve-milestone/milestone-granularity.md § Branch model`) |
 
-**Step 3 applies only when `<target>` is `integrationBranch`.** The loop re-syncs that branch before the next issue (`skills/solve-milestone/sequential-loop.md (Ensure the local build target is current)`) and before the next Wave (`skills/solve-milestone/integration-granularity.md (re-sync the local)`), so the run's last merge is on `origin` and not yet local. Diffing without this misses the most recently written code in the milestone, and on a single-issue milestone misses all of it. Under `"milestone"` run none of the three: that branch is local-only and already current, nothing having been pushed (`skills/solve-milestone/sequential-loop.md (already current because nothing is pushed)`).
+**Step 3 applies only when `<target>` is `integrationBranch`.** The loop re-syncs that branch before the next issue (`skills/solve-milestone/sequential-loop.md (Ensure the local build target is current)`) and before the next Wave (`skills/solve-milestone/integration-granularity.md (re-sync the local)`), so the run's last merge is on `origin` and not yet local. Diffing without this misses the newest code, and all of a single-issue milestone's. Under `"milestone"` run none of the three: that branch is local-only and already current, nothing having been pushed (`skills/solve-milestone/sequential-loop.md (already current because nothing is pushed)`).
 
 ```bash
 git checkout <integrationBranch>
@@ -47,7 +47,7 @@ git fetch
 git merge --ff-only origin/<integrationBranch>
 ```
 
-**A non-zero exit on any of the three ends the pass at step 3** with its own log line naming the re-sync: step 6's line would report a clean pass over a stale diff, and this is the one failure that must not share a log line with zero findings.
+**A non-zero exit on any of the three ends the pass at step 3** with its own log line naming the re-sync: step 6's line would report a clean pass over a stale diff.
 
 **Step 4 takes three dots, never two.**
 
@@ -55,9 +55,9 @@ git merge --ff-only origin/<integrationBranch>
 
 Run `/simplify` on the orchestrator's own main line, **never as a dispatched agent**, mirroring `skills/solve-issue/SKILL.md (The orchestrator runs this review itself, dispatching the reviewers directly as leaves)`. It fans out four cleanup agents concurrently, so a dispatched pass seats all four at depth 2, where a completion notification never arrives and the pass strands (`docs/architecture.md` → `## Dispatch topology`).
 
-**Step 5 stops at that review output; step 8 does the applying.** `/simplify` has its caller apply each finding, and those edits are main-thread writes: `hooks/force-subagent.sh` is `PreToolUse` on `Write|Edit|MultiEdit|NotebookEdit`, exits 0 only for input carrying an agent identity, and so denies every one landing under `sourceGlobs` at exit 2 (`hooks/force-subagent.sh (main-thread edits to source)`). The command exposes no findings-only flag, so the stopping point is a rule here, not an argument there: do not carry out its apply phase on this line, and do not collapse steps 5 and 8 back together. A collapsed pass takes that denial into step 6's failure line and logs a dead feature as a failed run.
+**Step 5 stops at that review output; step 8 does the applying.** `/simplify` has its caller apply each finding, and those edits are main-thread writes: `hooks/force-subagent.sh` exits 0 only for input carrying an agent identity, and so denies every one landing under `sourceGlobs` at exit 2 (`hooks/force-subagent.sh (main-thread edits to source)`). The command exposes no findings-only flag, so the stopping point is a rule here, not an argument there: do not carry out its apply phase on this line, and do not collapse steps 5 and 8 back together.
 
-Brief the `implementerAgent` once with the findings, the diff range, the expected file scope, and the expanded `domainSkills`; it returns an uncommitted working tree. Route **every** fix through that one dispatch, including a fix outside `sourceGlobs` that the gate would have allowed on the main line: one rule, not two.
+Brief the `implementerAgent` once with the findings, the diff range, the expected file scope, and the expanded `domainSkills`; it returns an uncommitted working tree. Route **every** fix through that one dispatch, including a fix outside `sourceGlobs` that the gate would have allowed on the main line.
 
 ## Land the findings
 
@@ -78,6 +78,8 @@ Simplify-Pass: <milestone-number>
 ## The Code Review block
 
 **Review the pass like any other source change, on both paths.** A `/simplify` diff changes source, so step 9 runs `/code-review` over the working tree and records that run truthfully.
+
+**A Critical or Important finding** takes an `implementerAgent` re-dispatch per cycle, to `skills/review-depth.md § The ladder`'s cap, each recorded `re-dispatched and resolved`. A survivor: milestone path, recorded `open` for milestone-end review; PR path, no PR opens, the branch stays local, `## Surface it` adds `🔴 Simplify PR parked (open finding): chore/simplify-<milestone-slug>`.
 
 **Resolve the effort from the diff, never hardcode it.** Immediately before the dispatch, read `${CLAUDE_PLUGIN_ROOT}/skills/review-depth.md` and follow it against the post-fix tree, passing `<repo-root>` as the classifier's root; step 9's run takes its first-run effort and the ladder's flag.
 
