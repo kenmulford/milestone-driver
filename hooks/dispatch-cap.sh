@@ -16,8 +16,9 @@
 # brief, else the branch name. Counter: <git-common-dir>/milestone-driver/dispatch-cap/<kind>-<key>
 # holds `<HEAD> <count>`; a moved HEAD or a park (`scripts/reset-dispatch-cap`)
 # resets it. The `milestone-<n>` counter holds `<branch> <count>` instead: a fix
-# commit moves HEAD, so only the milestone-end Halt or the branch delete
-# (`scripts/reset-dispatch-cap`) resets it, and its deny names that Halt.
+# commit moves HEAD, so only a milestone-end entry (its step 2), its Halt, or
+# the branch delete (`scripts/reset-dispatch-cap`) resets it, and its deny
+# names that Halt.
 # Deny: hook-deny.{sh,ps1} (Claude: exit 2 + stderr, Codex: stdout JSON). Escape: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.
 # Fail-open on missing jq/git, no repo, or unparsed stdin. bash-3.2-safe (the
 # =~ patterns sit in variables: 3.2 mis-parses a quoted inline regex).

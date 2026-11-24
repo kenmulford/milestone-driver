@@ -87,20 +87,27 @@ function Deny([string]$msg) {
   Invoke-HookDeny $hook ("milestone-driver: $msg$suffix")
 }
 
-# Sections <text>: every anchored section's lines, each ending in a newline,
-# '' when <text> holds none; the rule is code-review-gate.sh's sections_of.
+# Sections <text>: every anchored section's lines from the heading on, each
+# ending in a newline, '' when <text> holds none; the rule is
+# code-review-gate.sh's open_at and sections_of.
 # [ \t\n\v\f\r] stands for the .sh twin's [[:space:]], which \s would widen.
-$reHead = '^' + [regex]::Escape($heading) + '($|[^A-Za-z0-9])'
-$reOpen = '(^|[ \t\n\v\f\r])(--body|-b)[= \t\n\v\f\r]+["'']?(?=' + [regex]::Escape($heading) + '($|[^A-Za-z0-9]))'
+$reHeadAt = [regex]::Escape($heading) + '(?![A-Za-z0-9])'
+$rePre = '^[ \t\n\v\f\r]*$|(^|[ \t\n\v\f\r])([A-Za-z0-9_-]+=)?("|''|\$'')$'
+$sp = [char[]]" `t`n`v`f`r"
 function Sections([string]$text) {
   $sb = [System.Text.StringBuilder]::new()
   if (-not $text) { return '' }
-  $on = $false
+  $on = $false; $fence = $false
   foreach ($line in $text.Split("`n")) {
-    $m = [regex]::Match($line, $reOpen)
-    if ([regex]::IsMatch($line, $reHead)) { $on = $true }
-    elseif ($m.Success) { $line = $line.Substring($m.Index + $m.Length); $on = $true }
-    elseif ($line.StartsWith('## ', $ord)) { $on = $false }
+    $lead = $line.TrimStart($sp)
+    if ($lead.StartsWith('```', $ord)) { $fence = -not $fence; continue }
+    if ($fence) { continue }
+    $at = -1
+    foreach ($m in [regex]::Matches($line, $reHeadAt)) {
+      if ([regex]::IsMatch($line.Substring(0, $m.Index), $rePre)) { $at = $m.Index; break }
+    }
+    if ($at -ge 0) { $line = $line.Substring($at); $on = $true }
+    elseif ($lead.StartsWith('## ', $ord)) { $on = $false }
     if ($on) { [void]$sb.Append($line).Append("`n") }
   }
   return $sb.ToString()
@@ -131,7 +138,6 @@ function CheckFindings([string]$secs, [string]$action) {
   $want = 're-dispatched and resolved'
   $ws = [char[]]" `t`r`v`f"
   foreach ($raw in $secs.Split("`n")) {
-    $ind = $raw.Length -gt 0 -and $ws -contains $raw[0]
     $line = $raw.Trim($ws)
     $t = $line; $mk = $false
     $num = [regex]::Match($t, '^[0-9]+\. ')
@@ -139,7 +145,7 @@ function CheckFindings([string]$secs, [string]$action) {
     elseif ($num.Success) { $mk = $true; $t = $t.Substring($num.Length) }
     if ($t.StartsWith('**', $ord)) { $t = $t.Substring(2) }
     if ($t.StartsWith('[Minor]', $ord)) { continue }
-    $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $ind -and $t.Contains($arrow))
+    $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $t.Contains($arrow) -and -not [regex]::IsMatch($t, '^[^ \t\n\v\f\r:]+( [^ \t\n\v\f\r:]+)?:'))
     if (-not $fnd) { continue }
     $disp = ''
     $k = $line.LastIndexOf($arrow, $ord)
@@ -147,8 +153,8 @@ function CheckFindings([string]$secs, [string]$action) {
     $q = $disp.IndexOfAny([char[]]@('"', "'"))
     if ($q -ge 0) { $disp = $disp.Substring(0, $q) }
     $disp = $disp.Trim($ws)
-    $tail = if ($disp.StartsWith($want, $ord)) { $disp.Substring($want.Length) } else { $null }
-    if ($null -eq $tail -or ($tail -ne '' -and '. ('.IndexOf($tail[0]) -lt 0)) {
+    $ok = $disp -ceq $want -or $disp -ceq "$want." -or ($disp.StartsWith("$want (", $ord) -and $disp.EndsWith(')', $ord))
+    if (-not $ok) {
       Deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': ${line}. Record it as $want before $action,"
     }
   }
@@ -239,7 +245,8 @@ if ($isMerge) {
   if ([string]::IsNullOrWhiteSpace($viewJson)) { exit 0 }
 
   try { $view = $viewJson | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
-  $prBody = $view.body
+  $prBody = [string]$view.body
+  if ($prBody.StartsWith([string][char]0xFEFF, $ord)) { $prBody = $prBody.Substring(1) }
   $prBase = $view.baseRefName
 
   if ($protected -and $prBase -eq $protected) { exit 0 }

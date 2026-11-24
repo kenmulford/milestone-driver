@@ -91,20 +91,19 @@ The **build profile** decides, never the verdict:
 - **Heavy** (the default) fixes every in-scope finding.
 
 A Critical or Important finding takes only `re-dispatched and resolved`. A
-pre-existing Critical or Important finding (lines outside
-`git diff <integrationBranch>...<branch>`) is fixed in the same fix dispatch,
-its file in the brief's scope, outranking the out-of-scope park
-trigger and `agents/implementer.md` rule 1. A
-pre-existing Minor finding follows the profile rule above.
+pre-existing one (outside `git diff <integrationBranch>...<branch>`) is fixed
+in the same dispatch, its file on the brief's
+`Added scope: <path> (pre-existing <severity> finding)` line, outranking the
+out-of-scope park trigger and `agents/implementer.md` rule 1. A pre-existing
+Minor one follows the profile rule.
 
-Severities are the reviewer's
-(`agents/reviewer.md (Grade by actual effect)`); a
-finding carrying none counts as Important. **Non-convergence parks only a finding the profile fixes** -
+Severities are the reviewer's (`agents/reviewer.md (Grade by actual effect)`);
+a finding carrying none counts as Important. **Non-convergence parks only a finding the profile fixes** -
 the park-trigger bullet fires at any severity.
 
 ## What stays at each call site
 
-The `<root>` argument, and nothing else:
+What differs at each call site:
 
 | Caller | `<root>` |
 |---|---|

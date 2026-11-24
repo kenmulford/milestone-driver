@@ -13,7 +13,7 @@ New-Item -ItemType Directory -Path $Tmp | Out-Null
 
 function Unescape([string]$s) {
   if ($null -eq $s) { return '' }
-  return ($s -replace '\\n', "`n" -replace '\\r', "`r")
+  return ($s -replace '\\n', "`n" -replace '\\r', "`r" -replace '\\t', "`t" -replace '\\ufeff', [string][char]0xFEFF)
 }
 
 function New-GhStub([string]$mode, [string]$json) {

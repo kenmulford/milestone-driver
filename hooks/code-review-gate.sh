@@ -46,12 +46,17 @@
 # one-word bypass of the gate that the verdict parse exists to close.
 # Sections (milestone #54): the verdict and finding checks read EVERY anchored
 # section, so an earlier section's `no` or open finding cannot hide behind a
-# later one. A section opens on a line beginning with the heading, or where an
-# inline --body/-b value opens with it (on that surface the shell's opening
-# quote precedes the heading on its line), and runs to the next line beginning
-# `## `; `###` sub-entries stay in. A mid-line mention (prose, a finding citing
-# this file's heading variable, a --title) opens none, so an incidental
-# `/code-review run:` or arrow outside a section is never read. The heading
+# later one. A heading opens a section when the text before it on its line is
+# only whitespace, or ends in one shell quote opener (`"`, `'`, `$'`) at line
+# start, after whitespace, or after a `NAME=`/`--flag=` word: the inline
+# surface puts the shell's opening quote before the heading (`--body "`,
+# `BODY='`). A section runs to the next line whose text after whitespace
+# begins `## `; `###` sub-entries stay in. A mention after a backtick or word
+# text, or inside `(...)` as a finding's anchor cites it, opens none, so an
+# incidental `/code-review run:` or arrow outside a section is never read.
+# Lines between ``` fences are dropped first: a quoted example neither opens a
+# section nor supplies a slot or finding. A leading UTF-8 BOM is stripped from
+# a --body-file and the fetched body, as PowerShell's reader does. The heading
 # presence check is the same rule.
 # This is NOT the rejected quote-matched extraction: no attempt is made to
 # delimit the value -- the verdict is the first
@@ -69,13 +74,14 @@
 # is scanned. A finding line
 # starts, after whitespace, one optional `- `, `* ` or `<digits>. ` and one
 # optional `**`, with `[Critical]`,
-# `[Important]` or `[Minor]`; an unprefixed nested list item (indented) carrying
-# the arrow counts as Important (`skills/review-depth.md`), so a top-level
-# `- Version: a → b` is none. A Critical or Important
+# `[Important]` or `[Minor]`; an unprefixed list item carrying the arrow
+# counts as Important at any indent (`skills/review-depth.md`), unless its
+# text opens with a one- or two-word `<Label>:`, so `- Version: a → b` is none.
+# A Critical or Important
 # line denies unless the text after its LAST arrow, cut at its first quote
 # (the wide surface glues the closing quote and later flags to the last body
-# line) and trimmed, is `re-dispatched and resolved` followed by end of line,
-# `.`, a space or `(`; the reason quotes the
+# line) and trimmed, is `re-dispatched and resolved` alone, with a final `.`,
+# or with one ` (...)` closing the line; the reason quotes the
 # first offender in document order. A `[Minor]` line passes whatever its
 # disposition, since the gate holds no build profile.
 #
@@ -118,33 +124,49 @@ fi
 
 heading='## Code Review'
 runslot='/code-review run:'
-re_head='^## Code Review([^A-Za-z0-9]|$)'
-re_open="(^|[[:space:]])(--body|-b)[=[:space:]]+[\"']?$heading([^A-Za-z0-9]|\$)"
+re_pre="^[[:space:]]*\$|(^|[[:space:]])([A-Za-z0-9_-]+=)?(\"|'|\\\$')\$"
+re_label='^[^[:space:]:]+( [^[:space:]:]+)?:'
+bom=$'\xef\xbb\xbf'
 
 deny() {
   hook_deny "$input" "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 }
 
-# sections_of <text>: sets secs to every anchored section's lines, joined by
-# newlines; returns 1 when <text> holds none. A section opens on a line that
-# begins with the heading (not followed by a letter/digit, so "## Code
-# Reviewer" opens none), or on the line where an inline --body/-b value opens
-# with it, from the heading on; it runs to the next line beginning `## `.
+# open_at <line>: sets pre to the text before the first heading on <line>
+# that opens a section; returns 1 when none does.
+open_at() {
+  local s="$1" p=""
+  while [[ "$s" == *"$heading"* ]]; do
+    p="$p${s%%"$heading"*}"
+    s="${s#*"$heading"}"
+    if [[ ! "$s" =~ ^[A-Za-z0-9] ]] && [[ "$p" =~ $re_pre ]]; then pre="$p"; return 0; fi
+    p="$p$heading"
+  done
+  return 1
+}
+
+# sections_of <text>: sets secs to every anchored section's lines from the
+# heading on, joined by newlines; returns 1 when <text> holds none. Lines
+# between ``` fences are dropped before any rule reads them.
 # A global, not stdout: a command substitution would strip trailing newlines.
 sections_of() {
-  local rest="$1" line on=0 pre
+  local rest="$1" line lead on=0 fence=0
   secs=""
   while :; do
     line="${rest%%$'\n'*}"
-    if [[ $line =~ $re_head ]]; then
-      on=1
-    elif [[ $line =~ $re_open ]]; then
-      pre="${line%%"${BASH_REMATCH[0]}"*}"
-      line="${line:${#pre}}"; line="$heading${line#*"$heading"}"; on=1
-    else
-      case "$line" in "## "*) on=0 ;; esac
-    fi
-    [ "$on" = 1 ] && secs="$secs$line"$'\n'
+    lead="${line#"${line%%[![:space:]]*}"}"
+    case "$lead" in
+      '```'*) fence=$((1 - fence)) ;;
+      *)
+        if [ "$fence" = 0 ]; then
+          if open_at "$line"; then
+            line="${line:${#pre}}"; on=1
+          else
+            case "$lead" in "## "*) on=0 ;; esac
+          fi
+          [ "$on" = 1 ] && secs="$secs$line"$'\n'
+        fi ;;
+    esac
     [[ "$rest" == *$'\n'* ]] || break
     rest="${rest#*$'\n'}"
   done
@@ -169,13 +191,12 @@ verdict_token() {
 # over every section of <surface>; never returns on deny. No here-string or
 # heredoc: both need a writable TMPDIR on bash 3.2.
 check_findings() {
-  local rest line t d mk ind fnd disp arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
+  local rest line t d mk fnd disp arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
   sections_of "$1" || return 0
   rest="$secs"
   while [ -n "$rest" ]; do
     line="${rest%%$'\n'*}"
     rest="${rest#*$'\n'}"
-    ind=0; case "$line" in [[:space:]]*) ind=1 ;; esac
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
@@ -187,7 +208,7 @@ check_findings() {
     case "$t" in
       "[Minor]"*) ;;
       "[Critical]"*|"[Important]"*) fnd=1 ;;
-      *) [ "$mk" = 1 ] && [ "$ind" = 1 ] && [[ "$t" == *"$arrow"* ]] && fnd=1 ;;
+      *) [ "$mk" = 1 ] && [[ "$t" == *"$arrow"* ]] && [[ ! "$t" =~ $re_label ]] && fnd=1 ;;
     esac
     if [ "$fnd" = 1 ]; then
       disp=""
@@ -196,7 +217,7 @@ check_findings() {
       disp="${disp#"${disp%%[![:space:]]*}"}"
       disp="${disp%"${disp##*[![:space:]]}"}"
       case "$disp" in
-        "$want"|"$want."*|"$want "*|"$want("*) ;;
+        "$want"|"$want."|"$want ("*")") ;;
         *) deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2," ;;
       esac
     fi
@@ -277,6 +298,7 @@ if [ "$is_create" = "1" ]; then
     esac
     if [ -r "$bf" ]; then
       file_content="$(cat "$bf" 2>/dev/null)"
+      file_content="${file_content#"$bom"}"
       have_file_content=1
     else
       exit 0   # fail-open: --body-file referenced but unreadable
@@ -315,6 +337,7 @@ if [ "$is_merge" = "1" ]; then
   [ -z "$view_json" ] && exit 0
 
   pr_body="$(printf '%s' "$view_json" | jq -r '.body // empty' 2>/dev/null)"
+  pr_body="${pr_body#"$bom"}"
   pr_base="$(printf '%s' "$view_json" | jq -r '.baseRefName // empty' 2>/dev/null)"
   pr_base="${pr_base%$'\r'}"
 
