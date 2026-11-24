@@ -94,13 +94,19 @@ jobs:
           set +e
           out=$(jq -n --arg cwd "$PWD" '{cwd:$cwd, hook_event_name:"SessionStart"}' | /bin/bash hooks/session-resume.sh 2>&1); rc=$?
           [ "$rc" -eq 0 ] && [ -z "$out" ] || { echo "FAIL rc=$rc out=[$out]"; exit 1; }
+      - name: agent-env - writes the shim PATH line
+        run: |
+          set +e
+          f="$(mktemp)"
+          out=$(CLAUDE_ENV_FILE="$f" /bin/bash hooks/agent-env.sh 2>&1); rc=$?
+          [ "$rc" -eq 0 ] && grep -qxF "export PATH='$PWD/shims':\"\$PATH\"" "$f" || { echo "FAIL rc=$rc out=[$out] file=[$(cat "$f")]"; exit 1; }
       - name: Put a modern bash on PATH for script children
         run: |
           brew list bash >/dev/null 2>&1 || brew install bash
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
       - name: hook suites, sh leg, children on /bin/bash 3.2
-        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume
+        run: pwsh tests/run-all.ps1 -Leg sh -Only force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume,protected-branch,agent-gate
         env:
           MD_BASH_BIN: /bin/bash
       - name: script suites, sh leg
-        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume
+        run: pwsh tests/run-all.ps1 -Leg sh -Skip force-subagent,codex-patches,codex-bash-filter,codex-fixtures,body-file-paths,run-hook,tests-green,dispatch-cap,code-review-gate,session-resume,protected-branch,agent-gate

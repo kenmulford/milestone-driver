@@ -44,11 +44,13 @@ Commit it - the gates read this file, so it must be present in every clone and o
 
 ## 3. Restart Claude Code
 
-The eight shipped hooks (see `hooks/hooks.json`) are the seven `PreToolUse` gates -
+The nine shipped hooks (see `hooks/hooks.json`) are the seven `PreToolUse` gates -
 `force-subagent`, `no-bom`, `tests-green`, `no-push`, `no-pr-to-protected`,
-`code-review-gate`, `dispatch-cap` - plus `session-resume`, the one `SessionStart`
-hook (matcher `compact`; never gates - it re-injects the milestone run's
-wave-state checkpoint after an auto-compaction). They **load at session start** -
+`code-review-gate`, `dispatch-cap` - plus the two `SessionStart` hooks, neither of
+which gates: `session-resume` (matcher `compact`) re-injects the milestone run's
+wave-state checkpoint after an auto-compaction, and `agent-env` (every source) puts
+`shims/gh` and `shims/git` first on `PATH` and `git-hooks/` in `core.hooksPath` for the session's
+Bash commands. They **load at session start** -
 restart Claude Code after installing or updating the plugin so the hooks take
 effect. No separate native-hook installation step is required.
 
@@ -327,13 +329,13 @@ There is nothing to configure. **No profile key exists for this integration** an
 
 ## Releasing to your protected branch
 
-The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (the `no-push` / `no-pr-to-protected` gates keep the loop off it).
+The loop only ever merges to your `integrationBranch`; promoting to your `protectedBranch` stays **manual and yours** (`git-hooks/pre-push`, `shims/gh` and `no-pr-to-protected` keep the loop off it).
 
 **Merge the release PR with `--merge`, never `--squash`.** Squash-merging the `integrationBranch` → `protectedBranch` release PR puts a single new commit on `protectedBranch` that `integrationBranch` never sees, so the two branches diverge - and the *next* release PR then conflicts (typically on `.claude-plugin/plugin.json` + `CHANGELOG.md`). If your `integrationBranch` is PR-locked (require-PR + enforce-admins), you can't just resolve-and-push it to fix that divergence; it takes a separate history-only back-merge PR. A `--merge` avoids the divergence at all - it keeps the branches permanently synced, accepting a merge commit on `protectedBranch` in exchange. But `--merge` only prevents *content* divergence; it does not by itself keep the branches topologically in sync - the version tag and the release merge-node land on `protectedBranch` only, so `integrationBranch` still trails by those commits. The periodic post-release back-merge (step 3 below) is what keeps `integrationBranch` topologically even with `protectedBranch` and tag-current.
 
 When the integration branch is ready to ship, run the tail in order:
 
-1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then merge it with `--merge` - before you tag (the loop won't open this PR for you; the `no-pr-to-protected` gate keeps it off `protectedBranch`):
+1. **Open** the `integrationBranch` → `protectedBranch` release PR yourself, then merge it with `--merge` - before you tag. Run both from your own terminal: the loop won't open or merge this PR, because `shims/gh` denies any PR base other than `integrationBranch` for `gh pr create`, `gh pr merge` (it reads the PR's base through `gh pr view`), `gh pr edit --base` and `gh api`, and `no-pr-to-protected` does the same for the GitHub MCP tools:
    ```
    gh pr merge <release-PR> --merge
    ```
@@ -383,8 +385,11 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | A `Write` whose content begins with the UTF-8 BOM (U+FEFF) | **blocked** (no-bom) - write BOM-less UTF-8 instead |
 | `apply_patch` with a BOM at the start of add-file content or a contiguous update addition block | **blocked** (no-bom); embedded BOMs and later lines in the same block remain allowed |
 | `git commit` with the unit suite red (staged source) - when `unitTestCmd` is defined | **blocked** (tests-green) |
-| `git push` to `protectedBranch` | **blocked** (no-push) |
-| `gh pr create --base <protectedBranch>` | **blocked** (no-pr-to-protected) |
+| `git push` to `protectedBranch`, a default protected name (`main`, `master`, `production`, `prod`, `staging`, `stage`, `testing`, `test`, `qa`, `uat`, `release/*`, `hotfix/*`) or a `protectedBranches` entry, with or without `git -C <dir>`, `--all` or a glob refspec | **blocked** (`git-hooks/pre-push`, after `no-push` reads the command text) |
+| `gh pr create`, `gh pr merge` or `gh pr edit --base` (with or without `gh -R <repo>`) or a `gh api` pulls route whose base is not `integrationBranch`; a merge whose base cannot be resolved | **blocked** (`shims/gh`, after `no-pr-to-protected` reads `gh pr create --base <protectedBranch>`) |
+| A `gh api` ref, contents, merges, `merge-upstream` or branch-rename write aimed at a protected branch, a `gh api graphql` merge, ref or PR-base mutation, a `gh repo sync <repo>` of a protected branch, or a gh alias or `gh alias set` for any of these | **blocked** (`shims/gh`) |
+| `git push --no-verify`, `git send-pack`, or a `git -c core.hooksPath=...` that would skip `git-hooks/pre-push` | **blocked** (`shims/git`) |
+| A GitHub MCP merge, create or update PR tool whose base is not `integrationBranch`, or a push or file tool aimed at a protected branch | **blocked** (no-pr-to-protected) |
 | `gh pr create` or `gh pr merge` whose body has no `## Code Review` section, or whose `/code-review run:` verdict reads `no` (or is empty, or is absent), or whose Critical or Important finding carries a disposition other than `re-dispatched and resolved` | **blocked** (code-review-gate) - exempt when the PR targets `protectedBranch` |
 | A 4th `/code-review` run, or a 4th implementer dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 | A 3rd planner dispatch, for one issue | **blocked** (dispatch-cap) - park the issue; `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
@@ -392,6 +397,8 @@ Cut the Release (steps 2–4) every time: the loop bumps the version on `integra
 | A main-thread `general-purpose`, `claude`, `fork` (any case) or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch | **blocked** (dispatch-cap) - dispatch a named agent (the deny names them); `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides |
 
 When `unitTestCmd` is absent, `tests-green` is a no-op - there is no unit gate to verify.
+
+`shims/gh`, `shims/git` and `git-hooks/pre-push` cover the agent's Bash commands through the environment `agent-env` writes. A call to the real `gh` or `git` by absolute path, a cleared session environment, or a command run through the PowerShell tool is outside them (`docs/architecture.md § The mechanical gates`).
 
 Patch gates read `tool_input.command` and normalize relative paths, slash forms and dot segments before checking exemptions and source globs. They do not inspect shell-written source.
 

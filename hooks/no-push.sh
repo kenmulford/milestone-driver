@@ -17,6 +17,7 @@ profile="$project_dir/.milestone-config/driver.json"
 [ -f "$profile" ] || profile="$project_dir/milestone-driver.json"
 [ -f "$profile" ] || exit 0
 protected="$(jq -r '.protectedBranch // empty' "$profile" 2>/dev/null)"; protected="${protected%$'\r'}"
+integ="$(jq -r '.integrationBranch // empty' "$profile" 2>/dev/null)"; integ="${integ%$'\r'}"
 [ -z "$protected" ] && exit 0
 blocked=0
 # explicit refspec naming the protected branch (e.g. "git push origin master", "HEAD:master", ":refs/heads/master")
@@ -25,6 +26,10 @@ if [[ "$cmd" =~ (^|[[:space:]:/])"$protected"([[:space:]]|$) ]]; then blocked=1;
 cur="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"
 [ "$cur" = "$protected" ] && blocked=1
 if [ "$blocked" = "1" ]; then
-  hook_deny "$input" "milestone-driver: pushing to protected branch '$protected' is blocked. Push the integration branch and open a PR, or set CLAUDE_HOOK_DISABLE_NO_PUSH=1 to override. (GitHub branch protection is the server-side backstop.)"
+  if [ -z "$integ" ]; then
+    integ=develop
+    git -C "$project_dir" rev-parse --verify --quiet refs/remotes/origin/develop >/dev/null 2>&1 || integ=dev
+  fi
+  hook_deny "$input" "milestone-driver: pushing into '$protected' is blocked. Agents stop at the integration branch '$integ'; anything past it is a human step."
 fi
 exit 0
