@@ -30,13 +30,27 @@ function New-GhStub([string]$mode, [string]$json) {
       & chmod +x (Join-Path $dir 'gh')
       Set-Content -Path (Join-Path $dir 'gh.ps1') -Value "exit 1`n" -NoNewline -Encoding utf8NoBOM
     }
-    'OK' {
+    { $_ -in 'OK', 'OKNUM', 'OKBARE' } {
+      # Each narrowed mode answers only the `gh pr view` shape its rows need, so
+      # a gate passing the wrong PR argument fails open and the row goes red:
+      # OKNUM wants argument 3 a non-flag token, OKBARE wants no PR argument.
+      $numSh = ''; $numPs = ''
+      switch ($mode) {
+        'OKNUM' {
+          $numSh = ' && [ -n "$3" ] && [ "${3#-}" = "$3" ]'
+          $numPs = ' -and $args.Count -ge 3 -and -not ([string]$args[2]).StartsWith(''-'')'
+        }
+        'OKBARE' {
+          $numSh = ' && [ "${3#-}" != "$3" ]'
+          $numPs = ' -and $args.Count -ge 3 -and ([string]$args[2]).StartsWith(''-'')'
+        }
+      }
       $jsonPath = Join-Path $dir 'view.json'
       Set-Content -Path $jsonPath -Value $json -NoNewline -Encoding utf8NoBOM
-      $ghScript = "#!/usr/bin/env bash`nif [ `"`$1`" = `"pr`" ] && [ `"`$2`" = `"view`" ]; then cat '$jsonPath'; exit 0; fi`nexit 1`n"
+      $ghScript = "#!/usr/bin/env bash`nif [ `"`$1`" = `"pr`" ] && [ `"`$2`" = `"view`" ]$numSh; then cat '$jsonPath'; exit 0; fi`nexit 1`n"
       Set-Content -Path (Join-Path $dir 'gh') -Value $ghScript -NoNewline -Encoding utf8NoBOM
       & chmod +x (Join-Path $dir 'gh')
-      $ghPs1 = "if (`$args.Count -ge 2 -and `$args[0] -eq 'pr' -and `$args[1] -eq 'view') { Get-Content -Raw -LiteralPath '$jsonPath'; exit 0 }`nexit 1`n"
+      $ghPs1 = "if (`$args.Count -ge 2 -and `$args[0] -eq 'pr' -and `$args[1] -eq 'view'$numPs) { Get-Content -Raw -LiteralPath '$jsonPath'; exit 0 }`nexit 1`n"
       Set-Content -Path (Join-Path $dir 'gh.ps1') -Value $ghPs1 -NoNewline -Encoding utf8NoBOM
     }
   }

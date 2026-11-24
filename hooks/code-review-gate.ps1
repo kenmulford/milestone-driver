@@ -30,7 +30,11 @@
 #
 # Finding scan (issue #804): after the verdict slots pass, every unfenced line
 # of the checked text is scanned, sections ignored, so no body shape can hide a
-# finding. See code-review-gate.sh for the full rule.
+# finding. See code-review-gate.sh for the full rule, the fence and indent rules
+# and the merge token walk.
+#
+# -cmatch on the command string: -match is case-insensitive, so -f (--fill)
+# would read as -F and -b as -B.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
@@ -90,28 +94,64 @@ function Deny([string]$msg) {
 
 # Sections <text> <inline>: every section's unfenced lines from the heading
 # on, each ending in a newline, '' when <text> holds none; the rule is
-# code-review-gate.sh's is_fence, open_at and sections_of.
+# code-review-gate.sh's block_indent, in_fence, open_at and sections_of.
 # [ \t\n\v\f\r] stands for the .sh twin's [[:space:]], which \s would widen.
 $reHeadAt = [regex]::Escape($heading) + '(?![A-Za-z0-9])'
-$rePre = '^[ \t\n\v\f\r]*$|(^|[ \t\n\v\f\r])(--body[ =]|-b |[A-Za-z_][A-Za-z0-9_]*=)("|''|\$'')$'
+$reOpen = '(^|[ \t\n\v\f\r])(--body[ \t\n\v\f\r]+|--body=|-b[ \t\n\v\f\r]+|[A-Za-z_][A-Za-z0-9_]*=)("|''|\$'')'
+$rePre = $reOpen + '$'
+$reBody = $reOpen + '(.*)$'
 $reOk = '^re-dispatched and resolved(\.| \([^()]*\))?[ \t\n\v\f\r]*["'']?$'
 $sp = [char[]]" `t`n`v`f`r"
-function IsFence([string]$lead, [bool]$inline) {
-  return $lead.StartsWith('```', $ord) -or ($inline -and $lead.StartsWith('\`\`\`', $ord))
+$arrow = [string][char]0x2192
+
+# BlockIndent <line> <inline>: <line> minus its indent, or $null when that
+# indent is 4+ spaces or holds a tab (indented code, never a fence or heading).
+# <inline> strips a leading tab run first, as a `<<-` heredoc does.
+function BlockIndent([string]$line, [bool]$inline) {
+  $s = $line
+  if ($inline) { $s = $s.TrimStart("`t") }
+  $b = $s.TrimStart(' ')
+  if (($s.Length - $b.Length) -ge 4 -or $b.StartsWith("`t", $ord)) { return $null }
+  return $b
 }
+
+# InFence <state> <line> <inline>: $true when <line> opens, closes or sits inside
+# a CommonMark fenced code block; <state> is @{ ch = ''; len = 0 }, fresh per scan.
+# A closer is tested on the fully trimmed line, as code-review-gate.sh's in_fence.
+function InFence($st, [string]$line, [bool]$inline) {
+  if ($st.ch -ne '') {
+    $b = $line.TrimStart($sp)
+    $run = $b.Length - $b.TrimStart([char]$st.ch).Length
+    if ($run -ge $st.len -and $b.Substring($run).Trim($sp).Length -eq 0) { $st.ch = '' }
+    return $true
+  }
+  $b = BlockIndent $line $inline
+  if ($null -eq $b) { return $false }
+  if ($b.StartsWith('```', $ord)) { $c = '`' }
+  elseif ($b.StartsWith('~~~', $ord)) { $c = '~' }
+  else { return $false }
+  $run = $b.Length - $b.TrimStart([char]$c).Length
+  if ($c -eq '`' -and $b.IndexOf('`', $run, $ord) -ge 0) { return $false }
+  $st.ch = $c; $st.len = $run
+  return $true
+}
+
 function Sections([string]$text, [bool]$inline) {
   $sb = [System.Text.StringBuilder]::new()
-  $on = $false; $fence = $false
+  $on = $false; $st = @{ ch = ''; len = 0 }
   foreach ($line in $text.Split("`n")) {
-    $lead = $line.TrimStart($sp)
-    if (IsFence $lead $inline) { $fence = -not $fence; continue }
-    if ($fence) { continue }
+    if (InFence $st $line $inline) { continue }
     $at = -1
     foreach ($m in [regex]::Matches($line, $reHeadAt)) {
-      if ([regex]::IsMatch($line.Substring(0, $m.Index), $rePre)) { $at = $m.Index; break }
+      $p = $line.Substring(0, $m.Index)
+      $bp = BlockIndent $p $inline
+      if (($null -ne $bp -and $bp.Length -eq 0) -or [regex]::IsMatch($p, $rePre)) { $at = $m.Index; break }
     }
     if ($at -ge 0) { $line = $line.Substring($at); $on = $true }
-    elseif ($lead.StartsWith('## ', $ord)) { $on = $false }
+    else {
+      $b = BlockIndent $line $inline
+      if ($null -ne $b -and $b.StartsWith('## ', $ord)) { $on = $false }
+    }
     if ($on) { [void]$sb.Append($line).Append("`n") }
   }
   return $sb.ToString()
@@ -138,28 +178,37 @@ function VerdictToken([string]$after) {
 # header describes, over every unfenced line of <text>; never returns on deny.
 # Ordinal throughout, so it trims, cuts and matches exactly as that file does.
 function CheckFindings([string]$text, [string]$action, [bool]$inline) {
-  $arrow = [string][char]0x2192
   $want = 're-dispatched and resolved'
-  $fence = $false
+  $st = @{ ch = ''; len = 0 }
   foreach ($raw in $text.Split("`n")) {
+    if (InFence $st $raw $inline) { continue }
     $line = $raw.Trim($sp)
-    if (IsFence $line $inline) { $fence = -not $fence; continue }
-    if ($fence) { continue }
-    $t = $line; $mk = $false
-    $num = [regex]::Match($t, '^[0-9]+\. ')
-    if ($t.StartsWith('- ', $ord) -or $t.StartsWith('* ', $ord)) { $mk = $true; $t = $t.Substring(2) }
-    elseif ($num.Success) { $mk = $true; $t = $t.Substring($num.Length) }
-    if ($t.StartsWith('**', $ord)) { $t = $t.Substring(2) }
-    if ($t.StartsWith('[Minor]', $ord)) { continue }
-    $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $t.Contains($arrow))
-    if (-not $fnd) { continue }
+    $q = $null; $c = $line
+    while ($true) {
+      if (FindingAt $c) { $q = $c }
+      if (-not $inline) { break }
+      $bm = [regex]::Match($c, $reBody)
+      if (-not $bm.Success) { break }
+      $c = $bm.Groups[4].Value
+    }
+    if ($null -eq $q) { continue }
     $disp = ''
     $k = $line.LastIndexOf($arrow, $ord)
     if ($k -ge 0) { $disp = $line.Substring($k + 1).TrimStart($sp) }
     if (-not [regex]::IsMatch($disp, $reOk)) {
-      Deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': ${line}. Record it as $want before $action,"
+      Deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': ${q}. Record it as $want before $action,"
     }
   }
+}
+
+# FindingAt <text>: code-review-gate.sh's finding_at.
+function FindingAt([string]$t) {
+  if ($t.IndexOf('[Critical]', $ord) -ge 0 -or $t.IndexOf('[Important]', $ord) -ge 0) { return $true }
+  while ($t.StartsWith('>', $ord)) { $t = $t.Substring(1).TrimStart(' ') }
+  $mm = [regex]::Match($t, '^([-+*]|[0-9]+[.)])[ \t]')
+  if (-not $mm.Success) { return $false }
+  $t = $t.Substring($mm.Length).TrimStart([char[]]'*_')
+  return (-not $t.StartsWith('[Minor]', $ord)) -and $t.Contains($arrow)
 }
 
 # CheckVerdict <surface> <action> <inline>: reads EVERY slot in every section
@@ -184,13 +233,13 @@ function CheckVerdict([string]$surface, [string]$action, [bool]$inline) {
 
 if ($isCreate) {
   # Exemption: --base/-B <protectedBranch>, mirroring hooks/no-pr-to-protected.ps1 (--base[=\s]+|-B\s+).
-  if ($protected -and ($cmd -match '(?:--base[=\s]+|-B\s+)["'']?([^\s"'']+)')) {
+  if ($protected -and ($cmd -cmatch '(?:--base[=\s]+|-B\s+)["'']?([^\s"'']+)')) {
     if ($matches[1] -eq $protected) { exit 0 }
   }
 
   # Presence-only signal detection (NOT value extraction - see header note).
-  $hasBody = [bool]($cmd -match '(^|\s)(--body|-b)([=\s]|$)')
-  $hasFile = [bool]($cmd -match '(^|\s)(--body-file|-F)([=\s]|$)')
+  $hasBody = [bool]($cmd -cmatch '(^|\s)(--body|-b)([=\s]|$)')
+  $hasFile = [bool]($cmd -cmatch '(^|\s)(--body-file|-F)([=\s]|$)')
 
   if (-not $hasBody -and -not $hasFile) {
     Deny "gh pr create has no --body/--body-file argument, so the required '$heading' section can't be verified. Add a PR body containing that section,"
@@ -233,9 +282,31 @@ if ($isCreate) {
 if ($isMerge) {
   if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { exit 0 }
 
+  # First positional token after `merge`; a stop (newline, shell operator, a
+  # redirection, an unclosed quote) leaves $prArg empty and `gh pr view` reads
+  # the current branch.
   $prArg = $null
-  $pm = [regex]::Match($cmd, 'pr\s+merge\s+([^\s-][^\s]*)')
-  if ($pm.Success) { $prArg = $pm.Groups[1].Value }
+  $pm = [regex]::Match($cmd, 'gh\s+pr\s+merge')
+  if ($pm.Success) {
+    $rest = $cmd.Substring($pm.Index + $pm.Length); $skip = $false; $prev = ''
+    while ($true) {
+      $body = $rest.TrimStart($sp)
+      $ws = $rest.Substring(0, $rest.Length - $body.Length)
+      $rest = $body
+      if ($rest -eq '') { break }
+      if ($ws.Contains("`n") -and $prev -ne '\') { break }
+      $e = $rest.IndexOfAny($sp); if ($e -lt 0) { $e = $rest.Length }
+      $tok = $rest.Substring(0, $e); $rest = $rest.Substring($e); $prev = $tok
+      if ($tok -ceq '\') { continue }
+      if ($tok -match '^[&|;)]' -or $tok -match '^[0-9]*[<>]') { break }
+      $val = $null
+      if ($skip) { $skip = $false; $val = $tok }
+      elseif ($tok -cin '-t', '--subject', '-b', '--body', '-F', '--body-file', '-A', '--author-email', '--match-head-commit', '-R', '--repo') { $skip = $true; continue }
+      elseif ($tok.StartsWith('-', $ord)) { $eq = $tok.IndexOf('=', $ord); if ($eq -lt 0) { continue }; $val = $tok.Substring($eq + 1) }
+      else { $prArg = $tok; break }
+      if ($val.Length -gt 0 -and ($val[0] -eq '"' -or $val[0] -eq "'") -and $val.IndexOf($val[0], 1) -lt 0) { break }
+    }
+  }
 
   $viewJson = $null
   try {
