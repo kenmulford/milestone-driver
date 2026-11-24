@@ -133,7 +133,9 @@ else
     --body "$(cat <<'EOF'
 ## CHANGELOG preview
 
+~~~~
 <paste the authored CHANGELOG entry verbatim here>
+~~~~
 
 ---
 
@@ -151,7 +153,7 @@ EOF
 fi
 ```
 
-The `## Code Review` heading is required - without it `hooks/code-review-gate.sh` denies this `gh pr create` and step 6.8's `gh pr merge`. Confirm each evidence claim against the authored entry before pasting. Record the PR number and URL - the newly created PR, or the existing one the re-run guard found.
+The `## Code Review` heading is required - without it `hooks/code-review-gate.sh` denies this `gh pr create` and step 6.8's `gh pr merge`. The entry stays inside its fence, because the gate's finding scan skips fenced lines and an entry row carrying `→` or `[Critical]` would deny. Confirm each evidence claim against the authored entry before pasting. Record the PR number and URL - the newly created PR, or the existing one the re-run guard found.
 
 ## 6.8 Handle CI result
 

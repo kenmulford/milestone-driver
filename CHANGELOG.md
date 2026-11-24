@@ -18,6 +18,7 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 | #802 Converge the milestone end through one fix dispatch, a planner redesign, and a halt before the PR | - | `skills/solve-milestone/milestone-end-gates.md` collects every finding and red gate into one fix dispatch, re-reviews, and sends a fix that keeps producing findings to one planner redesign. When the cap is spent with a Critical or Important finding open, the run halts before the PR instead of opening it. |
 | #803 Deny main-thread general-purpose or untyped Agent dispatches on issue, wave and milestone branches | - | `hooks/dispatch-cap.{sh,ps1}` deny a main-thread Agent dispatch whose `subagent_type` is `general-purpose`, `claude` or `fork` in any case, or empty or absent, on `issue/*`, `wave/*` or `milestone-*`, naming the typed agents to use. Leaves of a forked skill such as `/code-review` carry an `agent_id` and pass. |
 | #804 Deny gh pr create and gh pr merge when a Critical or Important finding carries any other disposition | - | `hooks/code-review-gate.{sh,ps1}` fail closed: every unfenced line of the PR body is scanned, whatever section it sits in, and a `[Critical]`, `[Important]` or unprefixed `→` list line denies unless its disposition is exactly `re-dispatched and resolved` (optionally `.` or one closing parenthetical). Every `## Code Review` section that opens a line or an inline `--body` value has its verdict checked, and CRLF and BOM bodies scan the same on both legs. |
+| #805 Close the v1.34.0 code-review-gate finding-scan gaps before release | - | `hooks/code-review-gate.{sh,ps1}` count a line holding `[Critical]` or `[Important]` anywhere, or carrying `→` after any CommonMark list marker (`>` quotes included), as a finding. A `## ` heading opens or ends a section only at 0 to 3 spaces of indent, CommonMark fences (backtick or tilde) are skipped, and merge reads the first positional token as the PR, stopping at a redirection. The sh leg trims ASCII whitespace only, as the ps1 leg does, and the ps1 leg matches `--body`, `--body-file` and the `-B` exemption case-sensitively, as the sh leg does. `skills/solve-milestone/changelog-authoring.md` step 6.7 wraps the pasted entry in a `~~~~` fence. |
 
 ### Consumer notes (upgrading from v1.33.0)
 
@@ -25,12 +26,14 @@ Release notes for milestone-driver. Versions before 1.7.0 are documented on the
 - A custom flow that dispatches a `general-purpose` or untyped agent from the main thread on an `issue/*`, `wave/*` or `milestone-*` branch is now denied. Name a typed agent such as `milestone-driver:reviewer`. `CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1` overrides the deny.
 - A PR body whose Critical or Important finding reads `accepted` or `triggered park` is now denied at `gh pr create` and `gh pr merge`.
 - The arrow character is reserved for a finding's disposition (`skills/output-style.md`). Any other PR-body list line carrying it, such as a version-bump line, now denies: write `to` instead.
+- A `[Critical]` or `[Important]` mention anywhere in a PR body, prose and `--title` included, now denies unless fenced or ending `→ re-dispatched and resolved`.
 - Each milestone-end entry resets its `milestone-<n>` counter, so a resumed or re-run milestone end starts with a fresh budget.
 
 ### ⚖️ Post-run audit trail
 
-Judgment-call PRs: none.
+Judgment-call PRs: #805 (re-review findings filed as #809, not fixed).
 
+- `hooks/code-review-gate.{sh,ps1}` still carries the merge-walk and inline-surface gaps listed on #809, found by the #805 reviews.
 - `skills/solve-milestone/milestone-end-gates.md` BYTE ceiling raised 6500 -> 7000 (recorded raise). `skills/solve-issue/SKILL.md` is at 320/320 lines, and a CRLF checkout would fail its size row.
 
 ## v1.33.0 - the driver spots a project process that replaces its own
