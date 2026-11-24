@@ -46,14 +46,25 @@
 # one-word bypass of the gate that the verdict parse exists to close.
 # Sections (milestone #54): the verdict check reads EVERY section, so an
 # earlier section's `no` cannot hide behind a later one. A heading opens a
-# section at line start after whitespace, or after a `"`, `'` or `$'` opener
-# directly following `--body `, `--body=`, `-b ` or a `NAME=` word, since the
-# inline surface puts the shell's quote before the heading; a `--title` or
-# prose mention opens none, so an incidental `/code-review run:` is never read.
-# A section runs to the next line whose text after whitespace begins `## `.
-# Every rule skips lines between ``` fences (on the inline surface \`\`\` too),
-# and a leading UTF-8 BOM is stripped from a --body-file and the fetched body,
-# as PowerShell's reader does. The heading presence check is the same rule.
+# section at line start after 0 to 3 spaces of indent (4, or a tab, is indented
+# code), or after a `"`, `'` or `$'` opener directly following `--body`,
+# `--body=`, `-b` or a `NAME=` word plus its whitespace, since the inline
+# surface puts the shell's quote before the heading; a `--title` or prose
+# mention opens none, so an incidental `/code-review run:` is never read. The
+# inline surface strips a leading tab run first, as a `<<-` heredoc does before
+# the body exists; the file and merge surfaces count a tab as 4 columns.
+# A section runs to the next line with 0 to 3 spaces of indent, then `## `.
+# Every rule skips CommonMark fenced code blocks: 0 to 3 spaces of indent, then
+# 3+ backticks (no backtick after the run) or 3+ tildes; the closer is the same
+# character, a run at least as long, and only whitespace after it, tested on
+# the fully trimmed line, so a closer indented 4+ spaces in a list item closes
+# it; an unclosed fence runs to the end. A look-alike ("```ok```", a
+# 4-space-indented opener) is no fence, and neither is a backslash-escaped one:
+# a single-quoted or heredoc body keeps its backslashes, so a fenced sample there
+# is read, the accepted fail-closed cost. A leading UTF-8 BOM is stripped from a
+# --body-file and the fetched body, as PowerShell's reader does. LC_ALL=C makes
+# every [[:space:]] ASCII-only, as the .ps1 leg's trims are: U+00A0 and U+3000
+# are neither indent nor whitespace.
 # This is NOT the rejected quote-matched extraction: no attempt is made to
 # delimit the value -- the verdict is the first
 # whitespace-delimited token on the slot's own line, with ONE surrounding
@@ -69,16 +80,26 @@
 # Finding scan (issue #804): it fails closed, so no body shape can hide a
 # finding: once the verdicts pass, it reads every unfenced line of the create
 # command and any --body-file, or of the fetched body, ignoring sections. A line
-# opening, after whitespace, an optional `- `, `* ` or `<digits>. ` marker and
-# `**`, then `[Critical]` or `[Important]`, is a finding, and so is a marked
-# line with no severity prefix carrying the arrow (`skills/review-depth.md`),
-# a `- Version: a → b` label included: its author writes `to`. It denies unless
-# the text after its LAST arrow is `re-dispatched and resolved` alone, with a
-# final `.`, or with one ` (...)` holding no parenthesis and closing the line,
-# then at most one shell quote, since the wide surface glues the command's
-# closing quote to the last body line. The reason quotes the first offender in
-# document order. A `[Minor]` line passes, since the gate holds no build
-# profile.
+# holding `[Critical]` or `[Important]` anywhere is a finding, prose and a
+# `--title` included, and so is a marked line carrying the arrow
+# (`skills/review-depth.md`), a `- Version: a → b` label included: its author
+# writes `to`. The marker test reads the trimmed line and, inline, the text
+# after each section-opening quote opener on it (so the first body line counts,
+# behind any `NAME="x"` prefix), each past any `>` quote markers; it takes `-`,
+# `+`, `*`, `<digits>.` or `<digits>)` then a space or tab as the marker, and
+# strips a leading `*`/`_` run; `[Minor]` at the start of that text passes when
+# the line holds neither severity, since the gate holds no build profile. A finding denies unless the text after its LAST arrow is
+# `re-dispatched and resolved` alone, with a final `.`, or with one ` (...)`
+# holding no parenthesis and closing the line, then at most one shell quote,
+# since the wide surface glues the command's closing quote to the last body
+# line. The reason quotes the first offender in document order, from the
+# shortest of those texts that shows the finding.
+#
+# merge reads the PR named by the first positional token after `merge`, past
+# boolean flags and the value flags `-t`, `-b`, `-F`, `-A`, `--match-head-commit`
+# and `-R`; a newline, a shell operator, a redirection (`2>&1`, `>file`) or an
+# unclosed quote stops the walk, and with no token `gh pr view` reads the
+# current branch's PR.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt - Ken's manual
@@ -91,6 +112,7 @@
 # allows, so every unexpected condition here falls through to allow, not deny.
 
 [ "${CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE:-}" = "1" ] && exit 0
+export LC_ALL=C
 
 input="$(cat)"
 hook_dir="${BASH_SOURCE[0]%[/\\]*}"; [ "$hook_dir" = "${BASH_SOURCE[0]}" ] && hook_dir=.   # builtin: PATH may lack dirname
@@ -119,26 +141,61 @@ fi
 
 heading='## Code Review'
 runslot='/code-review run:'
-re_pre="^[[:space:]]*\$|(^|[[:space:]])(--body[ =]|-b |[A-Za-z_][A-Za-z0-9_]*=)(\"|'|\\\$')\$"
+re_open="(^|[[:space:]])(--body[[:space:]]+|--body=|-b[[:space:]]+|[A-Za-z_][A-Za-z0-9_]*=)(\"|'|\\\$')"
+re_pre="$re_open\$"
+re_body="$re_open(.*)\$"
+re_mark=$'^([-+*]|[0-9]+[.)])[ \t]'
 re_ok="^re-dispatched and resolved(\\.| \\([^()]*\\))?[[:space:]]*[\"']?\$"
+re_redir='^[0-9]*[<>]'
+arrow=$'\xe2\x86\x92'
 bom=$'\xef\xbb\xbf'
 
 deny() {
   hook_deny "$input" "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 }
 
-# is_fence <lead> <inline>: true iff <lead> opens or closes a ``` fence; the
-# inline surface also counts the \`\`\` a double-quoted shell body carries.
-is_fence() { [[ "$1" == '```'* ]] || { [ "$2" = 1 ] && [[ "$1" == '\`\`\`'* ]]; }; }
+# block_indent <line> <inline>: sets body to <line> minus its indent; returns 1
+# when that indent is 4+ spaces or holds a tab (CommonMark: indented code, never
+# a fence or heading). <inline> = 1 strips a leading tab run first, because a
+# `<<-` heredoc strips tabs before the body exists.
+block_indent() {
+  local s="$1" ind
+  [ "$2" = 1 ] && s="${s#"${s%%[!$'\t']*}"}"
+  ind="${s%%[! ]*}"
+  body="${s:${#ind}}"
+  [ "${#ind}" -lt 4 ] && [[ "$body" != $'\t'* ]]
+}
 
-# open_at <line>: sets pre to the text before the first heading on <line>
-# that opens a section; returns 1 when none does.
+# in_fence <line> <inline>: returns 0 when <line> opens, closes or sits inside a
+# CommonMark fenced code block, advancing fch (the fence char, empty outside)
+# and flen (the opener's run length); callers set fch="" before their loop.
+# A closer is tested on the fully trimmed line, so one indented 4+ spaces (the
+# usual shape in a list item) closes the fence early, failing closed.
+in_fence() {
+  local run s
+  if [ -n "$fch" ]; then
+    s="${1#"${1%%[![:space:]]*}"}"
+    run="${s%%[!$fch]*}"
+    if [ "${#run}" -ge "$flen" ] && [[ "${s:${#run}}" =~ ^[[:space:]]*$ ]]; then fch=""; fi
+    return 0
+  fi
+  block_indent "$1" "$2" || return 1
+  case "$body" in
+    '```'*) run="${body%%[!\`]*}"; [[ "${body:${#run}}" == *'`'* ]] && return 1; fch='`' ;;
+    '~~~'*) run="${body%%[!~]*}"; fch='~' ;;
+    *) return 1 ;;
+  esac
+  flen=${#run}
+}
+
+# open_at <line> <inline>: sets pre to the text before the first heading on
+# <line> that opens a section; returns 1 when none does.
 open_at() {
   local s="$1" p=""
   while [[ "$s" == *"$heading"* ]]; do
     p="$p${s%%"$heading"*}"
     s="${s#*"$heading"}"
-    if [[ ! "$s" =~ ^[A-Za-z0-9] ]] && [[ "$p" =~ $re_pre ]]; then pre="$p"; return 0; fi
+    if [[ ! "$s" =~ ^[A-Za-z0-9] ]] && { { block_indent "$p" "$2" && [ -z "$body" ]; } || [[ "$p" =~ $re_pre ]]; }; then pre="$p"; return 0; fi
     p="$p$heading"
   done
   return 1
@@ -148,18 +205,15 @@ open_at() {
 # from the heading on, joined by newlines; returns 1 when <text> holds none.
 # A global, not stdout: a command substitution would strip trailing newlines.
 sections_of() {
-  local rest="$1" line lead on=0 fence=0
-  secs=""
+  local rest="$1" line on=0
+  secs=""; fch=""
   while :; do
     line="${rest%%$'\n'*}"
-    lead="${line#"${line%%[![:space:]]*}"}"
-    if is_fence "$lead" "$2"; then
-      fence=$((1 - fence))
-    elif [ "$fence" = 0 ]; then
-      if open_at "$line"; then
+    if ! in_fence "$line" "$2"; then
+      if open_at "$line" "$2"; then
         line="${line:${#pre}}"; on=1
-      else
-        case "$lead" in "## "*) on=0 ;; esac
+      elif block_indent "$line" "$2" && [[ "$body" == "## "* ]]; then
+        on=0
       fi
       [ "$on" = 1 ] && secs="$secs$line"$'\n'
     fi
@@ -187,33 +241,39 @@ verdict_token() {
 # describes, over every unfenced line of <surface>; never returns on deny. No
 # here-string or heredoc: both need a writable TMPDIR on bash 3.2.
 check_findings() {
-  local rest="$1" line t d mk fnd disp fence=0 arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
+  local rest="$1" raw line c q disp want='re-dispatched and resolved'
+  fch=""
   while :; do
-    line="${rest%%$'\n'*}"
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
-    if is_fence "$line" "$3"; then
-      fence=$((1 - fence))
-    elif [ "$fence" = 0 ]; then
-      t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
-      case "$t" in
-        "- "*|"* "*) mk=1; t="${t#??}" ;;
-        *) [ -n "$d" ] && [ "${t:${#d}:2}" = ". " ] && { mk=1; t="${t:${#d}+2}"; } ;;
-      esac
-      t="${t#\*\*}"
-      case "$t" in
-        "[Minor]"*) ;;
-        "[Critical]"*|"[Important]"*) fnd=1 ;;
-        *) [ "$mk" = 1 ] && [[ "$t" == *"$arrow"* ]] && fnd=1 ;;
-      esac
+    raw="${rest%%$'\n'*}"
+    if ! in_fence "$raw" "$3"; then
+      line="${raw#"${raw%%[![:space:]]*}"}"
+      line="${line%"${line##*[![:space:]]}"}"
+      q=""; c="$line"
+      while :; do
+        finding_at "$c" && q="$c"
+        [ "$3" = 1 ] && [[ "$c" =~ $re_body ]] || break
+        c="${BASH_REMATCH[4]}"
+      done
       disp=""
       [[ "$line" == *"$arrow"* ]] && disp="${line##*"$arrow"}"
       disp="${disp#"${disp%%[![:space:]]*}"}"
-      [ "$fnd" = 1 ] && [[ ! "$disp" =~ $re_ok ]] && deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2,"
+      [ -n "$q" ] && [[ ! "$disp" =~ $re_ok ]] && deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $q. Record it as $want before $2,"
     fi
     [[ "$rest" == *$'\n'* ]] || break
     rest="${rest#*$'\n'}"
   done
+}
+
+# finding_at <text>: true when <text> holds a severity anywhere, or is a marked
+# line (after any `>` quotes) carrying the arrow, not opening `[Minor]`.
+finding_at() {
+  local t="$1"
+  [[ "$t" == *"[Critical]"* || "$t" == *"[Important]"* ]] && return 0
+  while [[ "$t" == '>'* ]]; do t="${t#>}"; t="${t#"${t%%[! ]*}"}"; done
+  [[ "$t" =~ $re_mark ]] || return 1
+  t="${t:${#BASH_REMATCH[0]}}"
+  t="${t#"${t%%[!*_]*}"}"
+  [[ "$t" != "[Minor]"* && "$t" == *"$arrow"* ]]
 }
 
 # check_verdict <surface> <action> <inline>: reads EVERY slot in every section
@@ -314,9 +374,36 @@ fi
 if [ "$is_merge" = "1" ]; then
   command -v gh >/dev/null 2>&1 || exit 0
 
+  # First positional token after `merge`; a stop (newline, shell operator, a
+  # redirection, an unclosed quote) leaves pr_arg empty and `gh pr view` reads
+  # the current branch.
   pr_arg=""
-  if [[ "$cmd" =~ pr[[:space:]]+merge[[:space:]]+([^-[:space:]][^[:space:]]*) ]]; then
-    pr_arg="${BASH_REMATCH[1]}"
+  if [[ "$cmd" =~ gh[[:space:]]+pr[[:space:]]+merge ]]; then
+    rest="${cmd#*"${BASH_REMATCH[0]}"}"; skip=0; prev=""
+    while :; do
+      ws="${rest%%[![:space:]]*}"
+      rest="${rest:${#ws}}"
+      [ -z "$rest" ] && break
+      [[ "$ws" == *$'\n'* && "$prev" != '\' ]] && break
+      tok="${rest%%[[:space:]]*}"
+      rest="${rest:${#tok}}"
+      prev="$tok"
+      case "$tok" in '&'*|'|'*|';'*|')'*) break ;; '\') continue ;; esac
+      [[ "$tok" =~ $re_redir ]] && break
+      if [ "$skip" = 1 ]; then
+        skip=0; val="$tok"
+      else
+        case "$tok" in
+          -t|--subject|-b|--body|-F|--body-file|-A|--author-email|--match-head-commit|-R|--repo) skip=1; continue ;;
+          -*=*) val="${tok#*=}" ;;
+          -*) continue ;;
+          *) pr_arg="$tok"; break ;;
+        esac
+      fi
+      case "$val" in
+        \"*|\'*) [[ "${val:1}" == *"${val:0:1}"* ]] || break ;;
+      esac
+    done
   fi
 
   if [ -n "$pr_arg" ]; then
