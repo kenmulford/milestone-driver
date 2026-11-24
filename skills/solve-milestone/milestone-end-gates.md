@@ -10,7 +10,7 @@ The ordered sequence · The fix-dispatch loop · Cap spent, still red · Attribu
 
 ## The ordered sequence
 
-Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch>`). There is no step 1: `<range>` above is read-only.
+Run these once over the read-only `<range>` (`git diff <integrationBranch>...<milestone-branch>`).
 
 | # | Step | Detail |
 |---|---|---|
@@ -24,10 +24,10 @@ Run these once over `<range>` (`git diff <integrationBranch>...<milestone-branch
 
 ## The fix-dispatch loop
 
-Collect every `/code-review` finding from step 4 and every red gate from steps 5-7. Every implementer and planner brief's first line is `Milestone-End-Fix: <milestone-number>`, before any `Issue:` header.
+Collect every `/code-review` finding from step 4, each `→ open` Critical or Important finding in the `Simplify-Pass: <milestone-number>` commit's `Code-Review:` block, and every red gate from steps 5-7. Every implementer and planner brief's first line is `Milestone-End-Fix: <milestone-number>`, before any `Issue:` header.
 
 - **Fix.** First write `<main-repo-root>/.milestone-config/.runtime/triage/milestone-<n>-findings.md`: each open finding as prefix and `<path>:<line>`, each red gate's output, the cited files. One `implementerAgent` dispatch on `agents/implementer.md`'s no-packet inputs: header `Issue: milestone-<n>`, that file as the plan, file scope `git diff --name-only <range>` plus one `Added scope: <path> (pre-existing <severity> finding)` line per pre-existing finding, the profile, `citationFormatPath`, expanded `domainSkills`; re-run from step 4 as the verify review, never step 3.
-- **Commit.** Subject line, fix summary, step 4's `/code-review` result in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md (Wave granularity keeps the block.)`, final paragraph exactly `Milestone-End-Fix: <milestone-number>`; no `Issue:` line.
+- **Commit.** Subject line, fix summary, step 4's `/code-review` result plus each fixed `Simplify-Pass` finding `→ re-dispatched and resolved`, in the `Code-Review:` block shape of `skills/solve-milestone/milestone-granularity.md (Wave granularity keeps the block.)`, final paragraph exactly `Milestone-End-Fix: <milestone-number>`; no `Issue:` line.
 - **Route.** After a verify review, a Critical or Important finding on a line a fix commit added (`git diff <fix-commit>^ <fix-commit>`) sends the next dispatch to `milestone-driver:planner` while unspent, carrying every open Critical and Important finding.
 - **Redesign.** The findings file, its fix shas added from the second dispatch on, and the packet `plans/milestone-<n>-redesign.md` in the same `.runtime/`. The brief carries an issue's inputs, worktree the milestone checkout, header `Issue: milestone-<n>`, `## Files` as `git diff --name-only <range>`. Approve with `scripts/check-packet.{sh,ps1} <packet> <repo-root>`; exit 0: one `implementerAgent` dispatch on it, Commit, re-run from step 4.
 
@@ -57,4 +57,4 @@ Stop the sequence: run the PR section's steps 1-3 unchanged, then apply `Red CI 
 
 ## The milestone review sub-entry
 
-`skills/solve-milestone/milestone-granularity.md § Milestone end: one push, one PR, one CI run` step 3's "The milestone review gets a sub-entry too" bullet renders step 4's `/code-review` result.
+`skills/solve-milestone/milestone-granularity.md (The milestone review gets a sub-entry too)` renders step 4's `/code-review` result.

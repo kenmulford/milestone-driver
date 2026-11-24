@@ -44,20 +44,16 @@
 # opens no PR (`skills/solve-issue/SKILL.md (treat the omission as a park trigger)`),
 # so no legitimate PR body could ever carry it, and accepting it left a
 # one-word bypass of the gate that the verdict parse exists to close.
-# Sections (milestone #54): the verdict and finding checks read EVERY anchored
-# section, so an earlier section's `no` or open finding cannot hide behind a
-# later one. A heading opens a section when the text before it on its line is
-# only whitespace, or ends in one shell quote opener (`"`, `'`, `$'`) at line
-# start, after whitespace, or after a `NAME=`/`--flag=` word: the inline
-# surface puts the shell's opening quote before the heading (`--body "`,
-# `BODY='`). A section runs to the next line whose text after whitespace
-# begins `## `; `###` sub-entries stay in. A mention after a backtick or word
-# text, or inside `(...)` as a finding's anchor cites it, opens none, so an
-# incidental `/code-review run:` or arrow outside a section is never read.
-# Lines between ``` fences are dropped first: a quoted example neither opens a
-# section nor supplies a slot or finding. A leading UTF-8 BOM is stripped from
-# a --body-file and the fetched body, as PowerShell's reader does. The heading
-# presence check is the same rule.
+# Sections (milestone #54): the verdict check reads EVERY section, so an
+# earlier section's `no` cannot hide behind a later one. A heading opens a
+# section at line start after whitespace, or after a `"`, `'` or `$'` opener
+# directly following `--body `, `--body=`, `-b ` or a `NAME=` word, since the
+# inline surface puts the shell's quote before the heading; a `--title` or
+# prose mention opens none, so an incidental `/code-review run:` is never read.
+# A section runs to the next line whose text after whitespace begins `## `.
+# Every rule skips lines between ``` fences (on the inline surface \`\`\` too),
+# and a leading UTF-8 BOM is stripped from a --body-file and the fetched body,
+# as PowerShell's reader does. The heading presence check is the same rule.
 # This is NOT the rejected quote-matched extraction: no attempt is made to
 # delimit the value -- the verdict is the first
 # whitespace-delimited token on the slot's own line, with ONE surrounding
@@ -70,20 +66,19 @@
 # body carries ONE heading with one `### #<n>` block per issue
 # (`skills/output-style.md (Wave PR body)`), so a `no` under the second issue
 # must deny even when the first reads `yes`.
-# Finding scan (issue #804): once every verdict slot passes, every section line
-# is scanned. A finding line
-# starts, after whitespace, one optional `- `, `* ` or `<digits>. ` and one
-# optional `**`, with `[Critical]`,
-# `[Important]` or `[Minor]`; an unprefixed list item carrying the arrow
-# counts as Important at any indent (`skills/review-depth.md`), unless its
-# text opens with a one- or two-word `<Label>:`, so `- Version: a → b` is none.
-# A Critical or Important
-# line denies unless the text after its LAST arrow, cut at its first quote
-# (the wide surface glues the closing quote and later flags to the last body
-# line) and trimmed, is `re-dispatched and resolved` alone, with a final `.`,
-# or with one ` (...)` closing the line; the reason quotes the
-# first offender in document order. A `[Minor]` line passes whatever its
-# disposition, since the gate holds no build profile.
+# Finding scan (issue #804): it fails closed, so no body shape can hide a
+# finding: once the verdicts pass, it reads every unfenced line of the create
+# command and any --body-file, or of the fetched body, ignoring sections. A line
+# opening, after whitespace, an optional `- `, `* ` or `<digits>. ` marker and
+# `**`, then `[Critical]` or `[Important]`, is a finding, and so is a marked
+# line with no severity prefix carrying the arrow (`skills/review-depth.md`),
+# a `- Version: a → b` label included: its author writes `to`. It denies unless
+# the text after its LAST arrow is `re-dispatched and resolved` alone, with a
+# final `.`, or with one ` (...)` holding no parenthesis and closing the line,
+# then at most one shell quote, since the wide surface glues the command's
+# closing quote to the last body line. The reason quotes the first offender in
+# document order. A `[Minor]` line passes, since the gate holds no build
+# profile.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt - Ken's manual
@@ -124,13 +119,17 @@ fi
 
 heading='## Code Review'
 runslot='/code-review run:'
-re_pre="^[[:space:]]*\$|(^|[[:space:]])([A-Za-z0-9_-]+=)?(\"|'|\\\$')\$"
-re_label='^[^[:space:]:]+( [^[:space:]:]+)?:'
+re_pre="^[[:space:]]*\$|(^|[[:space:]])(--body[ =]|-b |[A-Za-z_][A-Za-z0-9_]*=)(\"|'|\\\$')\$"
+re_ok="^re-dispatched and resolved(\\.| \\([^()]*\\))?[[:space:]]*[\"']?\$"
 bom=$'\xef\xbb\xbf'
 
 deny() {
   hook_deny "$input" "milestone-driver: $1 or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
 }
+
+# is_fence <lead> <inline>: true iff <lead> opens or closes a ``` fence; the
+# inline surface also counts the \`\`\` a double-quoted shell body carries.
+is_fence() { [[ "$1" == '```'* ]] || { [ "$2" = 1 ] && [[ "$1" == '\`\`\`'* ]]; }; }
 
 # open_at <line>: sets pre to the text before the first heading on <line>
 # that opens a section; returns 1 when none does.
@@ -145,9 +144,8 @@ open_at() {
   return 1
 }
 
-# sections_of <text>: sets secs to every anchored section's lines from the
-# heading on, joined by newlines; returns 1 when <text> holds none. Lines
-# between ``` fences are dropped before any rule reads them.
+# sections_of <text> <inline>: sets secs to every section's unfenced lines
+# from the heading on, joined by newlines; returns 1 when <text> holds none.
 # A global, not stdout: a command substitution would strip trailing newlines.
 sections_of() {
   local rest="$1" line lead on=0 fence=0
@@ -155,26 +153,24 @@ sections_of() {
   while :; do
     line="${rest%%$'\n'*}"
     lead="${line#"${line%%[![:space:]]*}"}"
-    case "$lead" in
-      '```'*) fence=$((1 - fence)) ;;
-      *)
-        if [ "$fence" = 0 ]; then
-          if open_at "$line"; then
-            line="${line:${#pre}}"; on=1
-          else
-            case "$lead" in "## "*) on=0 ;; esac
-          fi
-          [ "$on" = 1 ] && secs="$secs$line"$'\n'
-        fi ;;
-    esac
+    if is_fence "$lead" "$2"; then
+      fence=$((1 - fence))
+    elif [ "$fence" = 0 ]; then
+      if open_at "$line"; then
+        line="${line:${#pre}}"; on=1
+      else
+        case "$lead" in "## "*) on=0 ;; esac
+      fi
+      [ "$on" = 1 ] && secs="$secs$line"$'\n'
+    fi
     [[ "$rest" == *$'\n'* ]] || break
     rest="${rest#*$'\n'}"
   done
   [ -n "$secs" ]
 }
 
-# heading_match <text>: true iff <text> opens at least one section.
-heading_match() { sections_of "$1"; }
+# heading_match <text> <inline>: true iff <text> opens at least one section.
+heading_match() { sections_of "$1" "$2"; }
 
 # verdict_token <after>: first whitespace-delimited token on <after>'s FIRST
 # line, unwrapped of one surrounding quote character per side.
@@ -187,50 +183,44 @@ verdict_token() {
   printf '%s' "$tok"
 }
 
-# check_findings <surface> <action>: the finding scan the header describes,
-# over every section of <surface>; never returns on deny. No here-string or
-# heredoc: both need a writable TMPDIR on bash 3.2.
+# check_findings <surface> <action> <inline>: the finding scan the header
+# describes, over every unfenced line of <surface>; never returns on deny. No
+# here-string or heredoc: both need a writable TMPDIR on bash 3.2.
 check_findings() {
-  local rest line t d mk fnd disp arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
-  sections_of "$1" || return 0
-  rest="$secs"
-  while [ -n "$rest" ]; do
+  local rest="$1" line t d mk fnd disp fence=0 arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
+  while :; do
     line="${rest%%$'\n'*}"
-    rest="${rest#*$'\n'}"
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
-    t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
-    case "$t" in
-      "- "*|"* "*) mk=1; t="${t#??}" ;;
-      *) [ -n "$d" ] && [ "${t:${#d}:2}" = ". " ] && { mk=1; t="${t:${#d}+2}"; } ;;
-    esac
-    t="${t#\*\*}"
-    case "$t" in
-      "[Minor]"*) ;;
-      "[Critical]"*|"[Important]"*) fnd=1 ;;
-      *) [ "$mk" = 1 ] && [[ "$t" == *"$arrow"* ]] && [[ ! "$t" =~ $re_label ]] && fnd=1 ;;
-    esac
-    if [ "$fnd" = 1 ]; then
+    if is_fence "$line" "$3"; then
+      fence=$((1 - fence))
+    elif [ "$fence" = 0 ]; then
+      t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
+      case "$t" in
+        "- "*|"* "*) mk=1; t="${t#??}" ;;
+        *) [ -n "$d" ] && [ "${t:${#d}:2}" = ". " ] && { mk=1; t="${t:${#d}+2}"; } ;;
+      esac
+      t="${t#\*\*}"
+      case "$t" in
+        "[Minor]"*) ;;
+        "[Critical]"*|"[Important]"*) fnd=1 ;;
+        *) [ "$mk" = 1 ] && [[ "$t" == *"$arrow"* ]] && fnd=1 ;;
+      esac
       disp=""
       [[ "$line" == *"$arrow"* ]] && disp="${line##*"$arrow"}"
-      disp="${disp%%[\"\']*}"
       disp="${disp#"${disp%%[![:space:]]*}"}"
-      disp="${disp%"${disp##*[![:space:]]}"}"
-      case "$disp" in
-        "$want"|"$want."|"$want ("*")") ;;
-        *) deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2," ;;
-      esac
+      [ "$fnd" = 1 ] && [[ ! "$disp" =~ $re_ok ]] && deny "the PR body's '$heading' section has a Critical or Important finding whose disposition is not '$want': $line. Record it as $want before $2,"
     fi
+    [[ "$rest" == *$'\n'* ]] || break
+    rest="${rest#*$'\n'}"
   done
-  return 0
 }
 
-# check_verdict <surface> <action>: reads EVERY slot in every section and
-# denies on the first one not accepted, then scans the findings; never returns
-# on deny.
+# check_verdict <surface> <action> <inline>: reads EVERY slot in every section
+# and denies on the first one not accepted; never returns on deny.
 check_verdict() {
   local rest tok
-  sections_of "$1"
+  sections_of "$1" "$3"
   case "$secs" in
     *"$runslot"*) ;;
     *) deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $2," ;;
@@ -245,7 +235,6 @@ check_verdict() {
       *) deny "the PR body records '$runslot $tok', which is not an accepted verdict. Set it to yes or n/a - <reason> before $2," ;;
     esac
   done
-  check_findings "$1" "$2"
 }
 
 # ---- gh pr create -----------------------------------------------------------
@@ -307,15 +296,18 @@ if [ "$is_create" = "1" ]; then
 
   # Wide-surface check: the whole command string for inline --body/-b (never
   # a narrowly extracted substring - see header note), the whole file content
-  # for --body-file/-F. Either surface matching is enough to allow.
-  if [ "$has_body" = "1" ] && heading_match "$cmd"; then
-    check_verdict "$cmd" "opening the PR"; exit 0
+  # for --body-file/-F. Either surface's section is enough; both are scanned
+  # for findings.
+  if [ "$has_body" = "1" ] && heading_match "$cmd" 1; then
+    check_verdict "$cmd" "opening the PR" 1
+  elif [ "$have_file_content" = "1" ] && heading_match "$file_content" 0; then
+    check_verdict "$file_content" "opening the PR" 0
+  else
+    deny "the PR body is missing the required '$heading' section. Add one before opening the PR,"
   fi
-  if [ "$have_file_content" = "1" ] && heading_match "$file_content"; then
-    check_verdict "$file_content" "opening the PR"; exit 0
-  fi
-
-  deny "the PR body is missing the required '$heading' section. Add one before opening the PR,"
+  check_findings "$cmd" "opening the PR" 1
+  check_findings "$file_content" "opening the PR" 0
+  exit 0
 fi
 
 # ---- gh pr merge --------------------------------------------------------------
@@ -347,10 +339,9 @@ if [ "$is_merge" = "1" ]; then
     deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
   fi
 
-  if heading_match "$pr_body"; then
-    check_verdict "$pr_body" "merging the PR"; exit 0
-  fi
-  deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
+  heading_match "$pr_body" 0 || deny "the PR body is missing the required '$heading' section. Add one before merging the PR,"
+  check_verdict "$pr_body" "merging the PR" 0
+  check_findings "$pr_body" "merging the PR" 0
 fi
 
 exit 0
