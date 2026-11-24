@@ -1,0 +1,112 @@
+#!/bin/sh
+# milestone-driver - git shim: agent-env puts this directory first on PATH, so every
+# `git` the agent runs reaches this script with its arguments already expanded. It
+# denies the arguments that would skip git-hooks/pre-push, then execs the real git
+# (the first git on PATH outside this directory) with argv untouched:
+#   - `push` with --no-verify (or the prefixes git accepts for it);
+#   - `send-pack`, which never runs pre-push;
+#   - a global -c/--config-env setting core.hooksPath, whatever the subcommand;
+#   - a non-builtin subcommand whose `alias.<name>` expands to any of the above.
+# A `!` alias runs through sh with the session PATH, so its git reaches this shim.
+# The common path runs no subprocess; only a non-builtin name costs a config read.
+# Coverage limit: a call to git by absolute path, or with PATH replaced, skips it.
+
+self="$0"
+case "$self" in */*) shim_dir="${self%/*}" ;; *) shim_dir=. ;; esac
+
+real=""
+old_ifs="$IFS"; IFS=:
+for d in $PATH; do
+  [ -n "$d" ] || continue
+  for n in git git.exe; do
+    # -ef, not a path compare: it needs no subshell and sees through symlinks.
+    if [ -f "$d/$n" ] && [ -x "$d/$n" ] && ! [ "$d/$n" -ef "$self" ]; then real="$d/$n"; break 2; fi
+  done
+done
+IFS="$old_ifs"
+if [ -z "$real" ]; then
+  echo "milestone-driver: the git shim found no git on PATH" >&2
+  exit 127
+fi
+
+deny() {
+  . "$shim_dir/_protected.sh"
+  md_profile "$PWD"
+  md_deny pushing 'unknown target'
+  exit 1
+}
+
+# hp_key <name>=<value> [env]: config names are case-insensitive (git-config(1)).
+# An alias defined on the command line is checked here, because the alias lookup
+# below reads only the stored config; a --config-env alias value is unread.
+hp_key() {
+  case "${1%%=*}" in
+    [Cc][Oo][Rr][Ee].[Hh][Oo][Oo][Kk][Ss][Pp][Aa][Tt][Hh]) deny ;;
+    [Aa][Ll][Ii][Aa][Ss].*)
+      [ -n "$2" ] && deny
+      case "${1#*=}" in '!'*) ;; *--no-veri*|*send-pack*|*[Hh][Oo][Oo][Kk][Ss][Pp][Aa][Tt][Hh]*) deny ;; esac ;;
+  esac
+}
+
+# git 2.54.0 `git --list-cmds=builtins`: an alias never shadows one of these.
+builtin_cmd() {
+  case "$1" in
+    add|am|annotate|apply|archive|backfill|bisect|blame|branch|bugreport|bundle|cat-file|check-attr|check-ignore|check-mailmap|check-ref-format|checkout|checkout--worker|checkout-index|cherry|cherry-pick|clean|clone|column|commit|commit-graph|commit-tree|config|count-objects|credential|credential-cache|credential-cache--daemon|credential-store|describe|diagnose|diff|diff-files|diff-index|diff-pairs|diff-tree|difftool|fast-export|fast-import|fetch|fetch-pack|fmt-merge-msg|for-each-ref|for-each-repo|format-patch|fsck|fsck-objects|fsmonitor--daemon|gc|get-tar-commit-id|grep|hash-object|help|history|hook|index-pack|init|init-db|interpret-trailers|last-modified|log|ls-files|ls-remote|ls-tree|mailinfo|mailsplit|maintenance|merge|merge-base|merge-file|merge-index|merge-ours|merge-recursive|merge-recursive-ours|merge-recursive-theirs|merge-subtree|merge-tree|mktag|mktree|multi-pack-index|mv|name-rev|notes|pack-objects|pack-redundant|pack-refs|patch-id|pickaxe|prune|prune-packed|pull|push|range-diff|read-tree|rebase|receive-pack|reflog|refs|remote|remote-ext|remote-fd|repack|replace|replay|repo|rerere|reset|restore|rev-list|rev-parse|revert|rm|send-pack|shortlog|show|show-branch|show-index|show-ref|sparse-checkout|stage|stash|status|stripspace|submodule--helper|switch|symbolic-ref|tag|unpack-file|unpack-objects|update-index|update-ref|update-server-info|upload-archive|upload-archive--writer|upload-pack|var|verify-commit|verify-pack|verify-tag|version|whatchanged|worktree|write-tree) return 0 ;;
+  esac
+  return 1
+}
+
+# check <depth> <argv>: exits 1 on a deny; returns to exec the real git otherwise.
+check() {
+  depth="$1"; shift
+  skip=""; sub=""; cdir=""
+  while [ $# -gt 0 ]; do
+    a="$1"; shift
+    if [ -n "$skip" ]; then
+      case "$skip" in
+        c) hp_key "$a" ;;
+        e) hp_key "$a" env ;;
+        C) case "$a" in /*|[A-Za-z]:*) cdir="$a" ;; *) cdir="${cdir:+$cdir/}$a" ;; esac ;;
+      esac
+      skip=""; continue
+    fi
+    case "$a" in
+      -c) skip=c ;;
+      --config-env) skip=e ;;
+      -c?*) hp_key "${a#-c}" ;;
+      --config-env=*) hp_key "${a#--config-env=}" env ;;
+      -C) skip=C ;;
+      --git-dir|--work-tree|--namespace|--super-prefix|--attr-source) skip=o ;;
+      -*) ;;
+      *) sub="$a"; break ;;
+    esac
+  done
+  [ -n "$sub" ] || return 0
+  case "$sub" in
+    send-pack) deny ;;
+    push)
+      for a in "$@"; do
+        case "$a" in --no-veri|--no-verif|--no-verify) deny ;; esac
+      done
+      return 0 ;;
+  esac
+  builtin_cmd "$sub" && return 0
+  [ "$depth" -lt 3 ] || return 0
+  if [ -n "$cdir" ]; then exp="$("$real" -C "$cdir" config --get "alias.$sub" 2>/dev/null)"
+  else exp="$("$real" config --get "alias.$sub" 2>/dev/null)"
+  fi || return 0
+  case "$exp" in '!'*|'') return 0 ;; esac
+  n=$#
+  # xargs honors the ' " \ quoting git's alias split applies.
+  words="$(printf '%s\n' "$exp" | xargs printf '%s\n' 2>/dev/null)"
+  old_ifs="$IFS"; IFS='
+'; set -f
+  for w in $words; do set -- "$@" "$w"; done
+  IFS="$old_ifs"; set +f
+  i=0
+  while [ "$i" -lt "$n" ]; do a="$1"; shift; set -- "$@" "$a"; i=$((i + 1)); done
+  check $((depth + 1)) "$@"
+}
+
+check 0 "$@"
+exec "$real" "$@"

@@ -1,0 +1,431 @@
+#!/bin/sh
+# milestone-driver - gh shim: agent-env puts this directory first on PATH, so every
+# `gh` the agent runs reaches this script with its arguments already expanded by
+# the shell. It checks argv, then execs the real gh (the first gh on PATH outside
+# this directory) with argv untouched.
+#
+# PRs are allowlisted: `pr create`, `pr merge`, `pr edit --base` and the `api`
+# pulls routes pass only when the base is the integration branch; a base that
+# cannot be resolved denies. Pushes through `api` (refs, contents, merges,
+# merge-upstream, branch rename), `repo sync <repo>` and GraphQL merge, ref and
+# PR-base mutations deny when the branch is protected (shims/_protected.sh); a
+# route whose fields sit in --input or a -F <field>=@<file> value denies, because
+# those fields are unread. A `gh api` call is a read when its method is GET, or
+# when it names no method and carries no field or input flag. A gh alias is
+# checked as its expansion; `alias set` of a gated route and `alias import` deny.
+# The repo comes from -R/--repo; GH_REPO and the cwd repo reach the real gh as-is.
+# Coverage limit: a call to gh by absolute path, or with PATH replaced, skips it.
+
+self="$0"
+case "$self" in */*) shim_dir="${self%/*}" ;; *) shim_dir=. ;; esac
+
+real=""
+old_ifs="$IFS"; IFS=:
+for d in $PATH; do
+  [ -n "$d" ] || continue
+  for n in gh gh.exe; do
+    # -ef, not a path compare: it needs no subshell and sees through symlinks.
+    if [ -f "$d/$n" ] && [ -x "$d/$n" ] && ! [ "$d/$n" -ef "$self" ]; then real="$d/$n"; break 2; fi
+  done
+done
+IFS="$old_ifs"
+if [ -z "$real" ]; then
+  echo "milestone-driver: the gh shim found no gh on PATH" >&2
+  exit 127
+fi
+
+unres='unknown base'; unres_b='unknown branch'
+md_loaded=""
+
+deny() { md_deny "$1" "$2"; exit 1; }
+# need_integ <action> <base>: the PR allowlist; an empty base is unresolved.
+need_integ() { [ "$2" = "$md_integ" ] || deny "$1" "${2:-$unres}"; }
+# need_pushable <action> <branch>: a `{branch}` left in place is unresolved.
+need_pushable() {
+  pb="${2#refs/heads/}"
+  case "$pb" in *'{branch}'*) deny "$1" "$unres_b" ;; esac
+  ! md_denied "$pb" || deny "$1" "$pb"
+}
+
+# parse_gs <argv>: sets group and sub (the first two non-flag arguments) and repo.
+parse_gs() {
+  repo=""; group=""; sub=""; skip=""
+  for a in "$@"; do
+    if [ -n "$skip" ]; then repo="$a"; skip=""; continue; fi
+    case "$a" in
+      -R|--repo) skip=1; continue ;;
+      --repo=*) repo="${a#--repo=}"; continue ;;
+      -R?*) repo="${a#-R}"; repo="${repo#=}"; continue ;;
+      -*) continue ;;
+    esac
+    if [ -z "$group" ]; then group="$a"; else sub="$a"; break; fi
+  done
+}
+
+# gh 2.95.0 `gh help`: the built-in command groups and help topics. Any other
+# first word is an alias or an extension.
+builtin_group() {
+  case "$1" in
+    accessibility|actions|agent-task|alias|api|attestation|auth|browse|cache|codespace|completion|config|copilot|discussion|environment|exit-codes|extension|formatting|gist|gpg-key|help|issue|label|licenses|mintty|org|pr|preview|project|reference|release|repo|ruleset|run|search|secret|skill|ssh-key|status|telemetry|variable|version|workflow) return 0 ;;
+  esac
+  return 1
+}
+
+# split_words <string>: one word per line; xargs honors the ' " \ quoting that
+# gh's shlex split applies to an alias expansion.
+split_words() { printf '%s\n' "$1" | xargs printf '%s\n' 2>/dev/null; }
+
+# pr_base <pr-or-empty> <repo-or-empty>: prints the PR's base branch; returns 1 when gh fails.
+pr_base() {
+  if [ -n "$1" ] && [ -n "$2" ]; then out="$("$real" pr view "$1" -R "$2" --json baseRefName --jq .baseRefName 2>/dev/null)"
+  elif [ -n "$1" ]; then out="$("$real" pr view "$1" --json baseRefName --jq .baseRefName 2>/dev/null)"
+  elif [ -n "$2" ]; then out="$("$real" pr view -R "$2" --json baseRefName --jq .baseRefName 2>/dev/null)"
+  else out="$("$real" pr view --json baseRefName --jq .baseRefName 2>/dev/null)"
+  fi || return 1
+  out="$(printf '%s' "$out" | tr -d '\r')"
+  [ -n "$out" ] || return 1
+  printf '%s' "$out"
+}
+
+# repo_default <repo-or-empty>: prints the repo's default branch; returns 1 when gh fails.
+repo_default() {
+  if [ -n "$1" ]; then out="$("$real" repo view "$1" --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null)"
+  else out="$("$real" repo view --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null)"
+  fi || return 1
+  out="$(printf '%s' "$out" | tr -d '\r')"
+  [ -n "$out" ] || return 1
+  printf '%s' "$out"
+}
+
+# api_default <owner> <repo>: prints the default branch a write naming no branch lands on.
+api_default() {
+  out="$("$real" api "repos/$1/$2" --jq .default_branch 2>/dev/null)" || return 1
+  out="$(printf '%s' "$out" | tr -d '\r')"
+  [ -n "$out" ] || return 1
+  printf '%s' "$out"
+}
+
+# ---- pr create | edit | merge ----------------------------------------------
+pr_gate() {
+  case "$sub" in
+    create) vf=' -a --assignee -B --base -b --body -F --body-file -H --head -l --label -m --milestone --project -r --reviewer -T --template -t --title -R --repo --recover ' ;;
+    edit) vf=' --add-assignee --add-label --add-project --add-reviewer -B --base -b --body -F --body-file -m --milestone --remove-assignee --remove-label --remove-project --remove-reviewer -t --title -R --repo ' ;;
+    merge) vf=' -A --author-email -b --body -F --body-file --match-head-commit -t --subject -R --repo ' ;;
+  esac
+  pos=0; skip=""; base=""; base_set=0; pr=""
+  for a in "$@"; do
+    if [ -n "$skip" ]; then
+      case "$skip" in -B|--base) base="$a"; base_set=1 ;; -R|--repo) repo="$a" ;; esac
+      skip=""; continue
+    fi
+    case "$a" in
+      --base=*) base="${a#--base=}"; base_set=1; continue ;;
+      --repo=*) repo="${a#--repo=}"; continue ;;
+      --*=*) continue ;;
+      --*) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -B?*) base="${a#-B}"; base="${base#=}"; base_set=1; continue ;;
+      -R?*) repo="${a#-R}"; repo="${repo#=}"; continue ;;
+      -?) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -*) continue ;;
+    esac
+    pos=$((pos + 1))
+    [ "$pos" = 3 ] && pr="$a"
+  done
+  case "$sub" in
+    create)
+      if [ "$base_set" = 1 ]; then need_integ "opening a PR" "$base"
+      else
+        b="$(repo_default "${repo:-$GH_REPO}")" || deny "opening a PR" "$unres"
+        need_integ "opening a PR" "$b"
+      fi ;;
+    edit) [ "$base_set" = 1 ] && need_integ "retargeting a PR" "$base" ;;
+    merge)
+      b="$(pr_base "$pr" "$repo")" || deny "merging a PR" "$unres"
+      need_integ "merging a PR" "$b" ;;
+  esac
+}
+
+# ---- repo sync -----------------------------------------------------------------
+# A repo argument syncs that remote fork's branch; without one only the local
+# checkout moves.
+sync_gate() {
+  vf=' -b --branch -s --source -R --repo '
+  pos=0; skip=""; br=""; dest=""
+  for a in "$@"; do
+    if [ -n "$skip" ]; then
+      case "$skip" in -b|--branch) br="$a" ;; esac
+      skip=""; continue
+    fi
+    case "$a" in
+      --branch=*) br="${a#--branch=}"; continue ;;
+      --*=*) continue ;;
+      --*) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -b?*) br="${a#-b}"; br="${br#=}"; continue ;;
+      -?) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -*) continue ;;
+    esac
+    pos=$((pos + 1))
+    [ "$pos" = 3 ] && dest="$a"
+  done
+  [ -n "$dest" ] || return 0
+  if [ -z "$br" ]; then br="$(repo_default "$dest")" || deny "pushing" "$unres_b"; fi
+  need_pushable "pushing" "$br"
+}
+
+# ---- alias -----------------------------------------------------------------------
+# alias_set_gate <argv>: gh alias set [--clobber] [-s|--shell] <name> <expansion>.
+# A shell alias runs through sh with the session PATH, so its gh reaches this shim.
+alias_set_gate() {
+  pos=0; shell=0; exp=""; have=0
+  for a in "$@"; do
+    case "$a" in
+      -s|--shell) shell=1; continue ;;
+      -|*' '*) ;;
+      -*) continue ;;
+    esac
+    pos=$((pos + 1))
+    [ "$pos" = 4 ] && { exp="$a"; have=1; }
+  done
+  [ "$have" = 1 ] || return 0
+  [ "$exp" = - ] && deny "setting a gh alias" "$unres"
+  [ "$shell" = 1 ] && return 0
+  case "$exp" in '!'*) return 0 ;; esac
+  words="$(split_words "$exp")"
+  old_ifs="$IFS"; IFS='
+'; set -f
+  set -- $words
+  IFS="$old_ifs"; set +f
+  parse_gs "$@"
+  case "$group/$sub" in
+    pr/create|pr/merge|pr/edit|api/*|repo/sync) deny "setting a gh alias" "$unres" ;;
+  esac
+}
+
+# alias_gate <name> <args after it>: checks a stored alias as its expansion, the way
+# gh expands it: $1..$n placeholders take the args, otherwise the args are appended.
+alias_gate() {
+  name="$1"; shift
+  exp="$("$real" alias list 2>/dev/null | awk -v n="$name" '
+    f { if ($0 ~ /^[ \t]/) { sub(/^[ \t]+/, ""); v = v (v == "" ? "" : " ") $0; next } exit }
+    index($0, n ": ") == 1 { v = substr($0, length(n) + 3); if (v ~ /^[|>][-+]?$/) { v = ""; f = 1; next } exit }
+    END { print v }')"
+  [ -n "$exp" ] || return 0
+  case "$exp" in
+    "'"*"'")
+      exp="${exp#\'}"; exp="${exp%\'}"; out=""
+      while :; do
+        case "$exp" in *"''"*) out="$out${exp%%"''"*}'"; exp="${exp#*"''"}" ;; *) out="$out$exp"; break ;; esac
+      done
+      exp="$out" ;;
+    '"'*'"') exp="${exp#\"}"; exp="${exp%\"}" ;;
+  esac
+  case "$exp" in '!'*) return 0 ;; esac
+  case "$exp" in
+    *'$'*)
+      i=1
+      for a in "$@"; do
+        pat="\$$i"; out=""; rest="$exp"
+        while :; do
+          case "$rest" in *"$pat"*) out="$out${rest%%"$pat"*}$a"; rest="${rest#*"$pat"}" ;; *) out="$out$rest"; break ;; esac
+        done
+        exp="$out"; i=$((i + 1))
+      done
+      set -- ;;
+  esac
+  n=$#
+  words="$(split_words "$exp")"
+  old_ifs="$IFS"; IFS='
+'; set -f
+  for w in $words; do set -- "$@" "$w"; done
+  IFS="$old_ifs"; set +f
+  i=0
+  while [ "$i" -lt "$n" ]; do a="$1"; shift; set -- "$@" "$a"; i=$((i + 1)); done
+  gate $((depth + 1)) "$@"
+}
+
+# ---- api ---------------------------------------------------------------------
+# fld <name>: sets fv to the value of the next field <name> after index fx.
+fld() {
+  while [ "$fx" -lt "$nf" ]; do
+    fx=$((fx + 1)); eval "fv=\$f_$fx"
+    case "$fv" in "$1="*) fv="${fv#*=}"; return 0 ;; esac
+  done
+  return 1
+}
+add_field() { nf=$((nf + 1)); eval "f_$nf=\$1"; }
+
+api_gate() {
+  vf=' -X --method -f --raw-field -F --field --input -H --header -q --jq -t --template --hostname --cache -p --preview '
+  pos=0; skip=""; method=""; has_input=0; endpoint=""; nf=0; unread=0
+  for a in "$@"; do
+    if [ -n "$skip" ]; then
+      case "$skip" in
+        -X|--method) method="$a" ;;
+        -f|--raw-field) add_field "$a" ;;
+        -F|--field) add_field "$a"; case "$a" in *=@*) unread=1 ;; esac ;;
+        --input) has_input=1 ;;
+      esac
+      skip=""; continue
+    fi
+    case "$a" in
+      --method=*) method="${a#--method=}"; continue ;;
+      --raw-field=*) add_field "${a#--raw-field=}"; continue ;;
+      --field=*) a="${a#--field=}"; add_field "$a"; case "$a" in *=@*) unread=1 ;; esac; continue ;;
+      --input=*) has_input=1; continue ;;
+      --*=*) continue ;;
+      --*) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -X?*) method="${a#-X}"; method="${method#=}"; continue ;;
+      -f?*) a="${a#-f}"; add_field "${a#=}"; continue ;;
+      -F?*) a="${a#-F}"; a="${a#=}"; add_field "$a"; case "$a" in *=@*) unread=1 ;; esac; continue ;;
+      -?) case "$vf" in *" $a "*) skip="$a" ;; esac; continue ;;
+      -*) continue ;;
+    esac
+    pos=$((pos + 1))
+    [ "$pos" = 2 ] && endpoint="$a"
+  done
+  [ "$has_input" = 1 ] && unread=1
+
+  ep="$endpoint"
+  case "$ep" in *://*) ep="${ep#*://}"; ep="${ep#*/}" ;; esac
+  ep="${ep#/}"; ep="${ep%%\?*}"; ep="${ep%/}"
+  # GitHub Enterprise Server serves REST under api/v3/ and GraphQL at api/graphql.
+  ep="${ep#api/v3/}"
+  [ "$ep" = api/graphql ] && ep=graphql
+  # gh fills {branch} from the checkout; an unresolved one stays and denies.
+  case "$ep" in
+    *'{branch}'*)
+      cb="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || cb=""
+      if [ -n "$cb" ] && [ "$cb" != HEAD ]; then
+        out=""; rest="$ep"
+        while :; do
+          case "$rest" in *'{branch}'*) out="$out${rest%%"{branch}"*}$cb"; rest="${rest#*"{branch}"}" ;; *) out="$out$rest"; break ;; esac
+        done
+        ep="$out"
+      fi ;;
+  esac
+
+  if [ "$ep" = graphql ]; then
+    [ "$has_input" = 1 ] && deny "running a GraphQL query from a file" "$unres_b"
+    fx=0
+    while fld query; do
+      case "$fv" in @*) deny "running a GraphQL query from a file" "$unres_b" ;; esac
+    done
+    bref=0
+    for a in "$@"; do
+      case "$a" in
+        *mergePullRequest*|*enablePullRequestAutoMerge*|*enqueuePullRequest*) deny "merging a PR" "$unres" ;;
+        *mergeBranch*) deny "merging a branch" "$unres_b" ;;
+        *createCommitOnBranch*|*updateRef*|*createRef*|*deleteRef*) deny "pushing" "$unres_b" ;;
+      esac
+      case "$a" in *baseRefName*) bref=1 ;; esac
+    done
+    # A baseRefName value cannot be tied to argv reliably (variables, nested input).
+    if [ "$bref" = 1 ]; then
+      for a in "$@"; do
+        case "$a" in
+          *createPullRequest*) deny "opening a PR" "$unres" ;;
+          *updatePullRequest*) deny "retargeting a PR" "$unres" ;;
+        esac
+      done
+    fi
+    return 0
+  fi
+
+  write=0
+  case "$method" in
+    '') { [ "$nf" -gt 0 ] || [ "$has_input" = 1 ]; } && write=1 ;;
+    [Gg][Ee][Tt]) ;;
+    *) write=1 ;;
+  esac
+  [ "$write" = 1 ] || return 0
+
+  old_ifs="$IFS"; IFS=/; set -f
+  set -- $ep
+  IFS="$old_ifs"; set +f
+  [ "$1" = repos ] && [ $# -ge 4 ] || return 0
+  o="$2"; r="$3"; kind="$4"; n=$#
+  rr="$o/$r"
+  case "$rr" in *'{'*) rr="" ;; esac
+  case "$kind" in
+    pulls)
+      if [ "$n" = 4 ]; then
+        [ "$unread" = 1 ] && deny "opening a PR" "$unres"
+        fx=0; found=0
+        while fld base; do found=1; need_integ "opening a PR" "$fv"; done
+        [ "$found" = 1 ] || deny "opening a PR" "$unres"
+      elif [ "$n" = 5 ]; then
+        [ "$unread" = 1 ] && deny "retargeting a PR" "$unres"
+        fx=0; found=0
+        while fld base; do found=1; need_integ "retargeting a PR" "$fv"; done
+        if [ "$found" = 0 ]; then
+          b="$(pr_base "$5" "$rr")" || deny "retargeting a PR" "$unres"
+          need_integ "retargeting a PR" "$b"
+        fi
+      elif [ "$n" = 6 ] && [ "$6" = merge ]; then
+        [ "$unread" = 1 ] && deny "merging a PR" "$unres"
+        b="$(pr_base "$5" "$rr")" || deny "merging a PR" "$unres"
+        need_integ "merging a PR" "$b"
+      fi ;;
+    merges|merge-upstream|contents)
+      case "$kind" in merges) action="merging a branch"; field=base ;; *) action="pushing"; field=branch ;; esac
+      [ "$unread" = 1 ] && deny "$action" "$unres_b"
+      fx=0; found=0
+      while fld "$field"; do found=1; need_pushable "$action" "$fv"; done
+      if [ "$found" = 0 ]; then
+        b="$(api_default "$o" "$r")" || deny "$action" "$unres_b"
+        need_pushable "$action" "$b"
+      fi ;;
+    branches)
+      b="${ep#repos/$o/$r/branches/}"
+      case "$b" in */rename)
+        [ "$unread" = 1 ] && deny "pushing" "$unres_b"
+        b="$(printf '%s' "${b%/rename}" | sed 's/%2[Ff]/\//g')"
+        need_pushable "pushing" "$b"
+        fx=0
+        while fld new_name; do need_pushable "pushing" "$fv"; done ;;
+      esac ;;
+    git)
+      [ "$5" = refs ] || return 0
+      [ "$unread" = 1 ] && deny "pushing" "$unres_b"
+      if [ "$n" = 5 ]; then
+        fx=0
+        while fld ref; do need_pushable "pushing" "$fv"; done
+      else
+        b="${ep#repos/$o/$r/git/refs/heads/}"
+        [ "$b" != "$ep" ] && need_pushable "pushing" "$(printf '%s' "$b" | sed 's/%2[Ff]/\//g')"
+      fi ;;
+  esac
+  return 0
+}
+
+# gate <depth> <argv>: exits 1 on a deny; returns to exec the real gh otherwise.
+gate() {
+  depth="$1"; shift
+  parse_gs "$@"
+  if ! builtin_group "$group"; then
+    [ -n "$group" ] && [ "$depth" -lt 3 ] || return 0
+    while [ $# -gt 0 ]; do a="$1"; shift; [ "$a" = "$group" ] && break; done
+    alias_gate "$group" "$@"
+    return 0
+  fi
+  case "$group/$sub" in
+    pr/create|pr/edit|pr/merge|api/*|repo/sync|alias/set|alias/import) ;;
+    *) return 0 ;;
+  esac
+  if [ -z "$md_loaded" ]; then
+    . "$shim_dir/_protected.sh"
+    md_profile "$PWD"
+    md_loaded=1
+  fi
+  case "$group" in
+    pr) pr_gate "$@" ;;
+    api) api_gate "$@" ;;
+    repo) sync_gate "$@" ;;
+    alias)
+      [ "$sub" = import ] && deny "importing gh aliases" "$unres"
+      alias_set_gate "$@" ;;
+  esac
+}
+
+gate 0 "$@"
+exec "$real" "$@"

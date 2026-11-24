@@ -1,5 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
+# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git *)).
+# Self-scopes to `git commit`, with any global options (`-C <dir>`, `-c <k=v>`,
+# `--no-pager`, any `-` token) allowed between `git` and `commit`; the profile
+# is read from the cwd, and everything else from the commit's `-C <dir>` repo.
 if ($env:CLAUDE_HOOK_DISABLE_TESTS_GREEN -eq '1') { exit 0 }
 $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
@@ -8,7 +11,14 @@ try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 # Self-scope to commits (parity with no-push; defends the "if predicate runs
 # always when the command is too complex to parse" fallthrough).
 $cmd = $hook.tool_input.command
-if ($cmd -and ($cmd -notmatch 'git\s+commit')) { exit 0 }
+$vre = '("[^"]*"|''[^'']*''|\S+)'
+$commitRe = 'git(?:(?:\s+(?:-[Cc]|--(?:git-dir|work-tree|namespace|exec-path|super-prefix|config-env))\s+' + $vre + ')|(?:\s+-\S*))*\s+commit'
+$commitM = ''
+if ($cmd) {
+    $cm = [regex]::Match([string]$cmd, $commitRe)
+    if (-not $cm.Success) { exit 0 }
+    $commitM = $cm.Value
+}
 $projectDir = $hook.cwd
 if (-not $projectDir) { $projectDir = $env:CLAUDE_PROJECT_DIR }
 if (-not $projectDir) { $projectDir = (Get-Location).Path }
@@ -19,6 +29,13 @@ if (-not (Test-Path $profilePath)) { exit 0 }
 try { $cfg = Get-Content $profilePath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $unitCmd = $cfg.unitTestCmd
 if (-not $unitCmd) { exit 0 }
+# The repository is the last `-C` value of the commit (tests-green.sh): its
+# staged tree, branch, stamp and suite cwd are the commit's, not the cwd's.
+$repoDir = $projectDir
+foreach ($cm in [regex]::Matches($commitM, '(?:^|\s)-C\s+' + $vre)) {
+    $v = $cm.Groups[1].Value.Trim('"', "'").Replace('\', '/')
+    if ($v -match '^(/|[A-Za-z]:/)') { $repoDir = $v } else { $repoDir = "$repoDir/$v" }
+}
 # Milestone-granularity skip: an issue/fold commit on these two branch shapes
 # (skills/solve-milestone/milestone-granularity.md#Branch model) already
 # ran the implementer's scoped tests; the full suite runs once at milestone
@@ -30,16 +47,16 @@ if (-not $unitCmd) { exit 0 }
 $granularity = $cfg.integrationGranularity
 if ($granularity -notin @('issue', 'wave')) {
     if ([string]::IsNullOrEmpty($granularity)) {
-        $hasMilestoneBranch = [bool](git -C $projectDir for-each-ref --count=1 'refs/heads/milestone-*' 2>$null)
+        $hasMilestoneBranch = [bool](git -C $repoDir for-each-ref --count=1 'refs/heads/milestone-*' 2>$null)
         $granularity = if ($hasMilestoneBranch) { 'milestone' } else { 'issue' }
     } else {
         $granularity = 'milestone'
     }
 }
-$branch = ([string](git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null)).Trim()
+$branch = ([string](git -C $repoDir rev-parse --abbrev-ref HEAD 2>$null)).Trim()
 if ($granularity -eq 'milestone' -and ($branch -like 'issue/*' -or $branch -like 'milestone-*')) { exit 0 }
 $globs = $cfg.sourceGlobs
-$staged = @(git -C $projectDir diff --cached --name-only)
+$staged = @(git -C $repoDir diff --cached --name-only)
 $touched = $false
 # GLOB DIALECT, and where the repo's three sourceGlobs matchers part. This gate
 # and `hooks/force-subagent.ps1` collapse `**` to `*` and match with `-like`;
@@ -63,9 +80,9 @@ if (-not $touched) { exit 0 }
 # --- stamp-skip: skip re-running the suite when staged tree is identical to last green run ---
 # New canonical path under .milestone-config/; old root path read transitionally as a
 # fallback (mirrors the profile two-step read above). Write always goes to the new path.
-$stampPath = Join-Path $projectDir '.milestone-config' 'tests-stamp'
-$oldStampPath = Join-Path $projectDir '.milestone-driver-tests-stamp'
-$treeSHA = git -C $projectDir write-tree 2>$null
+$stampPath = Join-Path $repoDir '.milestone-config' 'tests-stamp'
+$oldStampPath = Join-Path $repoDir '.milestone-driver-tests-stamp'
+$treeSHA = git -C $repoDir write-tree 2>$null
 if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
     $treeSHA = ([string]$treeSHA).Trim()
     $key = "${branch}:${treeSHA}"
@@ -90,7 +107,7 @@ if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($treeSHA)) {
 # trailing pipeline/try-finally would obscure $LASTEXITCODE); then surface the
 # suite's output on stderr so Claude sees failures (parity with .sh's `>&2`).
 $LASTEXITCODE = 0
-Push-Location $projectDir
+Push-Location $repoDir
 try {
     # *>&1: every stream, so nothing reaches stdout ahead of the Codex deny JSON.
     $testOutput = Invoke-Expression $unitCmd *>&1
@@ -105,10 +122,13 @@ if ($testCode -ne 0) {
 }
 # Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # Ensure .milestone-config/ exists first; remove the stale legacy root stamp once the
-# new one is written, so it stops shadowing future reads.
-if ($null -ne $key) {
+# new one is written, so it stops shadowing future reads. A `-C` repo with no
+# driver profile gets neither write: it is not a driver consumer, and both files
+# would show up as untracked there.
+$repoHasProfile = (Test-Path (Join-Path $repoDir '.milestone-config' 'driver.json')) -or (Test-Path (Join-Path $repoDir 'milestone-driver.json'))
+if ($null -ne $key -and $repoHasProfile) {
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $projectDir '.milestone-config') -ErrorAction SilentlyContinue | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $repoDir '.milestone-config') -ErrorAction SilentlyContinue | Out-Null
         # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
         # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
         # is git-invisible in the consumer repo from the first write, while tracked config
@@ -121,7 +141,7 @@ if ($null -ne $key) {
         # with an explicit LF rather than a here-string, so a CRLF checkout of THIS
         # file cannot leak CRLF into the emitted .gitignore and make it differ from
         # the one the .sh twin writes.
-        $ignorePath = Join-Path $projectDir '.milestone-config' '.gitignore'
+        $ignorePath = Join-Path $repoDir '.milestone-config' '.gitignore'
         if (-not (Test-Path $ignorePath)) {
             $ignoreBody = @(
                 '# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.'

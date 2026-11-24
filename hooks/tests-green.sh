@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git commit *)).
+# milestone-driver - tests-green gate (Claude PreToolUse: Bash, if: Bash(git *)).
 # Runs unitTestCmd when staged files touch sourceGlobs; blocks the commit on red.
+# Self-scopes to `git commit`, with any global options (`-C <dir>`, `-c <k=v>`,
+# `--no-pager`, any `-` token) allowed between `git` and `commit`; the profile
+# is read from the cwd, and everything else from the commit's `-C <dir>` repo.
 # Deny: hook-deny.{sh,ps1}. Requires jq. Escape: CLAUDE_HOOK_DISABLE_TESTS_GREEN=1. Fail-open.
 [ "${CLAUDE_HOOK_DISABLE_TESTS_GREEN:-}" = "1" ] && exit 0
 input="$(cat)"; [ -z "$input" ] && exit 0
@@ -10,7 +13,14 @@ command -v jq >/dev/null 2>&1 || exit 0
 # Self-scope to commits (parity with no-push; defends the "if predicate runs
 # always when the command is too complex to parse" fallthrough).
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)"
-if [ -n "$cmd" ] && ! [[ "$cmd" =~ git[[:space:]]+commit ]]; then exit 0; fi
+q="'"
+vre="(\"[^\"]*\"|$q[^$q]*$q|[^[:space:]]+)"
+commit_re="git(([[:space:]]+(-[Cc]|--(git-dir|work-tree|namespace|exec-path|super-prefix|config-env))[[:space:]]+$vre)|([[:space:]]+-[^[:space:]]*))*[[:space:]]+commit"
+commit_m=""
+if [ -n "$cmd" ]; then
+  [[ "$cmd" =~ $commit_re ]] || exit 0
+  commit_m="${BASH_REMATCH[0]}"
+fi
 project_dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)"
 [ -z "$project_dir" ] && project_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
 project_dir="${project_dir//\\//}"
@@ -19,6 +29,16 @@ profile="$project_dir/.milestone-config/driver.json"
 [ -f "$profile" ] || exit 0
 unit_cmd="$(jq -r '.unitTestCmd // empty' "$profile" 2>/dev/null)"; unit_cmd="${unit_cmd%$'\r'}"
 [ -z "$unit_cmd" ] && exit 0
+# The repository is the last `-C` value of the commit, applied in order as git
+# does (an absolute path replaces, a relative one appends): its staged tree,
+# branch, stamp and suite cwd are the commit's, not the cwd's.
+repo_dir="$project_dir"
+s="$commit_m"; c_re="(^|[[:space:]])-C[[:space:]]+$vre"
+while [[ "$s" =~ $c_re ]]; do
+  v="${BASH_REMATCH[2]}"; s="${s#*"${BASH_REMATCH[0]}"}"
+  v="${v#[\"\']}"; v="${v%[\"\']}"; v="${v//\\//}"
+  case "$v" in /*|[A-Za-z]:/*) repo_dir="$v" ;; *) repo_dir="$repo_dir/$v" ;; esac
+done
 # Milestone-granularity skip: an issue/fold commit on these two branch shapes
 # (skills/solve-milestone/milestone-granularity.md#Branch model) already
 # ran the implementer's scoped tests; the full suite runs once at milestone
@@ -31,7 +51,7 @@ granularity="$(jq -r '.integrationGranularity // empty' "$profile" 2>/dev/null)"
 case "$granularity" in
   issue|wave) ;;
   "")
-    if [ -n "$(git -C "$project_dir" for-each-ref --count=1 'refs/heads/milestone-*' 2>/dev/null)" ]; then
+    if [ -n "$(git -C "$repo_dir" for-each-ref --count=1 'refs/heads/milestone-*' 2>/dev/null)" ]; then
       granularity="milestone"
     else
       granularity="issue"
@@ -39,7 +59,7 @@ case "$granularity" in
     ;;
   *) granularity="milestone" ;;
 esac
-branch="$(git -C "$project_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"; branch="${branch%$'\r'}"
+branch="$(git -C "$repo_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)"; branch="${branch%$'\r'}"
 if [ "$granularity" = "milestone" ]; then
   case "$branch" in issue/*|milestone-*) exit 0 ;; esac
 fi
@@ -68,15 +88,15 @@ while IFS= read -r f; do
   [ -z "$f" ] && continue
   for g in "${globs[@]}"; do pat="${g//"$STARSTAR"/$STAR}"; case "$f" in $pat) touched=1; break;; esac; done
   [ "$touched" = "1" ] && break
-done < <(git -C "$project_dir" diff --cached --name-only 2>/dev/null)
+done < <(git -C "$repo_dir" diff --cached --name-only 2>/dev/null)
 [ "$touched" = "0" ] && exit 0
 # --- stamp-skip: skip re-running the suite when staged tree is identical to last green run ---
 # New canonical path under .milestone-config/; old root path read transitionally as a
 # fallback (mirrors the profile two-step read above). Write always goes to the new path.
-stamp_path="$project_dir/.milestone-config/tests-stamp"
-old_stamp_path="$project_dir/.milestone-driver-tests-stamp"
+stamp_path="$repo_dir/.milestone-config/tests-stamp"
+old_stamp_path="$repo_dir/.milestone-driver-tests-stamp"
 stamp_key=""
-tree_sha="$(git -C "$project_dir" write-tree 2>/dev/null)"
+tree_sha="$(git -C "$repo_dir" write-tree 2>/dev/null)"
 if [ $? -eq 0 ] && [ -n "$tree_sha" ]; then
   tree_sha="${tree_sha%$'\r'}"
   stamp_key="${branch}:${tree_sha}"
@@ -94,7 +114,7 @@ if [ $? -eq 0 ] && [ -n "$tree_sha" ]; then
 fi
 # --- end stamp-skip ---
 echo "milestone-driver: staged source changed - running unit suite ($unit_cmd) ..." >&2
-if ! ( cd "$project_dir" && eval "$unit_cmd" ) >&2; then
+if ! ( cd "$repo_dir" && eval "$unit_cmd" ) >&2; then
   # Clear stale green stamps (both new and legacy root) so a red run never grants a future skip.
   [ -f "$stamp_path" ] && rm -f "$stamp_path"
   [ -f "$old_stamp_path" ] && rm -f "$old_stamp_path"
@@ -103,8 +123,10 @@ fi
 # Write stamp on green to the new path (best-effort - failure does not fail the hook).
 # mkdir -p first; no writer may assume .milestone-config/ exists. Remove the stale
 # legacy root stamp once the new one is written, so it stops shadowing future reads.
-if [ -n "$stamp_key" ]; then
-  mkdir -p "$project_dir/.milestone-config" 2>/dev/null || true
+# A `-C` repo with no driver profile gets neither write: it is not a driver
+# consumer, and both files would show up as untracked there.
+if [ -n "$stamp_key" ] && { [ -f "$repo_dir/.milestone-config/driver.json" ] || [ -f "$repo_dir/milestone-driver.json" ]; }; then
+  mkdir -p "$repo_dir/.milestone-config" 2>/dev/null || true
   # Self-heal the scratch-ignore: ensure a committed .milestone-config/.gitignore so
   # per-clone scratch (this stamp, preflight/trello notices, triage cache, worktrees)
   # is git-invisible in the consumer repo from the first write, while tracked config
@@ -114,7 +136,7 @@ if [ -n "$stamp_key" ]; then
   # this repo and with solve-issue / solve-milestone / scripts/triage-cache.{sh,ps1},
   # feeder setup / plan. tests/tests-green.test.{sh,ps1} pin the EMITTED bytes
   # against that file, so a name added there and not here fails CI.
-  ignore_path="$project_dir/.milestone-config/.gitignore"
+  ignore_path="$repo_dir/.milestone-config/.gitignore"
   if [ ! -f "$ignore_path" ]; then
     printf '%s\n' \
       '# milestone-driver / milestone-feeder per-clone scratch - git-invisible by default.' \

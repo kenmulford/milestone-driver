@@ -30,10 +30,11 @@ function New-GhStub([string]$mode, [string]$json) {
       & chmod +x (Join-Path $dir 'gh')
       Set-Content -Path (Join-Path $dir 'gh.ps1') -Value "exit 1`n" -NoNewline -Encoding utf8NoBOM
     }
-    { $_ -in 'OK', 'OKNUM', 'OKBARE' } {
+    { $_ -in 'OK', 'OKNUM', 'OKBARE', 'OKREPO', 'OKCWD' } {
       # Each narrowed mode answers only the `gh pr view` shape its rows need, so
       # a gate passing the wrong PR argument fails open and the row goes red:
-      # OKNUM wants argument 3 a non-flag token, OKBARE wants no PR argument.
+      # OKNUM wants argument 3 a non-flag token, OKBARE wants no PR argument,
+      # OKREPO wants `-R o/r` passed through, OKCWD wants no `-R o/r`.
       $numSh = ''; $numPs = ''
       switch ($mode) {
         'OKNUM' {
@@ -43,6 +44,14 @@ function New-GhStub([string]$mode, [string]$json) {
         'OKBARE' {
           $numSh = ' && [ "${3#-}" != "$3" ]'
           $numPs = ' -and $args.Count -ge 3 -and ([string]$args[2]).StartsWith(''-'')'
+        }
+        'OKREPO' {
+          $numSh = ' && [[ " $* " == *" -R o/r "* ]]'
+          $numPs = ' -and ('' '' + ($args -join '' '') + '' '') -like ''* -R o/r *'''
+        }
+        'OKCWD' {
+          $numSh = ' && [[ " $* " != *" -R o/r "* ]]'
+          $numPs = ' -and ('' '' + ($args -join '' '') + '' '') -notlike ''* -R o/r *'''
         }
       }
       $jsonPath = Join-Path $dir 'view.json'

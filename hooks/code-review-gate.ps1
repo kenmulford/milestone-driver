@@ -1,6 +1,8 @@
 #!/usr/bin/env pwsh
-# milestone-driver - code-review-gate (Claude PreToolUse: Bash,
-# if: Bash(gh pr create *) / Bash(gh pr merge *)).
+# milestone-driver - code-review-gate (Claude PreToolUse: Bash, if: Bash(gh *);
+# the script self-scopes to `gh pr create` / `gh pr merge`, with any global
+# options (`-R <repo>`, `--repo <repo>`, any `-` token) allowed between `gh` and
+# `pr`).
 #
 # Bash parity of code-review-gate.sh - see that file for the full design note.
 # create: detects a --body/-b or --body-file/-F SIGNAL (presence only - NOT a
@@ -31,10 +33,15 @@
 # Finding scan (issue #804): after the verdict slots pass, every unfenced line
 # of the checked text is scanned, sections ignored, so no body shape can hide a
 # finding. See code-review-gate.sh for the full rule, the fence and indent rules
-# and the merge token walk.
+# and the merge token walk, which also reads `-R`/`--repo` (before or after
+# `merge`, else a leading `GH_REPO=<repo>` prefix before `gh` or `command gh`,
+# else the last `export GH_REPO=<repo>` or bare `GH_REPO=<repo>` statement
+# before it) and passes it to `gh pr view -R`; a bare statement with no export
+# before it also checks the cwd repo's PR.
 #
-# -cmatch on the command string: -match is case-insensitive, so -f (--fill)
-# would read as -F and -b as -B.
+# -cmatch throughout: -match is case-insensitive, so -f (--fill) would read as
+# -F, -b as -B, and `gh PR create` as gated when the .sh leg allows it. Only the
+# binary matches in any case, as [Gg][Hh] on both legs.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
@@ -63,8 +70,10 @@ try { $hook = $raw | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
 $cmd = $hook.tool_input.command
 if (-not $cmd) { exit 0 }
 
-$isCreate = [bool]($cmd -match 'gh\s+pr\s+create')
-$isMerge  = [bool]($cmd -match 'gh\s+pr\s+merge')
+$vre = '("[^"]*"|''[^'']*''|\S+)'
+$ghPre = '[Gg][Hh](?:(?:\s+(?:-R|--repo)\s+' + $vre + ')|(?:\s+-\S*))*'
+$isCreate = [bool]($cmd -cmatch ($ghPre + '\s+pr\s+create'))
+$isMerge  = [bool]($cmd -cmatch ($ghPre + '\s+pr\s+merge'))
 if (-not $isCreate -and -not $isMerge) { exit 0 }
 
 $projectDir = $hook.cwd
@@ -232,9 +241,9 @@ function CheckVerdict([string]$surface, [string]$action, [bool]$inline) {
 }
 
 if ($isCreate) {
-  # Exemption: --base/-B <protectedBranch>, mirroring hooks/no-pr-to-protected.ps1 (--base[=\s]+|-B\s+).
+  # Exemption: --base/-B <protectedBranch>, mirroring hooks/no-pr-to-protected.ps1 (--base[=\s]+).
   if ($protected -and ($cmd -cmatch '(?:--base[=\s]+|-B\s+)["'']?([^\s"'']+)')) {
-    if ($matches[1] -eq $protected) { exit 0 }
+    if ($matches[1] -ceq $protected) { exit 0 }
   }
 
   # Presence-only signal detection (NOT value extraction - see header note).
@@ -255,10 +264,10 @@ if ($isCreate) {
     if (-not $fm.Success) { $fm = [regex]::Match($cmd, '(?:--body-file|-F)[=\s]+(?<v>\S+)') }
     if (-not $fm.Success) { exit 0 }   # fail-open: flag present but no parseable path
     $bf = $fm.Groups['v'].Value
-    $driveRooted = $bf -match '^\\(?!\\)'
+    $driveRooted = $bf -cmatch '^\\(?!\\)'
     $bf = $bf.Replace('\', '/')
-    if ($driveRooted -and $projectDir -match '^[A-Za-z]:/') { $bf = $projectDir.Substring(0, 2) + $bf }
-    if ($bf -notmatch '^(/|[A-Za-z]:/)') { $bf = Join-Path $projectDir $bf }
+    if ($driveRooted -and $projectDir -cmatch '^[A-Za-z]:/') { $bf = $projectDir.Substring(0, 2) + $bf }
+    if ($bf -cnotmatch '^(/|[A-Za-z]:/)') { $bf = Join-Path $projectDir $bf }
     if (Test-Path $bf -PathType Leaf) {
       try { $fileContent = Get-Content $bf -Raw -ErrorAction Stop }
       catch { exit 0 }
@@ -285,10 +294,12 @@ if ($isMerge) {
   # First positional token after `merge`; a stop (newline, shell operator, a
   # redirection, an unclosed quote) leaves $prArg empty and `gh pr view` reads
   # the current branch.
-  $prArg = $null
-  $pm = [regex]::Match($cmd, 'gh\s+pr\s+merge')
+  $prArg = $null; $repo = $null; $flag = ''
+  $pm = [regex]::Match($cmd, $ghPre + '\s+pr\s+merge')
   if ($pm.Success) {
     $rest = $cmd.Substring($pm.Index + $pm.Length); $skip = $false; $prev = ''
+    $rm = [regex]::Match($pm.Value, '(?:^|\s)(?:--repo[\s=]+|-R[\s=]*)' + $vre)
+    if ($rm.Success) { $repo = $rm.Groups[1].Value }
     while ($true) {
       $body = $rest.TrimStart($sp)
       $ws = $rest.Substring(0, $rest.Length - $body.Length)
@@ -298,41 +309,68 @@ if ($isMerge) {
       $e = $rest.IndexOfAny($sp); if ($e -lt 0) { $e = $rest.Length }
       $tok = $rest.Substring(0, $e); $rest = $rest.Substring($e); $prev = $tok
       if ($tok -ceq '\') { continue }
-      if ($tok -match '^[&|;)]' -or $tok -match '^[0-9]*[<>]') { break }
+      if ($tok -cmatch '^[&|;)]' -or $tok -cmatch '^[0-9]*[<>]') { break }
       $val = $null
-      if ($skip) { $skip = $false; $val = $tok }
-      elseif ($tok -cin '-t', '--subject', '-b', '--body', '-F', '--body-file', '-A', '--author-email', '--match-head-commit', '-R', '--repo') { $skip = $true; continue }
+      if ($skip) { $skip = $false; $val = $tok; if ($flag -eq 'repo') { $repo = $val } }
+      elseif ($tok -ceq '-R' -or $tok -ceq '--repo') { $skip = $true; $flag = 'repo'; continue }
+      elseif ($tok -cin '-t', '--subject', '-b', '--body', '-F', '--body-file', '-A', '--author-email', '--match-head-commit') { $skip = $true; $flag = ''; continue }
+      elseif ($tok.StartsWith('--repo=', $ord)) { $val = $tok.Substring(7); $repo = $val }
+      elseif ($tok.StartsWith('-R', $ord) -and $tok.Length -gt 2) { $val = $tok.Substring(2) -replace '^=', ''; $repo = $val }
       elseif ($tok.StartsWith('-', $ord)) { $eq = $tok.IndexOf('=', $ord); if ($eq -lt 0) { continue }; $val = $tok.Substring($eq + 1) }
-      else { $prArg = $tok; break }
+      else { if (-not $prArg) { $prArg = $tok }; continue }
       if ($val.Length -gt 0 -and ($val[0] -eq '"' -or $val[0] -eq "'") -and $val.IndexOf($val[0], 1) -lt 0) { break }
     }
   }
 
-  $viewJson = $null
-  try {
-    if ($prArg) {
-      $viewJson = (& gh pr view $prArg --json body,baseRefName 2>$null) -join "`n"
-    } else {
-      $viewJson = (& gh pr view --json body,baseRefName 2>$null) -join "`n"
+  # A bare statement reaches gh only when GH_REPO is already exported, so with
+  # no export before it the cwd repo's PR is checked too ($two).
+  $two = $false
+  if (-not $repo -and $pm.Success) {
+    $s = $cmd.Substring(0, $pm.Index); $exp = $false
+    $ghv = '("[^"]*"|''[^'']*''|[^\s;&|()]+)'
+    $g = [regex]::Match($s, '(?:^|[\s;&|(])GH_REPO=' + $ghv + '\s+(?:[A-Za-z_][A-Za-z0-9_]*=[^\s;&|()]*\s+)*(?:command\s+)?$')
+    if ($g.Success) { $repo = $g.Groups[1].Value }
+    else {
+      while (($g = [regex]::Match($s, '(?:^|[;&|(\n])\s*(export\s+)?GH_REPO=' + $ghv + '(\s*(?:$|[;&|\n]))?')).Success) {
+        if ($g.Groups[1].Success) { $repo = $g.Groups[2].Value; $exp = $true; $two = $false }
+        elseif ($g.Groups[3].Success) { $repo = $g.Groups[2].Value; if (-not $exp) { $two = $true } }
+        $s = $s.Substring($g.Index + $g.Length)
+      }
     }
-    if ($LASTEXITCODE -ne 0) { exit 0 }
-  } catch { exit 0 }
-  if ([string]::IsNullOrWhiteSpace($viewJson)) { exit 0 }
-
-  try { $view = $viewJson | ConvertFrom-Json -ErrorAction Stop } catch { exit 0 }
-  $prBody = [string]$view.body
-  if ($prBody.StartsWith([string][char]0xFEFF, $ord)) { $prBody = $prBody.Substring(1) }
-  $prBase = $view.baseRefName
-
-  if ($protected -and $prBase -eq $protected) { exit 0 }
-
-  if ([string]::IsNullOrEmpty($prBody)) {
-    Deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
   }
+  if ($repo) { $repo = $repo.Trim('"', "'") }
+  if ($prArg) { $prArg = $prArg.Trim('"', "'") }
 
-  if (-not (HeadingMatch $prBody $false)) { Deny "the PR body is missing the required '$heading' section. Add one before merging the PR," }
-  CheckVerdict $prBody 'merging the PR' $false
-  CheckFindings $prBody 'merging the PR' $false
+  # Review-Merge <repo-or-empty>: checks that repo's PR; returns (fail-open)
+  # when the view fails, and never returns on deny.
+  function Review-Merge([string]$r) {
+    $viewArgs = @('pr', 'view')
+    if ($prArg) { $viewArgs += $prArg }
+    if ($r) { $viewArgs += '-R', $r }
+    $viewJson = $null
+    try {
+      $viewJson = (& gh @viewArgs --json 'body,baseRefName' 2>$null) -join "`n"
+      if ($LASTEXITCODE -ne 0) { return }
+    } catch { return }
+    if ([string]::IsNullOrWhiteSpace($viewJson)) { return }
+
+    try { $view = $viewJson | ConvertFrom-Json -ErrorAction Stop } catch { return }
+    $prBody = [string]$view.body
+    if ($prBody.StartsWith([string][char]0xFEFF, $ord)) { $prBody = $prBody.Substring(1) }
+    $prBase = $view.baseRefName
+
+    if ($protected -and $prBase -ceq $protected) { return }
+
+    if ([string]::IsNullOrEmpty($prBody)) {
+      Deny "the PR's body (fetched via gh pr view) is empty, so the required '$heading' section can't be verified. Add the section to the PR body,"
+    }
+
+    if (-not (HeadingMatch $prBody $false)) { Deny "the PR body is missing the required '$heading' section. Add one before merging the PR," }
+    CheckVerdict $prBody 'merging the PR' $false
+    CheckFindings $prBody 'merging the PR' $false
+  }
+  Review-Merge $repo
+  if ($two) { Review-Merge '' }
 }
 
 exit 0

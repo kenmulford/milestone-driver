@@ -1,7 +1,12 @@
 {
-  "description": "milestone-driver mechanical gates (per <repo>/.milestone-config/driver.json, with a transitional root milestone-driver.json fallback), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. no-push: block pushes to the protected branch. no-pr-to-protected: block gh pr create against the protected branch. no-bom: reject writes whose content begins with the UTF-8 BOM. code-review-gate: block gh pr create/merge unless the PR body's '## Code Review' section records an accepted '/code-review run:' verdict and no Critical or Important finding carries a disposition other than 're-dispatched and resolved'. dispatch-cap: deny the 4th /code-review run, the 4th implementer dispatch, and the 3rd planner dispatch per issue, and the 4th implementer and 2nd planner dispatch per milestone end (key milestone-<n>, survives HEAD moves, reset on branch delete), and a main-thread general-purpose or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch. session-resume: SessionStart (matcher compact) - re-injects the milestone run's wave-state checkpoint after an auto-compaction; never gates.",
+  "description": "milestone-driver mechanical gates (per <repo>/.milestone-config/driver.json, with a transitional root milestone-driver.json fallback), all PreToolUse and invoked via the bash-first/pwsh-fallback launcher run-hook.cmd. force-subagent: main-thread source edits must go through the implementer subagent. tests-green: block git commit when the staged unit suite is red. agent-env: SessionStart (every source) - appends to CLAUDE_ENV_FILE the shims/ directory first on PATH and core.hooksPath=git-hooks/ through GIT_CONFIG_*, so shims/gh checks each gh call's PR base, shims/git denies the flags that skip pre-push, and git-hooks/pre-push checks each pushed ref at execution time, on real arguments. no-push and no-pr-to-protected: develop-scope text checks of `git push` and `gh pr create` (the first, coarse check, and the only one under Codex); no-pr-to-protected also gates the GitHub MCP PR, push and file tools, whose tool_input is structured. no-bom: reject writes whose content begins with the UTF-8 BOM. code-review-gate: block gh pr create/merge unless the PR body's '## Code Review' section records an accepted '/code-review run:' verdict and no Critical or Important finding carries a disposition other than 're-dispatched and resolved'. dispatch-cap: deny the 4th /code-review run, the 4th implementer dispatch, and the 3rd planner dispatch per issue, and the 4th implementer and 2nd planner dispatch per milestone end (key milestone-<n>, survives HEAD moves, reset on branch delete), and a main-thread general-purpose or untyped Agent dispatch on an issue/*, wave/* or milestone-* branch. session-resume: SessionStart (matcher compact) - re-injects the milestone run's wave-state checkpoint after an auto-compaction; never gates.",
   "hooks": {
     "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" agent-env", "timeout": 15 }
+        ]
+      },
       {
         "matcher": "compact",
         "hooks": [
@@ -29,13 +34,18 @@
         ]
       },
       {
+        "matcher": "mcp__.*github.*__(merge_pull_request|create_pull_request|update_pull_request|push_files|create_or_update_file|delete_file)",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-pr-to-protected", "timeout": 15 }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "if": "Bash(git commit *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" tests-green", "timeout": 600 },
+          { "type": "command", "if": "Bash(git *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" tests-green", "timeout": 600 },
           { "type": "command", "if": "Bash(git push *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-push", "timeout": 15 },
           { "type": "command", "if": "Bash(gh pr create *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" no-pr-to-protected", "timeout": 15 },
-          { "type": "command", "if": "Bash(gh pr create *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" code-review-gate", "timeout": 15 },
-          { "type": "command", "if": "Bash(gh pr merge *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" code-review-gate", "timeout": 15 }
+          { "type": "command", "if": "Bash(gh *)", "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" code-review-gate", "timeout": 15 }
         ]
       }
     ]
