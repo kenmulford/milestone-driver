@@ -33,12 +33,8 @@
 # begins-a-line was rejected and why the token is unwrapped of one quote per
 # side.
 #
-# Finding scan (issue #804): after the verdict slots pass, the lines after the
-# FIRST anchored heading match holding a slot are scanned; a Critical or
-# Important finding line (an unprefixed list-marker line carrying the arrow
-# counts as Important) denies unless its text after the last arrow, cut at its
-# first quote and trimmed, is `re-dispatched and resolved`. See
-# code-review-gate.sh for the full rule.
+# Finding scan (issue #804): after the verdict slots pass, the finding lines are
+# scanned. See code-review-gate.sh for the full rule.
 #
 # Exemption: a command targeting protectedBranch (create's --base/-B, or a
 # merge whose fetched baseRefName is protectedBranch) is exempt.
@@ -88,6 +84,9 @@ if (Test-Path $profilePath) {
 $heading = '## Code Review'
 $runSlot = '/code-review run:'
 $suffix = " or set CLAUDE_HOOK_DISABLE_CODE_REVIEW_GATE=1 to override."
+# Ordinal on every string search: the culture-sensitive overload treats CRLF as
+# one text element under ICU, so a CRLF body could hide its newline.
+$ord = [System.StringComparison]::Ordinal
 
 function Deny([string]$msg) {
   Invoke-HookDeny $hook ("milestone-driver: $msg$suffix")
@@ -102,28 +101,31 @@ function HeadingMatch([string]$text) {
   return [regex]::IsMatch($text, [regex]::Escape($heading) + '($|[^A-Za-z0-9])')
 }
 
-# VerdictSpan <text>: walking the ANCHORED heading matches LAST TO FIRST, the
-# first span that holds a `/code-review run:` slot; $null when none does.
+# VerdictSpan <text>: the text after the LAST anchored heading match whose text
+# holds a `/code-review run:` slot, $null when none does; sets $script:lead to
+# that match's line up to and including the heading, as the .sh twin does.
 function VerdictSpan([string]$text) {
+  $script:lead = ''
   if (-not $text) { return $null }
-  $spans = [System.Collections.Generic.List[string]]::new()
+  $hit = $null
   $i = 0
-  while (($i = $text.IndexOf($heading, $i)) -ge 0) {
-    $after = $text.Substring($i + $heading.Length)
-    if (-not [regex]::IsMatch($after, '^[A-Za-z0-9]')) { $spans.Add($after) }
+  while (($i = $text.IndexOf($heading, $i, $ord)) -ge 0) {
+    $at = $i
     $i += $heading.Length
+    $after = $text.Substring($i)
+    if ([regex]::IsMatch($after, '^[A-Za-z0-9]') -or $after.IndexOf($runSlot, $ord) -lt 0) { continue }
+    $hit = $after
+    $ls = $text.LastIndexOf([char]10, $at) + 1
+    $script:lead = $text.Substring($ls, $i - $ls)
   }
-  for ($j = $spans.Count - 1; $j -ge 0; $j--) {
-    if ($spans[$j].IndexOf($runSlot) -ge 0) { return $spans[$j] }
-  }
-  return $null
+  return $hit
 }
 
 # VerdictToken <after>: first whitespace-delimited token on <after>'s FIRST
 # line, unwrapped of one surrounding quote character per side.
 function VerdictToken([string]$after) {
   $line = $after
-  $nl = $line.IndexOf("`n")
+  $nl = $line.IndexOf("`n", $ord)
   if ($nl -ge 0) { $line = $line.Substring(0, $nl) }
   $line = $line.TrimEnd("`r")
   $m = [regex]::Match($line, '^[ \t\v\f\r]*([^ \t\v\f\r]+)')
@@ -134,39 +136,26 @@ function VerdictToken([string]$after) {
   return $v
 }
 
-# FirstVerdictSpan <text>: the span of the FIRST anchored heading match whose
-# text holds a `/code-review run:` slot; $null when none does. The finding scan
-# starts here, since no finding can precede the section's own heading.
-function FirstVerdictSpan([string]$text) {
-  if (-not $text) { return $null }
-  $i = 0
-  while (($i = $text.IndexOf($heading, $i, [System.StringComparison]::Ordinal)) -ge 0) {
-    $after = $text.Substring($i + $heading.Length)
-    if (-not [regex]::IsMatch($after, '^[A-Za-z0-9]') -and $after.IndexOf($runSlot, [System.StringComparison]::Ordinal) -ge 0) { return $after }
-    $i += $heading.Length
-  }
-  return $null
-}
-
-# CheckFindings <surface> <action>: denies on the first finding line, in
-# document order, whose severity is Critical or Important (an unprefixed
-# list-marker line carrying the arrow counts as Important) and whose text
-# after its last arrow, cut at its first quote and trimmed, is not the one
-# allowed disposition. Never returns on deny. Ordinal throughout, so it
-# trims, cuts and matches exactly as code-review-gate.sh does.
+# CheckFindings <surface> <action>: the finding scan code-review-gate.sh's header
+# describes, over the lead and span VerdictSpan picks in <surface>; never
+# returns on deny. Ordinal throughout, so it trims, cuts and matches exactly as
+# that file does.
 function CheckFindings([string]$surface, [string]$action) {
-  $span = FirstVerdictSpan $surface
+  $span = VerdictSpan $surface
   if ($null -eq $span) { return }
-  $nl = $span.IndexOf("`n")
-  if ($nl -lt 0) { return }
-  $ord = [System.StringComparison]::Ordinal
   $arrow = [string][char]0x2192
   $want = 're-dispatched and resolved'
   $ws = [char[]]" `t`r`v`f"
-  foreach ($raw in $span.Substring($nl + 1).Split("`n")) {
+  $top = $true
+  foreach ($raw in ($script:lead + $span).Split("`n")) {
+    if (-not $top -and $raw.StartsWith('## ', $ord)) { break }
+    $top = $false
     $line = $raw.Trim($ws)
     $t = $line; $mk = $false
+    $num = [regex]::Match($t, '^[0-9]+\. ')
     if ($t.StartsWith('- ', $ord) -or $t.StartsWith('* ', $ord)) { $mk = $true; $t = $t.Substring(2) }
+    elseif ($num.Success) { $mk = $true; $t = $t.Substring($num.Length) }
+    if ($t.StartsWith('**', $ord)) { $t = $t.Substring(2) }
     if ($t.StartsWith('[Minor]', $ord)) { continue }
     $fnd = $t.StartsWith('[Critical]', $ord) -or $t.StartsWith('[Important]', $ord) -or ($mk -and $t.Contains($arrow))
     if (-not $fnd) { continue }
@@ -189,7 +178,7 @@ function CheckVerdict([string]$surface, [string]$action) {
     Deny "the PR body's '$heading' section has no '$runSlot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $action,"
   }
   $pos = 0
-  while (($pos = $span.IndexOf($runSlot, $pos)) -ge 0) {
+  while (($pos = $span.IndexOf($runSlot, $pos, $ord)) -ge 0) {
     $pos += $runSlot.Length
     $tok = VerdictToken ($span.Substring($pos))
     if (-not $tok) {

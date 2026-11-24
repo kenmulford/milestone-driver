@@ -19,7 +19,7 @@ Applies to skill and agent text only when the runtime is Codex. On Claude Code n
 
 Dispatching `<plugin>:<name>`:
 
-1. Call `spawn_agent` with no `agent_type` (an unknown type is a hard error) and `task_name` set to `<name>_issue_<n>_<attempt>` (e.g. `implementer_issue_58_2` for the second implementer dispatch on issue 58). Codex rejects a reused `task_name`. The dispatch-cap hook counts dispatches by `task_name` because Codex encrypts the message.
+1. Call `spawn_agent` with no `agent_type` (an unknown type is a hard error) and `task_name` set to `<name>_issue_<n>_<attempt>` (e.g. `implementer_issue_58_2` for the second implementer dispatch on issue 58), or `<name>_milestone_<n>_<attempt>` for a brief opening `Milestone-End-Fix: <n>`. Codex rejects a reused `task_name`. The dispatch-cap hook counts dispatches by `task_name` because Codex encrypts the message.
 2. The message's first line is `Your role instructions are in <abs plugin root>/agents/<name>.md. Read that file first and follow it. Ignore its YAML frontmatter.`
 3. Second line: `Map tool names per <abs plugin root>/skills/runtime-codex.md.`
 4. The rest is the brief the Claude dispatch carries. Every path in it is the resolved absolute path, never `${CLAUDE_PLUGIN_ROOT}`.

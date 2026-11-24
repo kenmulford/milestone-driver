@@ -95,8 +95,8 @@ pre-existing Critical or Important finding (lines outside
 `git diff <integrationBranch>...<branch>`) is in scope and fixed in the same
 fix dispatch; a pre-existing Minor finding follows the profile rule above.
 
-Severities are the reviewer template's
-(`skills/solve-milestone/parallel-waves.md (Critical / Important / Minor)`); a
+Severities are the reviewer's
+(`agents/reviewer.md (Grade by actual effect)`); a
 finding carrying none counts as Important. **Non-convergence parks only a finding the profile fixes** -
 the park-trigger bullet fires at any severity.
 

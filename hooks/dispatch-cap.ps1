@@ -31,7 +31,7 @@ try { $cfg = Get-Content -LiteralPath $profilePath -Raw -ErrorAction Stop | Conv
 $implementer = [string]$cfg.implementerAgent
 if (-not $implementer) { $implementer = 'milestone-driver:implementer' }
 
-$mainAgent = $false
+$mainAgent = $false; $branch = $null
 if ($tool -ceq 'Skill') {
     $who = [string]$hook.tool_input.skill
     $who = $who.Substring($who.LastIndexOf(':') + 1)
@@ -41,9 +41,10 @@ if ($tool -ceq 'Skill') {
     $who = [string]$hook.tool_input.subagent_type
 } elseif ($tool -clike '*spawn_agent') {
     # Codex encrypts the spawn message, so runtime-codex.md names the child
-    # `<agent>_issue_<n>_<attempt>` in task_name; the bare name maps back to the row.
+    # `<agent>_issue_<n>_<attempt>` or `<agent>_milestone_<n>_<attempt>` in task_name;
+    # the bare name maps back to the row.
     $tool = 'Agent'; $field = 'task_name'
-    $who = ([string]$hook.tool_input.task_name) -replace '^.*/', '' -replace '_issue.*$', ''
+    $who = ([string]$hook.tool_input.task_name) -replace '^.*/', '' -replace '_(issue|milestone).*$', ''
     $who = if ($who -ceq $implementer.Substring($implementer.LastIndexOf(':') + 1)) { $implementer } else { "milestone-driver:$who" }
 } else {
     exit 0
@@ -52,12 +53,13 @@ if ($tool -ceq 'Skill') {
 # Dispatch contract: runs before the table, so a denied dispatch never reads or writes a counter.
 # A failing branch read or a detached HEAD (`HEAD`) allows.
 if ($mainAgent -and (-not $who -or $who -ceq 'general-purpose')) {
-    $gateBranch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
+    $branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
     if ($LASTEXITCODE -ne 0) { exit 0 }
-    $gateBranch = [string]$gateBranch
-    if ($gateBranch -clike 'issue/*' -or $gateBranch -clike 'wave/*' -or $gateBranch -clike 'milestone-*') {
+    $branch = [string]$branch
+    if ($branch -clike 'issue/*' -or $branch -clike 'wave/*' -or $branch -clike 'milestone-*') {
         $subject = if ($who) { 'subagent_type general-purpose' } else { 'no subagent_type' }
-        Invoke-HookDeny $hook "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $gateBranch. Dispatch a named agent: $implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
+        $roster = "$implementer, milestone-driver:planner, milestone-driver:reviewer, milestone-driver:triage-reviewer, milestone-driver:design-reviewer, milestone-driver:blocker-resolver, milestone-driver:process-auditor, milestone-coherence-reviewer:coherence-reviewer"
+        Invoke-HookDeny $hook "milestone-driver: dispatch contract - a main-thread Agent dispatch with $subject is denied on branch $branch. Dispatch a named agent: $roster. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
     }
 }
 
@@ -74,16 +76,20 @@ foreach ($row in $table) {
 if (-not $kind) { exit 0 }
 $text = [string]$hook.tool_input.$field
 
-$branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
-if ($LASTEXITCODE -ne 0) { exit 0 }
-$branch = [string]$branch
+if ($null -eq $branch) {
+    $branch = & git -C $projectDir rev-parse --abbrev-ref HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) { exit 0 }
+    $branch = [string]$branch
+}
 $key = ''
-$msKey = ''
+$token = ''
+$msKey = $false
 $mb = [regex]::Match($branch, '^milestone-(\d+)-')
 if ($kind -cne 'review' -and $mb.Success) {
-    $mk = [regex]::Match($text, '^Milestone-End-Fix:\s*(\d+)')
+    $reMarker = if ($field -ceq 'task_name') { '_milestone_(\d+)_' } else { '^\s*Milestone-End-Fix:\s*(\d+)' }
+    $mk = [regex]::Match($text, $reMarker)
     if ($mk.Success -and $mk.Groups[1].Value -ceq $mb.Groups[1].Value) {
-        $msKey = "milestone-$($mb.Groups[1].Value)"; $key = $msKey
+        $key = "milestone-$($mb.Groups[1].Value)"; $token = $branch; $msKey = $true
         if ($kind -ceq 'planner') { $Cap = 1 }
     }
 }
@@ -98,15 +104,16 @@ $common = & git -C $projectDir rev-parse --git-common-dir 2>$null
 if ($LASTEXITCODE -ne 0) { exit 0 }
 $common = ([string]$common) -replace '\\', '/'
 if (-not [System.IO.Path]::IsPathRooted($common)) { $common = Join-Path $projectDir $common }
-$head = & git -C $projectDir rev-parse HEAD 2>$null
-if ($LASTEXITCODE -ne 0) { $head = 'none' }
-$head = [string]$head
+if (-not $token) {
+    $token = & git -C $projectDir rev-parse HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) { $token = 'none' }
+    $token = [string]$token
+}
 
 $dir = Join-Path $common 'milestone-driver' 'dispatch-cap'
 try { New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop | Out-Null } catch { exit 0 }
 $file = Join-Path $dir "$kind-$key"
 
-$token = if ($msKey) { $branch } else { $head }
 $count = 0
 if (Test-Path -LiteralPath $file) {
     try {
@@ -116,8 +123,11 @@ if (Test-Path -LiteralPath $file) {
 }
 
 if ($count -ge $Cap) {
-    $what = if ($key -match '^[0-9]+$') { "issue $key" } else { "branch $key" }
     $root = if ($env:CLAUDE_PLUGIN_ROOT) { "$($env:CLAUDE_PLUGIN_ROOT)/" } else { '' }
+    if ($msKey) {
+        Invoke-HookDeny $hook ("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for milestone end $($mb.Groups[1].Value). Follow the cap-spent path of ${root}skills/solve-milestone/milestone-end-gates.md; its Halt runs ${root}scripts/reset-dispatch-cap.<sh|ps1> <repo-root> $key, so a resumed milestone end starts a fresh budget. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
+    }
+    $what = if ($key -match '^[0-9]+$') { "issue $key" } else { "branch $key" }
     Invoke-HookDeny $hook ("milestone-driver: dispatch cap - this would be $kind dispatch $($count + 1) of at most $Cap for $what (${root}skills/review-depth.md § The ladder). Park the issue; the park action clears this counter. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1.")
 }
 

@@ -68,10 +68,12 @@
 # body carries ONE heading with one `### #<n>` block per issue
 # (`skills/output-style.md (Wave PR body)`), so a `no` under the second issue
 # must deny even when the first reads `yes`.
-# Finding scan (issue #804): once every verdict slot passes, the lines after
-# the FIRST anchored heading match holding a slot are scanned, so a finding
-# line that cites the heading keeps its severity prefix. A finding line starts,
-# after whitespace and one optional `- ` or `* `, with `[Critical]`,
+# Finding scan (issue #804): once every verdict slot passes, the verdict span is
+# scanned from the start of its heading's line, so a finding line that cites the
+# heading keeps its severity prefix, to the next line opening `## ` (`###`
+# sub-entries stay in), so a later section's arrow is no finding. A finding line
+# starts, after whitespace, one optional `- `, `* ` or `<digits>. ` and one
+# optional `**`, with `[Critical]`,
 # `[Important]` or `[Minor]`; an unprefixed list-marker line carrying the
 # arrow counts as Important (`skills/review-depth.md`). A Critical or Important
 # line denies unless the text after its LAST arrow, cut at its first quote
@@ -131,25 +133,22 @@ heading_match() {
   [[ "$1" =~ "$heading"([^A-Za-z0-9]|$) ]]
 }
 
-# verdict_span <text>: walking the ANCHORED heading matches LAST TO FIRST,
-# the first span that holds a `/code-review run:` slot; returns 1 when none
-# does. Requiring the slot is what stops a LATER mention of the heading (a
-# findings line citing it, a --title after the body) stealing the span.
+# verdict_span <text>: sets span to the text after the LAST anchored heading
+# match whose text holds a `/code-review run:` slot, and lead to that match's
+# line up to and including the heading; returns 1 when none does. Requiring the
+# slot is what stops a LATER mention of the heading (a findings line citing it,
+# a --title after the body) stealing the span. Globals, not stdout: two values.
 verdict_span() {
-  local rest="$1" i
-  local spans; spans=()
+  local rest="$1" seen="" seg
+  span=""; lead=""
   while [[ "$rest" == *"$heading"* ]]; do
+    seg="${rest%%"$heading"*}"
     rest="${rest#*"$heading"}"
-    [[ "$rest" =~ ^[A-Za-z0-9] ]] || spans+=("$rest")
+    seen="$seen$seg$heading"
+    [[ "$rest" =~ ^[A-Za-z0-9] ]] && continue
+    case "$rest" in *"$runslot"*) span="$rest"; lead="${seen##*$'\n'}" ;; esac
   done
-  i=$(( ${#spans[@]} - 1 ))
-  while [ "$i" -ge 0 ]; do
-    case "${spans[$i]}" in
-      *"$runslot"*) printf '%s' "${spans[$i]}"; return 0 ;;
-    esac
-    i=$((i - 1))
-  done
-  return 1
+  [ -n "$span" ]
 }
 
 # verdict_token <after>: first whitespace-delimited token on <after>'s FIRST
@@ -163,36 +162,25 @@ verdict_token() {
   printf '%s' "$tok"
 }
 
-# first_verdict_span <text>: the span of the FIRST anchored heading match whose
-# text holds a `/code-review run:` slot; 1 when none does. The finding scan
-# starts here, since no finding can precede the section's own heading.
-first_verdict_span() {
-  local rest="$1"
-  while [[ "$rest" == *"$heading"* ]]; do
-    rest="${rest#*"$heading"}"
-    [[ "$rest" =~ ^[A-Za-z0-9] ]] && continue
-    case "$rest" in *"$runslot"*) printf '%s' "$rest"; return 0 ;; esac
-  done
-  return 1
-}
-
-# check_findings <surface> <action>: denies on the first finding line, in
-# document order, whose severity is Critical or Important (an unprefixed
-# list-marker line carrying the arrow counts as Important) and whose text
-# after its last arrow, cut at its first quote and trimmed, is not the one
-# allowed disposition. Never returns on deny. No here-string or heredoc: both
-# need a writable TMPDIR on bash 3.2.
+# check_findings <surface> <action>: the finding scan the header describes, over
+# the lead and span verdict_span picks in <surface>; never returns on deny. No here-string or
+# heredoc: both need a writable TMPDIR on bash 3.2.
 check_findings() {
-  local rest line t mk fnd disp arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
-  rest="$(first_verdict_span "$1")" || return 0
-  [[ "$rest" == *$'\n'* ]] || return 0
-  rest="${rest#*$'\n'}"
+  local rest line t d mk fnd disp top=1 arrow=$'\xe2\x86\x92' want='re-dispatched and resolved'
+  verdict_span "$1" || return 0
+  rest="$lead$span"
   while :; do
     line="${rest%%$'\n'*}"
+    [ "$top" = 1 ] || case "$line" in "## "*) break ;; esac
+    top=0
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
-    t="$line"; mk=0; fnd=0
-    case "$t" in "- "*|"* "*) mk=1; t="${t#??}" ;; esac
+    t="$line"; mk=0; fnd=0; d="${t%%[!0-9]*}"
+    case "$t" in
+      "- "*|"* "*) mk=1; t="${t#??}" ;;
+      *) [ -n "$d" ] && [ "${t:${#d}:2}" = ". " ] && { mk=1; t="${t:${#d}+2}"; } ;;
+    esac
+    t="${t#\*\*}"
     case "$t" in
       "[Minor]"*) ;;
       "[Critical]"*|"[Important]"*) fnd=1 ;;
@@ -215,8 +203,8 @@ check_findings() {
 # check_verdict <surface> <action>: reads EVERY slot in the span and denies on
 # the first one not accepted, then scans the findings; never returns on deny.
 check_verdict() {
-  local span rest tok
-  if ! span="$(verdict_span "$1")"; then
+  local rest tok
+  if ! verdict_span "$1"; then
     deny "the PR body's '$heading' section has no '$runslot' line, so no review verdict was recorded. Add one reading yes or n/a - <reason> before $2,"
   fi
   rest="$span"

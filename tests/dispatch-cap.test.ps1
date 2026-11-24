@@ -172,16 +172,18 @@ $fm = Join-Path $CapDir 'implementer-milestone-53'
 if ((Test-Path -LiteralPath $fm) -and (Get-Content -LiteralPath $fm -Raw) -ceq "milestone-53-x 1`n") { Ok }
 else { No "ms-counter-first: [$fm]" }
 foreach ($i in 2..3) { Expect "ms-implementer-allow-$i" (Invoke-Hook $WS 'Agent' $Impl $Mark) 0 }
+$PluginRoot = if ($env:CLAUDE_PLUGIN_ROOT) { "$($env:CLAUDE_PLUGIN_ROOT)/" } else { '' }
+function Get-MsDenyReason([string]$kind, [int]$n, [int]$cap, [string]$ms) {
+  return "milestone-driver: dispatch cap - this would be $kind dispatch $n of at most $cap for milestone end $ms. Follow the cap-spent path of ${PluginRoot}skills/solve-milestone/milestone-end-gates.md; its Halt runs ${PluginRoot}scripts/reset-dispatch-cap.<sh|ps1> <repo-root> milestone-$ms, so a resumed milestone end starts a fresh budget. Operator override: CLAUDE_HOOK_DISABLE_DISPATCH_CAP=1."
+}
 $r = Invoke-Hook $WS 'Agent' $Impl $Mark
 Expect 'ms-implementer-deny-4th' $r 2
-if ($r.err -match 'implementer dispatch 4 of at most 3 for branch milestone-53 ') { Ok }
-else { No "ms-implementer-deny-message: err=[$(Show-Escaped $r.err)]" }
+Expect-Reason 'ms-implementer-deny-reason' $r (Get-MsDenyReason 'implementer' 4 3 '53')
 Expect 'ms-planner-allow-1' (Invoke-Hook $WS 'Agent' $Plan $Mark) 0
 if (Test-Path -LiteralPath (Join-Path $CapDir 'planner-milestone-53')) { Ok } else { No 'ms-planner-counter-created' }
 $r = Invoke-Hook $WS 'Agent' $Plan $Mark
 Expect 'ms-planner-deny-2nd' $r 2
-if ($r.err -match 'planner dispatch 2 of at most 1 for branch milestone-53 ') { Ok }
-else { No "ms-planner-deny-message: err=[$(Show-Escaped $r.err)]" }
+Expect-Reason 'ms-planner-deny-reason' $r (Get-MsDenyReason 'planner' 2 1 '53')
 [System.IO.File]::AppendAllText((Join-Path $WS 'README.md'), "fix`n", $utf8)
 & git -C $WS commit -q -am fix 2>$null | Out-Null
 Expect 'ms-deny-after-head-move' (Invoke-Hook $WS 'Agent' $Impl $Mark) 2
@@ -199,6 +201,46 @@ foreach ($k in 7, 8, 9, 10) {
 }
 if (-not (Test-Path -LiteralPath (Join-Path $CapDir 'implementer-milestone-54'))) { Ok } else { No 'ms-54-counter-absent' }
 if ((Get-Content -LiteralPath $fm -Raw) -ceq "milestone-53-x 3`n") { Ok } else { No 'ms-counter-untouched-by-unmarked' }
+
+# ---- the marker may follow leading whitespace, a blank first line included
+$WL = New-Workspace 'milestone-53-x'
+$fl = Join-Path $WL '.git' 'milestone-driver' 'dispatch-cap' 'implementer-milestone-53'
+Expect 'ms-indented-marker' (Invoke-Hook $WL 'Agent' $Impl "  Milestone-End-Fix: 53`nFix the finding.") 0
+Expect 'ms-blank-line-marker' (Invoke-Hook $WL 'Agent' $Impl "`nMilestone-End-Fix: 53`nFix the finding.") 0
+if ((Test-Path -LiteralPath $fl) -and (Get-Content -LiteralPath $fl -Raw) -ceq "milestone-53-x 2`n") { Ok } else { No "ms-leading-space-counter: [$fl]" }
+
+# ---- Codex: the milestone end keys on task_name `<agent>_milestone_<n>_<attempt>`
+function Invoke-CodexSpawn([string]$root, [string]$task) {
+  $payload = @{ tool_name = 'spawn_agent'; tool_input = @{ task_name = $task }; cwd = $root } | ConvertTo-Json -Compress
+  return Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp
+}
+$WX = New-Workspace 'milestone-53-x'
+$CapX = Join-Path $WX '.git' 'milestone-driver' 'dispatch-cap'
+foreach ($i in 1..3) { Expect "codex-ms-implementer-allow-$i" (Invoke-CodexSpawn $WX "implementer_milestone_53_$i") 0 }
+if ((Get-Content -LiteralPath (Join-Path $CapX 'implementer-milestone-53') -Raw -ErrorAction SilentlyContinue) -ceq "milestone-53-x 3`n") { Ok } else { No 'codex-ms-counter' }
+$r = Invoke-CodexSpawn $WX '/root/implementer_milestone_53_4'
+Expect 'codex-ms-implementer-deny-4th' $r 2
+Expect-Reason 'codex-ms-implementer-deny-reason' $r (Get-MsDenyReason 'implementer' 4 3 '53')
+Expect 'codex-ms-planner-allow-1' (Invoke-CodexSpawn $WX 'planner_milestone_53_1') 0
+$r = Invoke-CodexSpawn $WX 'planner_milestone_53_2'
+Expect 'codex-ms-planner-deny-2nd' $r 2
+Expect-Reason 'codex-ms-planner-deny-reason' $r (Get-MsDenyReason 'planner' 2 1 '53')
+Expect 'codex-ms-mismatched-number' (Invoke-CodexSpawn $WX 'implementer_milestone_54_1') 0
+if (Test-Path -LiteralPath (Join-Path $CapX 'implementer-milestone-53-x')) { Ok } else { No 'codex-ms-mismatched-branch-key' }
+
+# ---- sh leg: a CRLF-emitting jq (Windows jq.exe) still reads subagent_type and the other fields
+if ($Leg -eq 'sh') {
+  $CrDir = Join-Path $Tmp 'crlf-jq'
+  New-Item -ItemType Directory -Path $CrDir | Out-Null
+  $realJq = (Get-Command jq -CommandType Application | Select-Object -First 1).Source
+  [System.IO.File]::WriteAllText((Join-Path $CrDir 'jq'), "#!/usr/bin/env bash`n'$realJq' `"`$@`" | awk '{ printf `"%s\r\n`", `$0 }'`n", $utf8)
+  & chmod +x (Join-Path $CrDir 'jq')
+  $WR = New-Workspace 'issue/7-x'
+  $payload = @{ tool_name = 'Agent'; tool_input = @{ subagent_type = $GP; prompt = 'Review #7' }; cwd = $WR } | ConvertTo-Json -Compress
+  $r = Invoke-Leg -Script $Hook -Stdin $payload -Cwd $Tmp -Env @{ PATH = "$CrDir$([System.IO.Path]::PathSeparator)$env:PATH" }
+  Expect 'crlf-jq-deny-gp' $r 2
+  Expect-Reason 'crlf-jq-deny-gp-reason' $r (Get-DenyReason 'subagent_type general-purpose' 'issue/7-x')
+}
 
 # ---- the marker on a non-milestone branch keeps the issue key; review is never milestone-keyed
 $WI = New-Workspace 'issue/7-x'
